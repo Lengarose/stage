@@ -480,18 +480,25 @@ export default function CompetitionDetail() {
     <div className="min-h-screen bg-background">
 
       {/* ── Hero header ─────────────────────────────────────── */}
-      <div className="relative w-full overflow-hidden border-b border-primary/25">
+      <section className="relative min-h-[240px] overflow-hidden sm:min-h-[280px] lg:min-h-[320px]">
         {competition?.banner_url && (
-          <img src={competition.banner_url} alt="" className="absolute inset-0 h-full w-full object-cover opacity-45" />
+          <img src={competition.banner_url} alt="" className="absolute inset-0 h-full w-full object-cover" />
         )}
+        {!competition?.banner_url && (
+          <div
+            className="absolute inset-0"
+            style={{ background: `radial-gradient(circle at 72% 20%, ${meta.color}33, transparent 34%), linear-gradient(135deg, rgba(7,16,28,0.98), rgba(2,6,23,0.86))` }}
+          />
+        )}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-cyan-200/35 shadow-[0_0_28px_4px_rgba(34,211,238,0.42)]" />
         <div
-          className="absolute inset-0"
-          style={{ background: `linear-gradient(90deg, hsl(var(--background)) 0%, rgba(2,6,23,0.74) 45%, ${meta.color}24 100%)` }}
+          className="pointer-events-none absolute bottom-0 left-[8%] h-[3px] w-[52%] bg-gradient-to-r from-transparent via-cyan-300/80 to-transparent"
+          style={{ transform: "skewX(-18deg)", filter: "drop-shadow(0 0 16px rgba(34,211,238,0.85))" }}
         />
-        <div className="relative max-w-7xl mx-auto px-4 lg:px-8 py-10 lg:py-14">
+        <div className="relative mx-auto flex max-w-7xl px-4 py-8 lg:px-8 lg:py-10">
           <Link
             to="/competitions"
-            className="mb-8 inline-flex h-12 min-w-[150px] items-center justify-center gap-3 px-7 font-heading text-sm font-black uppercase tracking-[0.18em] text-cyan-50/95 shadow-[0_0_24px_-16px_rgba(34,211,238,0.9)] backdrop-blur-md transition hover:border-cyan-200/60 hover:bg-cyan-300/10 hover:text-white hover:shadow-[0_0_24px_-10px_rgba(34,211,238,0.9)]"
+            className="inline-flex h-12 min-w-[150px] items-center justify-center gap-3 px-7 font-heading text-sm font-black uppercase tracking-[0.18em] text-cyan-50/95 shadow-[0_0_24px_-16px_rgba(34,211,238,0.9)] backdrop-blur-md transition hover:border-cyan-200/60 hover:bg-cyan-300/10 hover:text-white hover:shadow-[0_0_24px_-10px_rgba(34,211,238,0.9)]"
             style={{
               clipPath: "polygon(10% 0, 100% 0, 90% 100%, 0 100%)",
               background: "linear-gradient(135deg, rgba(8,22,38,0.52), rgba(30,74,118,0.28))",
@@ -501,99 +508,73 @@ export default function CompetitionDetail() {
           >
             <ChevronLeft className="w-4 h-4 text-cyan-200/95" /> Back
           </Link>
-          <div className="flex items-end justify-between gap-6 flex-wrap">
-            <div className="flex items-center gap-5 min-w-0">
-              <div
-                className="grid h-28 w-28 shrink-0 place-items-center border border-white/15 bg-black/45 p-4"
-                style={{ clipPath: "polygon(13% 0, 100% 0, 87% 100%, 0 100%)" }}
-              >
-                {competition?.logo_url || competition?.trophy_image_url
-                  ? <img src={competition.logo_url || competition.trophy_image_url} alt={competition?.name || meta.name} className="h-full w-full object-contain" />
-                  : <Trophy className={cn("h-12 w-12", meta.textColor)} />}
-              </div>
-              <div className="min-w-0">
-              <div className="flex items-center gap-2 mb-2">
-                <span className={cn("text-[9px] font-black uppercase tracking-widest px-2 py-1 border", meta.badgeClass)}>
-                  {["TIER I", "TIER II", "TIER III"][meta.tier - 1]}
-                </span>
-                {selectedSeason && (
-                  <span className={cn("text-[9px] font-bold uppercase tracking-widest px-2 py-1 border",
-                    selectedSeason.status === "league_phase" ? "text-success border-success/30 bg-success/5" :
-                    selectedSeason.status === "registration" ? "text-primary border-primary/30 bg-primary/5" :
-                    selectedSeason.status === "completed" ? "text-muted-foreground border-border" :
-                    "text-warning border-warning/30 bg-warning/5"
-                  )}>
-                    {STATUS_LABEL[selectedSeason.status] || selectedSeason.status.replace(/_/g, " ")}
-                  </span>
-                )}
-              </div>
-              <h1
-                className="font-heading font-black text-5xl md:text-7xl uppercase text-foreground"
-                style={{ transform: "skewX(-8deg)", letterSpacing: "-0.02em", transformOrigin: "left center" }}
-              >
-                {meta.name.replace("STAGE ", "")}
-              </h1>
-              <p className="text-sm text-muted-foreground mt-2 max-w-2xl">{competition?.description || meta.description}</p>
-              </div>
-            </div>
+        </div>
+      </section>
 
-            {/* Season picker */}
-            {allSeasons.length > 0 && (
-              <div className="relative">
-                <button
-                  onClick={() => setSeasonPickerOpen(v => !v)}
-                  className="flex items-center gap-2 px-4 py-2 bg-black/45 border border-white/15 text-sm font-bold text-foreground hover:border-primary/40"
-                >
-                  {selectedSeason ? (selectedSeason.season_label || `Season ${selectedSeason.season_number}`) : "Select Season"}
-                  <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
-                </button>
-                {seasonPickerOpen && (
-                  <div className="absolute right-0 top-full mt-1 bg-card border border-border shadow-lg z-20 min-w-[160px]">
-                    {allSeasons.map(s => (
-                      <button
-                        key={s.id}
-                        onClick={() => { setSelectedSeason(s); setSeasonPickerOpen(false); }}
-                        className={cn(
-                          "w-full text-left px-4 py-2.5 text-sm hover:bg-secondary/60 transition-colors flex items-center justify-between gap-3",
-                          selectedSeason?.id === s.id ? "text-primary font-bold" : "text-foreground"
-                        )}
-                      >
-                        {s.season_label || `Season ${s.season_number}`}
-                        <span className={cn("text-[9px] px-1.5 py-0.5 rounded border font-bold uppercase",
-                          s.status === "archived" ? "text-muted-foreground/50 border-border/50" :
-                          s.status === "draft" ? "text-muted-foreground border-border" :
-                          s.status === "completed" ? "text-muted-foreground border-border" :
-                          s.status === "league_phase" ? "text-success border-success/30" :
-                          "text-primary border-primary/30"
-                        )}>{STATUS_LABEL[s.status] || s.status}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-end gap-3 px-4 pt-4 lg:px-8">
+        <span
+          className={cn("inline-flex min-h-10 items-center px-6 text-[11px] font-black uppercase tracking-[0.18em] backdrop-blur-md", meta.badgeClass)}
+          style={{ clipPath: "polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%)" }}
+        >
+          {["Tier I", "Tier II", "Tier III"][meta.tier - 1]}
+        </span>
+        {selectedSeason && (
+          <span
+            className={cn(
+              "inline-flex min-h-10 items-center px-6 text-[11px] font-black uppercase tracking-[0.18em] backdrop-blur-md",
+              selectedSeason.status === "league_phase" ? "border border-emerald-300/35 bg-emerald-300/10 text-emerald-100"
+              : selectedSeason.status === "registration" ? "border border-cyan-200/35 bg-cyan-300/10 text-cyan-100"
+              : selectedSeason.status === "completed" ? "border border-white/15 bg-white/5 text-white/65"
+              : "border border-amber-300/35 bg-amber-300/10 text-amber-100"
+            )}
+            style={{ clipPath: "polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%)" }}
+          >
+            {STATUS_LABEL[selectedSeason.status] || selectedSeason.status.replace(/_/g, " ")}
+          </span>
+        )}
+
+        {allSeasons.length > 0 && (
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setSeasonPickerOpen(v => !v)}
+              className="inline-flex min-h-10 items-center gap-2 px-6 text-[11px] font-black uppercase tracking-[0.18em] text-cyan-100 backdrop-blur-md transition hover:text-white"
+              style={{
+                clipPath: "polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%)",
+                background: "linear-gradient(135deg, rgba(8,22,38,0.52), rgba(30,74,118,0.24))",
+                borderTop: "1px solid rgba(186,230,253,0.34)",
+                borderBottom: "1px solid rgba(186,230,253,0.34)",
+              }}
+            >
+              {selectedSeason ? (selectedSeason.season_label || `Season ${selectedSeason.season_number}`) : "Select Season"}
+              <ChevronDown className="w-3.5 h-3.5 text-cyan-100/70" />
+            </button>
+            {seasonPickerOpen && (
+              <div className="absolute right-0 top-full z-20 mt-2 min-w-[180px] border border-border bg-card shadow-lg">
+                {allSeasons.map(s => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => { setSelectedSeason(s); setSeasonPickerOpen(false); }}
+                    className={cn(
+                      "flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left text-sm transition-colors hover:bg-secondary/60",
+                      selectedSeason?.id === s.id ? "font-bold text-primary" : "text-foreground"
+                    )}
+                  >
+                    {s.season_label || `Season ${s.season_number}`}
+                    <span className={cn("border px-1.5 py-0.5 text-[9px] font-bold uppercase",
+                      s.status === "archived" ? "text-muted-foreground/50 border-border/50" :
+                      s.status === "draft" ? "text-muted-foreground border-border" :
+                      s.status === "completed" ? "text-muted-foreground border-border" :
+                      s.status === "league_phase" ? "text-success border-success/30" :
+                      "text-primary border-primary/30"
+                    )}>{STATUS_LABEL[s.status] || s.status}</span>
+                  </button>
+                ))}
               </div>
             )}
           </div>
-
-          {selectedSeason && (
-            <div className="flex items-center gap-4 mt-4 flex-wrap">
-              <span className="text-xs text-muted-foreground">{selectedSeason.num_clubs || 0} clubs</span>
-              {selectedSeason.status === "league_phase" && (
-                <span className="text-xs text-muted-foreground">
-                  MD {selectedSeason.current_matchday || 1}/{selectedSeason.league_matchday_total || 8}
-                </span>
-              )}
-              {["playoff_round","knockout_r16","knockout_qf","knockout_sf","knockout_final"].includes(selectedSeason.status) && (
-                <span className="text-xs font-bold" style={{ color: meta.color }}>
-                  {STATUS_LABEL[selectedSeason.status]}
-                </span>
-              )}
-              <span className="text-xs text-muted-foreground">{selectedSeason.platform}</span>
-              {selectedSeason.prize_pool_stc > 0 && (
-                <span className="text-xs font-bold text-warning">{(selectedSeason.prize_pool_stc / 1_000_000).toFixed(1)}M STC prize</span>
-              )}
-            </div>
-          )}
-        </div>
+        )}
       </div>
 
       {/* ── Main content ────────────────────────────────────── */}

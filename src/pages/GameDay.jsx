@@ -12,8 +12,8 @@ import { isGameDayMatchSocketPayload, sameRecordId } from "@/lib/gameDayRealtime
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/hooks/useTranslation";
+import { cn } from "@/lib/utils";
 
 // Derive the "league group" a game belongs to for the filter dropdown.
 // We strip the trailing "· Matchday N" so every matchday of the same
@@ -59,10 +59,22 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
   const [opsOpen, setOpsOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [refreshTick, setRefreshTick] = useState(0);
+  const [gameDayConfig, setGameDayConfig] = useState(null);
   const { getUnreadCount } = useChatNotifications();
   const chatUnread = selectedGame?.id ? getUnreadCount(selectedGame.id) : 0;
   // "all" or a group key (see groupKeyForGame). Stable across re-renders.
   const [leagueFilter, setLeagueFilter] = useState("all");
+
+  useEffect(() => {
+    let cancelled = false;
+    stageClient.entities.GameDayConfig
+      ?.filter({ key: "main" }, "-updated_date", 1)
+      .then(rows => {
+        if (!cancelled) setGameDayConfig(rows?.[0] || null);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   // Keep `selectedGame` in sync with the live `games` list. Without this the
   // detail panel keeps a stale snapshot — e.g. the away player wouldn't see
@@ -345,7 +357,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
       }}
     />
   ) : (
-    <div className="flex min-h-[240px] flex-col items-center justify-center border border-white/10 bg-[#071018] px-6 py-12 text-center">
+    <div className="flex min-h-[360px] flex-col items-center justify-center border border-white/10 bg-[#071018] px-6 py-12 text-center [clip-path:polygon(18px_0,100%_0,calc(100%_-_18px)_100%,0_100%)]">
       <Zap className="mb-3 h-10 w-10 text-[#f5c542]/30" />
       <p className="font-heading text-sm font-black uppercase tracking-[0.22em] text-white/50">
         {t("matchFlow.selectGameDetails")}
@@ -353,51 +365,68 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
     </div>
   );
 
+  const bannerStyle = gameDayConfig?.banner_url
+    ? {
+      backgroundImage: `url(${gameDayConfig.banner_url})`,
+      backgroundPosition: gameDayConfig.banner_position || "50% 50%",
+      backgroundSize: gameDayConfig.banner_zoom ? `${Number(gameDayConfig.banner_zoom)}%` : "cover",
+      backgroundRepeat: "no-repeat",
+    }
+    : {};
+
+  const ActionTab = ({ children, onClick, disabled, tone = "cyan", className = "" }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        "group relative h-12 min-w-[148px] overflow-hidden px-5 font-heading text-[11px] font-black uppercase tracking-[0.18em] transition-all [clip-path:polygon(14px_0,100%_0,calc(100%_-_14px)_100%,0_100%)]",
+        "border bg-slate-950/45 backdrop-blur-md disabled:cursor-not-allowed disabled:opacity-35",
+        tone === "gold"
+          ? "border-[#f5c542]/45 text-[#f5c542] shadow-[0_0_24px_-18px_rgba(245,197,66,1)] hover:bg-[#f5c542]/12"
+          : "border-[#66e8ff]/45 text-[#8eeeff] shadow-[0_0_24px_-18px_rgba(102,232,255,1)] hover:bg-[#00e5ff]/12",
+        className
+      )}
+    >
+      <span className="absolute inset-x-4 top-0 h-px bg-current opacity-50" />
+      <span className="absolute inset-x-4 bottom-0 h-px bg-current opacity-30" />
+      <span className="relative flex items-center justify-center gap-2">{children}</span>
+    </button>
+  );
+
   return (
     <div className="min-h-full bg-[#05080f] text-white">
-      <div className="border-b border-[#f5c542]/20 bg-gradient-to-r from-[#071018] via-[#0a1628] to-[#071018] px-4 py-4 sm:px-6">
-        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.32em] text-[#00e5ff]">{t("matchFlow.kickoff")}</p>
-            <h1
-              className="font-heading text-4xl font-black uppercase leading-none text-white md:text-5xl"
-              style={{ letterSpacing: "0.04em" }}
-            >
-              {t("matchFlow.gameDayTitle")}
-            </h1>
-            <p className="mt-1 text-xs text-white/45">
-              {leagueFilter === "all"
-                ? t("matchFlow.activeScheduledCount", { count: games.length })
-                : t("matchFlow.filteredCount", { visible: visibleGames.length, total: games.length })}
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
+      <section className="relative overflow-hidden border-b border-[#00e5ff]/25 bg-[#05080f]">
+        <div
+          className="absolute inset-0 bg-[radial-gradient(circle_at_75%_20%,rgba(0,229,255,0.24),transparent_28%),linear-gradient(110deg,#04111d_0%,#081827_42%,#140914_100%)]"
+          style={bannerStyle}
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/82 via-black/36 to-black/70" />
+        <div className="absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-[#05080f] to-transparent" />
+        <div className="absolute bottom-0 left-[8%] h-px w-[68%] bg-gradient-to-r from-transparent via-[#00e5ff] to-transparent shadow-[0_0_24px_rgba(0,229,255,0.75)]" />
+        <div className="relative mx-auto flex min-h-[250px] max-w-[1600px] items-end justify-end px-4 py-6 sm:px-6 lg:px-8">
+          <div className="flex w-full flex-wrap items-center justify-end gap-3">
             {!scopedTournamentId && (
-              <Button
+              <ActionTab
                 onClick={() => setArrangeOpen(true)}
-                className="h-9 gap-2 rounded-sm bg-gradient-to-b from-[#ffe27a] to-[#c9a227] font-heading text-xs font-black uppercase tracking-[0.16em] text-black hover:from-[#fff0a8] hover:to-[#d4ad30]"
+                tone="gold"
               >
                 <Plus className="h-4 w-4" />
                 {t("matchFlow.arrangeGame")}
-              </Button>
+              </ActionTab>
             )}
-            <Button
-              type="button"
-              variant="outline"
+            <ActionTab
               disabled={!selectedGame}
               onClick={() => setOpsOpen(true)}
-              className="h-9 gap-2 rounded-sm border-[#00e5ff]/40 bg-black/40 font-heading text-xs font-black uppercase tracking-[0.16em] text-[#00e5ff] hover:bg-[#00e5ff]/10 disabled:opacity-40"
             >
               <Radio className="h-4 w-4" />
               {t("matchFlow.liveStream")}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
+            </ActionTab>
+            <ActionTab
               disabled={!selectedGame}
               onClick={() => setChatOpen(true)}
-              className="relative h-9 gap-2 rounded-sm border-[#f5c542]/40 bg-black/40 font-heading text-xs font-black uppercase tracking-[0.16em] text-[#f5c542] hover:bg-[#f5c542]/10 disabled:opacity-40"
+              tone="gold"
+              className="relative"
             >
               <MessageSquare className="h-4 w-4" />
               {t("matchFlow.chat")}
@@ -406,46 +435,49 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
                   {chatUnread > 99 ? "99+" : chatUnread}
                 </span>
               ) : null}
-            </Button>
-
-            {leagueGroups.length > 1 && (
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-semibold uppercase tracking-widest text-white/45">
-                  {t("matchFlow.league")}
-                </span>
-                <Select value={leagueFilter} onValueChange={setLeagueFilter}>
-                  <SelectTrigger className="h-9 w-full border-white/15 bg-black/40 text-xs text-white md:w-[280px]">
-                    <SelectValue placeholder={t("matchFlow.allLeagues")} />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[60vh]">
-                    <SelectItem value="all" className="text-xs">
-                      {t("matchFlow.all")} <span className="ml-1 text-muted-foreground">({games.length})</span>
-                    </SelectItem>
-                    {leagueGroups.map(group => (
-                      <SelectItem key={group.key} value={group.key} className="text-xs">
-                        {group.label}
-                        <span className="ml-1 text-muted-foreground">({group.count})</span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            </ActionTab>
           </div>
         </div>
-      </div>
+      </section>
 
-      <div className="border-b border-white/10 bg-black/30 px-4 py-3 sm:px-6">
-        {visibleGames.length === 0 ? (
-          <div className="rounded-sm border border-white/10 px-4 py-8 text-center">
-            <Zap className="mx-auto mb-2 h-8 w-8 text-white/20" />
-            <p className="text-sm text-white/55">
-              {games.length === 0 ? t("matchFlow.noScheduledGames") : t("matchFlow.noMatchesInLeague")}
-            </p>
-            {games.length > 0 ? <p className="mt-1 text-xs text-white/35">{t("matchFlow.switchToAll")}</p> : null}
+      <div className="mx-auto grid max-w-[1600px] gap-5 px-4 py-5 sm:px-6 lg:grid-cols-[360px_minmax(0,1fr)] lg:px-8">
+        <aside className="border border-[#00e5ff]/20 bg-gradient-to-b from-[#071827]/90 via-[#06111d]/95 to-black/80 p-3 shadow-[0_0_36px_-24px_rgba(0,229,255,0.85)] [clip-path:polygon(18px_0,100%_0,calc(100%_-_18px)_100%,0_100%)] lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-hidden">
+          <div className="mb-3 flex items-center justify-between gap-3 px-2 pt-2">
+            <div>
+              <p className="font-heading text-xs font-black uppercase tracking-[0.2em] text-[#00e5ff]">Match Screens</p>
+              <p className="mt-1 text-[10px] uppercase tracking-[0.16em] text-white/35">
+                {visibleGames.length}/{games.length} visible
+              </p>
+            </div>
+            {leagueGroups.length > 1 && (
+              <Select value={leagueFilter} onValueChange={setLeagueFilter}>
+                <SelectTrigger className="h-9 w-[150px] border-[#00e5ff]/25 bg-black/50 text-[10px] text-white [clip-path:polygon(9px_0,100%_0,calc(100%_-_9px)_100%,0_100%)]">
+                  <SelectValue placeholder={t("matchFlow.allLeagues")} />
+                </SelectTrigger>
+                <SelectContent className="max-h-[60vh]">
+                  <SelectItem value="all" className="text-xs">
+                    {t("matchFlow.all")} <span className="ml-1 text-muted-foreground">({games.length})</span>
+                  </SelectItem>
+                  {leagueGroups.map(group => (
+                    <SelectItem key={group.key} value={group.key} className="text-xs">
+                      {group.label}
+                      <span className="ml-1 text-muted-foreground">({group.count})</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
-        ) : (
-          <div className="flex gap-2 overflow-x-auto pb-1">
+          {visibleGames.length === 0 ? (
+            <div className="mx-2 rounded-sm border border-white/10 px-4 py-8 text-center">
+              <Zap className="mx-auto mb-2 h-8 w-8 text-white/20" />
+              <p className="text-sm text-white/55">
+                {games.length === 0 ? t("matchFlow.noScheduledGames") : t("matchFlow.noMatchesInLeague")}
+              </p>
+              {games.length > 0 ? <p className="mt-1 text-xs text-white/35">{t("matchFlow.switchToAll")}</p> : null}
+            </div>
+          ) : (
+            <div className="flex gap-2 overflow-x-auto pb-1 lg:max-h-[calc(100vh-8rem)] lg:flex-col lg:overflow-y-auto lg:overflow-x-hidden lg:pr-1">
             {visibleGames.map(game => (
               <GameDayCard
                 key={game.id}
@@ -457,12 +489,13 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
                 tournament={tournamentMap[game.tournament_id]}
               />
             ))}
-          </div>
-        )}
-      </div>
+            </div>
+          )}
+        </aside>
 
-      <div className="px-0 pb-4 sm:px-0">
-        {detail}
+        <div className="min-w-0">
+          {detail}
+        </div>
       </div>
 
       <ArrangeGameDialog

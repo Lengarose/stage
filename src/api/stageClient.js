@@ -436,6 +436,8 @@ const ENTITY_NAMES = [
   'RatingHistory', 'LiveMatchEvent', 'Challenge', 'LandingPageContent',
   // Post-login home page editor (separate from LandingPageContent)
   'HomePageContent',
+  // Admin-managed Game Day presentation settings.
+  'GameDayConfig',
   'FaqItem',
   // Global transfer windows (admin manages open/close periods).
   // Business actions (open/close/execute_pending) still go through the

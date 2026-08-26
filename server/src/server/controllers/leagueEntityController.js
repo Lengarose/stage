@@ -17,6 +17,7 @@ const ROUTE_TO_TYPE = {
   'qualification-entries':        'qualification_entry',
   'ranking-configs':              'ranking_config',
   'season-registrations':         'season_registration',
+  'game-day-configs':             'game_day_config',
 };
 
 // Fields indexed as real columns (for WHERE filters); everything else in data JSON.
@@ -45,6 +46,7 @@ const AUDITED_ENTITY_TYPES = new Set([
   'regional_league_fixture',
   'regional_league_standing',
   'qualification_entry',
+  'game_day_config',
 ]);
 
 function auditValue(value) {
@@ -174,6 +176,10 @@ function makeRouter(entityType) {
   router.post('/', async (req, res) => {
     try {
       const body = req.body || {};
+      if (entityType === 'game_day_config') {
+        const admin = await getAdminUser(req).catch(() => null);
+        if (!admin) return res.status(403).json({ error: 'Admin access required.' });
+      }
       if (entityType === 'season_registration') {
         const userRows = await EXECUTESQL('SELECT id, email, role_id FROM users WHERE id = ? LIMIT 1', [req.user?.id || null]);
         const user = userRows[0] || null;
@@ -216,6 +222,10 @@ function makeRouter(entityType) {
   // PATCH /:id
   router.patch('/:id', async (req, res) => {
     try {
+      if (entityType === 'game_day_config') {
+        const admin = await getAdminUser(req).catch(() => null);
+        if (!admin) return res.status(403).json({ error: 'Admin access required.' });
+      }
       const { id } = req.params;
       const existing = await EXECUTESQL(`SELECT * FROM \`${TABLE}\` WHERE id = ? LIMIT 1`, [id]);
       if (!existing.length) return res.status(404).json({ error: 'Not found' });
@@ -247,6 +257,10 @@ function makeRouter(entityType) {
   // DELETE /:id
   router.delete('/:id', async (req, res) => {
     try {
+      if (entityType === 'game_day_config') {
+        const admin = await getAdminUser(req).catch(() => null);
+        if (!admin) return res.status(403).json({ error: 'Admin access required.' });
+      }
       const existing = await EXECUTESQL(`SELECT * FROM \`${TABLE}\` WHERE id = ? AND entity_type = ? LIMIT 1`, [req.params.id, entityType]);
       const before = existing.length ? parseRow(existing[0]) : null;
       await EXECUTESQL(`DELETE FROM \`${TABLE}\` WHERE id = ? AND entity_type = ?`, [req.params.id, entityType]);

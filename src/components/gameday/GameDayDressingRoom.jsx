@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { stageClient } from "@/api/stageClient";
 import { Users, AlertTriangle, CheckCircle2, Lock } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 function getAvailabilityFixtureIds(game) {
@@ -14,6 +13,16 @@ function getAvailabilityFixtureIds(game) {
     .filter(Boolean)
     .map(String)
     .filter((id, index, ids) => ids.indexOf(id) === index);
+}
+
+function getInitials(name) {
+  return String(name || "?")
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map(part => part[0])
+    .join("")
+    .toUpperCase() || "?";
 }
 
 export default function GameDayDressingRoom({ game, myClub, myPlayer, user, onSeatChange }) {
@@ -119,30 +128,44 @@ export default function GameDayDressingRoom({ game, myClub, myPlayer, user, onSe
     }
   }
 
-  if (loading) return <div className="text-xs text-muted-foreground p-2">Loading dressing room...</div>;
+  if (loading) return <div className="p-6 text-center text-xs uppercase tracking-widest text-white/45">Loading dressing room...</div>;
 
-  if (!myClub) return <div className="text-xs text-muted-foreground p-2">No club data available.</div>;
+  if (!myClub) return <div className="p-6 text-center text-xs uppercase tracking-widest text-white/45">No club data available.</div>;
 
   const seatedCount = seatedPlayerIds.length;
 
   return (
-    <div className="space-y-3">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Users className="w-4 h-4 text-primary" />
-          <p className="text-xs font-semibold text-foreground">Dressing Room</p>
-        </div>
-        <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
-          {seatedCount}/{clubPlayers.length} seated
-        </span>
+    <div className="relative overflow-hidden border border-[#00e5ff]/25 bg-[#08111a] p-4 shadow-[inset_0_0_80px_rgba(0,0,0,0.55)] [clip-path:polygon(18px_0,100%_0,calc(100%_-_18px)_100%,0_100%)] sm:p-5">
+      <div className="pointer-events-none absolute inset-0 opacity-70">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(245,197,66,0.18),transparent_27%),radial-gradient(circle_at_12%_12%,rgba(0,229,255,0.2),transparent_22%),linear-gradient(180deg,rgba(12,30,45,0.72),rgba(3,8,13,0.96))]" />
+        <div className="absolute inset-x-0 top-0 h-24 bg-[repeating-linear-gradient(90deg,rgba(255,255,255,0.06)_0_1px,transparent_1px_72px)]" />
+        <div className="absolute inset-x-4 bottom-0 h-20 bg-[linear-gradient(90deg,transparent,rgba(245,197,66,0.12),transparent)] blur-xl" />
+        <div className="absolute bottom-8 left-8 right-8 h-px bg-gradient-to-r from-transparent via-[#f5c542]/45 to-transparent" />
       </div>
+
+      <div className="relative space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 items-center justify-center border border-[#f5c542]/40 bg-black/50 text-[#f5c542] [clip-path:polygon(9px_0,100%_0,calc(100%_-_9px)_100%,0_100%)]">
+              <Users className="h-4 w-4" />
+            </div>
+            <div>
+              <p className="font-heading text-sm font-black uppercase tracking-[0.22em] text-white">Locker Room</p>
+              <p className="mt-1 max-w-xl text-xs text-white/55">
+                Only players who confirmed availability can take a seat before kickoff.
+              </p>
+            </div>
+          </div>
+          <span className="w-fit border border-[#00e5ff]/35 bg-[#00e5ff]/10 px-3 py-1.5 font-heading text-[10px] font-black uppercase tracking-[0.16em] text-[#8eeeff] [clip-path:polygon(8px_0,100%_0,calc(100%_-_8px)_100%,0_100%)]">
+            {seatedCount}/{clubPlayers.length} seated
+          </span>
+        </div>
 
       {/* Match started lock */}
       {matchStarted && (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary/60 border border-border">
-          <Lock className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-          <p className="text-[11px] text-muted-foreground">
+        <div className="flex items-center gap-2 border border-white/10 bg-black/50 px-3 py-2">
+          <Lock className="h-3.5 w-3.5 shrink-0 text-white/45" />
+          <p className="text-[11px] text-white/55">
             Dressing room is locked — match has started.
           </p>
         </div>
@@ -150,42 +173,49 @@ export default function GameDayDressingRoom({ game, myClub, myPlayer, user, onSe
 
       {/* Rule reminder */}
       {!matchStarted && (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-warning/10 border border-warning/20">
-          <AlertTriangle className="w-3.5 h-3.5 text-warning shrink-0" />
-          <p className="text-[11px] text-warning">
+        <div className="flex items-center gap-2 border border-[#f5c542]/25 bg-[#f5c542]/10 px-3 py-2">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-[#f5c542]" />
+          <p className="text-[11px] text-[#f5c542]">
             Mark yourself available for this fixture first. Only available seated players receive ratings and stats.
           </p>
         </div>
       )}
 
       {error && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-[11px] text-destructive">
+        <div className="border border-destructive/30 bg-destructive/10 px-3 py-2 text-[11px] text-destructive">
           {error}
         </div>
       )}
 
       {/* My seat button */}
       {myPlayer && !matchStarted && (
-        <Button
+        <button
+          type="button"
           onClick={takeMySeat}
           disabled={saving || !iAmAvailable}
-          variant={iAmSeated ? "outline" : "default"}
-          className={cn("w-full gap-2", iAmSeated && "border-success text-success hover:text-success")}
+          className={cn(
+            "flex min-h-12 w-full items-center justify-center gap-2 border px-4 font-heading text-xs font-black uppercase tracking-[0.18em] transition-all [clip-path:polygon(14px_0,100%_0,calc(100%_-_14px)_100%,0_100%)]",
+            iAmSeated
+              ? "border-emerald-300/50 bg-emerald-300/10 text-emerald-200 hover:bg-emerald-300/15"
+              : iAmAvailable
+                ? "border-[#f5c542]/55 bg-gradient-to-r from-[#f5c542]/85 to-[#00e5ff]/75 text-black hover:brightness-110"
+                : "cursor-not-allowed border-white/10 bg-white/5 text-white/35"
+          )}
         >
           {iAmSeated ? (
-            <><CheckCircle2 className="w-4 h-4" /> Leave My Seat</>
+            <><CheckCircle2 className="h-4 w-4" /> Leave My Seat</>
           ) : !iAmAvailable ? (
-            <><Lock className="w-4 h-4" /> Mark Available First</>
+            <><Lock className="h-4 w-4" /> Mark Available First</>
           ) : (
-            <><Users className="w-4 h-4" /> Take My Seat ({myPlayer.gamertag})</>
+            <><Users className="h-4 w-4" /> Take My Seat ({myPlayer.gamertag})</>
           )}
-        </Button>
+        </button>
       )}
 
       {/* Player grid (read-only display) */}
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-4">
         {clubPlayers.length === 0 && (
-          <div className="col-span-2 rounded-lg border border-dashed border-border bg-secondary/20 p-3 text-center text-[11px] text-muted-foreground">
+          <div className="col-span-full border border-dashed border-white/15 bg-black/35 p-5 text-center text-[11px] uppercase tracking-widest text-white/45">
             No players have marked themselves available yet.
           </div>
         )}
@@ -196,28 +226,49 @@ export default function GameDayDressingRoom({ game, myClub, myPlayer, user, onSe
             <div
               key={player.id}
               className={cn(
-                "p-2 rounded-lg border transition-all",
+                "group relative min-h-[116px] overflow-hidden border p-3 transition-all [clip-path:polygon(12px_0,100%_0,calc(100%_-_12px)_100%,0_100%)]",
                 isSeated
-                  ? "bg-primary/15 border-primary/40"
-                  : "bg-secondary/40 border-border opacity-50"
+                  ? "border-[#f5c542]/55 bg-[#f5c542]/10 shadow-[0_0_22px_-15px_rgba(245,197,66,0.9)]"
+                  : "border-white/10 bg-black/35 opacity-55"
               )}
             >
-              <div className="flex items-start justify-between gap-1">
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-foreground truncate">
+              <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),transparent_42%),repeating-linear-gradient(90deg,transparent_0_42px,rgba(255,255,255,0.04)_42px_43px)]" />
+              <div className="relative flex h-full flex-col justify-between gap-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate font-heading text-[12px] font-black uppercase tracking-[0.06em] text-white">
                     {player.gamertag}
-                    {isMe && <span className="text-primary ml-1 text-[10px]">(You)</span>}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground">{player.position}</p>
+                    {isMe && <span className="ml-1 text-[9px] text-[#00e5ff]">(You)</span>}
+                    </p>
+                    <p className="mt-1 text-[10px] uppercase tracking-[0.16em] text-white/45">{player.position || "Player"}</p>
+                  </div>
+                  <div className={cn(
+                    "h-3 w-3 shrink-0 rounded-full border",
+                    isSeated ? "border-emerald-200 bg-emerald-300 shadow-[0_0_12px_rgba(110,231,183,0.85)]" : "border-white/20 bg-white/10"
+                  )} />
                 </div>
-                <div className={cn(
-                  "w-3 h-3 rounded-full mt-0.5 shrink-0",
-                  isSeated ? "bg-success" : "bg-border"
-                )} />
+                <div className="flex items-end justify-between gap-3">
+                  <div className="h-12 w-12 overflow-hidden border border-white/15 bg-black/45 [clip-path:polygon(8px_0,100%_0,calc(100%_-_8px)_100%,0_100%)]">
+                    {player.avatar_url ? (
+                      <img src={player.avatar_url} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center font-heading text-sm font-black text-white/55">
+                        {getInitials(player.gamertag)}
+                      </div>
+                    )}
+                  </div>
+                  <span className={cn(
+                    "font-heading text-[10px] font-black uppercase tracking-[0.18em]",
+                    isSeated ? "text-[#f5c542]" : "text-white/35"
+                  )}>
+                    {isSeated ? "Seat taken" : "Open seat"}
+                  </span>
+                </div>
               </div>
             </div>
           );
         })}
+      </div>
       </div>
     </div>
   );
