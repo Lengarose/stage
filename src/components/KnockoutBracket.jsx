@@ -6,7 +6,12 @@ function MatchCard({ match, myClubId, onSubmit, onSchedule, onViewStats, onAddSt
   const completed = match?.status === "completed";
   const homeWon = completed && match.winner_club_id === match.home_club_id;
   const awayWon = completed && match.winner_club_id === match.away_club_id;
-  const pending = match?.status === "scheduled" || match?.status === "in_progress" || match?.status === "awaiting_confirmation";
+  const pending = match?.status === "unscheduled" || match?.status === "scheduled" || match?.status === "in_progress" || match?.status === "awaiting_confirmation";
+  const isHomeMatch = match?.home_club_id === myClubId;
+  const scheduleProposalSent = isHomeMatch && match?.scheduling_status === "home_proposed";
+  const canSchedule = onSchedule && isHomeMatch && !scheduleProposalSent;
+  const showCompletedStats = completed && onViewStats;
+  const showPendingActions = isMyMatch && pending && (canSchedule || onSubmit || onAddStream || onForfeit || scheduleProposalSent);
 
   if (!match) {
     return (
@@ -102,41 +107,56 @@ function MatchCard({ match, myClubId, onSubmit, onSchedule, onViewStats, onAddSt
       </div>
 
       {/* Actions */}
-      {completed && (
-        <button onClick={() => onViewStats && onViewStats(match)}
+      {showCompletedStats && (
+        <button type="button" onClick={() => onViewStats(match)}
           className="w-full text-[10px] uppercase tracking-wider font-semibold text-muted-foreground bg-secondary/40 hover:bg-secondary py-1.5 border-t border-border/50 transition-colors">
-          📊 Stats
+          Stats
         </button>
       )}
-      {isMyMatch && pending && (
+      {showPendingActions && (
         <div className="border-t border-border/50">
-          <div className="grid grid-cols-2">
-            <button onClick={() => onSchedule(match)}
-              className="text-xs uppercase tracking-wider font-semibold text-muted-foreground bg-secondary/40 hover:bg-secondary py-2.5 transition-colors border-r border-border/50">
+          <div className={cn("grid", canSchedule && onSubmit ? "grid-cols-2" : "grid-cols-1")}>
+            {canSchedule && (
+              <button type="button" onClick={() => onSchedule(match)}
+                className="text-xs uppercase tracking-wider font-semibold text-muted-foreground bg-secondary/40 hover:bg-secondary py-2.5 transition-colors border-r border-border/50">
                 Schedule
-            </button>
-            {match.status !== "awaiting_confirmation" ? (
-              <button onClick={() => onSubmit(match)}
-                className="text-xs uppercase tracking-wider font-semibold text-primary bg-primary/5 hover:bg-primary/10 py-2.5 transition-colors">
-                Result
               </button>
-            ) : !((match.home_club_id === myClubId && match.result_home_submitted) || (match.away_club_id === myClubId && match.result_away_submitted)) ? (
-              <button onClick={() => onSubmit(match)}
-                className="text-xs uppercase tracking-wider font-semibold text-warning bg-warning/5 hover:bg-warning/10 py-2.5 transition-colors">
-                Confirm
-              </button>
-            ) : <div />}
+            )}
+            {scheduleProposalSent && (
+              <div className="text-center text-xs uppercase tracking-wider font-semibold text-muted-foreground bg-secondary/40 py-2.5">
+                Proposal sent
+              </div>
+            )}
+            {onSubmit && (
+              match.status !== "awaiting_confirmation" ? (
+                <button type="button" onClick={() => onSubmit(match)}
+                  className="text-xs uppercase tracking-wider font-semibold text-primary bg-primary/5 hover:bg-primary/10 py-2.5 transition-colors">
+                  Result
+                </button>
+              ) : !((match.home_club_id === myClubId && match.result_home_submitted) || (match.away_club_id === myClubId && match.result_away_submitted)) ? (
+                <button type="button" onClick={() => onSubmit(match)}
+                  className="text-xs uppercase tracking-wider font-semibold text-warning bg-warning/5 hover:bg-warning/10 py-2.5 transition-colors">
+                  Confirm
+                </button>
+              ) : <div />
+            )}
           </div>
-          <div className="grid grid-cols-2 border-t border-border/50">
-            <button onClick={() => onAddStream && onAddStream(match)}
-              className="text-xs uppercase tracking-wider font-semibold text-primary/70 bg-secondary/30 hover:bg-secondary/60 py-2.5 transition-colors border-r border-border/50">
+          {(onAddStream || onForfeit) && (
+            <div className={cn("grid border-t border-border/50", onAddStream && onForfeit ? "grid-cols-2" : "grid-cols-1")}>
+              {onAddStream && (
+                <button type="button" onClick={() => onAddStream(match)}
+                  className="text-xs uppercase tracking-wider font-semibold text-primary/70 bg-secondary/30 hover:bg-secondary/60 py-2.5 transition-colors border-r border-border/50">
                 Stream
-            </button>
-            <button onClick={() => onForfeit && onForfeit(match)}
-              className="text-xs uppercase tracking-wider font-semibold text-destructive bg-destructive/5 hover:bg-destructive/10 py-2.5 transition-colors">
-              🚩 Forfeit
-            </button>
-          </div>
+                </button>
+              )}
+              {onForfeit && (
+                <button type="button" onClick={() => onForfeit(match)}
+                  className="text-xs uppercase tracking-wider font-semibold text-destructive bg-destructive/5 hover:bg-destructive/10 py-2.5 transition-colors">
+                  Forfeit
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

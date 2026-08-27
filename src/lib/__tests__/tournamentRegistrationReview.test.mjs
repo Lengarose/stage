@@ -9,14 +9,16 @@ function read(relativePath) {
   return readFileSync(resolve(root, relativePath), "utf8");
 }
 
-test("club tournament registrations stay pending until admin review", () => {
+test("official club tournament registrations stay pending until admin review", () => {
   const functions = read("server/src/server/functions/legacyFunctions.js");
   const detailPage = read("src/pages/TournamentDetail.jsx");
   const registeredPage = read("src/pages/ClubsRegistered.jsx");
   const actions = read("src/api/tournamentActions.js");
 
-  assert.match(functions, /status:\s*isAdmin \? 'approved' : 'pending'/);
-  assert.match(functions, /pending_review:\s*!isAdmin/);
+  assert.match(functions, /const requiresClubAdminReview = isOfficialTournament && !isAdmin/);
+  assert.match(functions, /status:\s*requiresClubAdminReview \? 'pending' : 'approved'/);
+  assert.match(functions, /pending_review:\s*requiresClubAdminReview/);
+  assert.match(functions, /if \(!requiresClubAdminReview\) \{\s*registered = \[\.\.\.registered, String\(club_id\)\];\s*\}/s);
   assert.match(functions, /notifyTournamentRegistrationAdmins/);
   assert.match(functions, /async tournamentRegistrationReview/);
   assert.match(functions, /deliverTournamentRegistrationReviewMessage/);
@@ -27,6 +29,7 @@ test("club tournament registrations stay pending until admin review", () => {
   assert.match(functions, /addUserCredits\(proof\.submitted_by_user_id,\s*refundedCredits,\s*query\)/);
 
   assert.match(actions, /reviewTournamentClubRegistration/);
+  assert.match(detailPage, /requiresClubRegistrationReview/);
   assert.match(detailPage, /Pending admin approval/);
   assert.match(detailPage, /fetchTournamentPublic\(tournament\.id\)/);
   assert.doesNotMatch(detailPage, /notifyTournamentRegistration\(tournament\.id,\s*effectiveId\)/);

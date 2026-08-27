@@ -2,11 +2,27 @@ import { isClubGameDayMatch } from "./gameDayResultFlow.js";
 
 const HIDDEN_GAME_DAY_STATUSES = new Set(["forfeit", "cancelled", "canceled", "deleted"]);
 const GAME_DAY_COMPLETED_MS = 24 * 60 * 60 * 1000;
+const LIVE_GAME_DAY_STATUSES = new Set(["in_progress", "awaiting_confirmation", "disputed", "completed"]);
+
+function isTournamentMatchWaitingForSchedule(match) {
+  const tournamentId = String(match?.tournament_id || "").toLowerCase();
+  if (!tournamentId || tournamentId === "ranked") return false;
+
+  const status = String(match.status || "").toLowerCase();
+  if (LIVE_GAME_DAY_STATUSES.has(status)) return false;
+
+  const schedulingStatus = String(match.scheduling_status || "").toLowerCase();
+  const hasConfirmedDate = Boolean(match.confirmed_date || match.scheduled_date);
+  if (status === "scheduled" && !schedulingStatus && hasConfirmedDate) return false;
+
+  return status !== "scheduled" || schedulingStatus !== "confirmed" || !hasConfirmedDate;
+}
 
 export function isActiveGameDayMatch(match, now = Date.now()) {
   if (!match?.id) return false;
   const status = String(match.status || "").toLowerCase();
   if (HIDDEN_GAME_DAY_STATUSES.has(status)) return false;
+  if (isTournamentMatchWaitingForSchedule(match)) return false;
   if (status === "completed") {
     const updatedAt = match.updated_date ? new Date(match.updated_date) : null;
     if (!updatedAt || Number.isNaN(updatedAt.getTime())) return false;

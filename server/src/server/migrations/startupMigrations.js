@@ -523,6 +523,12 @@ async function runStartupMigrations() {
   // Where this match came from (league fixture, knockout tie, friendly, …)
   await addCol('matches', 'source_fixture_id',   'VARCHAR(36) NULL');
   await addCol('matches', 'source_fixture_type', 'VARCHAR(50) NULL');
+  await addCol('matches', 'scheduling_status',   "VARCHAR(50) DEFAULT 'open'");
+  await addCol('matches', 'home_proposed_date',  'DATETIME NULL');
+  await addCol('matches', 'away_proposed_date',  'DATETIME NULL');
+  await addCol('matches', 'last_proposed_by',    'VARCHAR(20) NULL');
+  await addCol('matches', 'proposal_count',      'INT DEFAULT 0');
+  await addCol('matches', 'confirmed_date',      'DATETIME NULL');
   await addCol('matches', 'cancel_status', 'VARCHAR(30) NULL');
   await addCol('matches', 'cancel_requested_by', 'VARCHAR(255) NULL');
 

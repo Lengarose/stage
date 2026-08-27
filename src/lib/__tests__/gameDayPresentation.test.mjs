@@ -63,3 +63,19 @@ test("cancelled and forfeited matches leave Game Day", () => {
     false,
   );
 });
+
+test("tournament fixtures only enter Game Day after accepted scheduling", () => {
+  const now = new Date("2026-08-15T00:00:00.000Z").getTime();
+  assert.equal(
+    isActiveGameDayMatch({ id: "t1", tournament_id: "cup-1", status: "unscheduled", scheduling_status: "open" }, now),
+    false,
+  );
+  assert.equal(
+    isActiveGameDayMatch({ id: "t2", tournament_id: "cup-1", status: "scheduled", scheduling_status: "home_proposed", home_proposed_date: "2026-08-18T20:00:00.000Z" }, now),
+    false,
+  );
+  assert.equal(
+    isActiveGameDayMatch({ id: "t3", tournament_id: "cup-1", status: "scheduled", scheduling_status: "confirmed", confirmed_date: "2026-08-18T20:00:00.000Z" }, now),
+    true,
+  );
+});

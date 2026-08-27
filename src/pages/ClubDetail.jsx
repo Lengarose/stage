@@ -8,7 +8,7 @@ import {
   Bell, BellOff,
   MoreHorizontal, Eye, BarChart3, FileText, UserCheck,
   UserMinus, BadgeX, Target, Footprints, Activity, History, Lock,
-  Image as ImageIcon, Upload, Sparkles, RotateCcw, Zap,
+  Image as ImageIcon, Upload, Sparkles, RotateCcw,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
@@ -2419,6 +2419,7 @@ function ClubFixturesPanel({
   t,
 }) {
   const [activeFixtureSection, setActiveFixtureSection] = useState("gameday");
+  const [activeFixtureFilters, setActiveFixtureFilters] = useState({});
   const [busyAvailability, setBusyAvailability] = useState(null);
   const [expandedResponses, setExpandedResponses] = useState({});
   const [availabilityError, setAvailabilityError] = useState(null);
@@ -2440,10 +2441,20 @@ function ClubFixturesPanel({
   const grouped = groupClubFixtures([...fixturesById.values()]);
   const fixtureSections = buildFixtureSections(grouped);
   const selectedSection = fixtureSections.find((section) => section.key === activeFixtureSection) || fixtureSections[0];
-  const visibleGroups = selectedSection?.groups || [];
+  const sectionOptions = buildFixtureSectionOptions(selectedSection, clubId);
+  const activeFilterKey = activeFixtureFilters[selectedSection?.key] || sectionOptions[0]?.key || "";
+  const selectedFilter = sectionOptions.find((option) => option.key === activeFilterKey) || sectionOptions[0] || null;
+  const visibleGroups = filterFixtureSectionGroups(selectedSection, selectedFilter, clubId);
   const availabilityByFixture = buildAvailabilityByFixture(availabilityRows);
   const statsByFixture = buildMatchStatsByFixture(matchPlayerStats);
   const playerById = new Map(asObjectArray(clubPlayers).filter((player) => player?.id).map((player) => [String(player.id), player]));
+  const eventAvailabilityFixture = selectedFilter?.registrationFixture || null;
+  const eventAvailabilityId = eventAvailabilityFixture ? fixtureEventAvailabilityFixtureId(eventAvailabilityFixture, clubId) : "";
+  const eventAvailabilityRef = eventAvailabilityFixture ? fixtureEventAvailabilityRef(eventAvailabilityFixture) : null;
+  const exactEventRows = eventAvailabilityId ? (availabilityByFixture.get(String(eventAvailabilityId)) || []) : [];
+  const metadataEventRows = eventAvailabilityRef
+    ? asObjectArray(availabilityRows).filter((row) => rowMatchesEventAvailability(row, eventAvailabilityRef))
+    : [];
 
   async function setMyFixtureAvailability(fixture, status) {
     if (!myPlayer?.id || !fixtureCanSetAvailability(fixture)) return;
@@ -2526,6 +2537,31 @@ function ClubFixturesPanel({
         activeKey={selectedSection?.key}
         onSelect={setActiveFixtureSection}
       />
+      {sectionOptions.length > 0 ? (
+        <FixtureEventSelector
+          section={selectedSection}
+          options={sectionOptions}
+          activeKey={selectedFilter?.key}
+          onSelect={(key) => setActiveFixtureFilters((prev) => ({ ...prev, [selectedSection.key]: key }))}
+        />
+      ) : null}
+      {eventAvailabilityFixture ? (
+        <FixtureEventAvailabilityCard
+          fixture={eventAvailabilityFixture}
+          group={selectedFilter?.group || selectedSection?.groups?.[0]}
+          clubPlayers={clubPlayers}
+          myPlayer={myPlayer}
+          currentUser={currentUser}
+          canSetAvailability={canSetAvailability}
+          canViewTeamAvailability={canViewTeamAvailability}
+          availabilityRows={[...exactEventRows, ...metadataEventRows]}
+          playerById={playerById}
+          responsesOpen={Boolean(expandedResponses[eventAvailabilityFixture.id])}
+          onToggleResponses={() => setExpandedResponses((prev) => ({ ...prev, [eventAvailabilityFixture.id]: !prev[eventAvailabilityFixture.id] }))}
+          busyAvailability={busyAvailability}
+          onSetAvailability={setMyFixtureAvailability}
+        />
+      ) : null}
       {visibleGroups.length === 0 ? (
         <section className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-8 text-center">
           <p className="text-sm text-white/45">No {selectedSection?.emptyLabel || "fixtures"} found.</p>
@@ -2771,6 +2807,123 @@ function buildFixtureSections(groups) {
   });
 }
 
+function isFixtureEventAvailabilityCard(fixture) {
+  return ["tournament_registration", "regional_league_registration", "competition_registration"]
+    .includes(String(fixture?._fixtureType || fixture?.fixture_type || "").toLowerCase());
+}
+
+function fixtureEventSelectorKey(fixture, group) {
+  if (!fixture) return "";
+  if (group?.key === "gameday") return "";
+  const type = String(fixture?._fixtureType || fixture?.fixture_type || "").toLowerCase();
+  if (type === "regional_league_registration" || type === "regional_league_fixture") {
+    return `regional:${fixture.regional_league_id || fixture.league_id || fixture.id}`;
+  }
+  if (type === "competition_registration" || type === "competition_fixture") {
+    return `gost:${fixture.season_id || fixture.competition_season_id || fixture.competition_id || fixture.competition_slug || fixture.id}`;
+  }
+  if (fixture.tournament_id && fixture.tournament_id !== "ranked") {
+    return `tournament:${fixture.tournament_id}`;
+  }
+  return `${group?.key || "fixture"}:${fixture.id}`;
+}
+
+function buildFixtureSectionOptions(section, clubId) {
+  if (!section) return [];
+  if (section.key === "gameday") {
+    return [
+      { key: "all", label: "All arranged games", count: section.count },
+      { key: "upcoming", label: "Upcoming", count: countFixturesByFilter(section, "upcoming", clubId) },
+      { key: "completed", label: "Completed", count: countFixturesByFilter(section, "completed", clubId) },
+      { key: "home", label: "Home", count: countFixturesByFilter(section, "home", clubId) },
+      { key: "away", label: "Away", count: countFixturesByFilter(section, "away", clubId) },
+    ];
+  }
+
+  const options = new Map();
+  for (const group of asObjectArray(section.groups)) {
+    for (const fixture of asObjectArray(group.fixtures)) {
+      const key = fixtureEventSelectorKey(fixture, group);
+      if (!key) continue;
+      const current = options.get(key) || {
+        key,
+        label: fixtureEventName(fixture, group),
+        group,
+        count: 0,
+        registrationFixture: null,
+      };
+      if (isFixtureEventAvailabilityCard(fixture)) {
+        current.registrationFixture = fixture;
+      } else {
+        current.count += 1;
+      }
+      options.set(key, current);
+    }
+  }
+  return [...options.values()].sort((a, b) => String(a.label).localeCompare(String(b.label)));
+}
+
+function countFixturesByFilter(section, filterKey, clubId) {
+  return filterFixtureSectionGroups(section, { key: filterKey }, clubId)
+    .reduce((sum, group) => sum + asObjectArray(group.fixtures).length, 0);
+}
+
+function filterFixtureSectionGroups(section, selectedFilter, clubId) {
+  if (!section) return [];
+  return asObjectArray(section.groups)
+    .map((group) => ({
+      ...group,
+      fixtures: asObjectArray(group.fixtures).filter((fixture) => {
+        if (isFixtureEventAvailabilityCard(fixture)) return false;
+        if (section.key !== "gameday") {
+          return !selectedFilter?.key || fixtureEventSelectorKey(fixture, group) === selectedFilter.key;
+        }
+        if (!selectedFilter || selectedFilter.key === "all") return true;
+        if (selectedFilter.key === "upcoming") return !fixtureIsTerminal(fixture);
+        if (selectedFilter.key === "completed") return fixtureIsCompleted(fixture);
+        if (selectedFilter.key === "home") return String(fixture.home_club_id || "") === String(clubId || "");
+        if (selectedFilter.key === "away") return String(fixture.away_club_id || "") === String(clubId || "");
+        return true;
+      }),
+    }))
+    .filter((group) => group.fixtures.length > 0);
+}
+
+function FixtureEventSelector({ section, options, activeKey, onSelect }) {
+  if (!options.length) return null;
+  return (
+    <div className="overflow-x-auto">
+      <div className="flex min-w-max items-center gap-2">
+        {options.map((option) => {
+          const active = option.key === activeKey;
+          return (
+            <button
+              key={option.key}
+              type="button"
+              onClick={() => onSelect(option.key)}
+              className={cn(
+                "relative flex shrink-0 items-center gap-2 px-1 pb-2 pt-1 font-heading text-[11px] font-black uppercase tracking-[0.14em] transition-colors",
+                active ? "text-white" : "text-white/42 hover:text-white/70"
+              )}
+            >
+              {option.label}
+              <span className={cn("text-[10px]", active ? "text-[#f5c542]" : "text-white/28")}>
+                {option.count}
+              </span>
+              {active ? (
+                <span className="absolute inset-x-0 bottom-0 h-[2px] bg-gradient-to-r from-[#f5c542] via-[#55d9ff] to-transparent" />
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+      {section?.key === "gameday" ? (
+        <p className="mt-2 text-[11px] text-white/35">Filter arranged games by status or home/away. These are single matches, not tournament events.</p>
+      ) : null}
+    </div>
+  );
+}
+
 function FixtureSectionTabs({ sections, activeKey, onSelect }) {
   return (
     <div className="overflow-x-auto">
@@ -2883,6 +3036,7 @@ function buildFixtureGoalTimeline(fixture, playerById, matchStats = []) {
       const assist = findFixtureEventPlayer(event, "assist", playerById);
       return {
         ...event,
+        eventType: "goal",
         scorer,
         assist,
         minute: event?.minute,
@@ -2895,19 +3049,41 @@ function buildFixtureGoalTimeline(fixture, playerById, matchStats = []) {
   if (eventTimeline.length > 0) return eventTimeline;
 
   return asObjectArray(matchStats)
-    .filter((stat) => Number(stat.goals || 0) > 0 || Number(stat.assists || 0) > 0)
-    .map((stat) => {
+    .flatMap((stat) => {
       const player = stat.player_id ? playerById.get(String(stat.player_id)) : null;
-      return {
-        statFallback: true,
-        side: fixtureSideForClub(fixture, stat.club_id),
-        scorer: player || (stat.player_id ? { id: stat.player_id, gamertag: stat.player_gamertag || stat.player_email } : null),
-        scorerName: player?.gamertag || stat.player_gamertag || stat.player_email || "Player",
-        goals: Number(stat.goals || 0),
-        assists: Number(stat.assists || 0),
-      };
+      const participant = player || (stat.player_id ? { id: stat.player_id, gamertag: stat.player_gamertag || stat.player_email } : null);
+      const playerName = player?.gamertag || stat.player_gamertag || stat.player_email || "Player";
+      const side = fixtureSideForClub(fixture, stat.club_id);
+      const rows = [];
+      const goals = Number(stat.goals || 0);
+      const assists = Number(stat.assists || 0);
+      if (goals > 0) {
+        rows.push({
+          eventType: "goal",
+          statFallback: true,
+          side,
+          scorer: participant,
+          scorerName: playerName,
+          goals,
+        });
+      }
+      if (assists > 0) {
+        rows.push({
+          eventType: "assist",
+          statFallback: true,
+          side,
+          assist: participant,
+          assistName: playerName,
+          assists,
+        });
+      }
+      return rows;
     })
-    .sort((a, b) => (b.goals - a.goals) || String(a.scorerName).localeCompare(String(b.scorerName)));
+    .sort((a, b) => {
+      if (a.eventType !== b.eventType) return a.eventType === "goal" ? -1 : 1;
+      return ((b.goals || b.assists || 0) - (a.goals || a.assists || 0))
+        || String(a.scorerName || a.assistName).localeCompare(String(b.scorerName || b.assistName));
+    });
 }
 
 function FixtureGroup({
@@ -2980,6 +3156,127 @@ function FixtureGroup({
           );
         })}
       </div>
+    </section>
+  );
+}
+
+function FixtureEventAvailabilityCard({
+  fixture,
+  group,
+  clubPlayers,
+  myPlayer,
+  currentUser,
+  canSetAvailability,
+  canViewTeamAvailability,
+  availabilityRows = [],
+  playerById,
+  responsesOpen,
+  onToggleResponses,
+  busyAvailability,
+  onSetAvailability,
+}) {
+  const type = String(fixture?._fixtureType || fixture?.fixture_type || "").toLowerCase();
+  const isRegional = type === "regional_league_registration";
+  const isGost = type === "competition_registration";
+  const eventName = fixtureEventName(fixture, group || {});
+  const kindLabel = isGost ? "GOST" : isRegional ? "Regional league" : "Tournament";
+  const prepLabel = isGost ? "Official tournament preparation" : isRegional ? "League preparation" : "Tournament preparation";
+  const waitingLabel = isGost ? "GOST fixtures" : isRegional ? "Regional league fixtures" : "Tournament fixtures";
+  const cost = Number(fixture.tournament_entry_credits ?? fixture.registration_entry_credits ?? 50);
+  const submitterExempt = String(fixture.registration_submitted_by_user_id || "") === String(currentUser?.id || "");
+  const canManageAvailability = fixtureCanSetAvailability(fixture);
+  const availabilityLocked = canManageAvailability && fixtureAvailabilityLocked(fixture);
+  const myAvailability = availabilityRows.find((row) => String(row.player_id) === String(myPlayer?.id));
+  const rawMyStatus = String(myAvailability?.status || "no_response").toLowerCase();
+  const myStatus = rawMyStatus === "available" ? "available" : "no_response";
+  const counts = getFixtureAvailabilityCounts(availabilityRows, clubPlayers);
+  const responseRows = buildFixtureResponseRows(availabilityRows, clubPlayers, playerById);
+  const showMemberControls = canSetAvailability && myPlayer?.id && canManageAvailability;
+  const showTeamSummary = canViewTeamAvailability && canManageAvailability;
+
+  return (
+    <section
+      className="relative overflow-hidden border border-[#f5c542]/20 bg-[#07111d] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.28)] sm:p-5"
+      style={{ clipPath: "polygon(1% 0, 100% 0, 99% 100%, 0 100%)" }}
+    >
+      <div aria-hidden className="absolute inset-0 bg-[radial-gradient(circle_at_10%_0%,rgba(245,197,66,0.16),transparent_30%),linear-gradient(135deg,rgba(0,229,255,0.08),transparent_42%,rgba(245,197,66,0.08))]" />
+      <div className="relative z-[1] grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+        <div className="min-w-0">
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#f5c542]">{kindLabel} availability</p>
+          <h3 className="mt-1 break-words font-heading text-xl font-black uppercase leading-tight text-white">{eventName}</h3>
+          <p className="mt-1 text-[11px] uppercase tracking-[0.18em] text-white/40">{prepLabel} · {waitingLabel}</p>
+          {showMemberControls ? (
+            <p className="mt-3 text-sm text-white/58">
+              {submitterExempt
+                ? "Your club entry is already paid by you. No extra credits are taken here."
+                : `Confirming availability for this ${kindLabel.toLowerCase()} costs ${cost} credits once.`}
+            </p>
+          ) : null}
+        </div>
+        {(showMemberControls || showTeamSummary) ? (
+          <div className="min-w-0">
+            {showMemberControls ? (
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100/45">My event availability</p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span className="border border-cyan-300/20 bg-cyan-300/8 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-cyan-100/75">
+                    {availabilityLocked ? "Locked" : (FIXTURE_AVAILABILITY_LABELS[myStatus] || myStatus)}
+                  </span>
+                  {!availabilityLocked && myStatus !== "available" ? (
+                    <Button
+                      type="button"
+                      disabled={busyAvailability === `${fixture.id}:available`}
+                      onClick={() => onSetAvailability(fixture, "available")}
+                      className="h-8 gap-1.5 rounded-none bg-white px-3 text-[10px] font-black uppercase tracking-[0.12em] text-black hover:bg-white/90 disabled:cursor-not-allowed disabled:bg-white/15 disabled:text-white/35"
+                    >
+                      {busyAvailability === `${fixture.id}:available` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                      Available
+                    </Button>
+                  ) : null}
+                  {!availabilityLocked && myStatus === "available" ? (
+                    <button
+                      type="button"
+                      disabled={busyAvailability === `${fixture.id}:no_response`}
+                      onClick={() => onSetAvailability(fixture, "no_response")}
+                      className="inline-flex h-8 items-center gap-1.5 px-2 text-[10px] font-black uppercase tracking-[0.12em] text-white/42 transition hover:text-cyan-100 disabled:cursor-not-allowed disabled:opacity-45"
+                    >
+                      {busyAvailability === `${fixture.id}:no_response` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
+                      Cancel availability
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+            {showTeamSummary ? (
+              <div className={cn("flex flex-wrap items-center gap-2", showMemberControls && "mt-3")}>
+                <AvailabilityCount label="Available" value={counts.available} className="text-cyan-100/80" />
+                <AvailabilityCount label="Not Confirmed" value={counts.no_response} className="text-white/55" />
+                {responseRows.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={onToggleResponses}
+                    className="text-[10px] font-black uppercase tracking-[0.14em] text-[#00e5ff] hover:text-[#7defff]"
+                  >
+                    {responsesOpen ? "Hide responses" : "View responses"}
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+      {showTeamSummary && responsesOpen ? (
+        <div className="relative z-[1] mt-3 grid gap-1.5 border border-white/10 bg-black/20 p-3 sm:grid-cols-2">
+          {responseRows.map((row) => (
+            <div key={row.player.id} className="flex items-center justify-between gap-2 rounded border border-white/10 bg-white/[0.03] px-2 py-1.5 text-xs">
+              <span className="truncate text-white/75">{row.player.gamertag || row.player.email || "Player"}</span>
+              <span className={cn("shrink-0 rounded-sm border px-1.5 py-0.5 text-[9px] font-black uppercase tracking-[0.12em]", fixtureAvailabilityClass(row.status))}>
+                {FIXTURE_AVAILABILITY_LABELS[row.status] || row.status}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -3234,7 +3531,7 @@ function FixtureRow({
 
 function groupGoalEventsByScorer(events) {
   const grouped = new Map();
-  for (const event of asObjectArray(events)) {
+  for (const event of asObjectArray(events).filter((item) => item.eventType !== "assist")) {
     const key = event.scorer?.id || event.scorerName || "unknown";
     const current = grouped.get(key) || {
       scorer: event.scorer,
@@ -3245,9 +3542,6 @@ function groupGoalEventsByScorer(events) {
       statFallback: Boolean(event.statFallback),
     };
     if (event.minute) current.minutes.push(Number(event.minute));
-    if (event.assistName) {
-      current.assists.push({ player: event.assist, name: event.assistName });
-    }
     current.goals += Number(event.goals || 1);
     current.statFallback = current.statFallback || Boolean(event.statFallback);
     grouped.set(key, current);
@@ -3261,44 +3555,82 @@ function groupGoalEventsByScorer(events) {
   }));
 }
 
+function groupAssistEventsByProvider(events) {
+  const grouped = new Map();
+  for (const event of asObjectArray(events)) {
+    const assistName = event.assistName || event.assist?.gamertag;
+    if (!assistName && event.eventType !== "assist") continue;
+    const key = event.assist?.id || assistName || "unknown";
+    const current = grouped.get(key) || {
+      assist: event.assist,
+      assistName: assistName || "Player",
+      assists: 0,
+      minutes: [],
+      statFallback: Boolean(event.statFallback),
+    };
+    if (event.minute) current.minutes.push(Number(event.minute));
+    current.assists += Number(event.assists || 1);
+    current.statFallback = current.statFallback || Boolean(event.statFallback);
+    grouped.set(key, current);
+  }
+  return [...grouped.values()].map((group) => ({
+    ...group,
+    minutes: [...new Set(group.minutes)].sort((a, b) => a - b),
+  }));
+}
+
 function GoalTimeline({ events, currentSide }) {
   const ownEvents = events.filter((event) => event.side === currentSide || (!event.side && currentSide === "home"));
   const opponentEvents = events.filter((event) => event.side && event.side !== currentSide);
   const ownScorers = groupGoalEventsByScorer(ownEvents);
   const opponentScorers = groupGoalEventsByScorer(opponentEvents);
-  if (!ownScorers.length && !opponentScorers.length) return null;
+  const ownAssists = groupAssistEventsByProvider(ownEvents);
+  const opponentAssists = groupAssistEventsByProvider(opponentEvents);
+  if (!ownScorers.length && !opponentScorers.length && !ownAssists.length && !opponentAssists.length) return null;
 
   return (
     <div className="mt-3 grid min-w-[260px] gap-3 text-left md:grid-cols-2 md:text-center">
-      <GoalScorerList scorers={ownScorers} align="left" />
-      <GoalScorerList scorers={opponentScorers} align="right" />
+      <GoalScorerList scorers={ownScorers} assists={ownAssists} align="left" />
+      <GoalScorerList scorers={opponentScorers} assists={opponentAssists} align="right" />
     </div>
   );
 }
 
-function GoalScorerList({ scorers, align }) {
-  if (!scorers.length) return <div className="hidden md:block" />;
+function GoalScorerList({ scorers, assists, align }) {
+  if (!scorers.length && !assists.length) return <div className="hidden md:block" />;
   return (
-    <div className={cn("min-w-0 space-y-1", align === "right" && "md:text-right")}>
-      {scorers.map((scorer) => (
-        <div key={scorer.scorer?.id || scorer.scorerName} className="min-w-0 text-[11px] leading-snug text-white/52">
-          <PlayerEventName player={scorer.scorer} fallback={scorer.scorerName} />
-          <span className="ml-1 text-white/45">
-            {scorer.minutes.length
-              ? scorer.minutes.map((minute) => `${minute}'`).join(", ")
-              : `${scorer.goals} ${scorer.goals === 1 ? "goal" : "goals"}`}
-          </span>
-          {scorer.assists.length ? (
-            <span className="block text-[10px] text-white/35">
-              <Zap className="mr-1 inline h-3 w-3" />
-              {scorer.assists.map((assist) => (
-                <PlayerEventName key={assist.player?.id || assist.name} player={assist.player} fallback={assist.name} subtle />
-              )).reduce((acc, item, index) => index === 0 ? [item] : [...acc, <span key={`sep-${index}`}> / </span>, item], [])}
-            </span>
-          ) : null}
+    <div className={cn("min-w-0 space-y-2", align === "right" && "md:text-right")}>
+      {scorers.length ? (
+        <div className="min-w-0 space-y-1">
+          <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/30">Goals</p>
+          {scorers.map((scorer) => (
+            <div key={scorer.scorer?.id || scorer.scorerName} className="min-w-0 text-[11px] leading-snug text-white/52">
+              <PlayerEventName player={scorer.scorer} fallback={scorer.scorerName} />
+              <span className="ml-1 text-white/45">
+                {scorer.minutes.length
+                  ? scorer.minutes.map((minute) => `${minute}'`).join(", ")
+                  : `${scorer.goals} ${scorer.goals === 1 ? "goal" : "goals"}`}
+              </span>
+            </div>
+          ))}
         </div>
-      ))}
-      </div>
+      ) : null}
+      {assists.length ? (
+        <div className="min-w-0 space-y-1">
+          <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/30">Assists</p>
+          {assists.map((assist) => (
+            <div key={assist.assist?.id || assist.assistName} className="min-w-0 text-[11px] leading-snug text-white/45">
+              <PlayerEventName player={assist.assist} fallback={assist.assistName} subtle />
+              <span className="ml-1 text-white/38">
+                {assist.minutes.length
+                  ? assist.minutes.map((minute) => `${minute}'`).join(", ")
+                  : `${assist.assists} ${assist.assists === 1 ? "assist" : "assists"}`}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }
 

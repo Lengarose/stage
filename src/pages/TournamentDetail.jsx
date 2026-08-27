@@ -35,7 +35,13 @@ import PlayerRegistrantList from "../components/PlayerRegistrantList";
 import { isWallClockPast, toMysqlDateTime, toDatetimeLocalValue } from "@/lib/momentDate";
 import { swalAlert, swalConfirm } from "@/lib/swal";
 import { getTournamentEntryCost } from "@/lib/subscriptionUtils";
+import { getClubManagerEmails } from "@/lib/scheduleEngine";
 import { useTranslation } from "@/hooks/useTranslation";
+
+function requiresClubTournamentAdminReview(tournament) {
+  if (!tournament || tournament.participant_type === "player") return false;
+  return !String(tournament.creator_gamertag || "").trim();
+}
 
 export default function TournamentDetail() {
   const { id } = useParams();
@@ -54,7 +60,7 @@ export default function TournamentDetail() {
   const [resultDialogOpen, setResultDialogOpen] = useState(false);
   const [activeMatch, setActiveMatch] = useState(null);
   const [resultForm, setResultForm] = useState({ home_score: "", away_score: "", video_url: "", proof_url: "" });
-  const [_scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
+  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const [scheduleMatch, setScheduleMatch] = useState(null);
   const [scheduleDate, setScheduleDate] = useState("");
   const [statsMatch, setStatsMatch] = useState(null);
@@ -359,8 +365,9 @@ export default function TournamentDetail() {
   async function registerClub() {
     const effectiveId = takeoverClub ? takeoverClub.id : (myClub?.id || myPlayer?.club_id);
     if (!effectiveId || !tournament) return;
+    const requiresAdminReview = requiresClubTournamentAdminReview(tournament);
     const cleanEaClubName = eaClubName.trim();
-    if (!cleanEaClubName) {
+    if (requiresAdminReview && !cleanEaClubName) {
       await swalAlert("Enter your EA FC Pro Clubs name so admins can verify your club.");
       return;
     }
@@ -400,7 +407,11 @@ export default function TournamentDetail() {
     // Lock both credits and STC
     setRegisteringClub(true);
     try {
-      const res = await registerTournamentClub(tournament.id, effectiveId, { eaClubName: cleanEaClubName });
+      const res = await registerTournamentClub(
+        tournament.id,
+        effectiveId,
+        requiresAdminReview ? { eaClubName: cleanEaClubName } : {},
+      );
       
       if (!res.data.success) {
         await swalAlert(res.data.error || t("tournamentDetail.registrationFailed"));
@@ -430,6 +441,8 @@ export default function TournamentDetail() {
         await swalAlert("Registration submitted. Admin will review the EA FC club name before your club appears in the tournament.");
       } else if (updated.length >= tournament.max_teams) {
         await swalAlert(t("tournamentDetail.tournamentFull"));
+      } else {
+        await swalAlert("Club registered. This tournament is now visible in your club fixtures.");
       }
       setEaClubName("");
       setClubRegistrationOpen(false);
@@ -529,14 +542,72 @@ export default function TournamentDetail() {
     await swalAlert(`Scheduled ${shuffled.length} matches starting from ${parsedBaseDate.toLocaleString()}!`);
   }
 
-  async function _proposeSchedule() {
+  async function proposeSchedule() {
     if (!scheduleMatch || !scheduleDate) return;
-    await stageClient.entities.Match.update(scheduleMatch.id, { scheduled_date: toMysqlDateTime(scheduleDate) });
+    const isHomeTeam = String(scheduleMatch.home_club_id || "") === String(myClubId || "");
+    if (!isHomeTeam) {
+      await swalAlert("Only the home team can propose the tournament fixture time.");
+      return;
+    }
+
+    const proposedDate = toMysqlDateTime(scheduleDate);
+    if (!proposedDate) {
+      await swalAlert("Choose a valid date and time.");
+      return;
+    }
+
+    const awayEmails = await getClubManagerEmails(scheduleMatch.away_club_id);
+    if (!awayEmails.length) {
+      await swalAlert("Could not find an away club manager to notify.");
+      return;
+    }
+
+    const homeName = scheduleMatch.home_club_name || myClub?.name || "Home club";
+    const awayName = scheduleMatch.away_club_name || "Away club";
+    const displayDate = new Date(scheduleDate).toLocaleString();
+
+    await stageClient.entities.Match.update(scheduleMatch.id, {
+      scheduling_status: "home_proposed",
+      home_proposed_date: proposedDate,
+      away_proposed_date: null,
+      last_proposed_by: "home",
+      proposal_count: Number(scheduleMatch.proposal_count || 0) + 1,
+    });
+
+    await Promise.all(awayEmails.map((email, index) =>
+      stageClient.functions.invoke("sendInboxMessage", {
+        recipient_email: email,
+        sender_email: user?.email || myPlayer?.email || null,
+        sender_gamertag: myPlayer?.gamertag || myClub?.name || homeName,
+        sender_avatar_url: myClub?.logo_url || myPlayer?.avatar_url || null,
+        sender_club_name: myClub?.name || homeName,
+        subject: `Tournament fixture time proposed: ${homeName} vs ${awayName}`,
+        body: `${homeName} proposed ${displayDate} for ${tournament?.name || "this tournament"}.\n\nAccept or decline this time from your inbox. If you decline, the fixture stays open and the home team can propose another time.`,
+        message_type: "tournament_schedule",
+        action_type: "accept_decline",
+        related_entity_id: `${scheduleMatch.id}:${Date.now()}:${index}`,
+        related_entity_type: "tournament_match_schedule",
+        metadata: {
+          match_id: scheduleMatch.id,
+          tournament_id: tournament?.id || id,
+          proposed_date: proposedDate,
+          fixture_type: "tournament",
+          match_context: tournament?.name || "Tournament fixture",
+          home_club_id: scheduleMatch.home_club_id,
+          home_club_name: homeName,
+          away_club_id: scheduleMatch.away_club_id,
+          away_club_name: awayName,
+        },
+        send_notification: true,
+      })
+    ));
+
     const refreshed = await fetchTournamentMatches(id);
     setMatches(refreshed);
     setScheduleDialogOpen(false);
     setScheduleMatch(null);
     setScheduleDate("");
+    await swalAlert("Schedule proposal sent to the away team.");
   }
 
   async function resolveDispute(match, homeScore, awayScore) {
@@ -925,6 +996,7 @@ function resetUI() {
   if (!tournament) return <div className="p-6 lg:p-10 text-center"><p className="text-muted-foreground">{t("tournamentDetail.tournamentNotFound")}</p><Link to="/tournaments"><Button variant="outline" className="mt-4">{t("tournamentDetail.back")}</Button></Link></div>;
 
   const isPlayerTournament = tournament.participant_type === "player";
+  const requiresClubRegistrationReview = requiresClubTournamentAdminReview(tournament);
   const registeredClubs = allClubs.filter(c => tournament.registered_clubs?.includes(c.id));
   const effectiveClub = takeoverClub || myClub || allClubs.find(c => c.id === myPlayer?.club_id) || null;
   const effectiveClubId = effectiveClub?.id || null;
@@ -1027,7 +1099,7 @@ function resetUI() {
     : { background: `linear-gradient(135deg, ${tournament.banner_color || "#0f1923"} 0%, ${accentColor}22 100%)` };
 
   const tabs = [
-    { value: "bracket", label: t("tournamentDetail.tabBracket") },
+    { value: "bracket", label: "Fixtures" },
     ...(tournament.type === "group_stage" ? [{ value: "standings", label: t("tournamentDetail.tabGroupStandings") }] : []),
     ...(tournament.type === "league" ? [{ value: "league_standings", label: t("tournamentDetail.tabLeagueTable") }] : []),
     ...(tournament.type === "swiss_ucl" ? [{ value: "ucl_standings", label: t("tournamentDetail.tabSlTable") }] : []),
@@ -1122,10 +1194,18 @@ function resetUI() {
                 const entryFeeSTC = tournament.entry_fee_stc ?? 0;
                 const canAfford = (user?.credits ?? 0) >= entryCost && (clubData?.stc ?? 0) >= entryFeeSTC;
                 return (
-                    <Button onClick={() => setClubRegistrationOpen(true)} disabled={!takeoverClub && !canAfford}
+                    <Button
+                      onClick={() => {
+                        if (requiresClubRegistrationReview) {
+                          setClubRegistrationOpen(true);
+                        } else {
+                          registerClub();
+                        }
+                      }}
+                      disabled={registeringClub || (!takeoverClub && !canAfford)}
                       className="h-10 min-w-[210px] rounded-none border border-cyan-200/25 bg-black/24 px-7 font-heading text-xs font-black uppercase tracking-[0.12em] text-cyan-50/95 shadow-[0_0_24px_-16px_rgba(0,229,255,0.9)] backdrop-blur-md transition-all hover:border-cyan-200/55 hover:bg-cyan-300/10 hover:text-white hover:shadow-[0_0_24px_-10px_rgba(0,229,255,0.9)] focus-visible:ring-2 focus-visible:ring-cyan-300/50 disabled:border-white/10 disabled:text-white/45 disabled:opacity-55"
                       style={{ clipPath: "polygon(8% 0, 100% 0, 92% 100%, 0 100%)" }}>
-                      {takeoverClub ? t("tournamentDetail.registerClubNamed", { name: takeoverClub.name }) : t("tournamentDetail.registerMyClub")}
+                      {registeringClub ? "Registering..." : (takeoverClub ? t("tournamentDetail.registerClubNamed", { name: takeoverClub.name }) : t("tournamentDetail.registerMyClub"))}
                     </Button>
                 );
               })()}
@@ -1451,11 +1531,8 @@ function resetUI() {
               <KnockoutBracket
                 matches={bracketMatches}
                 myClubId={myClubId}
-                onSubmit={(match) => { setActiveMatch(match); setResultDialogOpen(true); }}
                 onSchedule={(match) => { setScheduleMatch(match); setScheduleDate(toDatetimeLocalValue(match.scheduled_date)); setScheduleDialogOpen(true); }}
                 onViewStats={(match) => { setStatsMatch(match); setStatsModalOpen(true); }}
-                onAddStream={(match) => { setStreamMatch(match); setStreamUrl(match.stream_url || ""); setStreamDialogOpen(true); }}
-                onForfeit={(match) => { setForfeitMatch(match); setForfeitDialogOpen(true); }}
               />
             </div>
           ) : (
@@ -1576,28 +1653,16 @@ function resetUI() {
                               </div>
                             )}
 
-                            {isMyMatch && (match.status === "scheduled" || match.status === "in_progress" || match.status === "awaiting_confirmation") && (
+                            {isMyMatch && match.home_club_id === myClubId && (match.status === "unscheduled" || match.status === "scheduled" || match.status === "in_progress" || match.status === "awaiting_confirmation") && (
                               <div className="mt-3 pt-2.5 border-t border-border/60 flex flex-wrap gap-1.5 justify-end">
-                                <Button size="sm" type="button" variant="outline" onClick={() => { setScheduleMatch(match); setScheduleDate(toDatetimeLocalValue(match.scheduled_date)); setScheduleDialogOpen(true); }}
-                                  className="border-border text-xs text-muted-foreground h-7">{t("nav.schedule")}</Button>
-                                {match.status !== "awaiting_confirmation" && (
-                                  <Button size="sm" type="button" onClick={() => { setActiveMatch(match); setResultDialogOpen(true); }}
-                                    className="bg-primary/10 text-primary hover:bg-primary/20 border-0 text-xs h-7">
-                                    Submit Result
-                                  </Button>
+                                {match.scheduling_status === "home_proposed" ? (
+                                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                    Proposal sent
+                                  </span>
+                                ) : (
+                                  <Button size="sm" type="button" variant="outline" onClick={() => { setScheduleMatch(match); setScheduleDate(toDatetimeLocalValue(match.scheduled_date || match.home_proposed_date)); setScheduleDialogOpen(true); }}
+                                    className="border-border text-xs text-muted-foreground h-7">{t("nav.schedule")}</Button>
                                 )}
-                                {match.status === "awaiting_confirmation" && !((match.home_club_id === myClubId && match.result_home_submitted) || (match.away_club_id === myClubId && match.result_away_submitted)) && (
-                                  <Button size="sm" type="button" onClick={() => { setActiveMatch(match); setResultDialogOpen(true); }}
-                                    className="bg-warning/10 text-warning hover:bg-warning/20 border border-warning/30 text-xs h-7">
-                                    Confirm Score
-                                  </Button>
-                                )}
-                                <Button size="sm" type="button" variant="outline" onClick={() => { setStreamMatch(match); setStreamUrl(match.stream_url || ""); setStreamDialogOpen(true); }}
-                                  className="border-primary/30 text-primary hover:bg-primary/5 text-xs h-7">{t("commonPages.tdStream")}</Button>
-                                <Button size="sm" type="button" variant="outline" onClick={() => { setForfeitMatch(match); setForfeitDialogOpen(true); }}
-                                  className="border-destructive/30 text-destructive text-xs h-7">
-                                  <Flag className="w-3 h-3 mr-1" /> {t("tournamentDetail.forfeit")}
-                                </Button>
                               </div>
                             )}
 
@@ -1829,7 +1894,7 @@ function resetUI() {
             <Button
               type="button"
               onClick={registerClub}
-              disabled={registeringClub || !eaClubName.trim()}
+              disabled={registeringClub || (requiresClubRegistrationReview && !eaClubName.trim())}
               className="h-12 w-full rounded-none bg-cyan-400 font-heading text-sm font-black uppercase tracking-[0.16em] text-black hover:bg-cyan-300 disabled:opacity-45"
               style={{ clipPath: "polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%)" }}
             >
@@ -1847,6 +1912,51 @@ function resetUI() {
           onSave={(updates) => setTournament(prev => ({ ...prev, ...updates }))}
         />
       )}
+
+      <Dialog open={scheduleDialogOpen} onOpenChange={(open) => {
+        setScheduleDialogOpen(open);
+        if (!open) {
+          setScheduleMatch(null);
+          setScheduleDate("");
+        }
+      }}>
+        <DialogContent className="bg-card border-border max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl">{t("nav.schedule")}</DialogTitle>
+          </DialogHeader>
+          {scheduleMatch && (
+            <div className="space-y-4 mt-2">
+              <div className="rounded-xl border border-border/70 bg-secondary/30 p-3">
+                <p className="text-sm font-bold text-foreground">
+                  {scheduleMatch.home_club_name} vs {scheduleMatch.away_club_name}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Home team proposes the date and time. Away team accepts or declines from their inbox.
+                </p>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground uppercase tracking-wider block mb-1">
+                  Proposed date and time
+                </label>
+                <Input
+                  type="datetime-local"
+                  value={scheduleDate}
+                  onChange={(event) => setScheduleDate(event.target.value)}
+                  className="bg-secondary border-border"
+                />
+              </div>
+              <Button
+                type="button"
+                onClick={proposeSchedule}
+                disabled={!scheduleDate}
+                className="w-full bg-primary text-primary-foreground"
+              >
+                Send to Away Team
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={forfeitDialogOpen} onOpenChange={setForfeitDialogOpen}>
         <DialogContent className="bg-card border-border">
