@@ -41,6 +41,10 @@ export function getGameDayTileBackgroundStyle(config) {
   };
 }
 
+export function hasCustomGameDayTileBackground(config) {
+  return Boolean(config?.url && config?.type && config.type !== "default");
+}
+
 export default function GameDayTileBackgroundDialog({
   open,
   onOpenChange,
@@ -59,6 +63,7 @@ export default function GameDayTileBackgroundDialog({
   const [x, setX] = useState(50);
   const [y, setY] = useState(50);
   const [zoom, setZoom] = useState(120);
+  const currentConfig = getGameDayTileBackgroundConfig(player, tileKey);
 
   useEffect(() => {
     if (!open || !canCustomize) return undefined;
@@ -100,7 +105,7 @@ export default function GameDayTileBackgroundDialog({
         ...payload,
         tile_key: tileKey,
       });
-      onPlayerChanged?.(updated);
+      onPlayerChanged?.({ ...player, ...updated });
       setFile(null);
       setPreview("");
       onOpenChange(false);
@@ -191,13 +196,19 @@ export default function GameDayTileBackgroundDialog({
                 </div>
               ) : backgrounds.length ? (
                 <div className="grid max-h-52 grid-cols-2 gap-2 overflow-y-auto pr-1 sm:grid-cols-3">
-                  {backgrounds.map((bg) => (
+                  {backgrounds.map((bg) => {
+                    const isActive = currentConfig.type === "official"
+                      && String(currentConfig.background_id || "") === String(bg.id);
+                    return (
                     <button
                       key={bg.id}
                       type="button"
                       disabled={Boolean(saving)}
                       onClick={() => saveBackground({ type: "official", background_id: bg.id }, bg.id)}
-                      className="overflow-hidden border border-white/10 bg-black/30 text-left transition hover:border-[#d8dee8]/60"
+                      className={cn(
+                        "overflow-hidden border bg-black/30 text-left transition hover:border-[#d8dee8]/60",
+                        isActive ? "border-[#f8fbff] ring-2 ring-[#f8fbff]/70" : "border-white/10",
+                      )}
                     >
                       <div className="aspect-[16/9] bg-black">
                         <img src={bg.image_url} alt={bg.name} className="h-full w-full object-cover" />
@@ -207,7 +218,8 @@ export default function GameDayTileBackgroundDialog({
                         {saving === bg.id ? <Loader2 className="h-3.5 w-3.5 animate-spin text-[#d8dee8]" /> : null}
                       </div>
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="border border-dashed border-white/10 py-8 text-center text-sm text-white/40">

@@ -35,7 +35,7 @@ const ADMIN_ONLY_PLAYER_FIELDS = [
 ];
 
 const CAREER_TILE_KEYS = new Set(['upcoming', 'club', 'player', 'transfers']);
-const GAME_DAY_TILE_KEYS = new Set(['match_screens', 'dressing_room']);
+const GAME_DAY_TILE_KEYS = new Set(['match_screens', 'match_details', 'dressing_room']);
 
 function isAdmin(user) {
   return [0, 2].includes(Number(user?.role_id));

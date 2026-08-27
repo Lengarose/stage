@@ -35,6 +35,7 @@ export default function GameDayKickoffArena({
   const isFinished = status === "completed" || status === "forfeit";
   const showScore = isLive || isFinished;
   const countdown = !isLive && !isFinished ? getKickoffCountdownParts(date, now) : null;
+  const hasCustomBackground = Boolean(backgroundStyle?.backgroundImage);
 
   useEffect(() => {
     if (isLive || isFinished) return undefined;
@@ -45,27 +46,48 @@ export default function GameDayKickoffArena({
   return (
     <section className="relative overflow-hidden border border-[#d8dee8]/22 bg-[#080b10] text-white shadow-[0_0_88px_-28px_rgba(238,243,251,0.38)]">
       {backgroundStyle ? (
-        <div aria-hidden className="absolute inset-0 bg-cover bg-center opacity-60" style={backgroundStyle} />
+        <div
+          aria-hidden
+          className={cn(
+            "absolute inset-0 bg-no-repeat",
+            hasCustomBackground ? "opacity-100" : "bg-cover bg-center opacity-60",
+          )}
+          style={backgroundStyle}
+        />
       ) : null}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background: [
-            "radial-gradient(ellipse 90% 55% at 50% -8%, rgba(238,243,251,0.30), transparent 52%)",
-            "radial-gradient(ellipse 42% 58% at 12% 48%, rgba(255,255,255,0.18), transparent 58%)",
-            "radial-gradient(ellipse 42% 58% at 88% 48%, rgba(142,238,255,0.12), transparent 58%)",
-            "linear-gradient(110deg, #151b25 0%, #0a0d13 48%, #242b36 100%)",
-            "repeating-linear-gradient(90deg, rgba(255,255,255,0.035) 0px, rgba(255,255,255,0.035) 1px, transparent 1px, transparent 72px)",
-          ].join(", "),
-        }}
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute left-1/2 top-[42%] h-[220px] w-[220px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10 sm:h-[280px] sm:w-[280px]"
-      />
-      <div aria-hidden className="pointer-events-none absolute inset-x-[12%] top-[42%] h-px bg-white/10" />
-      <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/35 via-transparent to-black/70" />
+
+      {hasCustomBackground ? (
+        <>
+          <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/50 via-black/20 to-black/72" />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute left-1/2 top-[42%] h-[220px] w-[220px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10 sm:h-[280px] sm:w-[280px]"
+          />
+          <div aria-hidden className="pointer-events-none absolute inset-x-[12%] top-[42%] h-px bg-white/10" />
+        </>
+      ) : (
+        <>
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0"
+            style={{
+              background: [
+                "radial-gradient(ellipse 90% 55% at 50% -8%, rgba(238,243,251,0.30), transparent 52%)",
+                "radial-gradient(ellipse 42% 58% at 12% 48%, rgba(255,255,255,0.18), transparent 58%)",
+                "radial-gradient(ellipse 42% 58% at 88% 48%, rgba(142,238,255,0.12), transparent 58%)",
+                "linear-gradient(110deg, #151b25 0%, #0a0d13 48%, #242b36 100%)",
+                "repeating-linear-gradient(90deg, rgba(255,255,255,0.035) 0px, rgba(255,255,255,0.035) 1px, transparent 1px, transparent 72px)",
+              ].join(", "),
+            }}
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute left-1/2 top-[42%] h-[220px] w-[220px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10 sm:h-[280px] sm:w-[280px]"
+          />
+          <div aria-hidden className="pointer-events-none absolute inset-x-[12%] top-[42%] h-px bg-white/10" />
+          <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/35 via-transparent to-black/70" />
+        </>
+      )}
 
       <div className="relative z-[1] px-4 pb-5 pt-4 sm:px-8 sm:pb-6 sm:pt-5">
         <div className="mb-4 flex items-start justify-between gap-3">

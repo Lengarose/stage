@@ -555,7 +555,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
         tileKey={tileBackgroundDialog?.tileKey}
         tileTitle={tileBackgroundDialog?.title}
         canCustomize={canCustomizeGameDayTiles}
-        onPlayerChanged={setMyPlayer}
+        onPlayerChanged={(updated) => setMyPlayer((prev) => ({ ...(prev || {}), ...updated }))}
       />
     </div>
   );
