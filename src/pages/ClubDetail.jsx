@@ -3001,6 +3001,7 @@ function FixtureRow({
   onToggleResponses,
   busyAvailability,
   onSetAvailability,
+  onFixturesRefresh,
   t,
 }) {
   const isHome = fixture.home_club_id === clubId;

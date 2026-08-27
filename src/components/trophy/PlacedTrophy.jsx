@@ -20,6 +20,7 @@ export default function PlacedTrophy({ placement, editMode, cabinetRef, cabinetS
   const [draftPosition, setDraftPosition] = useState(null);
   const [draftScale, setDraftScale] = useState(null);
   const dragStart = useRef(null);
+  const dragCleanup = useRef(null);
   const scaleDraftRef = useRef(null);
   const frameRef = useRef(null);
 
@@ -27,12 +28,16 @@ export default function PlacedTrophy({ placement, editMode, cabinetRef, cabinetS
   const yPercent = draftPosition?.y_percent ?? placement.y_percent;
   const scale = draftScale ?? placement.scale ?? 1;
 
+  useEffect(() => () => dragCleanup.current?.(), []);
+
   function handlePointerDown(e) {
     if (!editMode) return;
     e.preventDefault();
     e.stopPropagation();
+    dragCleanup.current?.();
     e.currentTarget.setPointerCapture?.(e.pointerId);
     const rect = cabinetRef.current.getBoundingClientRect();
+    const pointerId = e.pointerId;
     dragStart.current = {
       startX: e.clientX,
       startY: e.clientY,
@@ -45,16 +50,13 @@ export default function PlacedTrophy({ placement, editMode, cabinetRef, cabinetS
     };
     setDraftPosition({ x_percent: xPercent, y_percent: yPercent });
     setDragging(true);
-  }
 
-  useEffect(() => {
-    if (!dragging) return;
-
-    function handlePointerMove(e) {
+    function handlePointerMove(event) {
+      if (pointerId != null && event.pointerId !== pointerId) return;
       if (!dragStart.current) return;
       const { startX, startY, origX, origY, rectW, rectH } = dragStart.current;
-      const dx = ((e.clientX - startX) / rectW) * 100;
-      const dy = ((e.clientY - startY) / rectH) * 100;
+      const dx = ((event.clientX - startX) / rectW) * 100;
+      const dy = ((event.clientY - startY) / rectH) * 100;
       const newX = Math.max(5, Math.min(95, origX + dx));
       const newY = Math.max(5, Math.min(95, origY + dy));
       dragStart.current.lastX = newX;
@@ -69,7 +71,16 @@ export default function PlacedTrophy({ placement, editMode, cabinetRef, cabinetS
       });
     }
 
-    function handlePointerUp() {
+    function cleanupDragListeners() {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
+      dragCleanup.current = null;
+    }
+
+    function handlePointerUp(event) {
+      if (pointerId != null && event.pointerId !== pointerId) return;
+      cleanupDragListeners();
       if (frameRef.current) {
         cancelAnimationFrame(frameRef.current);
         frameRef.current = null;
@@ -92,11 +103,9 @@ export default function PlacedTrophy({ placement, editMode, cabinetRef, cabinetS
 
     window.addEventListener("pointermove", handlePointerMove);
     window.addEventListener("pointerup", handlePointerUp);
-    return () => {
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", handlePointerUp);
-    };
-  }, [dragging, placement.id, onMove, onMoveSave]);
+    window.addEventListener("pointercancel", handlePointerUp);
+    dragCleanup.current = cleanupDragListeners;
+  }
 
   function commitScale(nextScale) {
     const safeScale = Math.max(0.3, Math.min(3, Number(nextScale) || 1));
@@ -180,7 +189,14 @@ export default function PlacedTrophy({ placement, editMode, cabinetRef, cabinetS
           style={{ top: -Math.max(20, size * 0.35), pointerEvents: "all" }}
           onPointerDown={e => e.stopPropagation()}
         >
-          <Move className="w-3.5 h-3.5 text-white/70" />
+          <button
+            type="button"
+            aria-label="Move trophy"
+            onPointerDown={handlePointerDown}
+            className="cursor-grab p-0.5 text-white/70 hover:text-cyan-200 active:cursor-grabbing"
+          >
+            <Move className="w-3.5 h-3.5" />
+          </button>
           <button type="button" onClick={(e) => { e.stopPropagation(); scaleBy(-0.15); }} className="text-white hover:text-primary p-0.5"><ZoomOut className="w-3.5 h-3.5" /></button>
           <input
             aria-label="Resize trophy"

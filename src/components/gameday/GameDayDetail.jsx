@@ -3,7 +3,7 @@ import { stageClient } from "@/api/stageClient";
 import { processMatchRevenue, processSoloMatchRevenue } from "@/lib/matchRevenue";
 import { syncPlayerCareerStats } from "@/lib/gameDayIntegration";
 import { parseISO, isValid, differenceInMinutes } from "@/lib/momentDate";
-import { Target, Zap, MessageSquare, Play, Flag, Clock, CheckCircle2, Ticket, UserCheck } from "lucide-react";
+import { Target, Zap, MessageSquare, Play, Flag, Clock, CheckCircle2, Ticket, UserCheck, MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -21,6 +21,7 @@ import { getResultSubmissionControls, getKickoffControls, isClubGameDayMatch } f
 import { getMatchSideNames } from "@/lib/gameDayPresentation";
 import { sameRecordId } from "@/lib/gameDayRealtime";
 import { useGameDayMatchRealtime } from "@/lib/useGameDayMatchRealtime";
+import { getGameDayTileBackgroundStyle } from "./GameDayTileBackgroundDialog";
 
 function parseDate(d) {
   if (!d) return null;
@@ -62,6 +63,9 @@ export default function GameDayDetail({
   chatOpen = false,
   onOpsOpenChange,
   onChatOpenChange,
+  matchDetailsBackgroundConfig,
+  dressingRoomBackgroundConfig,
+  onOpenTileBackgroundDialog,
 }) {
   const { t } = useTranslation();
   const [game, setGame] = useState(initialGame);
@@ -337,6 +341,8 @@ export default function GameDayDetail({
     || showResultForm
   );
   const showDressingRoomPanel = isClubMatch && isMyMatch && myClub && !isDisputed;
+  const matchDetailsBackgroundStyle = getGameDayTileBackgroundStyle(matchDetailsBackgroundConfig);
+  const dressingRoomBackgroundStyle = getGameDayTileBackgroundStyle(dressingRoomBackgroundConfig);
   const updateDressingCountForClub = ({ clubId, seatedPlayers }) => {
     const count = Array.isArray(seatedPlayers) ? seatedPlayers.length : 0;
     setDressingCounts((prev) => {
@@ -347,7 +353,7 @@ export default function GameDayDetail({
   };
 
   return (
-    <div className="overflow-hidden border border-[#f5c542]/20 bg-[#05080f] shadow-[0_0_80px_-24px_rgba(245,197,66,0.35)]">
+    <div className="space-y-5">
       <GameDayKickoffArena
         homeName={home}
         awayName={away}
@@ -365,6 +371,8 @@ export default function GameDayDetail({
         awayScore={game.away_score}
         wagerStc={game.wager_stc}
         wagerLocked={Boolean(game.wager_home_locked && game.wager_away_locked)}
+        backgroundStyle={matchDetailsBackgroundStyle}
+        onChangeBackground={() => onOpenTileBackgroundDialog?.({ tileKey: "match_details", title: "Match Details" })}
       >
         {showKickoffDock ? (
           <div className="space-y-2">
@@ -377,12 +385,12 @@ export default function GameDayDetail({
               <div className="space-y-2">
                 {kickoffControls.tooEarly && (
                   <div className="flex items-center gap-2 rounded-sm border border-white/10 bg-black/40 px-3 py-2 text-xs text-white/70">
-                    <Clock className="h-3.5 w-3.5 shrink-0 text-[#f5c542]" />
+                    <Clock className="h-3.5 w-3.5 shrink-0 text-[#f8fbff]" />
                     {t("matchFlow.kickoffAvailable")}
                   </div>
                 )}
                 {kickoffControls.dressingBlocked && (
-                  <div className="flex items-start gap-2 rounded-sm border border-[#f5c542]/30 bg-[#f5c542]/10 px-3 py-2 text-xs text-[#f5c542]">
+                  <div className="flex items-start gap-2 rounded-sm border border-[#d8dee8]/30 bg-[#d8dee8]/10 px-3 py-2 text-xs text-[#dbe4ef]">
                     <UserCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                     <div className="space-y-0.5">
                       <p className="font-semibold">{t("matchFlow.dressingRoomsNotReady")}</p>
@@ -399,7 +407,7 @@ export default function GameDayDetail({
                 <Button
                   onClick={handleKickoff}
                   disabled={kickoffLoading || !kickoffControls.canPressKickoff}
-                  className="h-14 w-full gap-2 rounded-sm bg-gradient-to-b from-[#ffe27a] to-[#c9a227] font-heading text-xl font-black uppercase tracking-[0.28em] text-black shadow-[0_0_40px_rgba(245,197,66,0.4)] hover:from-[#fff0a8] hover:to-[#d4ad30] disabled:from-[#2a2410] disabled:to-[#1a1608] disabled:text-[#8a7a40] disabled:shadow-none"
+                  className="h-14 w-full gap-2 rounded-sm bg-gradient-to-r from-white via-[#eef3fb] to-[#aeb8c6] font-heading text-xl font-black uppercase tracking-[0.28em] text-[#111827] shadow-[0_0_42px_rgba(238,243,251,0.34)] hover:brightness-110 disabled:from-[#1f2430] disabled:via-[#161b24] disabled:to-[#111827] disabled:text-white/25 disabled:shadow-none"
                 >
                   {kickoffLoading
                     ? <div className="h-5 w-5 animate-spin rounded-full border-2 border-black/20 border-t-black" />
@@ -418,7 +426,7 @@ export default function GameDayDetail({
                   {t("matchFlow.waitingHomeKickoff")}
                 </div>
                 {isClubMatch && !bothClubsReady && (
-                  <div className="flex items-start gap-2 rounded-sm border border-[#f5c542]/30 bg-[#f5c542]/10 px-3 py-2 text-xs text-[#f5c542]">
+                  <div className="flex items-start gap-2 rounded-sm border border-[#d8dee8]/30 bg-[#d8dee8]/10 px-3 py-2 text-xs text-[#dbe4ef]">
                     <UserCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                     <div className="space-y-0.5">
                       <p className="font-semibold">{t("matchFlow.kickoffBlocked")}</p>
@@ -439,24 +447,38 @@ export default function GameDayDetail({
       </GameDayKickoffArena>
 
       {showDressingRoomPanel && (
-        <section className="border-t border-[#00e5ff]/15 bg-gradient-to-r from-[#06131e] via-black/35 to-[#071827] px-4 py-4 sm:px-6">
-          <div className="mx-auto max-w-4xl border border-[#00e5ff]/25 bg-black/35 p-4 shadow-[0_0_32px_-18px_rgba(0,229,255,0.65)] [clip-path:polygon(18px_0,100%_0,calc(100%_-_18px)_100%,0_100%)] sm:p-5">
+        <section className="relative bg-gradient-to-r from-[#171d27] via-black/40 to-[#202632] px-4 py-4 sm:px-6">
+          <div className="relative mx-auto max-w-5xl overflow-hidden border border-[#eef3fb]/28 bg-black/35 p-4 shadow-[0_0_38px_-18px_rgba(238,243,251,0.65)] [clip-path:polygon(18px_0,100%_0,calc(100%_-_18px)_100%,0_100%)] sm:p-5">
+            {dressingRoomBackgroundStyle ? (
+              <div aria-hidden className="absolute inset-0 opacity-60" style={dressingRoomBackgroundStyle} />
+            ) : null}
+            <div aria-hidden className="absolute inset-0 bg-[radial-gradient(circle_at_15%_5%,rgba(255,255,255,0.20),transparent_20%),radial-gradient(circle_at_80%_0%,rgba(216,222,232,0.28),transparent_26%),linear-gradient(110deg,rgba(25,31,42,0.9),rgba(4,5,9,0.74),rgba(33,39,50,0.9))]" />
+            <div aria-hidden className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#f8fbff] to-transparent" />
+            <div className="relative z-[1]">
             <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="font-heading text-[11px] font-black uppercase tracking-[0.2em] text-[#00e5ff]">
+                <p className="font-heading text-[11px] font-black uppercase tracking-[0.2em] text-[#f8fbff]">
                   {t("matchFlow.dressingRoom")}
                 </p>
                 <p className="mt-1 text-xs text-white/55">
                   Available players take a seat here before kickoff so they can be featured in the game.
                 </p>
               </div>
-              <div className="flex gap-2 text-[10px] font-black uppercase tracking-[0.14em]">
-                <span className="border border-[#f5c542]/35 bg-[#f5c542]/10 px-2.5 py-1 text-[#f5c542] [clip-path:polygon(7px_0,100%_0,calc(100%_-_7px)_100%,0_100%)]">
+              <div className="flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-[0.14em]">
+                <span className="border border-white/20 bg-white/10 px-2.5 py-1 text-white/80 [clip-path:polygon(7px_0,100%_0,calc(100%_-_7px)_100%,0_100%)]">
                   Home {dressingCounts.home}
                 </span>
-                <span className="border border-[#00e5ff]/35 bg-[#00e5ff]/10 px-2.5 py-1 text-[#00e5ff] [clip-path:polygon(7px_0,100%_0,calc(100%_-_7px)_100%,0_100%)]">
+                <span className="border border-[#8eeeff]/35 bg-[#8eeeff]/10 px-2.5 py-1 text-[#8eeeff] [clip-path:polygon(7px_0,100%_0,calc(100%_-_7px)_100%,0_100%)]">
                   Away {dressingCounts.away}
                 </span>
+                <button
+                  type="button"
+                  aria-label="Change Dressing Room background"
+                  onClick={() => onOpenTileBackgroundDialog?.({ tileKey: "dressing_room", title: "Dressing Room" })}
+                  className="flex h-8 w-8 items-center justify-center border border-white/15 bg-black/35 text-white/65 transition hover:border-[#f8fbff]/60 hover:bg-[#d8dee8]/15 hover:text-white [clip-path:polygon(7px_0,100%_0,calc(100%_-_7px)_100%,0_100%)]"
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </button>
               </div>
             </div>
             <GameDayDressingRoom
@@ -466,13 +488,14 @@ export default function GameDayDetail({
               user={user}
               onSeatChange={updateDressingCountForClub}
             />
+            </div>
           </div>
         </section>
       )}
 
       {showResultDock && (
-        <section className="border-t border-[#f5c542]/15 bg-black/45 px-4 py-4 sm:px-6">
-          <div className="mx-auto max-w-3xl space-y-3 border border-[#f5c542]/25 bg-[#090b08]/80 p-4 [clip-path:polygon(18px_0,100%_0,calc(100%_-_18px)_100%,0_100%)] sm:p-5">
+        <section className="border-t border-[#d8dee8]/15 bg-black/45 px-4 py-4 sm:px-6">
+          <div className="mx-auto max-w-3xl space-y-3 border border-[#d8dee8]/25 bg-[#111827]/80 p-4 [clip-path:polygon(18px_0,100%_0,calc(100%_-_18px)_100%,0_100%)] sm:p-5">
             {resultControls.showHomeSubmit && (
               <Button
                 onClick={() => setShowResultForm(true)}
@@ -491,19 +514,19 @@ export default function GameDayDetail({
               <Button
                 onClick={() => setShowResultForm(true)}
                 variant="outline"
-                className="h-12 w-full gap-2 rounded-sm border-warning font-heading text-sm font-black uppercase tracking-[0.18em] text-warning hover:text-warning"
+                className="h-12 w-full gap-2 rounded-sm border-[#f8fbff] font-heading text-sm font-black uppercase tracking-[0.18em] text-[#dbe4ef] hover:text-white"
               >
                 <Flag className="h-4 w-4" /> {t("matchFlow.submitMyResult")}
               </Button>
             )}
             {resultControls.showHomeWaitingForAway && (
-              <div className="flex items-center gap-2 rounded-sm border border-success/30 bg-success/10 px-3 py-2 text-xs text-success">
+              <div className="flex items-center gap-2 rounded-sm border border-[#8eeeff]/30 bg-[#8eeeff]/10 px-3 py-2 text-xs text-[#8eeeff]">
                 <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
                 {t("matchFlow.resultWaitingAway")}
               </div>
             )}
             {resultControls.showAwaySubmittedWaitingForHome && (
-              <div className="flex items-center gap-2 rounded-sm border border-success/30 bg-success/10 px-3 py-2 text-xs text-success">
+              <div className="flex items-center gap-2 rounded-sm border border-[#8eeeff]/30 bg-[#8eeeff]/10 px-3 py-2 text-xs text-[#8eeeff]">
                 <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
                 {t("matchFlow.resultWaitingHome")}
               </div>
@@ -528,7 +551,7 @@ export default function GameDayDetail({
       )}
 
       <Dialog open={opsOpen} onOpenChange={onOpsOpenChange}>
-        <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto border-[#f5c542]/20 bg-[#071018] p-0 text-white">
+        <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto border-[#d8dee8]/20 bg-[#111827] p-0 text-white">
           <DialogHeader className="px-5 pt-5">
             <DialogTitle className="font-heading text-sm font-black uppercase tracking-[0.18em] text-[#00e5ff]">
               {t("matchFlow.liveStream")}
@@ -604,9 +627,9 @@ export default function GameDayDetail({
       </Dialog>
 
       <Dialog open={chatOpen} onOpenChange={onChatOpenChange}>
-        <DialogContent className="flex max-h-[85vh] max-w-lg flex-col overflow-hidden border-[#f5c542]/20 bg-[#071018] p-0 text-white">
+        <DialogContent className="flex max-h-[85vh] max-w-lg flex-col overflow-hidden border-[#d8dee8]/20 bg-[#111827] p-0 text-white">
           <DialogHeader className="px-5 pt-5">
-            <DialogTitle className="font-heading text-sm font-black uppercase tracking-[0.18em] text-[#f5c542]">
+            <DialogTitle className="font-heading text-sm font-black uppercase tracking-[0.18em] text-[#f8fbff]">
               {t("matchFlow.chat")}
             </DialogTitle>
           </DialogHeader>
@@ -618,7 +641,7 @@ export default function GameDayDetail({
                 className="border-0"
               >
                 <TabsList className="h-auto w-full justify-start overflow-x-auto rounded-none border-b border-white/10 bg-black/30 p-0">
-                  <TabsTrigger value="chat" className="rounded-none font-heading text-[11px] uppercase tracking-[0.16em] data-[state=active]:border-b-2 data-[state=active]:border-[#f5c542] data-[state=active]:text-[#f5c542] flex items-center gap-1.5 whitespace-nowrap">
+                  <TabsTrigger value="chat" className="rounded-none font-heading text-[11px] uppercase tracking-[0.16em] data-[state=active]:border-b-2 data-[state=active]:border-[#f8fbff] data-[state=active]:text-[#f8fbff] flex items-center gap-1.5 whitespace-nowrap">
                     <MessageSquare className="w-3.5 h-3.5" /> {t("matchFlow.chat")}
                     {chatUnread > 0 && (
                       <span
@@ -630,7 +653,7 @@ export default function GameDayDetail({
                     )}
                   </TabsTrigger>
                   {isCompleted && (stats.length > 0 || hasGoalTimeline) && (
-                    <TabsTrigger value="stats" className="rounded-none font-heading text-[11px] uppercase tracking-[0.16em] data-[state=active]:border-b-2 data-[state=active]:border-[#f5c542] data-[state=active]:text-[#f5c542] flex items-center gap-1.5 whitespace-nowrap">
+                    <TabsTrigger value="stats" className="rounded-none font-heading text-[11px] uppercase tracking-[0.16em] data-[state=active]:border-b-2 data-[state=active]:border-[#f8fbff] data-[state=active]:text-[#f8fbff] flex items-center gap-1.5 whitespace-nowrap">
                       <Target className="w-3.5 h-3.5" /> {t("matchFlow.stats")}
                     </TabsTrigger>
                   )}

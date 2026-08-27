@@ -135,28 +135,30 @@ export default function GameDayDressingRoom({ game, myClub, myPlayer, user, onSe
   const seatedCount = seatedPlayerIds.length;
 
   return (
-    <div className="relative overflow-hidden border border-[#00e5ff]/25 bg-[#08111a] p-4 shadow-[inset_0_0_80px_rgba(0,0,0,0.55)] [clip-path:polygon(18px_0,100%_0,calc(100%_-_18px)_100%,0_100%)] sm:p-5">
-      <div className="pointer-events-none absolute inset-0 opacity-70">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(245,197,66,0.18),transparent_27%),radial-gradient(circle_at_12%_12%,rgba(0,229,255,0.2),transparent_22%),linear-gradient(180deg,rgba(12,30,45,0.72),rgba(3,8,13,0.96))]" />
-        <div className="absolute inset-x-0 top-0 h-24 bg-[repeating-linear-gradient(90deg,rgba(255,255,255,0.06)_0_1px,transparent_1px_72px)]" />
-        <div className="absolute inset-x-4 bottom-0 h-20 bg-[linear-gradient(90deg,transparent,rgba(245,197,66,0.12),transparent)] blur-xl" />
-        <div className="absolute bottom-8 left-8 right-8 h-px bg-gradient-to-r from-transparent via-[#f5c542]/45 to-transparent" />
+    <div className="relative overflow-hidden border border-[#eef3fb]/26 bg-[#141a24] p-4 shadow-[inset_0_0_90px_rgba(0,0,0,0.46),0_0_34px_-24px_rgba(238,243,251,0.72)] [clip-path:polygon(18px_0,100%_0,calc(100%_-_18px)_100%,0_100%)] sm:p-5">
+      <div className="pointer-events-none absolute inset-0 opacity-95">
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(37,43,54,0.88),rgba(10,13,19,0.9)),radial-gradient(circle_at_18%_0%,rgba(255,255,255,0.20),transparent_22%),radial-gradient(circle_at_74%_8%,rgba(216,222,232,0.26),transparent_26%)]" />
+        <div className="absolute inset-x-0 top-0 h-36 bg-[repeating-linear-gradient(90deg,rgba(255,255,255,0.08)_0_1px,transparent_1px_88px)]" />
+        <div className="absolute left-6 right-6 top-14 h-24 bg-[linear-gradient(90deg,rgba(255,255,255,0.05),rgba(255,255,255,0.12),rgba(255,255,255,0.05))] blur-2xl" />
+        <div className="absolute bottom-0 left-8 right-8 h-24 rounded-t-[40%] bg-[linear-gradient(90deg,rgba(255,255,255,0.08),rgba(216,222,232,0.18),rgba(142,238,255,0.08))] blur-xl" />
+        <div className="absolute bottom-10 left-8 right-8 h-px bg-gradient-to-r from-transparent via-white/35 to-transparent" />
+        <div className="absolute bottom-0 left-0 right-0 h-16 bg-[repeating-linear-gradient(90deg,rgba(255,255,255,0.04)_0_38px,rgba(0,0,0,0.18)_38px_76px)]" />
       </div>
 
       <div className="relative space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 items-center justify-center border border-[#f5c542]/40 bg-black/50 text-[#f5c542] [clip-path:polygon(9px_0,100%_0,calc(100%_-_9px)_100%,0_100%)]">
+            <div className="flex h-10 w-10 items-center justify-center border border-[#f8fbff]/40 bg-black/45 text-[#f8fbff] [clip-path:polygon(9px_0,100%_0,calc(100%_-_9px)_100%,0_100%)]">
               <Users className="h-4 w-4" />
             </div>
             <div>
               <p className="font-heading text-sm font-black uppercase tracking-[0.22em] text-white">Locker Room</p>
-              <p className="mt-1 max-w-xl text-xs text-white/55">
+              <p className="mt-1 max-w-xl text-xs text-white/65">
                 Only players who confirmed availability can take a seat before kickoff.
               </p>
             </div>
           </div>
-          <span className="w-fit border border-[#00e5ff]/35 bg-[#00e5ff]/10 px-3 py-1.5 font-heading text-[10px] font-black uppercase tracking-[0.16em] text-[#8eeeff] [clip-path:polygon(8px_0,100%_0,calc(100%_-_8px)_100%,0_100%)]">
+          <span className="w-fit border border-white/20 bg-white/10 px-3 py-1.5 font-heading text-[10px] font-black uppercase tracking-[0.16em] text-white/85 [clip-path:polygon(8px_0,100%_0,calc(100%_-_8px)_100%,0_100%)]">
             {seatedCount}/{clubPlayers.length} seated
           </span>
         </div>
@@ -173,9 +175,9 @@ export default function GameDayDressingRoom({ game, myClub, myPlayer, user, onSe
 
       {/* Rule reminder */}
       {!matchStarted && (
-        <div className="flex items-center gap-2 border border-[#f5c542]/25 bg-[#f5c542]/10 px-3 py-2">
-          <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-[#f5c542]" />
-          <p className="text-[11px] text-[#f5c542]">
+        <div className="flex items-center gap-2 border border-[#f8fbff]/25 bg-[#d8dee8]/10 px-3 py-2">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-[#f8fbff]" />
+          <p className="text-[11px] text-[#edf3fb]">
             Mark yourself available for this fixture first. Only available seated players receive ratings and stats.
           </p>
         </div>
@@ -196,9 +198,9 @@ export default function GameDayDressingRoom({ game, myClub, myPlayer, user, onSe
           className={cn(
             "flex min-h-12 w-full items-center justify-center gap-2 border px-4 font-heading text-xs font-black uppercase tracking-[0.18em] transition-all [clip-path:polygon(14px_0,100%_0,calc(100%_-_14px)_100%,0_100%)]",
             iAmSeated
-              ? "border-emerald-300/50 bg-emerald-300/10 text-emerald-200 hover:bg-emerald-300/15"
+              ? "border-[#8eeeff]/50 bg-[#8eeeff]/10 text-[#baf7ff] hover:bg-[#8eeeff]/15"
               : iAmAvailable
-                ? "border-[#f5c542]/55 bg-gradient-to-r from-[#f5c542]/85 to-[#00e5ff]/75 text-black hover:brightness-110"
+                ? "border-[#f8fbff]/55 bg-gradient-to-r from-[#ffffff] via-[#f8fbff] to-[#aeb8c6] text-[#111827] hover:brightness-110"
                 : "cursor-not-allowed border-white/10 bg-white/5 text-white/35"
           )}
         >
@@ -215,7 +217,7 @@ export default function GameDayDressingRoom({ game, myClub, myPlayer, user, onSe
       {/* Player grid (read-only display) */}
       <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-4">
         {clubPlayers.length === 0 && (
-          <div className="col-span-full border border-dashed border-white/15 bg-black/35 p-5 text-center text-[11px] uppercase tracking-widest text-white/45">
+        <div className="col-span-full border border-dashed border-white/18 bg-white/[0.04] p-5 text-center text-[11px] uppercase tracking-widest text-white/55">
             No players have marked themselves available yet.
           </div>
         )}
@@ -228,11 +230,11 @@ export default function GameDayDressingRoom({ game, myClub, myPlayer, user, onSe
               className={cn(
                 "group relative min-h-[116px] overflow-hidden border p-3 transition-all [clip-path:polygon(12px_0,100%_0,calc(100%_-_12px)_100%,0_100%)]",
                 isSeated
-                  ? "border-[#f5c542]/55 bg-[#f5c542]/10 shadow-[0_0_22px_-15px_rgba(245,197,66,0.9)]"
-                  : "border-white/10 bg-black/35 opacity-55"
+                  ? "border-[#f8fbff]/55 bg-[#d8dee8]/14 shadow-[0_0_24px_-14px_rgba(238,243,251,0.9)]"
+                  : "border-white/12 bg-black/32 opacity-65"
               )}
             >
-              <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),transparent_42%),repeating-linear-gradient(90deg,transparent_0_42px,rgba(255,255,255,0.04)_42px_43px)]" />
+              <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.09),transparent_42%),radial-gradient(circle_at_18%_8%,rgba(255,255,255,0.10),transparent_28%),repeating-linear-gradient(90deg,transparent_0_42px,rgba(255,255,255,0.035)_42px_43px)]" />
               <div className="relative flex h-full flex-col justify-between gap-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
@@ -244,7 +246,7 @@ export default function GameDayDressingRoom({ game, myClub, myPlayer, user, onSe
                   </div>
                   <div className={cn(
                     "h-3 w-3 shrink-0 rounded-full border",
-                    isSeated ? "border-emerald-200 bg-emerald-300 shadow-[0_0_12px_rgba(110,231,183,0.85)]" : "border-white/20 bg-white/10"
+                    isSeated ? "border-[#8eeeff] bg-[#8eeeff] shadow-[0_0_12px_rgba(142,238,255,0.85)]" : "border-white/20 bg-white/10"
                   )} />
                 </div>
                 <div className="flex items-end justify-between gap-3">
@@ -259,7 +261,7 @@ export default function GameDayDressingRoom({ game, myClub, myPlayer, user, onSe
                   </div>
                   <span className={cn(
                     "font-heading text-[10px] font-black uppercase tracking-[0.18em]",
-                    isSeated ? "text-[#f5c542]" : "text-white/35"
+                    isSeated ? "text-[#dbe4ef]" : "text-white/40"
                   )}>
                     {isSeated ? "Seat taken" : "Open seat"}
                   </span>

@@ -25,7 +25,7 @@ const DEFAULT_FORM = {
   tournament_entry_credits: TOURNAMENT_ENTRY_CREDITS,
   community_tournament_limit: 0,
   headline: "One membership for serious competitors",
-  description: "STAGE Plus unlocks official competitions, community tournament creation, full rankings, full stats, and a monthly credit refresh.",
+  description: "STAGE Plus unlocks official competitions, community tournament creation, full rankings, full stats, monthly credits, and premium visual customization across your football identity.",
   badge_image_url: "/uploads/stage-plus-badge.png",
   perks: [
     "150 credits refreshed every month",
@@ -42,6 +42,8 @@ const DEFAULT_FORM = {
     "Upload your own club stats tile background",
     "Custom Career tab tile backgrounds",
     "Upload your own career tile background",
+    "Custom Game Day panel backgrounds",
+    "Personalize Match Screens and Dressing Room tiles",
   ],
   is_active: 1,
 };

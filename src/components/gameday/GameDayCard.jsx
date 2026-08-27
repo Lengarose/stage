@@ -44,10 +44,10 @@ export default function GameDayCard({ game, selected, onClick, myClub, _myPlayer
       type="button"
       onClick={onClick}
       className={cn(
-        "flex w-full min-w-[246px] max-w-none shrink-0 items-center gap-3 border px-4 py-2.5 text-left transition-all [clip-path:polygon(14px_0,100%_0,calc(100%_-_14px)_100%,0_100%)]",
+        "flex w-full min-w-[246px] max-w-none shrink-0 items-center gap-3 border px-4 py-2.5 text-left transition-all",
         selected
-          ? "border-[#f5c542] bg-gradient-to-r from-[#f5c542]/20 via-[#0a1628] to-black shadow-[0_0_22px_rgba(245,197,66,0.22)]"
-          : "border-[#00e5ff]/20 bg-gradient-to-r from-[#071827]/70 via-black/50 to-[#06111d]/80 hover:border-[#00e5ff]/60 hover:bg-[#00e5ff]/10",
+          ? "border-[#f8fbff] bg-gradient-to-r from-white/22 via-[#18202b] to-black shadow-[0_0_24px_rgba(238,243,251,0.24)]"
+          : "border-white/12 bg-gradient-to-r from-[#151b25]/76 via-black/45 to-[#101723]/80 hover:border-[#f8fbff]/55 hover:bg-white/10",
       )}
     >
       <div className="flex items-center -space-x-2">
@@ -56,7 +56,7 @@ export default function GameDayCard({ game, selected, onClick, myClub, _myPlayer
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate font-heading text-[11px] font-black uppercase tracking-wide text-white">
-          {home} <span className="text-[#f5c542]">vs</span> {away}
+          {home} <span className="text-[#f8fbff]">vs</span> {away}
         </p>
         <p className="mt-0.5 truncate text-[10px] uppercase tracking-[0.16em] text-white/45">
           {date ? `${format(date, "EEE HH:mm")} · ` : ""}
@@ -65,10 +65,10 @@ export default function GameDayCard({ game, selected, onClick, myClub, _myPlayer
       </div>
       <div className="flex shrink-0 flex-col items-end gap-1">
         {live || game.home_stream_url || game.away_stream_url ? (
-          <Radio className="h-3 w-3 text-[#00e5ff] motion-safe:animate-pulse" />
+          <Radio className="h-3 w-3 text-[#8eeeff] motion-safe:animate-pulse" />
         ) : null}
         {isMyClubInvolved ? (
-          <span className="text-[8px] font-black uppercase tracking-widest text-[#f5c542]">{t("matchFlow.yourClub")}</span>
+          <span className="text-[8px] font-black uppercase tracking-widest text-[#f8fbff]">{t("matchFlow.yourClub")}</span>
         ) : (
           <span className="max-w-[72px] truncate text-[8px] uppercase tracking-widest text-white/35">{competition}</span>
         )}

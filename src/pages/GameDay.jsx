@@ -1,10 +1,14 @@
 import { useState, useEffect, useMemo } from "react";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { useSearchParams } from "react-router-dom";
-import { MessageSquare, Plus, Radio, RefreshCw, Zap } from "lucide-react";
+import { MessageSquare, MoreHorizontal, Plus, Radio, RefreshCw, Zap } from "lucide-react";
 import { useChatNotifications } from "@/lib/ChatNotificationsContext";
 import GameDayCard from "@/components/gameday/GameDayCard";
 import GameDayDetail from "@/components/gameday/GameDayDetail";
+import GameDayTileBackgroundDialog, {
+  getGameDayTileBackgroundConfig,
+  getGameDayTileBackgroundStyle,
+} from "@/components/gameday/GameDayTileBackgroundDialog";
 import ArrangeGameDialog from "@/components/schedule/ArrangeGameDialog";
 import { createMatchFromFixture } from "@/lib/gameDayIntegration";
 import { isActiveGameDayMatch } from "@/lib/gameDayPresentation";
@@ -14,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { useTranslation } from "@/hooks/useTranslation";
 import { cn } from "@/lib/utils";
+import { hasStagePlus } from "@/lib/subscriptionUtils";
 
 // Derive the "league group" a game belongs to for the filter dropdown.
 // We strip the trailing "· Matchday N" so every matchday of the same
@@ -60,6 +65,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
   const [chatOpen, setChatOpen] = useState(false);
   const [refreshTick, setRefreshTick] = useState(0);
   const [gameDayConfig, setGameDayConfig] = useState(null);
+  const [tileBackgroundDialog, setTileBackgroundDialog] = useState(null);
   const { getUnreadCount } = useChatNotifications();
   const chatUnread = selectedGame?.id ? getUnreadCount(selectedGame.id) : 0;
   // "all" or a group key (see groupKeyForGame). Stable across re-renders.
@@ -330,11 +336,15 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
 
   if (loading) {
     return (
-      <div className="flex h-full min-h-[60vh] items-center justify-center bg-[#05080f]">
-        <RefreshCw className="h-8 w-8 animate-spin text-[#f5c542]" />
+      <div className="flex h-full min-h-[60vh] items-center justify-center bg-[#07070b]">
+        <RefreshCw className="h-8 w-8 animate-spin text-[#eef3fb]" />
       </div>
     );
   }
+
+  const canCustomizeGameDayTiles = hasStagePlus(myPlayer?.subscription);
+  const matchScreensBackgroundConfig = getGameDayTileBackgroundConfig(myPlayer, "match_screens");
+  const matchScreensBackgroundStyle = getGameDayTileBackgroundStyle(matchScreensBackgroundConfig);
 
   const detail = selectedGame ? (
     <GameDayDetail
@@ -346,6 +356,10 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
       chatOpen={chatOpen}
       onOpsOpenChange={setOpsOpen}
       onChatOpenChange={setChatOpen}
+      matchDetailsBackgroundConfig={getGameDayTileBackgroundConfig(myPlayer, "match_details")}
+      dressingRoomBackgroundConfig={getGameDayTileBackgroundConfig(myPlayer, "dressing_room")}
+      canCustomizeGameDayTiles={canCustomizeGameDayTiles}
+      onOpenTileBackgroundDialog={setTileBackgroundDialog}
       onGameUpdate={(updated) => {
         if (!isActiveGameDayMatch(updated)) {
           setSelectedGame(prev => sameRecordId(prev?.id, updated.id) ? null : prev);
@@ -357,8 +371,8 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
       }}
     />
   ) : (
-    <div className="flex min-h-[360px] flex-col items-center justify-center border border-white/10 bg-[#071018] px-6 py-12 text-center [clip-path:polygon(18px_0,100%_0,calc(100%_-_18px)_100%,0_100%)]">
-      <Zap className="mb-3 h-10 w-10 text-[#f5c542]/30" />
+    <div className="flex min-h-[360px] flex-col items-center justify-center border border-white/10 bg-[#111827] px-6 py-12 text-center shadow-[inset_0_0_80px_rgba(238,243,251,0.08)] [clip-path:polygon(18px_0,100%_0,calc(100%_-_18px)_100%,0_100%)]">
+      <Zap className="mb-3 h-10 w-10 text-[#eef3fb]/35" />
       <p className="font-heading text-sm font-black uppercase tracking-[0.22em] text-white/50">
         {t("matchFlow.selectGameDetails")}
       </p>
@@ -380,38 +394,44 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "group relative h-12 min-w-[148px] overflow-hidden px-5 font-heading text-[11px] font-black uppercase tracking-[0.18em] transition-all [clip-path:polygon(14px_0,100%_0,calc(100%_-_14px)_100%,0_100%)]",
-        "border bg-slate-950/45 backdrop-blur-md disabled:cursor-not-allowed disabled:opacity-35",
-        tone === "gold"
-          ? "border-[#f5c542]/45 text-[#f5c542] shadow-[0_0_24px_-18px_rgba(245,197,66,1)] hover:bg-[#f5c542]/12"
-          : "border-[#66e8ff]/45 text-[#8eeeff] shadow-[0_0_24px_-18px_rgba(102,232,255,1)] hover:bg-[#00e5ff]/12",
+        "group relative h-9 min-w-[112px] overflow-hidden px-3.5 font-heading text-[9px] font-black uppercase tracking-[0.16em] transition-all [clip-path:polygon(12px_0,100%_0,calc(100%_-_12px)_100%,0_100%)] sm:h-10 sm:min-w-[124px] sm:px-4 sm:text-[10px]",
+        "border bg-black/20 text-white/75 backdrop-blur-md disabled:cursor-not-allowed disabled:opacity-35",
+        tone === "silver"
+          ? "border-[#eef3fb]/40 shadow-[0_0_24px_-18px_rgba(238,243,251,1)] hover:border-white/85"
+          : "border-[#8eeeff]/35 shadow-[0_0_24px_-18px_rgba(142,238,255,1)] hover:border-[#8eeeff]/75",
         className
       )}
     >
-      <span className="absolute inset-x-4 top-0 h-px bg-current opacity-50" />
-      <span className="absolute inset-x-4 bottom-0 h-px bg-current opacity-30" />
+      <span className={cn(
+        "absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100",
+        tone === "silver"
+          ? "bg-gradient-to-r from-[#d8dee8]/30 via-white/10 to-[#d8dee8]/20"
+          : "bg-gradient-to-r from-[#8eeeff]/22 via-white/10 to-[#8eeeff]/16"
+      )} />
+      <span className="absolute inset-x-4 top-0 h-px bg-current opacity-55" />
+      <span className="absolute inset-x-4 bottom-0 h-px bg-current opacity-35" />
       <span className="relative flex items-center justify-center gap-2">{children}</span>
     </button>
   );
 
   return (
-    <div className="min-h-full bg-[#05080f] text-white">
-      <section className="relative overflow-hidden border-b border-[#00e5ff]/25 bg-[#05080f]">
+    <div className="min-h-full bg-[#07070b] text-white">
+      <section className="relative overflow-hidden border-b border-[#d8dee8]/30 bg-[#07070b]">
         <div
-          className="absolute inset-0 bg-[radial-gradient(circle_at_75%_20%,rgba(0,229,255,0.24),transparent_28%),linear-gradient(110deg,#04111d_0%,#081827_42%,#140914_100%)]"
+          className="absolute inset-0 bg-[radial-gradient(circle_at_72%_22%,rgba(238,243,251,0.26),transparent_30%),radial-gradient(circle_at_20%_72%,rgba(255,255,255,0.18),transparent_28%),linear-gradient(110deg,#171c25_0%,#10141d_45%,#252b36_100%)]"
           style={bannerStyle}
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/82 via-black/36 to-black/70" />
-        <div className="absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-[#05080f] to-transparent" />
-        <div className="absolute bottom-0 left-[8%] h-px w-[68%] bg-gradient-to-r from-transparent via-[#00e5ff] to-transparent shadow-[0_0_24px_rgba(0,229,255,0.75)]" />
-        <div className="relative mx-auto flex min-h-[250px] max-w-[1600px] items-end justify-end px-4 py-6 sm:px-6 lg:px-8">
-          <div className="flex w-full flex-wrap items-center justify-end gap-3">
+        <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/24 to-black/62" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_48%_118%,rgba(255,255,255,0.16),transparent_36%)]" />
+        <div className="absolute bottom-0 left-[8%] h-px w-[74%] bg-gradient-to-r from-transparent via-[#eef3fb] to-transparent shadow-[0_0_24px_rgba(238,243,251,0.75)]" />
+        <div className="relative mx-auto flex min-h-[230px] max-w-[1600px] items-end justify-end px-4 py-5 sm:px-6 lg:px-8">
+          <div className="flex w-full flex-wrap items-center justify-end gap-2.5">
             {!scopedTournamentId && (
               <ActionTab
                 onClick={() => setArrangeOpen(true)}
-                tone="gold"
+                tone="silver"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-3.5 w-3.5" />
                 {t("matchFlow.arrangeGame")}
               </ActionTab>
             )}
@@ -419,19 +439,19 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
               disabled={!selectedGame}
               onClick={() => setOpsOpen(true)}
             >
-              <Radio className="h-4 w-4" />
+              <Radio className="h-3.5 w-3.5" />
               {t("matchFlow.liveStream")}
             </ActionTab>
             <ActionTab
               disabled={!selectedGame}
               onClick={() => setChatOpen(true)}
-              tone="gold"
+              tone="silver"
               className="relative"
             >
-              <MessageSquare className="h-4 w-4" />
+              <MessageSquare className="h-3.5 w-3.5" />
               {t("matchFlow.chat")}
               {chatUnread > 0 ? (
-                <span className="absolute -right-1.5 -top-1.5 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#00e5ff] px-1 text-[10px] font-semibold leading-none text-black">
+                <span className="absolute -right-1 -top-1 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#8eeeff] px-1 text-[10px] font-semibold leading-none text-black">
                   {chatUnread > 99 ? "99+" : chatUnread}
                 </span>
               ) : null}
@@ -440,18 +460,34 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
         </div>
       </section>
 
-      <div className="mx-auto grid max-w-[1600px] gap-5 px-4 py-5 sm:px-6 lg:grid-cols-[360px_minmax(0,1fr)] lg:px-8">
-        <aside className="border border-[#00e5ff]/20 bg-gradient-to-b from-[#071827]/90 via-[#06111d]/95 to-black/80 p-3 shadow-[0_0_36px_-24px_rgba(0,229,255,0.85)] [clip-path:polygon(18px_0,100%_0,calc(100%_-_18px)_100%,0_100%)] lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-hidden">
+      <div className="mx-auto grid max-w-[1600px] gap-5 px-4 py-5 sm:px-6 lg:grid-cols-[380px_minmax(0,1fr)] lg:px-8">
+        <aside className="relative overflow-hidden border border-[#eef3fb]/22 bg-gradient-to-b from-[#1b212c]/90 via-[#111827]/95 to-black/82 p-3 shadow-[0_0_42px_-24px_rgba(238,243,251,0.85)] lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)]">
+          {matchScreensBackgroundStyle ? (
+            <div aria-hidden className="absolute inset-0 bg-cover bg-center opacity-55" style={matchScreensBackgroundStyle} />
+          ) : null}
+          <div aria-hidden className="absolute inset-0 bg-[radial-gradient(circle_at_12%_8%,rgba(255,255,255,0.16),transparent_22%),radial-gradient(circle_at_80%_4%,rgba(216,222,232,0.24),transparent_24%),linear-gradient(180deg,rgba(24,30,40,0.84),rgba(7,7,11,0.96))]" />
+          <div aria-hidden className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#f8fbff] to-transparent" />
+          <div className="relative z-[1]">
           <div className="mb-3 flex items-center justify-between gap-3 px-2 pt-2">
             <div>
-              <p className="font-heading text-xs font-black uppercase tracking-[0.2em] text-[#00e5ff]">Match Screens</p>
+              <p className="font-heading text-xs font-black uppercase tracking-[0.2em] text-[#f8fbff]">Match Screens</p>
               <p className="mt-1 text-[10px] uppercase tracking-[0.16em] text-white/35">
                 {visibleGames.length}/{games.length} visible
               </p>
             </div>
+            {myPlayer ? (
+              <button
+                type="button"
+                aria-label="Change Match Screens background"
+                onClick={() => setTileBackgroundDialog({ tileKey: "match_screens", title: "Match Screens" })}
+                className="flex h-8 w-8 shrink-0 items-center justify-center border border-white/15 bg-black/35 text-white/65 transition hover:border-[#f8fbff]/60 hover:bg-[#d8dee8]/15 hover:text-white"
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </button>
+            ) : null}
             {leagueGroups.length > 1 && (
               <Select value={leagueFilter} onValueChange={setLeagueFilter}>
-                <SelectTrigger className="h-9 w-[150px] border-[#00e5ff]/25 bg-black/50 text-[10px] text-white [clip-path:polygon(9px_0,100%_0,calc(100%_-_9px)_100%,0_100%)]">
+                <SelectTrigger className="h-9 w-[150px] border-[#f8fbff]/25 bg-black/50 text-[10px] text-white">
                   <SelectValue placeholder={t("matchFlow.allLeagues")} />
                 </SelectTrigger>
                 <SelectContent className="max-h-[60vh]">
@@ -477,7 +513,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
               {games.length > 0 ? <p className="mt-1 text-xs text-white/35">{t("matchFlow.switchToAll")}</p> : null}
             </div>
           ) : (
-            <div className="flex gap-2 overflow-x-auto pb-1 lg:max-h-[calc(100vh-8rem)] lg:flex-col lg:overflow-y-auto lg:overflow-x-hidden lg:pr-1">
+            <div className="flex gap-2 overflow-x-auto pb-1 lg:max-h-[520px] lg:flex-col lg:overflow-y-auto lg:overflow-x-hidden lg:pr-1">
             {visibleGames.map(game => (
               <GameDayCard
                 key={game.id}
@@ -491,6 +527,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
             ))}
             </div>
           )}
+          </div>
         </aside>
 
         <div className="min-w-0">
@@ -507,6 +544,18 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
           setArrangeOpen(false);
           setRefreshTick(value => value + 1);
         }}
+      />
+
+      <GameDayTileBackgroundDialog
+        open={Boolean(tileBackgroundDialog)}
+        onOpenChange={(open) => {
+          if (!open) setTileBackgroundDialog(null);
+        }}
+        player={myPlayer}
+        tileKey={tileBackgroundDialog?.tileKey}
+        tileTitle={tileBackgroundDialog?.title}
+        canCustomize={canCustomizeGameDayTiles}
+        onPlayerChanged={setMyPlayer}
       />
     </div>
   );

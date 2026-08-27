@@ -21,6 +21,11 @@ class Player {
     this.player_card_background_url  = body.player_card_background_url;
     this.player_card_background_position = body.player_card_background_position;
     this.player_card_background_zoom = body.player_card_background_zoom;
+    this.game_day_tile_backgrounds = body.game_day_tile_backgrounds
+      ? (typeof body.game_day_tile_backgrounds === 'string'
+          ? body.game_day_tile_backgrounds
+          : JSON.stringify(body.game_day_tile_backgrounds))
+      : null;
     this.shirt_number            = body.shirt_number;
     this.overall_rating          = body.overall_rating;
     this.goals                   = body.goals;

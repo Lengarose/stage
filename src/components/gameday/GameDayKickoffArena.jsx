@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Coins, Lock } from "lucide-react";
+import { Coins, Lock, MoreHorizontal } from "lucide-react";
 import { format } from "@/lib/momentDate";
 import { cn } from "@/lib/utils";
 import { formatSTC } from "@/lib/playerValue";
@@ -26,6 +26,8 @@ export default function GameDayKickoffArena({
   awayScore,
   wagerStc = 0,
   wagerLocked = false,
+  backgroundStyle,
+  onChangeBackground,
   children,
 }) {
   const [now, setNow] = useState(() => new Date());
@@ -41,16 +43,20 @@ export default function GameDayKickoffArena({
   }, [isLive, isFinished]);
 
   return (
-    <section className="relative overflow-hidden text-white">
+    <section className="relative overflow-hidden border border-[#d8dee8]/22 bg-[#080b10] text-white shadow-[0_0_88px_-28px_rgba(238,243,251,0.38)]">
+      {backgroundStyle ? (
+        <div aria-hidden className="absolute inset-0 bg-cover bg-center opacity-60" style={backgroundStyle} />
+      ) : null}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"
         style={{
           background: [
-            "radial-gradient(ellipse 90% 55% at 50% -8%, rgba(245,197,66,0.22), transparent 52%)",
-            "radial-gradient(ellipse 42% 58% at 12% 48%, rgba(0,229,255,0.10), transparent 58%)",
-            "radial-gradient(ellipse 42% 58% at 88% 48%, rgba(0,229,255,0.10), transparent 58%)",
-            "repeating-linear-gradient(90deg, #08150f 0px, #08150f 56px, #0b1c13 56px, #0b1c13 112px)",
+            "radial-gradient(ellipse 90% 55% at 50% -8%, rgba(238,243,251,0.30), transparent 52%)",
+            "radial-gradient(ellipse 42% 58% at 12% 48%, rgba(255,255,255,0.18), transparent 58%)",
+            "radial-gradient(ellipse 42% 58% at 88% 48%, rgba(142,238,255,0.12), transparent 58%)",
+            "linear-gradient(110deg, #151b25 0%, #0a0d13 48%, #242b36 100%)",
+            "repeating-linear-gradient(90deg, rgba(255,255,255,0.035) 0px, rgba(255,255,255,0.035) 1px, transparent 1px, transparent 72px)",
           ].join(", "),
         }}
       />
@@ -64,7 +70,7 @@ export default function GameDayKickoffArena({
       <div className="relative z-[1] px-4 pb-5 pt-4 sm:px-8 sm:pb-6 sm:pt-5">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <p className="font-heading text-[11px] font-black uppercase tracking-[0.28em] text-[#f5c542]">
+            <p className="font-heading text-[11px] font-black uppercase tracking-[0.28em] text-[#f8fbff]">
               {competitionLabel}
             </p>
             {date ? (
@@ -73,16 +79,28 @@ export default function GameDayKickoffArena({
               </p>
             ) : null}
           </div>
-          <span
-            className={cn(
-              "rounded-sm px-2.5 py-1 font-heading text-[10px] font-black uppercase tracking-[0.22em]",
-              isLive && "bg-[#00e5ff] text-black motion-safe:animate-pulse",
-              isFinished && "bg-white/10 text-white/80",
-              !isLive && !isFinished && "bg-[#f5c542]/15 text-[#f5c542] ring-1 ring-[#f5c542]/40",
-            )}
-          >
-            {statusLabel}
-          </span>
+          <div className="flex items-center gap-2">
+            <span
+              className={cn(
+                "rounded-sm px-2.5 py-1 font-heading text-[10px] font-black uppercase tracking-[0.22em]",
+                isLive && "bg-[#00e5ff] text-black motion-safe:animate-pulse",
+                isFinished && "bg-white/10 text-white/80",
+                !isLive && !isFinished && "bg-white/12 text-[#eef3fb] ring-1 ring-white/35",
+              )}
+            >
+              {statusLabel}
+            </span>
+            {onChangeBackground ? (
+              <button
+                type="button"
+                aria-label="Change Match Details background"
+                onClick={onChangeBackground}
+                className="flex h-8 w-8 shrink-0 items-center justify-center border border-white/15 bg-black/35 text-white/65 transition hover:border-[#f8fbff]/60 hover:bg-[#d8dee8]/15 hover:text-white"
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </button>
+            ) : null}
+          </div>
         </div>
 
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-6">
@@ -98,15 +116,15 @@ export default function GameDayKickoffArena({
             {showScore ? (
               <p className="font-heading text-4xl font-black tabular-nums text-white sm:text-5xl">
                 {homeScore ?? 0}
-                <span className="mx-2 text-[#f5c542]">–</span>
+                <span className="mx-2 text-white/55">–</span>
                 {awayScore ?? 0}
               </p>
             ) : (
               <div
-                className="flex h-12 w-12 items-center justify-center bg-gradient-to-b from-[#ffe27a] to-[#c9a227] text-black sm:h-14 sm:w-14"
-                style={{ clipPath: "polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)" }}
+                className="flex h-12 w-16 items-center justify-center border border-[#f8fbff]/35 bg-white/10 text-white shadow-[0_0_24px_-16px_rgba(255,255,255,0.8)] sm:h-14 sm:w-20"
+                style={{ clipPath: "polygon(14% 0, 100% 0, 86% 100%, 0 100%)" }}
               >
-                <span className="font-heading text-sm font-black tracking-widest sm:text-base">VS</span>
+                <span className="font-heading text-sm font-black tracking-widest text-white/85 sm:text-base">VS</span>
               </div>
             )}
           </div>
@@ -129,12 +147,12 @@ export default function GameDayKickoffArena({
         ) : null}
 
         {Number(wagerStc) > 0 ? (
-          <div className="mx-auto mt-5 flex max-w-lg items-center justify-center gap-3 rounded-sm border border-[#f5c542]/35 bg-black/40 px-4 py-2.5 text-[#f5c542]">
+          <div className="mx-auto mt-5 flex max-w-lg items-center justify-center gap-3 rounded-sm border border-white/30 bg-white/8 px-4 py-2.5 text-[#eef3fb] shadow-[0_0_28px_-20px_rgba(238,243,251,0.9)]">
             <Coins className="h-4 w-4 shrink-0" />
             <p className="font-heading text-xs font-black uppercase tracking-[0.18em] sm:text-sm">
               {formatSTC(wagerStc)} · pot {formatSTC(Number(wagerStc) * 2)}
             </p>
-            {wagerLocked ? <Lock className="h-3.5 w-3.5 shrink-0 text-[#f5c542]/80" /> : null}
+            {wagerLocked ? <Lock className="h-3.5 w-3.5 shrink-0 text-[#dbe4ef]/80" /> : null}
           </div>
         ) : null}
 
@@ -169,7 +187,7 @@ function Side({ name, logo, you, youLabel, align }) {
         </p>
         <p className="mt-1.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/50">
           {youLabel}
-          {you ? <span className="ml-2 text-[#f5c542]">●</span> : null}
+          {you ? <span className="ml-2 text-[#eef3fb]">●</span> : null}
         </p>
       </div>
     </div>
