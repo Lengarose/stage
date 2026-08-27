@@ -259,6 +259,12 @@ CREATE TABLE IF NOT EXISTS matches (
   bracket_side           VARCHAR(20),
   tournament_id          VARCHAR(36),
   scheduled_date         DATETIME,
+  scheduling_status      VARCHAR(50)  DEFAULT 'open',
+  home_proposed_date     DATETIME,
+  away_proposed_date     DATETIME,
+  last_proposed_by       VARCHAR(20),
+  proposal_count         INT          DEFAULT 0,
+  confirmed_date         DATETIME,
   -- result submission
   home_goal_events       TEXT,
   away_goal_events       TEXT,

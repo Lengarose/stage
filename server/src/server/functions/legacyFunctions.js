@@ -1848,11 +1848,18 @@ async function fulfilCheckoutSession(session) {
 
 async function insertTournamentMatch(query, match) {
   const id = match.id || uuidv4();
+  const rawStatus = String(match.status || '').toLowerCase();
+  const hasConfirmedSchedule = Boolean(match.confirmed_date || match.scheduled_date || match.scheduling_status === 'confirmed');
+  const terminalStatus = ['completed', 'forfeit', 'cancelled', 'canceled', 'disputed', 'in_progress', 'awaiting_confirmation'].includes(rawStatus);
+  const schedulingStatus = match.scheduling_status || (hasConfirmedSchedule ? 'confirmed' : 'open');
+  const status = hasConfirmedSchedule || terminalStatus ? (match.status || 'scheduled') : 'unscheduled';
   await query(
     `INSERT INTO matches
        (id, tournament_id, home_club_id, away_club_id, home_club_name, away_club_name,
-        home_score, away_score, status, mode, type, round, group_number, created_date, updated_date)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+        home_score, away_score, status, mode, type, round, group_number, scheduled_date,
+        scheduling_status, home_proposed_date, away_proposed_date, last_proposed_by,
+        proposal_count, confirmed_date, created_date, updated_date)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
     [
       id,
       match.tournament_id,
@@ -1862,11 +1869,18 @@ async function insertTournamentMatch(query, match) {
       match.away_club_name || null,
       Number(match.home_score || 0),
       Number(match.away_score || 0),
-      match.status || 'scheduled',
+      status,
       match.mode || 'club',
       match.type || 'knockout',
       Number(match.round || 1),
       match.group_number ?? match.group ?? null,
+      hasConfirmedSchedule ? (match.scheduled_date || match.confirmed_date || null) : null,
+      schedulingStatus,
+      match.home_proposed_date || null,
+      match.away_proposed_date || null,
+      match.last_proposed_by || null,
+      Number(match.proposal_count || 0),
+      match.confirmed_date || null,
     ]
   );
   return id;
@@ -6831,6 +6845,111 @@ const HANDLERS = {
 
     const meta = parseMaybeJson(message.metadata, {});
     const isMatchInvite = message.message_type === 'match_invite';
+    const isTournamentSchedule = message.message_type === 'tournament_schedule';
+
+    if (isTournamentSchedule) {
+      if (!['accepted', 'declined'].includes(action)) {
+        throw new Error('Tournament schedules can only be accepted or declined.');
+      }
+      const matchId = meta.match_id || message.related_entity_id;
+      const matchRows = matchId
+        ? await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [matchId])
+        : [];
+      const match = matchRows[0];
+      if (!match) throw new Error('Tournament fixture not found');
+
+      const proposedDate = toMysqlDateTime(meta.proposed_date || meta.scheduled_date || match.home_proposed_date || match.scheduled_date);
+      const tournamentId = meta.tournament_id || match.tournament_id || null;
+      const tournamentLink = tournamentId ? `/tournaments/${tournamentId}` : '/tournaments';
+      const homeName = meta.home_club_name || match.home_club_name || 'Home club';
+      const awayName = meta.away_club_name || match.away_club_name || 'Away club';
+
+      if (action === 'accepted') {
+        if (!proposedDate) throw new Error('Proposed schedule date is missing');
+        await EXECUTESQL(
+          `UPDATE matches
+           SET scheduling_status = 'confirmed',
+               confirmed_date = ?,
+               scheduled_date = ?,
+               status = CASE WHEN status IN ('completed', 'forfeit') THEN status ELSE 'scheduled' END,
+               updated_date = NOW()
+           WHERE id = ?`,
+          [proposedDate, proposedDate, match.id]
+        );
+        await broadcastMatchById(match.id);
+
+        if (message.sender_email) {
+          await sendActionMessage({
+            recipientEmail: message.sender_email,
+            senderEmail: user.email,
+            subject: `Tournament schedule accepted: ${homeName} vs ${awayName}`,
+            body: `${user.email} accepted the proposed tournament fixture time.\n\nConfirmed date: ${proposedDate}`,
+            messageType: 'tournament_schedule',
+            actionType: 'none',
+            relatedEntityId: match.id,
+            relatedEntityType: 'match',
+            idempotencyKey: `tournament_schedule_response:${message_id}:accepted`,
+            reuseByRelated: false,
+            metadata: {
+              ...meta,
+              match_id: match.id,
+              scheduled_date: proposedDate,
+              response: 'accepted',
+            },
+            notification: {
+              type: 'match_scheduled',
+              title: 'Tournament fixture scheduled',
+              body: `${homeName} vs ${awayName} confirmed for ${proposedDate}`,
+              link: tournamentLink,
+              relatedId: match.id,
+            },
+          });
+        }
+
+        return { success: true, message: { id: message_id, status: action }, match: { id: match.id, status: 'scheduled', scheduled_date: proposedDate } };
+      }
+
+      await EXECUTESQL(
+        `UPDATE matches
+         SET scheduling_status = 'open',
+             home_proposed_date = NULL,
+             away_proposed_date = NULL,
+             last_proposed_by = NULL,
+             updated_date = NOW()
+         WHERE id = ?`,
+        [match.id]
+      );
+      await broadcastMatchById(match.id);
+
+      if (message.sender_email) {
+        await sendActionMessage({
+          recipientEmail: message.sender_email,
+          senderEmail: user.email,
+          subject: `Tournament schedule declined: ${homeName} vs ${awayName}`,
+          body: `${user.email} declined the proposed tournament fixture time.\n\nThe fixture is still open. The home team can propose a new date and time.`,
+          messageType: 'tournament_schedule',
+          actionType: 'none',
+          relatedEntityId: match.id,
+          relatedEntityType: 'match',
+          idempotencyKey: `tournament_schedule_response:${message_id}:declined`,
+          reuseByRelated: false,
+          metadata: {
+            ...meta,
+            match_id: match.id,
+            response: 'declined',
+          },
+          notification: {
+            type: 'match_reminder',
+            title: 'Tournament fixture time declined',
+            body: `${awayName} declined the proposed time. Please propose another time.`,
+            link: tournamentLink,
+            relatedId: match.id,
+          },
+        });
+      }
+
+      return { success: true, message: { id: message_id, status: action }, match: { id: match.id, scheduling_status: 'open' } };
+    }
 
     if (isMatchInvite && meta.cancel_request) {
       const existingMatchId = meta.created_match_id || message.related_entity_id;
@@ -11352,7 +11471,10 @@ const HANDLERS = {
 
       if (isClubTourney) {
         if (!club_id) return fail('club_id required for club tournament');
-        if (!cleanEaClubName) return fail('EA FC Pro Clubs name is required for club registration');
+        const requiresClubAdminReview = isOfficialTournament && !isAdmin;
+        if (requiresClubAdminReview && !cleanEaClubName) {
+          return fail('EA FC Pro Clubs name is required for official club registration');
+        }
 
         const clubs = await query('SELECT * FROM clubs WHERE id = ? LIMIT 1 FOR UPDATE', [club_id]);
         if (!clubs.length) return fail('Club not found');
@@ -11431,19 +11553,19 @@ const HANDLERS = {
         }
 
         const now = new Date().toISOString();
-        if (isAdmin) {
+        if (!requiresClubAdminReview) {
           registered = [...registered, String(club_id)];
         }
         proofs.club[String(club_id)] = {
           participant_id: String(club_id),
-          proof_type: cleanProofUrl ? 'pro_club' : 'ea_club_name',
+          proof_type: cleanProofUrl ? 'pro_club' : (cleanEaClubName ? 'ea_club_name' : 'direct_entry'),
           proof_url: cleanProofUrl || null,
-          ea_club_name: cleanEaClubName,
+          ea_club_name: cleanEaClubName || null,
           submitted_by_user_id: _auth_user_id,
           submitted_at: now,
-          status: isAdmin ? 'approved' : 'pending',
-          reviewed_by_user_id: isAdmin ? _auth_user_id : null,
-          reviewed_at: isAdmin ? now : null,
+          status: requiresClubAdminReview ? 'pending' : 'approved',
+          reviewed_by_user_id: requiresClubAdminReview ? null : _auth_user_id,
+          reviewed_at: requiresClubAdminReview ? null : now,
           credits_spent: creditsSpent,
           stc_locked: entryFee,
         };
@@ -11460,8 +11582,8 @@ const HANDLERS = {
             new_club_stc: newClubStc,
             credits_spent: creditsSpent,
             new_user_credits: newUserCredits,
-            ea_club_name: cleanEaClubName,
-            pending_review: !isAdmin,
+            ea_club_name: cleanEaClubName || null,
+            pending_review: requiresClubAdminReview,
             registered_clubs: registered,
             club_id,
             tournament_name: tournament.name,

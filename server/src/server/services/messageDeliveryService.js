@@ -101,6 +101,7 @@ function messageTypeToNotificationType(messageType) {
   const key = String(messageType || 'general');
   if (key === 'match_invite') return 'match_reminder';
   if (key === 'league_schedule') return 'match_reminder';
+  if (key === 'tournament_schedule') return 'match_reminder';
   if (key === 'contract_offer') return 'contract_offer';
   if (key === 'loan_proposal') return 'loan_offer';
   if (key === 'loan_recalled') return 'loan_offer';

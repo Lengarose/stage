@@ -1829,6 +1829,10 @@ async function advanceCommunitySwissUcl(tournament, allMatches) {
 
 async function insertCommunityTournamentMatch(tournament, home, away, round, type, extra = {}) {
   const isPlayer = Boolean(home.player || away.player) || String(tournament.participant_type || '').toLowerCase() === 'player';
+  const rawStatus = String(extra.status || '').toLowerCase();
+  const hasConfirmedSchedule = Boolean(extra.confirmed_date || extra.scheduled_date || extra.scheduling_status === 'confirmed');
+  const terminalStatus = ['completed', 'forfeit', 'cancelled', 'canceled', 'disputed', 'in_progress', 'awaiting_confirmation'].includes(rawStatus);
+  const schedulingStatus = extra.scheduling_status || (hasConfirmedSchedule ? 'confirmed' : 'open');
   const match = {
     id: deterministicId(`community_tournament_match:${tournament.id}:${round}:${home.id}:${away.id}:${type}`),
     tournament_id: tournament.id,
@@ -1844,7 +1848,6 @@ async function insertCommunityTournamentMatch(tournament, home, away, round, typ
     away_player_id: isPlayer ? away.id : null,
     away_player_name: isPlayer ? away.name : null,
     away_player_email: isPlayer ? away.email : null,
-    status: 'scheduled',
     mode: isPlayer ? 'player' : 'club',
     type,
     round,
@@ -1852,6 +1855,10 @@ async function insertCommunityTournamentMatch(tournament, home, away, round, typ
     away_score: 0,
     stats_processed: 0,
     ...extra,
+    status: hasConfirmedSchedule || terminalStatus ? (extra.status || 'scheduled') : 'unscheduled',
+    scheduling_status: schedulingStatus,
+    scheduled_date: hasConfirmedSchedule ? (extra.scheduled_date || extra.confirmed_date || null) : null,
+    confirmed_date: extra.confirmed_date || null,
   };
   await new Match(match).create();
   if (typeof broadcastMatch === 'function') broadcastMatch(match);
