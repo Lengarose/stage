@@ -21,7 +21,7 @@ import { getResultSubmissionControls, getKickoffControls, isClubGameDayMatch } f
 import { getMatchSideNames } from "@/lib/gameDayPresentation";
 import { sameRecordId } from "@/lib/gameDayRealtime";
 import { useGameDayMatchRealtime } from "@/lib/useGameDayMatchRealtime";
-import { getGameDayTileBackgroundStyle } from "./GameDayTileBackgroundDialog";
+import { getGameDayTileBackgroundStyle, GameDayTileBackgroundLayers, hasCustomGameDayTileBackground, gameDayMutedOnBg, gameDayTextOnBg } from "./GameDayTileBackgroundDialog";
 
 function parseDate(d) {
   if (!d) return null;
@@ -343,6 +343,8 @@ export default function GameDayDetail({
   const showDressingRoomPanel = isClubMatch && isMyMatch && myClub && !isDisputed;
   const matchDetailsBackgroundStyle = getGameDayTileBackgroundStyle(matchDetailsBackgroundConfig);
   const dressingRoomBackgroundStyle = getGameDayTileBackgroundStyle(dressingRoomBackgroundConfig);
+  const hasDressingRoomBg = hasCustomGameDayTileBackground(dressingRoomBackgroundConfig);
+  const hasMatchDetailsBg = hasCustomGameDayTileBackground(matchDetailsBackgroundConfig);
   const updateDressingCountForClub = ({ clubId, seatedPlayers }) => {
     const count = Array.isArray(seatedPlayers) ? seatedPlayers.length : 0;
     setDressingCounts((prev) => {
@@ -377,20 +379,20 @@ export default function GameDayDetail({
         {showKickoffDock ? (
           <div className="space-y-2">
             {isSoloMatch && (
-              <p className="text-center text-[10px] font-semibold uppercase tracking-[0.22em] text-white/55">
+              <p className={cn("text-center text-[10px] font-semibold uppercase tracking-[0.22em]", hasMatchDetailsBg ? gameDayMutedOnBg : "text-white/55")}>
                 {t("matchFlow.youArePlayer", { side: amIHomeTeam ? t("matchFlow.home") : t("matchFlow.away") })}
               </p>
             )}
             {kickoffControls.showHomeKickoff && (
               <div className="space-y-2">
                 {kickoffControls.tooEarly && (
-                  <div className="flex items-center gap-2 rounded-sm border border-white/10 bg-black/40 px-3 py-2 text-xs text-white/70">
+                  <div className="flex items-center gap-2 rounded-sm border border-white/15 bg-black/65 px-3 py-2 text-xs text-white backdrop-blur-sm">
                     <Clock className="h-3.5 w-3.5 shrink-0 text-[#f8fbff]" />
                     {t("matchFlow.kickoffAvailable")}
                   </div>
                 )}
                 {kickoffControls.dressingBlocked && (
-                  <div className="flex items-start gap-2 rounded-sm border border-[#d8dee8]/30 bg-[#d8dee8]/10 px-3 py-2 text-xs text-[#dbe4ef]">
+                  <div className="flex items-start gap-2 rounded-sm border border-[#d8dee8]/35 bg-black/65 px-3 py-2 text-xs text-white backdrop-blur-sm">
                     <UserCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                     <div className="space-y-0.5">
                       <p className="font-semibold">{t("matchFlow.dressingRoomsNotReady")}</p>
@@ -421,12 +423,12 @@ export default function GameDayDetail({
             )}
             {kickoffControls.showAwayWaiting && (
               <div className="space-y-2">
-                <div className="flex items-center gap-2 rounded-sm border border-white/10 bg-black/40 px-3 py-2 text-xs text-white/70">
+                <div className="flex items-center gap-2 rounded-sm border border-white/15 bg-black/65 px-3 py-2 text-xs text-white backdrop-blur-sm">
                   <Clock className="h-3.5 w-3.5 shrink-0 text-[#00e5ff]" />
                   {t("matchFlow.waitingHomeKickoff")}
                 </div>
                 {isClubMatch && !bothClubsReady && (
-                  <div className="flex items-start gap-2 rounded-sm border border-[#d8dee8]/30 bg-[#d8dee8]/10 px-3 py-2 text-xs text-[#dbe4ef]">
+                  <div className="flex items-start gap-2 rounded-sm border border-[#d8dee8]/35 bg-black/65 px-3 py-2 text-xs text-white backdrop-blur-sm">
                     <UserCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                     <div className="space-y-0.5">
                       <p className="font-semibold">{t("matchFlow.kickoffBlocked")}</p>
@@ -447,20 +449,24 @@ export default function GameDayDetail({
       </GameDayKickoffArena>
 
       {showDressingRoomPanel && (
-        <section className="relative bg-gradient-to-r from-[#171d27] via-black/40 to-[#202632] px-4 py-4 sm:px-6">
-          <div className="relative mx-auto max-w-5xl overflow-hidden border border-[#eef3fb]/28 bg-black/35 p-4 shadow-[0_0_38px_-18px_rgba(238,243,251,0.65)] [clip-path:polygon(18px_0,100%_0,calc(100%_-_18px)_100%,0_100%)] sm:p-5">
-            {dressingRoomBackgroundStyle ? (
-              <div aria-hidden className="absolute inset-0 opacity-60" style={dressingRoomBackgroundStyle} />
-            ) : null}
-            <div aria-hidden className="absolute inset-0 bg-[radial-gradient(circle_at_15%_5%,rgba(255,255,255,0.20),transparent_20%),radial-gradient(circle_at_80%_0%,rgba(216,222,232,0.28),transparent_26%),linear-gradient(110deg,rgba(25,31,42,0.9),rgba(4,5,9,0.74),rgba(33,39,50,0.9))]" />
+        <section className={cn(
+          "relative px-4 py-4 sm:px-6",
+          hasDressingRoomBg ? "bg-transparent" : "bg-gradient-to-r from-[#171d27] via-black/40 to-[#202632]",
+        )}>
+          <div className={cn(
+            "relative mx-auto max-w-5xl overflow-hidden border border-[#eef3fb]/28 p-4 shadow-[0_0_38px_-18px_rgba(238,243,251,0.65)] [clip-path:polygon(18px_0,100%_0,calc(100%_-_18px)_100%,0_100%)] sm:p-5",
+            hasDressingRoomBg ? "bg-black/40" : "bg-black/35",
+          )}
+          >
+            <GameDayTileBackgroundLayers style={dressingRoomBackgroundStyle} variant="card" />
             <div aria-hidden className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#f8fbff] to-transparent" />
             <div className="relative z-[1]">
             <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="font-heading text-[11px] font-black uppercase tracking-[0.2em] text-[#f8fbff]">
+                <p className={cn("font-heading text-[11px] font-black uppercase tracking-[0.2em]", hasDressingRoomBg ? gameDayTextOnBg : "text-[#f8fbff]")}>
                   {t("matchFlow.dressingRoom")}
                 </p>
-                <p className="mt-1 text-xs text-white/55">
+                <p className={cn("mt-1 text-xs", hasDressingRoomBg ? gameDayMutedOnBg : "text-white/55")}>
                   Available players take a seat here before kickoff so they can be featured in the game.
                 </p>
               </div>
@@ -486,6 +492,7 @@ export default function GameDayDetail({
               myClub={myClub}
               myPlayer={myPlayer}
               user={user}
+              hasCustomBackground={hasDressingRoomBg}
               onSeatChange={updateDressingCountForClub}
             />
             </div>

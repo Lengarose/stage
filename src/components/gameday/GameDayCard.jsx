@@ -17,7 +17,7 @@ const STATUS_BADGE = {
   awaiting_confirmation: { key: "pending" },
 };
 
-export default function GameDayCard({ game, selected, onClick, myClub, _myPlayer, tournament }) {
+export default function GameDayCard({ game, selected, onClick, myClub, _myPlayer, tournament, glass = false }) {
   const { t } = useTranslation();
   const date = parseDate(game.scheduled_date);
   const status = STATUS_BADGE[game.status] || { label: game.status };
@@ -45,9 +45,13 @@ export default function GameDayCard({ game, selected, onClick, myClub, _myPlayer
       onClick={onClick}
       className={cn(
         "flex w-full min-w-[246px] max-w-none shrink-0 items-center gap-3 border px-4 py-2.5 text-left transition-all",
-        selected
-          ? "border-[#f8fbff] bg-gradient-to-r from-white/22 via-[#18202b] to-black shadow-[0_0_24px_rgba(238,243,251,0.24)]"
-          : "border-white/12 bg-gradient-to-r from-[#151b25]/76 via-black/45 to-[#101723]/80 hover:border-[#f8fbff]/55 hover:bg-white/10",
+        glass
+          ? selected
+            ? "border-[#f8fbff] bg-black/70 shadow-[0_0_24px_rgba(238,243,251,0.24)] backdrop-blur-md"
+            : "border-white/20 bg-black/58 backdrop-blur-md hover:border-[#f8fbff]/55 hover:bg-black/65"
+          : selected
+            ? "border-[#f8fbff] bg-gradient-to-r from-white/22 via-[#18202b] to-black shadow-[0_0_24px_rgba(238,243,251,0.24)]"
+            : "border-white/12 bg-gradient-to-r from-[#151b25]/76 via-black/45 to-[#101723]/80 hover:border-[#f8fbff]/55 hover:bg-white/10",
       )}
     >
       <div className="flex items-center -space-x-2">
@@ -58,7 +62,10 @@ export default function GameDayCard({ game, selected, onClick, myClub, _myPlayer
         <p className="truncate font-heading text-[11px] font-black uppercase tracking-wide text-white">
           {home} <span className="text-[#f8fbff]">vs</span> {away}
         </p>
-        <p className="mt-0.5 truncate text-[10px] uppercase tracking-[0.16em] text-white/45">
+        <p className={cn(
+          "mt-0.5 truncate text-[10px] uppercase tracking-[0.16em]",
+          glass ? "text-white/90" : "text-white/45",
+        )}>
           {date ? `${format(date, "EEE HH:mm")} · ` : ""}
           {status.key ? t(`matchFlow.${status.key}`) : status.label}
         </p>
@@ -70,7 +77,10 @@ export default function GameDayCard({ game, selected, onClick, myClub, _myPlayer
         {isMyClubInvolved ? (
           <span className="text-[8px] font-black uppercase tracking-widest text-[#f8fbff]">{t("matchFlow.yourClub")}</span>
         ) : (
-          <span className="max-w-[72px] truncate text-[8px] uppercase tracking-widest text-white/35">{competition}</span>
+          <span className={cn(
+            "max-w-[72px] truncate text-[8px] uppercase tracking-widest",
+            glass ? "text-white/85" : "text-white/35",
+          )}>{competition}</span>
         )}
       </div>
     </button>

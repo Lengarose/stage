@@ -8,6 +8,7 @@ import {
   getKickoffCountdownParts,
 } from "@/lib/gameDayPresentation";
 import GameDayCrest from "./GameDayCrest";
+import { GameDayTileBackgroundLayers, gameDayMutedOnBg, gameDayTextOnBg } from "./GameDayTileBackgroundDialog";
 
 export default function GameDayKickoffArena({
   homeName,
@@ -44,28 +45,13 @@ export default function GameDayKickoffArena({
   }, [isLive, isFinished]);
 
   return (
-    <section className="relative overflow-hidden border border-[#d8dee8]/22 bg-[#080b10] text-white shadow-[0_0_88px_-28px_rgba(238,243,251,0.38)]">
-      {backgroundStyle ? (
-        <div
-          aria-hidden
-          className={cn(
-            "absolute inset-0 bg-no-repeat",
-            hasCustomBackground ? "opacity-100" : "bg-cover bg-center opacity-60",
-          )}
-          style={backgroundStyle}
-        />
-      ) : null}
+    <section className={cn(
+      "relative overflow-hidden border border-[#d8dee8]/22 text-white shadow-[0_0_88px_-28px_rgba(238,243,251,0.38)]",
+      hasCustomBackground ? "bg-black/35" : "bg-[#080b10]",
+    )}>
+      <GameDayTileBackgroundLayers style={backgroundStyle} variant="arena" />
 
-      {hasCustomBackground ? (
-        <>
-          <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/50 via-black/20 to-black/72" />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute left-1/2 top-[42%] h-[220px] w-[220px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10 sm:h-[280px] sm:w-[280px]"
-          />
-          <div aria-hidden className="pointer-events-none absolute inset-x-[12%] top-[42%] h-px bg-white/10" />
-        </>
-      ) : (
+      {!hasCustomBackground ? (
         <>
           <div
             aria-hidden
@@ -87,16 +73,26 @@ export default function GameDayKickoffArena({
           <div aria-hidden className="pointer-events-none absolute inset-x-[12%] top-[42%] h-px bg-white/10" />
           <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/35 via-transparent to-black/70" />
         </>
-      )}
+      ) : null}
+
+      {hasCustomBackground ? (
+        <>
+          <div
+            aria-hidden
+            className="pointer-events-none absolute left-1/2 top-[42%] h-[220px] w-[220px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10 sm:h-[280px] sm:w-[280px]"
+          />
+          <div aria-hidden className="pointer-events-none absolute inset-x-[12%] top-[42%] h-px bg-white/10" />
+        </>
+      ) : null}
 
       <div className="relative z-[1] px-4 pb-5 pt-4 sm:px-8 sm:pb-6 sm:pt-5">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <p className="font-heading text-[11px] font-black uppercase tracking-[0.28em] text-[#f8fbff]">
+            <p className={cn("font-heading text-[11px] font-black uppercase tracking-[0.28em]", hasCustomBackground ? gameDayTextOnBg : "text-[#f8fbff]")}>
               {competitionLabel}
             </p>
             {date ? (
-              <p className="mt-1 text-[11px] uppercase tracking-[0.18em] text-white/55">
+              <p className={cn("mt-1 text-[11px] uppercase tracking-[0.18em]", hasCustomBackground ? gameDayMutedOnBg : "text-white/55")}>
                 {format(date, "EEEE d MMMM · HH:mm")}
               </p>
             ) : null}
@@ -132,6 +128,7 @@ export default function GameDayKickoffArena({
             you={homeYou}
             youLabel={homeLabel}
             align="right"
+            onCustomBg={hasCustomBackground}
           />
 
           <div className="flex flex-col items-center gap-2 px-1 sm:px-3">
@@ -157,6 +154,7 @@ export default function GameDayKickoffArena({
             you={awayYou}
             youLabel={awayLabel}
             align="left"
+            onCustomBg={hasCustomBackground}
           />
         </div>
 
@@ -169,7 +167,7 @@ export default function GameDayKickoffArena({
         ) : null}
 
         {Number(wagerStc) > 0 ? (
-          <div className="mx-auto mt-5 flex max-w-lg items-center justify-center gap-3 rounded-sm border border-white/30 bg-white/8 px-4 py-2.5 text-[#eef3fb] shadow-[0_0_28px_-20px_rgba(238,243,251,0.9)]">
+          <div className="mx-auto mt-5 flex max-w-lg items-center justify-center gap-3 rounded-sm border border-white/25 bg-black/55 px-4 py-2.5 text-white backdrop-blur-sm shadow-[0_0_28px_-20px_rgba(0,0,0,0.9)]">
             <Coins className="h-4 w-4 shrink-0" />
             <p className="font-heading text-xs font-black uppercase tracking-[0.18em] sm:text-sm">
               {formatSTC(wagerStc)} · pot {formatSTC(Number(wagerStc) * 2)}
@@ -178,7 +176,11 @@ export default function GameDayKickoffArena({
           </div>
         ) : null}
 
-        {children ? <div className="mx-auto mt-4 max-w-xl">{children}</div> : null}
+        {children ? (
+          <div className={cn("mx-auto mt-4 max-w-xl", hasCustomBackground && "rounded-sm border border-white/10 bg-black/55 px-3 py-3 backdrop-blur-sm sm:px-4")}>
+            {children}
+          </div>
+        ) : null}
       </div>
     </section>
   );
@@ -194,20 +196,26 @@ function ClockCell({ value, label }) {
       <p className="font-heading text-4xl font-black tabular-nums leading-none text-white sm:text-5xl">
         {value}
       </p>
-      <p className="mt-1 text-[9px] font-semibold uppercase tracking-[0.28em] text-white/45">{label}</p>
+      <p className="mt-1 text-[9px] font-semibold uppercase tracking-[0.28em] text-white/80">{label}</p>
     </div>
   );
 }
 
-function Side({ name, logo, you, youLabel, align }) {
+function Side({ name, logo, you, youLabel, align, onCustomBg = false }) {
   return (
     <div className={cn("flex min-w-0 flex-col items-center gap-3", align === "right" ? "sm:items-end" : "sm:items-start")}>
       <GameDayCrest name={name} imageUrl={logo} size="lg" glow={you} />
       <div className={cn("min-w-0 text-center", align === "right" ? "sm:text-right" : "sm:text-left")}>
-        <p className="font-heading text-xl font-black uppercase leading-none tracking-tight text-white sm:text-3xl md:text-4xl">
+        <p className={cn(
+          "font-heading text-xl font-black uppercase leading-none tracking-tight sm:text-3xl md:text-4xl",
+          onCustomBg ? gameDayTextOnBg : "text-white",
+        )}>
           <span className="block truncate">{name}</span>
         </p>
-        <p className="mt-1.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/50">
+        <p className={cn(
+          "mt-1.5 text-[10px] font-semibold uppercase tracking-[0.22em]",
+          onCustomBg ? gameDayMutedOnBg : "text-white/50",
+        )}>
           {youLabel}
           {you ? <span className="ml-2 text-[#eef3fb]">●</span> : null}
         </p>

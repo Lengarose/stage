@@ -6,8 +6,10 @@ import { useChatNotifications } from "@/lib/ChatNotificationsContext";
 import GameDayCard from "@/components/gameday/GameDayCard";
 import GameDayDetail from "@/components/gameday/GameDayDetail";
 import GameDayTileBackgroundDialog, {
+  GameDayTileBackgroundLayers,
   getGameDayTileBackgroundConfig,
   getGameDayTileBackgroundStyle,
+  hasCustomGameDayTileBackground,
 } from "@/components/gameday/GameDayTileBackgroundDialog";
 import ArrangeGameDialog from "@/components/schedule/ArrangeGameDialog";
 import { createMatchFromFixture } from "@/lib/gameDayIntegration";
@@ -345,6 +347,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
   const canCustomizeGameDayTiles = hasStagePlus(myPlayer?.subscription);
   const matchScreensBackgroundConfig = getGameDayTileBackgroundConfig(myPlayer, "match_screens");
   const matchScreensBackgroundStyle = getGameDayTileBackgroundStyle(matchScreensBackgroundConfig);
+  const hasMatchScreensBg = hasCustomGameDayTileBackground(matchScreensBackgroundConfig);
 
   const detail = selectedGame ? (
     <GameDayDetail
@@ -461,17 +464,21 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
       </section>
 
       <div className="mx-auto grid max-w-[1600px] gap-5 px-4 py-5 sm:px-6 lg:grid-cols-[380px_minmax(0,1fr)] lg:px-8">
-        <aside className="relative overflow-hidden border border-[#eef3fb]/22 bg-gradient-to-b from-[#1b212c]/90 via-[#111827]/95 to-black/82 p-3 shadow-[0_0_42px_-24px_rgba(238,243,251,0.85)] lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)]">
-          {matchScreensBackgroundStyle ? (
-            <div aria-hidden className="absolute inset-0 bg-cover bg-center opacity-55" style={matchScreensBackgroundStyle} />
-          ) : null}
-          <div aria-hidden className="absolute inset-0 bg-[radial-gradient(circle_at_12%_8%,rgba(255,255,255,0.16),transparent_22%),radial-gradient(circle_at_80%_4%,rgba(216,222,232,0.24),transparent_24%),linear-gradient(180deg,rgba(24,30,40,0.84),rgba(7,7,11,0.96))]" />
+        <aside className={cn(
+          "relative overflow-hidden border border-[#eef3fb]/22 p-3 shadow-[0_0_42px_-24px_rgba(238,243,251,0.85)] lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)]",
+          hasMatchScreensBg ? "bg-black/40" : "bg-gradient-to-b from-[#1b212c]/90 via-[#111827]/95 to-black/82",
+        )}
+        >
+          <GameDayTileBackgroundLayers style={matchScreensBackgroundStyle} variant="panel" />
           <div aria-hidden className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#f8fbff] to-transparent" />
           <div className="relative z-[1]">
           <div className="mb-3 flex items-center justify-between gap-3 px-2 pt-2">
             <div>
               <p className="font-heading text-xs font-black uppercase tracking-[0.2em] text-[#f8fbff]">Match Screens</p>
-              <p className="mt-1 text-[10px] uppercase tracking-[0.16em] text-white/35">
+              <p className={cn(
+                "mt-1 text-[10px] uppercase tracking-[0.16em]",
+                hasMatchScreensBg ? "text-white/85" : "text-white/35",
+              )}>
                 {visibleGames.length}/{games.length} visible
               </p>
             </div>
@@ -523,6 +530,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
                 myClub={myClub}
                 myPlayer={myPlayer}
                 tournament={tournamentMap[game.tournament_id]}
+                glass={hasMatchScreensBg}
               />
             ))}
             </div>

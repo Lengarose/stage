@@ -45,6 +45,48 @@ export function hasCustomGameDayTileBackground(config) {
   return Boolean(config?.url && config?.type && config.type !== "default");
 }
 
+const OVERLAY_BY_VARIANT = {
+  panel: {
+    custom: "bg-[linear-gradient(180deg,rgba(0,0,0,0.72)_0%,rgba(0,0,0,0.58)_42%,rgba(0,0,0,0.74)_100%)]",
+    default: "bg-[radial-gradient(circle_at_12%_8%,rgba(255,255,255,0.16),transparent_22%),radial-gradient(circle_at_80%_4%,rgba(216,222,232,0.24),transparent_24%),linear-gradient(180deg,rgba(24,30,40,0.72),rgba(7,7,11,0.88))]",
+  },
+  card: {
+    custom: "bg-[linear-gradient(180deg,rgba(0,0,0,0.68)_0%,rgba(0,0,0,0.54)_48%,rgba(0,0,0,0.72)_100%)]",
+    default: "bg-[radial-gradient(circle_at_15%_5%,rgba(255,255,255,0.20),transparent_20%),radial-gradient(circle_at_80%_0%,rgba(216,222,232,0.28),transparent_26%),linear-gradient(110deg,rgba(25,31,42,0.82),rgba(4,5,9,0.68),rgba(33,39,50,0.82))]",
+  },
+  arena: {
+    custom: "bg-[linear-gradient(180deg,rgba(0,0,0,0.62)_0%,rgba(0,0,0,0.50)_38%,rgba(0,0,0,0.68)_100%)]",
+    default: null,
+  },
+};
+
+/** Text shadow for labels on top of custom tile backgrounds. */
+export const gameDayTextOnBg = "text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.95),0_0_10px_rgba(0,0,0,0.75)]";
+export const gameDayMutedOnBg = "text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]";
+
+/** Renders a tile background image + a readable overlay. Custom uploads stay vivid. */
+export function GameDayTileBackgroundLayers({ style, variant = "panel" }) {
+  if (!style) return null;
+  const hasCustom = Boolean(style.backgroundImage);
+  const overlay = OVERLAY_BY_VARIANT[variant]?.[hasCustom ? "custom" : "default"];
+
+  return (
+    <>
+      <div
+        aria-hidden
+        className={cn(
+          "absolute inset-0 bg-no-repeat",
+          hasCustom ? "opacity-100" : "bg-cover bg-center opacity-80",
+        )}
+        style={style}
+      />
+      {overlay ? (
+        <div aria-hidden className={cn("pointer-events-none absolute inset-0", overlay)} />
+      ) : null}
+    </>
+  );
+}
+
 export default function GameDayTileBackgroundDialog({
   open,
   onOpenChange,
