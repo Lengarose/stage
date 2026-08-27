@@ -134,6 +134,7 @@ export default function AdminGamerLayout({
   identityClaims = [],
   loading = false,
   onRefresh,
+  minimalChrome = false,
   children,
 }) {
   const { t } = useTranslation();
@@ -144,7 +145,8 @@ export default function AdminGamerLayout({
   return (
     <GamerProfileShell>
       <div className="admin-gamer-theme px-4 py-6 lg:px-8 lg:py-8">
-        <div className="mx-auto max-w-6xl space-y-6">
+        <div className={cn("mx-auto space-y-6", minimalChrome ? "max-w-[1400px]" : "max-w-6xl")}>
+          {!minimalChrome && (
           <header className="relative overflow-hidden rounded-2xl border border-red-400/20 bg-gradient-to-br from-red-500/10 via-[#0d1528]/80 to-amber-500/10 p-5 sm:p-6">
             <div
               className="absolute inset-0 opacity-30 pointer-events-none"
@@ -192,7 +194,9 @@ export default function AdminGamerLayout({
               </div>
             </div>
           </header>
+          )}
 
+          {!minimalChrome && (
           <AdminGamerStatsRow
             disputes={disputes}
             forfeits={forfeits}
@@ -200,13 +204,14 @@ export default function AdminGamerLayout({
             tournaments={tournaments}
             identityClaims={identityClaims}
           />
+          )}
 
-          {loading ? (
+          {loading && !minimalChrome ? (
             <div className="flex items-center justify-center py-20">
               <div className="w-8 h-8 border-4 border-red-400/20 border-t-red-400 rounded-full animate-spin" />
             </div>
           ) : (
-            <div className="admin-gamer-content space-y-6">{children}</div>
+            <div className={cn("admin-gamer-content", minimalChrome ? "" : "space-y-6")}>{children}</div>
           )}
         </div>
       </div>

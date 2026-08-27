@@ -12,6 +12,7 @@ const SECTION_SLUG_TO_KEY = {
   lifestyles: "lifestyles",
   transfers: "transfers",
   "match-archive": "matchArchive",
+  mail: "mail",
   trophies: "trophies",
   rewards: "rewards",
   landing: "landing",

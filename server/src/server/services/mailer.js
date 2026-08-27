@@ -90,31 +90,36 @@ function converse(socket, steps) {
  * Send one email. Resolves { sent:true } on success, { sent:false, reason }
  * when SMTP is not configured. Rejects on a real SMTP/transport failure.
  */
-async function sendMail({ to, subject, html, text, from }) {
+async function sendMail({ to, cc, bcc, subject, html, text, from }) {
   if (!isConfigured()) {
     console.warn('[mailer] SMTP not configured — skipping email to', to);
     return { sent: false, reason: 'not_configured' };
   }
   const cfg = smtpConfig();
-  const recipient = String(to || '').trim();
-  if (!recipient) return { sent: false, reason: 'no_recipient' };
-  // Some records hold a gamertag where an email is expected. Without this check
-  // the bare name reaches the SMTP server, which rejects it at RCPT with
-  // "need fully-qualified address" — a round trip and a scary log line for
-  // something we can see is not an address.
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)) {
-    return { sent: false, reason: 'invalid_recipient' };
+  const parseList = (value) => String(value || '')
+    .split(/[,;]/)
+    .map((v) => v.trim())
+    .filter((v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) && !v.endsWith('@stage.local'));
+  const toList = parseList(to);
+  if (!toList.length) return { sent: false, reason: 'no_recipient' };
+  if (toList.some((addr) => addr.endsWith('@stage.local'))) {
+    return { sent: false, reason: 'placeholder_recipient' };
   }
-  // Never send to the OAuth placeholder addresses we mint for provider accounts
-  // that don't expose a real email.
-  if (recipient.endsWith('@stage.local')) return { sent: false, reason: 'placeholder_recipient' };
+
+  const ccList = parseList(cc);
+  const bccList = parseList(bcc);
+  const allRecipients = [...new Set([...toList, ...ccList, ...bccList])];
+  const recipient = toList.join(', ');
 
   const fromHeader = from || cfg.from;
   const bodyText = text || (html ? html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : '');
   const boundary = `=_stage_${Date.now().toString(36)}`;
-  const message = [
+  const headers = [
     `From: ${fromHeader}`,
     `To: ${recipient}`,
+  ];
+  if (ccList.length) headers.push(`Cc: ${ccList.join(', ')}`);
+  headers.push(
     `Subject: ${encodeHeader(subject)}`,
     'MIME-Version: 1.0',
     `Content-Type: multipart/alternative; boundary="${boundary}"`,
@@ -131,27 +136,30 @@ async function sendMail({ to, subject, html, text, from }) {
     Buffer.from(html || `<p>${bodyText}</p>`, 'utf8').toString('base64').replace(/(.{76})/g, '$1\r\n'),
     `--${boundary}--`,
     '',
-  ].join('\r\n');
+  );
+  const message = headers.join('\r\n');
 
   // Dot-stuffing: any line starting with '.' must be escaped as '..'.
   const dataPayload = message.replace(/\r\n\./g, '\r\n..');
 
   const envelopeFrom = (fromHeader.match(/<([^>]+)>/) || [null, cfg.user])[1];
 
+  const smtpSteps = [
+    { cmd: null, expect: [220], name: 'greeting' },
+    { cmd: `EHLO ${cfg.host}`, expect: [250], name: 'ehlo' },
+    { cmd: 'AUTH LOGIN', expect: [334], name: 'auth' },
+    { cmd: Buffer.from(cfg.user, 'utf8').toString('base64'), expect: [334], name: 'user' },
+    { cmd: Buffer.from(cfg.pass, 'utf8').toString('base64'), expect: [235], name: 'pass' },
+    { cmd: `MAIL FROM:<${envelopeFrom}>`, expect: [250], name: 'mailfrom' },
+    ...allRecipients.map((addr) => ({ cmd: `RCPT TO:<${addr}>`, expect: [250, 251], name: 'rcpt' })),
+    { cmd: 'DATA', expect: [354], name: 'data' },
+    { cmd: `${dataPayload}\r\n.`, expect: [250], name: 'body' },
+    { cmd: 'QUIT', expect: [221], name: 'quit' },
+  ];
+
   return new Promise((resolve, reject) => {
     const socket = tls.connect({ host: cfg.host, port: cfg.port, servername: cfg.host }, () => {
-      converse(socket, [
-        { cmd: null, expect: [220], name: 'greeting' },
-        { cmd: `EHLO ${cfg.host}`, expect: [250], name: 'ehlo' },
-        { cmd: 'AUTH LOGIN', expect: [334], name: 'auth' },
-        { cmd: Buffer.from(cfg.user, 'utf8').toString('base64'), expect: [334], name: 'user' },
-        { cmd: Buffer.from(cfg.pass, 'utf8').toString('base64'), expect: [235], name: 'pass' },
-        { cmd: `MAIL FROM:<${envelopeFrom}>`, expect: [250], name: 'mailfrom' },
-        { cmd: `RCPT TO:<${recipient}>`, expect: [250, 251], name: 'rcpt' },
-        { cmd: 'DATA', expect: [354], name: 'data' },
-        { cmd: `${dataPayload}\r\n.`, expect: [250], name: 'body' },
-        { cmd: 'QUIT', expect: [221], name: 'quit' },
-      ])
+      converse(socket, smtpSteps)
         .then(() => { try { socket.end(); } catch { /* ignore */ } resolve({ sent: true }); })
         .catch((err) => { try { socket.destroy(); } catch { /* ignore */ } reject(err); });
     });

@@ -5,7 +5,7 @@ import {
   Palette, ChevronDown, Newspaper, ShieldAlert, Settings,
   Inbox, CalendarDays, Zap, Coins, Sun, Moon, LogOut, Star, Bell,
   AlertTriangle, Flag, MessagesSquare, Globe2, Activity, HelpCircle,
-  X, LayoutDashboard, UserCog, Binoculars, Archive,
+  X, LayoutDashboard, UserCog, Binoculars, Archive, Mail,
 } from "lucide-react";
 import LogoImg from '@/assets/Stadium Logo.png';
 import { useState, useEffect, useCallback } from "react";
@@ -264,6 +264,13 @@ function getAdminGroups(t) {
         { path: "/admin/transfers", icon: ArrowLeftRight, label: t("admin.nav.transfers") },
         { path: "/admin/home", icon: Palette, label: t("admin.nav.homePage") },
         { path: "/admin/landing", icon: Palette, label: t("admin.nav.landingPage") },
+      ],
+    },
+    {
+      id: "mail",
+      label: t("admin.nav.mail"),
+      items: [
+        { path: "/admin/mail", icon: Mail, label: t("admin.mail.inbox") },
       ],
     },
     {
@@ -765,13 +772,28 @@ function SidebarNavSectionDropdowns({ groups, pathname, onItemClick, variant = "
                 >
                   {triggerLabel}
                 </span>
+                {Number(group.badge) > 0 ? (
+                  <span
+                    className="ml-1 inline-flex min-w-[1.125rem] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white"
+                    aria-label={`${group.badge} unread`}
+                  >
+                    {Number(group.badge) > 99 ? "99+" : group.badge}
+                  </span>
+                ) : null}
                 <ChevronDown className={cn("shrink-0 h-3 w-3", anyActive ? "text-[#00E5BD]" : (isWhiteTheme ? "text-slate-900/45" : "text-white/25"))} />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent side="bottom" align="start" sideOffset={0} className={cn("z-[70] min-w-[12.5rem] p-1 shadow-2xl", isWhiteTheme ? "text-slate-900" : "text-white")} style={getEafcDropdownStyle(isWhiteTheme)}>
               {group.items.map((item) => (
                 <EafcNavLink key={item.path} to={item.path} onClick={onItemClick} isActive={isNavItemActive(item.path, pathname)} icon={item.icon} isWhiteTheme={isWhiteTheme}>
-                  {item.label}
+                  <span className="flex w-full items-center justify-between gap-2">
+                    <span>{item.label}</span>
+                    {Number(item.badge ?? group.badge) > 0 ? (
+                      <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                        {Number(item.badge ?? group.badge) > 99 ? "99+" : (item.badge ?? group.badge)}
+                      </span>
+                    ) : null}
+                  </span>
                 </EafcNavLink>
               ))}
             </DropdownMenuContent>
@@ -2055,6 +2077,8 @@ export default function Layout() {
   const [theme,            setTheme]            = useState(() => localStorage.getItem("stage-theme") || "theme-dark");
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showClubModal,    setShowClubModal]    = useState(false);
+  const [notifCount,       setNotifCount]       = useState(0);
+  const [adminMailUnread,  setAdminMailUnread]  = useState(0);
   const fullBleedProfileRoute = isFullBleedRoute(location.pathname);
   const canPromptForClubOnboarding = isPresidentAccountIntent(accountIntent);
   const myPresidentClubId = myClub?.id || null;
@@ -2225,13 +2249,59 @@ export default function Layout() {
     transferWindowOpen
   );
   const adminGroups = getAdminGroups(t);
+  const adminGroupsWithBadges = adminGroups.map((group) => (
+    group.id === "mail" && adminMailUnread > 0
+      ? { ...group, badge: adminMailUnread }
+      : group
+  ));
   const transferWindowIndicator = getTransferWindowIndicatorLabel(transferWindowOpen);
   const headerNavGroups = showAdminHeader
-    ? adminGroups
+    ? adminGroupsWithBadges
     : isTournamentLimited
       ? tournamentLimitedGroups
       : (effectiveAccountMode === "club" ? presidentGroups : playerGroups);
-  const [notifCount, setNotifCount] = useState(0);
+
+  useEffect(() => {
+    if (!isAdmin) {
+      setAdminMailUnread(0);
+      return undefined;
+    }
+    let stopped = false;
+    let statusTimer = null;
+    let syncTimer = null;
+
+    async function refreshMailBadge() {
+      try {
+        const res = await stageClient.http.get("/admin-mail/status");
+        if (!stopped) setAdminMailUnread(Number(res?.unread || 0));
+      } catch {
+        if (!stopped) setAdminMailUnread(0);
+      }
+    }
+
+    async function syncInboxMail() {
+      try {
+        await stageClient.http.post("/admin-mail/sync", {});
+      } catch {
+        // endpoint may not be deployed yet
+      }
+      await refreshMailBadge();
+    }
+
+    void syncInboxMail();
+    statusTimer = window.setInterval(refreshMailBadge, 30000);
+    syncTimer = window.setInterval(syncInboxMail, 120000);
+
+    const onMailChanged = () => { void refreshMailBadge(); };
+    window.addEventListener("stage:admin-mail-changed", onMailChanged);
+
+    return () => {
+      stopped = true;
+      if (statusTimer) window.clearInterval(statusTimer);
+      if (syncTimer) window.clearInterval(syncTimer);
+      window.removeEventListener("stage:admin-mail-changed", onMailChanged);
+    };
+  }, [isAdmin]);
 
   useEffect(() => {
     let stopped = false;
@@ -2415,7 +2485,7 @@ export default function Layout() {
                 </div>
                 <SidebarNavSectionDropdowns
                   variant="header"
-                  groups={adminGroups}
+                  groups={adminGroupsWithBadges}
                   pathname={location.pathname}
                   isWhiteTheme={isWhiteTheme}
                 />

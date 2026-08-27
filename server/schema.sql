@@ -2107,6 +2107,37 @@ CREATE TABLE IF NOT EXISTS admin_audit_log (
   INDEX idx_aal_created (created_date)
 );
 
+-- Admin mailbox — real SMTP/IMAP email for the admin panel (not in-app inbox_messages).
+CREATE TABLE IF NOT EXISTS admin_mail_messages (
+  id                  VARCHAR(36)   PRIMARY KEY,
+  direction           VARCHAR(8)    NOT NULL DEFAULT 'in',
+  folder              VARCHAR(32)   NOT NULL DEFAULT 'inbox',
+  mailbox             VARCHAR(255)  NULL,
+  from_email          VARCHAR(255)  NULL,
+  from_name           VARCHAR(255)  NULL,
+  to_email            VARCHAR(255)  NULL,
+  to_addresses        JSON          NULL,
+  cc_addresses        JSON          NULL,
+  bcc_addresses       JSON          NULL,
+  draft_meta          JSON          NULL,
+  subject             VARCHAR(500)  NULL,
+  body_text           LONGTEXT      NULL,
+  body_html           LONGTEXT      NULL,
+  is_read             TINYINT(1)    NOT NULL DEFAULT 0,
+  external_uid        INT           NULL,
+  external_message_id VARCHAR(255)  NULL,
+  in_reply_to         VARCHAR(255)  NULL,
+  admin_user_id       VARCHAR(36)   NULL,
+  admin_email         VARCHAR(255)  NULL,
+  received_at         DATETIME      NULL,
+  created_date        DATETIME      DEFAULT CURRENT_TIMESTAMP,
+  updated_date        DATETIME      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_amm_mailbox_uid (mailbox, external_uid),
+  INDEX idx_amm_folder_date (folder, created_date),
+  INDEX idx_amm_direction   (direction),
+  INDEX idx_amm_read        (is_read)
+);
+
 -- Market value config — admin-tunable weights for the player market-value engine.
 -- Seeded with a default row by the startup migration in server.js.
 CREATE TABLE IF NOT EXISTS market_value_config (
