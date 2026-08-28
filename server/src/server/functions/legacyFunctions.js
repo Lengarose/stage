@@ -1277,35 +1277,44 @@ async function processMatchCompletion(match, acceptedSubmission, secondarySubmis
         if (!player) continue;
         const result = String(stat.club_id) === String(fresh.home_club_id) ? homeResult : awayResult;
         // Club events update My Club Career, not general Player Career.
-        await EXECUTESQL(
-          `UPDATE players
-             SET matches_played_club = IFNULL(matches_played_club,0) + 1,
-                 goals_player = IFNULL(goals_player,0) + ?,
-                 assists = IFNULL(assists,0) + ?,
-                 wins_club = IFNULL(wins_club,0) + ?,
-                 losses_club = IFNULL(losses_club,0) + ?,
-                 draws_club = IFNULL(draws_club,0) + ?,
-                 clean_sheets = IFNULL(clean_sheets,0) + ?,
-                 man_of_the_match = IFNULL(man_of_the_match,0) + ?,
-                 avg_match_rating = CASE
-                   WHEN IFNULL(matches_played_club,0) <= 0 THEN ?
-                   ELSE ((IFNULL(avg_match_rating,0) * IFNULL(matches_played_club,0)) + ?) / (IFNULL(matches_played_club,0) + 1)
-                 END,
-                 updated_date = NOW()
-           WHERE id = ?`,
-          [
-            Number(stat.goals || 0),
-            Number(stat.assists || 0),
-            result === 'win' ? 1 : 0,
-            result === 'loss' ? 1 : 0,
-            result === 'draw' ? 1 : 0,
-            Number(stat.clean_sheet || 0),
-            Number(stat.is_motm || 0),
-            sanitizeMatchRating(stat.rating),
-            sanitizeMatchRating(stat.rating),
-            player.id,
-          ]
-        );
+        // The result is already official (stats_processed=1). A missing
+        // column or similar must not turn a successful confirm into HTTP 500.
+        try {
+          await EXECUTESQL(
+            `UPDATE players
+               SET matches_played_club = IFNULL(matches_played_club,0) + 1,
+                   goals_player = IFNULL(goals_player,0) + ?,
+                   assists = IFNULL(assists,0) + ?,
+                   wins_club = IFNULL(wins_club,0) + ?,
+                   losses_club = IFNULL(losses_club,0) + ?,
+                   draws_club = IFNULL(draws_club,0) + ?,
+                   clean_sheets = IFNULL(clean_sheets,0) + ?,
+                   man_of_the_match = IFNULL(man_of_the_match,0) + ?,
+                   avg_match_rating = CASE
+                     WHEN IFNULL(matches_played_club,0) <= 0 THEN ?
+                     ELSE ((IFNULL(avg_match_rating,0) * IFNULL(matches_played_club,0)) + ?) / (IFNULL(matches_played_club,0) + 1)
+                   END,
+                   updated_date = NOW()
+             WHERE id = ?`,
+            [
+              Number(stat.goals || 0),
+              Number(stat.assists || 0),
+              result === 'win' ? 1 : 0,
+              result === 'loss' ? 1 : 0,
+              result === 'draw' ? 1 : 0,
+              Number(stat.clean_sheet || 0),
+              Number(stat.is_motm || 0),
+              sanitizeMatchRating(stat.rating),
+              sanitizeMatchRating(stat.rating),
+              player.id,
+            ]
+          );
+        } catch (err) {
+          console.error(
+            `[processMatchCompletion] derived club career failed match=${matchId} player=${player.id}:`,
+            err.message
+          );
+        }
         if (Number(stat.is_motm || 0)) {
           await publishNewsItem({
             title: `${player.gamertag || 'A player'} named man of the match`,

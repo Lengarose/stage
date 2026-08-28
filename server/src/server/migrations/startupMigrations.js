@@ -1137,18 +1137,22 @@ async function runStartupMigrations() {
     WHERE c.president_user_id IS NULL
   `).catch(err => console.error('[migration] club_president_placeholder_link:', err.message));
 
+  let clubPresidentOrphanLookupFailed = false;
   const clubPresidentOrphans = await EXECUTESQL(
     'SELECT id, name FROM clubs WHERE president_user_id IS NULL LIMIT 10'
   ).catch(err => {
     console.error('[migration] club_president_orphans:', err.message);
-    return [{ id: 'lookup_failed', name: err.message }];
+    clubPresidentOrphanLookupFailed = true;
+    return [];
   });
-  if (clubPresidentOrphans.length) {
+  if (clubPresidentOrphanLookupFailed) {
+    console.error('[migration] clubs.president_user_id not null: skipped because orphan lookup failed');
+  } else if (clubPresidentOrphans.length) {
     throw new Error(`clubs.president_user_id migration left ${clubPresidentOrphans.length} orphan club(s)`);
+  } else {
+    await EXECUTESQL('ALTER TABLE clubs MODIFY COLUMN president_user_id VARCHAR(36) NOT NULL')
+      .catch(err => console.error('[migration] clubs.president_user_id not null:', err.message));
   }
-
-  await EXECUTESQL('ALTER TABLE clubs MODIFY COLUMN president_user_id VARCHAR(36) NOT NULL')
-    .catch(err => console.error('[migration] clubs.president_user_id not null:', err.message));
 
   await EXECUTESQL(`
     UPDATE players p
