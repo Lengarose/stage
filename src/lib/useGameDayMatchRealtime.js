@@ -1,18 +1,15 @@
 import { useEffect, useRef } from "react";
 import { stageClient } from "@/api/stageClient";
-import { resolveGameDayMatchEvent, sameRecordId } from "@/lib/gameDayRealtime";
+import { resolveGameDayMatchEvent } from "@/lib/gameDayRealtime";
 
 export function useGameDayMatchRealtime({
   matchId,
   reloadMatch,
   onMatch,
-  onDressing,
 }) {
   const onMatchRef = useRef(onMatch);
-  const onDressingRef = useRef(onDressing);
   const reloadRef = useRef(reloadMatch);
   onMatchRef.current = onMatch;
-  onDressingRef.current = onDressing;
   reloadRef.current = reloadMatch;
 
   useEffect(() => {
@@ -25,6 +22,10 @@ export function useGameDayMatchRealtime({
         onMatchRef.current?.({ deleted: true, id: matchId });
         return;
       }
+      // The Match socket channel is global: events for other people's matches
+      // arrive here too. Without this guard every one of them triggered a full
+      // refetch of the currently open match.
+      if (!resolved) return;
       const fresh = await reloadRef.current?.(matchId).catch(() => resolved?.match || null);
       if (cancelled || !fresh) return;
       onMatchRef.current?.(fresh);
@@ -34,17 +35,12 @@ export function useGameDayMatchRealtime({
       refreshMatch(event);
     }, { id: matchId });
 
-    const unsubRoom = stageClient.entities.DressingRoom.subscribe((event) => {
-      const data = event?.data;
-      if (event?.type !== "delete" && !sameRecordId(data?.match_id, matchId)) return;
-      onDressingRef.current?.(data || event);
-      refreshMatch({ type: "update", data: { id: matchId, status: "scheduled" } });
-    }, { match_id: matchId });
+    // Phase 2 — the dressing room is out of the Game Day flow, so no room
+    // subscription is needed here any more.
 
     return () => {
       cancelled = true;
       unsubMatch?.();
-      unsubRoom?.();
     };
   }, [matchId]);
 }

@@ -91,21 +91,31 @@ const EXISTING_PLAYER = {
   user_id: 'owner-user',
   email: 'owner@example.test',
   gamertag: 'Owner',
+  club_id: 'club-1',
   credits: 50,
   stc: 1000,
   subscription: 'free',
   is_verified: 0,
+  goals: 4,
+  assists: 1,
 };
 
-/** @param {{ roleId?: number }} opts */
-function mockFor({ roleId = 1, onUpdate }) {
+/** @param {{ roleId?: number, callerId?: string, sameClub?: boolean }} opts */
+function mockFor({ roleId = 1, callerId = 'caller-user', sameClub = false, onUpdate } = {}) {
   return async (sql, params = []) => {
     if (/information_schema/.test(sql)) return [{ ok: 1 }];
     if (/SELECT id, email, role_id FROM users WHERE id = \? LIMIT 1/.test(sql)) {
-      return [{ id: 'caller-user', email: 'caller@example.test', role_id: roleId }];
+      const id = params[0];
+      if (id === 'owner-user') {
+        return [{ id: 'owner-user', email: 'owner@example.test', role_id: roleId }];
+      }
+      return [{ id: callerId, email: 'caller@example.test', role_id: roleId }];
     }
     if (sql === 'TEST_SELECT_PLAYER') return [{ ...EXISTING_PLAYER }];
     if (/SELECT id FROM players WHERE LOWER\(gamertag\)/.test(sql)) return [];
+    if (/SELECT id FROM players\s+WHERE club_id = \?/.test(sql)) {
+      return sameClub ? [{ id: 'teammate-player' }] : [];
+    }
     if (sql === 'TEST_UPDATE_PLAYER') { onUpdate?.(params[1]); return { affectedRows: 1 }; }
     if (/UPDATE users SET player_id/.test(sql)) return { affectedRows: 1 };
     return [];
@@ -128,7 +138,7 @@ test('a non-admin cannot top up a wallet or grant a subscription through a playe
         subscription_expires_at: '2099-01-01T00:00:00Z',
         is_verified: 1,
       },
-      user: { id: 'caller-user' },
+      user: { id: 'owner-user', email: 'owner@example.test' },
     },
     response
   );
@@ -150,7 +160,7 @@ test('a non-admin cannot reassign a player to another account', async () => {
     {
       params: { id: 'player-1' },
       body: { user_id: 'attacker-user', email: 'attacker@example.test' },
-      user: { id: 'caller-user' },
+      user: { id: 'owner-user', email: 'owner@example.test' },
     },
     response
   );
@@ -160,7 +170,23 @@ test('a non-admin cannot reassign a player to another account', async () => {
   assert.equal(written.email, 'owner@example.test');
 });
 
-test('ordinary profile fields still save normally', async () => {
+test('a stranger cannot PATCH another player', async () => {
+  const router = loadPlayerRouterWithMocks(mockFor({ roleId: 1 }));
+  const response = makeResponse();
+
+  await routeHandler(router, 'patch', '/:id')(
+    {
+      params: { id: 'player-1' },
+      body: { goals: 99, assists: 40, overall_rating: 99, position: 'ST' },
+      user: { id: 'caller-user', email: 'caller@example.test' },
+    },
+    response
+  );
+
+  assert.equal(response.statusCode, 403);
+});
+
+test('the owner cannot rewrite career stats through a player edit', async () => {
   let written = null;
   const router = loadPlayerRouterWithMocks(mockFor({ roleId: 1, onUpdate: (b) => { written = b; } }));
   const response = makeResponse();
@@ -168,10 +194,8 @@ test('ordinary profile fields still save normally', async () => {
   await routeHandler(router, 'patch', '/:id')(
     {
       params: { id: 'player-1' },
-      // The flows that legitimately edit other players — dressing room, game day,
-      // club role management — all touch fields like these and must keep working.
-      body: { position: 'ST', bio: 'hello', dressing_room_seat: 3, club_roles: ['captain'] },
-      user: { id: 'caller-user' },
+      body: { position: 'ST', bio: 'hello', goals: 99, assists: 40, overall_rating: 99 },
+      user: { id: 'owner-user', email: 'owner@example.test' },
     },
     response
   );
@@ -179,8 +203,34 @@ test('ordinary profile fields still save normally', async () => {
   assert.equal(response.statusCode, 200);
   assert.equal(written.position, 'ST');
   assert.equal(written.bio, 'hello');
+  assert.equal(written.goals, 4, 'career goals stay on the stored value');
+  assert.equal(written.assists, 1);
+  assert.equal(written.overall_rating, undefined);
+});
+
+test('a teammate can still manage club roles and dressing-room seats', async () => {
+  let written = null;
+  const router = loadPlayerRouterWithMocks(mockFor({
+    roleId: 1,
+    sameClub: true,
+    onUpdate: (b) => { written = b; },
+  }));
+  const response = makeResponse();
+
+  await routeHandler(router, 'patch', '/:id')(
+    {
+      params: { id: 'player-1' },
+      body: { position: 'ST', bio: 'hello', dressing_room_seat: 3, club_roles: ['captain'], goals: 99 },
+      user: { id: 'caller-user', email: 'caller@example.test' },
+    },
+    response
+  );
+
+  assert.equal(response.statusCode, 200);
   assert.equal(written.dressing_room_seat, 3);
   assert.deepEqual(written.club_roles, ['captain']);
+  assert.equal(written.position, undefined, 'teammates cannot rewrite profile fields');
+  assert.equal(written.goals, 4, 'career stats stay on the stored value');
 });
 
 test('GET / respects directory limit instead of hardcoding the first 25 players', async () => {
@@ -240,4 +290,87 @@ test('an admin can still adjust a wallet — that is what the admin panel is for
   assert.equal(response.statusCode, 200);
   assert.equal(written.credits, 500);
   assert.equal(written.subscription, 'stage_plus');
+});
+
+function mockPlusPlayer(onWrite) {
+  return async (sql, params = []) => {
+    if (/information_schema/.test(sql)) return [{ ok: 1 }];
+    if (sql === 'TEST_SELECT_PLAYER') {
+      return [{
+        id: 'player-1',
+        user_id: 'owner-user',
+        email: 'owner@example.test',
+        subscription: 'stage_plus',
+        game_day_tile_backgrounds: {},
+        career_tile_backgrounds: {},
+      }];
+    }
+    if (/game_day_tile_backgrounds/.test(sql) || /career_tile_backgrounds/.test(sql)) {
+      onWrite?.(params);
+      return { affectedRows: 1 };
+    }
+    return [];
+  };
+}
+
+test('game-day tile background accepts page keys from tileKey, title_key, or query', async () => {
+  const written = [];
+  const router = loadPlayerRouterWithMocks(mockPlusPlayer((params) => written.push(params)));
+  const handler = routeHandler(router, 'patch', '/:id/game-day-tile-background');
+  const owner = { id: 'owner-user', email: 'owner@example.test' };
+
+  for (const req of [
+    { body: { type: 'custom', image_url: '/uploads/tile.jpg', tile_key: 'home' } },
+    { body: { type: 'custom', image_url: '/uploads/tile.jpg', tileKey: 'tournaments' } },
+    { body: { type: 'custom', image_url: '/uploads/tile.jpg', title_key: 'profile' } },
+    { body: { type: 'custom', image_url: '/uploads/tile.jpg' }, query: { tile_key: 'apps' } },
+    { body: { type: 'custom', image_url: '/uploads/tile.jpg', tile_key: 'Match Screens' } },
+    { body: { type: 'custom', image_url: '/uploads/tile.jpg', tile_key: 'GOST' } },
+    { body: { type: 'custom', image_url: '/uploads/tile.jpg', title_key: 'find_players' } },
+    { body: { type: 'custom', image_url: '/uploads/tile.jpg' }, query: { title_key: 'find_clubs' } },
+  ]) {
+    const response = makeResponse();
+    await handler({ params: { id: 'player-1' }, body: {}, query: {}, ...req, user: owner }, response);
+    assert.equal(response.statusCode, 200, JSON.stringify(req));
+  }
+
+  assert.equal(written.length, 8);
+  assert.match(String(written[0][0]), /"home"/);
+  assert.match(String(written[4][0]), /"match_screens"/);
+  assert.match(String(written[5][0]), /"competitions"/);
+  assert.match(String(written[6][0]), /"find_players"/);
+  assert.match(String(written[7][0]), /"find_clubs"/);
+});
+
+test('game-day tile background still rejects unknown keys', async () => {
+  const router = loadPlayerRouterWithMocks(mockPlusPlayer(() => {}));
+  const response = makeResponse();
+  await routeHandler(router, 'patch', '/:id/game-day-tile-background')(
+    {
+      params: { id: 'player-1' },
+      body: { type: 'default', tile_key: 'not_a_tile' },
+      query: {},
+      user: { id: 'owner-user', email: 'owner@example.test' },
+    },
+    response,
+  );
+  assert.equal(response.statusCode, 400);
+  assert.equal(response.body.error, 'Valid tile_key is required');
+});
+
+test('career tile background accepts camelCase tileKey', async () => {
+  const written = [];
+  const router = loadPlayerRouterWithMocks(mockPlusPlayer((params) => written.push(params)));
+  const response = makeResponse();
+  await routeHandler(router, 'patch', '/:id/career-tile-background')(
+    {
+      params: { id: 'player-1' },
+      body: { type: 'custom', image_url: '/uploads/tile.jpg', tileKey: 'upcoming' },
+      query: {},
+      user: { id: 'owner-user', email: 'owner@example.test' },
+    },
+    response,
+  );
+  assert.equal(response.statusCode, 200);
+  assert.match(String(written[0][0]), /"upcoming"/);
 });

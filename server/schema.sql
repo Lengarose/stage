@@ -272,6 +272,20 @@ CREATE TABLE IF NOT EXISTS matches (
   away_submission        TEXT,
   result_home_submitted  TINYINT(1)   DEFAULT 0,
   result_away_submitted  TINYINT(1)   DEFAULT 0,
+  -- result negotiation (club vs club). status stays coarse; result_state is the handshake.
+  result_state           VARCHAR(40)  NULL,
+  result_submit_side     VARCHAR(10)  NULL,
+  decided_on_penalties   TINYINT(1)   DEFAULT 0,
+  penalty_winner_side    VARCHAR(10)  NULL,
+  allow_penalties        TINYINT(1)   DEFAULT 0,
+  result_due_at          DATETIME     NULL,
+  confirmation_due_at    DATETIME     NULL,
+  review_due_at          DATETIME     NULL,
+  correction_count       INT          DEFAULT 0,
+  home_counter_count     INT          DEFAULT 0,
+  home_dispute_submission TEXT        NULL,
+  away_dispute_submission TEXT        NULL,
+  result_history         JSON         NULL,
   home_submitted_score   VARCHAR(20),
   away_submitted_score   VARCHAR(20),
   first_submission_at    DATETIME,
@@ -1351,6 +1365,8 @@ CREATE INDEX idx_matches_home        ON matches(home_club_id);
 CREATE INDEX idx_matches_away        ON matches(away_club_id);
 CREATE INDEX idx_matches_tournament  ON matches(tournament_id);
 CREATE INDEX idx_matches_home_owner_email ON matches(home_owner_email);
+CREATE INDEX idx_matches_result_state ON matches(result_state);
+CREATE INDEX idx_matches_result_due ON matches(result_due_at);
 CREATE INDEX idx_matches_away_owner_email ON matches(away_owner_email);
 CREATE INDEX idx_posts_club          ON posts(club_id);
 CREATE INDEX idx_posts_author        ON posts(author_email);

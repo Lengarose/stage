@@ -94,7 +94,7 @@ test("home kickoff can start a scheduled match once the window opens", () => {
   assert.equal(controls.canPressKickoff, true);
 });
 
-test("club kickoff stays blocked until both dressing rooms have a seated player", () => {
+test("club kickoff is not blocked by dressing-room seats", () => {
   const controls = getKickoffControls({
     game: { status: "scheduled" },
     isMyMatch: true,
@@ -107,8 +107,8 @@ test("club kickoff stays blocked until both dressing rooms have a seated player"
   });
 
   assert.equal(controls.showHomeKickoff, true);
-  assert.equal(controls.dressingBlocked, true);
-  assert.equal(controls.canPressKickoff, false);
+  assert.equal(controls.dressingBlocked, false);
+  assert.equal(controls.canPressKickoff, true);
 });
 
 test("Game Day and admin pages are wired to the result-flow helpers", () => {
@@ -125,15 +125,10 @@ test("Game Day and admin pages are wired to the result-flow helpers", () => {
     /getKickoffControls/,
     "GameDayDetail should use the tested kickoff control helper"
   );
-  assert.match(
+  assert.doesNotMatch(
     gameDaySource,
     /showDressingRoomPanel/,
-    "GameDayDetail should render the dressing room in the main match flow"
-  );
-  assert.match(
-    gameDaySource,
-    /onSeatChange=\{updateDressingCountForClub\}/,
-    "Inline dressing room should update kickoff seat counts after a seat action"
+    "GameDayDetail should not render the dressing-room gate in the main match flow"
   );
   assert.match(
     source,
@@ -172,7 +167,7 @@ test("server match flow derives the submitted side from the authenticated match 
   );
   assert.match(
     source,
-    /const actor = await resolveMatchActorSide\(m, _auth_user_id\);[\s\S]{0,120}const isHomeSubmission = actor\.side === 'home';/,
+    /const actor = await resolveMatchActorSide\(match, _auth_user_id\);[\s\S]{0,120}const isHomeSubmission = actor\.side === 'home';/,
     "Result submission should derive home/away from the authenticated actor"
   );
   assert.match(

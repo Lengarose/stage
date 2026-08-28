@@ -531,6 +531,23 @@ async function runStartupMigrations() {
   await addCol('matches', 'confirmed_date',      'DATETIME NULL');
   await addCol('matches', 'cancel_status', 'VARCHAR(30) NULL');
   await addCol('matches', 'cancel_requested_by', 'VARCHAR(255) NULL');
+  await addCol('matches', 'result_state', 'VARCHAR(40) NULL');
+  await addCol('matches', 'result_submit_side', 'VARCHAR(10) NULL');
+  await addCol('matches', 'decided_on_penalties', 'TINYINT(1) DEFAULT 0');
+  await addCol('matches', 'penalty_winner_side', 'VARCHAR(10) NULL');
+  await addCol('matches', 'allow_penalties', 'TINYINT(1) DEFAULT 0');
+  await addCol('matches', 'result_due_at', 'DATETIME NULL');
+  await addCol('matches', 'confirmation_due_at', 'DATETIME NULL');
+  await addCol('matches', 'review_due_at', 'DATETIME NULL');
+  await addCol('matches', 'correction_count', 'INT DEFAULT 0');
+  await addCol('matches', 'home_counter_count', 'INT DEFAULT 0');
+  await addCol('matches', 'home_dispute_submission', 'TEXT NULL');
+  await addCol('matches', 'away_dispute_submission', 'TEXT NULL');
+  await addCol('matches', 'result_history', 'JSON NULL');
+  await EXECUTESQL('CREATE INDEX idx_matches_result_state ON matches(result_state)')
+    .catch((err) => console.error('[migration] idx_matches_result_state:', err.message));
+  await EXECUTESQL('CREATE INDEX idx_matches_result_due ON matches(result_due_at)')
+    .catch((err) => console.error('[migration] idx_matches_result_due:', err.message));
 
   // match_player_stats — add player_id and gamertag (schema v2)
   await addCol('match_player_stats', 'player_id', 'VARCHAR(36) NULL');

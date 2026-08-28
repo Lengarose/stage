@@ -41,6 +41,12 @@ const {
   notifyMatchScheduled,
   notifyMatchSide,
 } = require('../services/matchNotificationService');
+const matchResultNegotiationService = require('../services/matchResultNegotiationService');
+const {
+  RESULT_STATES,
+  RESULT_WINDOW_HOURS,
+  hoursFromNow,
+} = require('../lib/matchResultNegotiation');
 const Match = require('../models/matchModel');
 const { DEFAULT_STORE_SETTINGS, getCreditPack, getActiveStoreSettings } = require('../utils/storeSettings');
 const { isWallClockPast } = require('../utils/datetime');
@@ -1012,7 +1018,7 @@ async function applyClubMatchRecord(club, result, scored, conceded) {
   ).catch(() => {});
 }
 
-async function applySoloPlayerRecord(playerId, result) {
+async function applySoloPlayerRecord(playerId, result, extras = {}) {
   if (!playerId) return;
   await EXECUTESQL(
     `UPDATE players
@@ -1020,12 +1026,16 @@ async function applySoloPlayerRecord(playerId, result) {
            wins_count = IFNULL(wins_count,0) + ?,
            losses_count = IFNULL(losses_count,0) + ?,
            draws_count = IFNULL(draws_count,0) + ?,
+           goals = IFNULL(goals,0) + ?,
+           assists = IFNULL(assists,0) + ?,
            updated_date = NOW()
      WHERE id = ?`,
     [
       result === 'win' ? 1 : 0,
       result === 'loss' ? 1 : 0,
       result === 'draw' ? 1 : 0,
+      Number(extras.goals || 0),
+      Number(extras.assists || 0),
       playerId,
     ]
   ).catch(() => {});
@@ -1080,17 +1090,34 @@ async function processMatchCompletion(match, acceptedSubmission, secondarySubmis
   const matchId = match.id;
   const homeScore = Number(acceptedSubmission.home_score || 0);
   const awayScore = Number(acceptedSubmission.away_score || 0);
-  const primaryStats = Array.isArray(acceptedSubmission.player_stats) ? acceptedSubmission.player_stats : [];
-  const secondaryStats = Array.isArray(secondarySubmission?.player_stats) ? secondarySubmission.player_stats : [];
-  const submittedStats = [...primaryStats, ...secondaryStats];
+  const duplicateSecondary = Boolean(secondarySubmission) && secondarySubmission === acceptedSubmission;
+  const homeAuthoredStats = Array.isArray(acceptedSubmission.home_player_stats)
+    ? acceptedSubmission.home_player_stats
+    : null;
+  const awayAuthoredStats = Array.isArray(acceptedSubmission.away_player_stats)
+    ? acceptedSubmission.away_player_stats
+    : null;
+  const submittedStats = homeAuthoredStats || awayAuthoredStats
+    ? [...(homeAuthoredStats || []), ...(awayAuthoredStats || [])]
+    : [
+        ...(Array.isArray(acceptedSubmission.player_stats) ? acceptedSubmission.player_stats : []),
+        ...(duplicateSecondary || !secondarySubmission
+          ? []
+          : (Array.isArray(secondarySubmission.player_stats) ? secondarySubmission.player_stats : [])),
+      ];
   // Eligibility is enforced on the recorded result, not only on the planned
   // lineup: a loaned-out player must not be reported as having played for the
   // club that owns them. Ineligible rows are dropped and reported rather than
   // failing the whole result submission.
   const { playerStats, rejectedStats } = await filterEligibleMatchStats(submittedStats);
-  const primaryGoals = Array.isArray(acceptedSubmission.goal_events) ? acceptedSubmission.goal_events : [];
-  const secondaryGoals = Array.isArray(secondarySubmission?.goal_events) ? secondarySubmission.goal_events : [];
-  const goalEvents = [...primaryGoals, ...secondaryGoals];
+  const homeGoalEvents = Array.isArray(acceptedSubmission.home_goal_events)
+    ? acceptedSubmission.home_goal_events
+    : (Array.isArray(acceptedSubmission.goal_events) ? acceptedSubmission.goal_events : []);
+  const awayGoalEvents = Array.isArray(acceptedSubmission.away_goal_events)
+    ? acceptedSubmission.away_goal_events
+    : (duplicateSecondary || !secondarySubmission
+      ? []
+      : (Array.isArray(secondarySubmission.goal_events) ? secondarySubmission.goal_events : []));
 
   const freshRows = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [matchId]);
   const fresh = freshRows[0] || match;
@@ -1104,15 +1131,27 @@ async function processMatchCompletion(match, acceptedSubmission, secondarySubmis
     return { data: { status: 'completed', skipped: true } };
   }
 
-  const winnerClubId = homeScore > awayScore ? fresh.home_club_id : homeScore < awayScore ? fresh.away_club_id : null;
-  const winnerClubName = homeScore > awayScore ? fresh.home_club_name : homeScore < awayScore ? fresh.away_club_name : null;
-  const loserClubId = homeScore > awayScore ? fresh.away_club_id : homeScore < awayScore ? fresh.home_club_id : null;
-  const loserClubName = homeScore > awayScore ? fresh.away_club_name : homeScore < awayScore ? fresh.home_club_name : null;
+  const decidedOnPenalties = Number(
+    acceptedSubmission.decided_on_penalties ?? fresh.decided_on_penalties ?? 0
+  ) === 1;
+  const penaltyWinnerSide = acceptedSubmission.penalty_winner_side || fresh.penalty_winner_side || null;
+  let winnerIsHome = homeScore > awayScore;
+  let winnerIsAway = homeScore < awayScore;
+  if (!winnerIsHome && !winnerIsAway && decidedOnPenalties && penaltyWinnerSide === 'home') winnerIsHome = true;
+  if (!winnerIsHome && !winnerIsAway && decidedOnPenalties && penaltyWinnerSide === 'away') winnerIsAway = true;
+
+  const winnerClubId = winnerIsHome ? fresh.home_club_id : winnerIsAway ? fresh.away_club_id : null;
+  const winnerClubName = winnerIsHome ? fresh.home_club_name : winnerIsAway ? fresh.away_club_name : null;
+  const loserClubId = winnerIsHome ? fresh.away_club_id : winnerIsAway ? fresh.home_club_id : null;
+  const loserClubName = winnerIsHome ? fresh.away_club_name : winnerIsAway ? fresh.home_club_name : null;
+  const officialState = acceptedSubmission.result_state || RESULT_STATES.CONFIRMED;
 
   await EXECUTESQL(
     `UPDATE matches SET status='completed', home_score=?, away_score=?,
        winner_club_id=?, winner_club_name=?, loser_club_id=?, loser_club_name=?,
-       home_goal_events=?, away_goal_events=?, updated_date=NOW() WHERE id=?`,
+       home_goal_events=?, away_goal_events=?,
+       decided_on_penalties=?, penalty_winner_side=?, result_state=?,
+       updated_date=NOW() WHERE id=?`,
     [
       homeScore,
       awayScore,
@@ -1120,8 +1159,11 @@ async function processMatchCompletion(match, acceptedSubmission, secondarySubmis
       winnerClubName,
       loserClubId,
       loserClubName,
-      JSON.stringify(goalEvents),
-      JSON.stringify([]),
+      JSON.stringify(homeGoalEvents),
+      JSON.stringify(awayGoalEvents),
+      decidedOnPenalties ? 1 : 0,
+      penaltyWinnerSide,
+      officialState,
       matchId,
     ]
   );
@@ -1165,8 +1207,8 @@ async function processMatchCompletion(match, acceptedSubmission, secondarySubmis
     const homeClub = homeRows[0];
     const awayClub = awayRows[0];
     if (homeClub && awayClub) {
-      const homeResult = homeScore > awayScore ? 'win' : homeScore < awayScore ? 'loss' : 'draw';
-      const awayResult = homeScore > awayScore ? 'loss' : homeScore < awayScore ? 'win' : 'draw';
+      const homeResult = winnerIsHome ? 'win' : winnerIsAway ? 'loss' : 'draw';
+      const awayResult = winnerIsAway ? 'win' : winnerIsHome ? 'loss' : 'draw';
       await applyClubMatchRecord(homeClub, homeResult, homeScore, awayScore);
       await applyClubMatchRecord(awayClub, awayResult, awayScore, homeScore);
       const cfg = await getStadiumConfig();
@@ -1224,8 +1266,8 @@ async function processMatchCompletion(match, acceptedSubmission, secondarySubmis
   if (isClubMatch) {
     const stats = await EXECUTESQL('SELECT * FROM match_player_stats WHERE match_id = ?', [matchId]).catch(() => []);
     if (stats.length) {
-      const homeResult = homeScore > awayScore ? 'win' : homeScore < awayScore ? 'loss' : 'draw';
-      const awayResult = homeScore > awayScore ? 'loss' : homeScore < awayScore ? 'win' : 'draw';
+      const homeResult = winnerIsHome ? 'win' : winnerIsAway ? 'loss' : 'draw';
+      const awayResult = winnerIsAway ? 'win' : winnerIsHome ? 'loss' : 'draw';
       for (const stat of stats) {
         const playerRows = stat.player_id
           ? await EXECUTESQL('SELECT * FROM players WHERE id = ? LIMIT 1', [stat.player_id]).catch(() => [])
@@ -1233,36 +1275,28 @@ async function processMatchCompletion(match, acceptedSubmission, secondarySubmis
         const player = playerRows[0];
         if (!player) continue;
         const result = String(stat.club_id) === String(fresh.home_club_id) ? homeResult : awayResult;
+        // Club events update My Club Career, not general Player Career.
         await EXECUTESQL(
           `UPDATE players
-             SET matches_played = IFNULL(matches_played,0) + 1,
-                 matches_played_club = IFNULL(matches_played_club,0) + 1,
-                 goals = IFNULL(goals,0) + ?,
+             SET matches_played_club = IFNULL(matches_played_club,0) + 1,
                  goals_player = IFNULL(goals_player,0) + ?,
                  assists = IFNULL(assists,0) + ?,
-                 wins_count = IFNULL(wins_count,0) + ?,
                  wins_club = IFNULL(wins_club,0) + ?,
-                 losses_count = IFNULL(losses_count,0) + ?,
                  losses_club = IFNULL(losses_club,0) + ?,
-                 draws_count = IFNULL(draws_count,0) + ?,
                  draws_club = IFNULL(draws_club,0) + ?,
                  clean_sheets = IFNULL(clean_sheets,0) + ?,
                  man_of_the_match = IFNULL(man_of_the_match,0) + ?,
                  avg_match_rating = CASE
-                   WHEN IFNULL(matches_played,0) <= 0 THEN ?
-                   ELSE ((IFNULL(avg_match_rating,0) * IFNULL(matches_played,0)) + ?) / (IFNULL(matches_played,0) + 1)
+                   WHEN IFNULL(matches_played_club,0) <= 0 THEN ?
+                   ELSE ((IFNULL(avg_match_rating,0) * IFNULL(matches_played_club,0)) + ?) / (IFNULL(matches_played_club,0) + 1)
                  END,
                  updated_date = NOW()
            WHERE id = ?`,
           [
             Number(stat.goals || 0),
-            Number(stat.goals || 0),
             Number(stat.assists || 0),
             result === 'win' ? 1 : 0,
-            result === 'win' ? 1 : 0,
             result === 'loss' ? 1 : 0,
-            result === 'loss' ? 1 : 0,
-            result === 'draw' ? 1 : 0,
             result === 'draw' ? 1 : 0,
             Number(stat.clean_sheet || 0),
             Number(stat.is_motm || 0),
@@ -1290,10 +1324,12 @@ async function processMatchCompletion(match, acceptedSubmission, secondarySubmis
     }
     await generateShirtSalesForMatch(completed, stats).catch(() => {});
   } else if (fresh.home_player_id || fresh.away_player_id) {
-    const homeResult = homeScore > awayScore ? 'win' : homeScore < awayScore ? 'loss' : 'draw';
-    const awayResult = homeScore > awayScore ? 'loss' : homeScore < awayScore ? 'win' : 'draw';
-    await applySoloPlayerRecord(fresh.home_player_id, homeResult);
-    await applySoloPlayerRecord(fresh.away_player_id, awayResult);
+    const homeResult = winnerIsHome ? 'win' : winnerIsAway ? 'loss' : 'draw';
+    const awayResult = winnerIsAway ? 'win' : winnerIsHome ? 'loss' : 'draw';
+    const homeStat = playerStats.find((stat) => String(stat.player_id) === String(fresh.home_player_id)) || {};
+    const awayStat = playerStats.find((stat) => String(stat.player_id) === String(fresh.away_player_id)) || {};
+    await applySoloPlayerRecord(fresh.home_player_id, homeResult, homeStat);
+    await applySoloPlayerRecord(fresh.away_player_id, awayResult, awayStat);
   }
 
   const [completedForSourceSync] = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [matchId]);
@@ -8412,15 +8448,20 @@ const HANDLERS = {
     own_score, opponent_score,
     player_stats, goal_events, proof_url, admin_resolve_winner,
     admin_home_score, admin_away_score, _auth_user_id,
+    participating_player_ids, decided_on_penalties, penalty_winner_side,
+    explanation, club_id,
   }) {
+    if (action === 'settle_club_matches') {
+      const { club } = await getMe(_auth_user_id);
+      return matchResultNegotiationService.settleClubMatches(club_id || club?.id);
+    }
     if (!match_id) throw new Error('match_id required');
 
     if (action === 'kickoff') {
-      // Dressing-room gate (club matches only): both clubs must have at
-      // least one player seated before the match can start. This stops the
-      // home club from kicking off into an empty away dressing room (which
-      // would then leave the away side unable to earn ratings/stats).
-      // Solo matches keep the existing "home presses Kickoff" flow.
+      // Phase 2 — the dressing room no longer gates Game Day. A correctly
+      // scheduled match is startable on its own match state; who actually
+      // played is declared during result submission instead. The dressing_rooms
+      // table and its historical rows are deliberately left untouched.
       const matchRows = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [match_id]);
       if (!matchRows.length) throw new Error('Match not found');
       const match = matchRows[0];
@@ -8431,44 +8472,20 @@ const HANDLERS = {
         'Only the home team can kick off this match.'
       );
 
-      if (match.mode === 'club' && match.home_club_id && match.away_club_id) {
-        const dressingRows = await EXECUTESQL(
-          `SELECT club_id, seated_players FROM dressing_rooms
-            WHERE match_id = ? AND club_id IN (?, ?)`,
-          [match_id, match.home_club_id, match.away_club_id]
-        );
-        const seatedCount = (clubId) => {
-          const row = dressingRows.find(r => String(r.club_id) === String(clubId));
-          if (!row) return 0;
-          let raw = row.seated_players;
-          if (raw == null || raw === '') return 0;
-          if (typeof raw === 'string') {
-            try { raw = JSON.parse(raw); } catch { return 0; }
-          }
-          return Array.isArray(raw) ? raw.length : 0;
-        };
-        const homeSeated = seatedCount(match.home_club_id);
-        const awaySeated = seatedCount(match.away_club_id);
-
-        if (homeSeated === 0 || awaySeated === 0) {
-          const msg = homeSeated === 0 && awaySeated === 0
-            ? 'Both clubs must seat at least one player in the dressing room before kickoff.'
-            : homeSeated === 0
-              ? 'Home club must seat at least one player in the dressing room before kickoff.'
-              : 'Away club must seat at least one player in the dressing room before kickoff.';
-          const err = new Error(msg);
-          err.status  = 409;
-          err.code    = 'DRESSING_ROOM_NOT_READY';
-          err.details = { home_seated: homeSeated, away_seated: awaySeated };
-          throw err;
-        }
-      }
-
       await ensureMatchStreamsFromPlayers(match).catch((err) => {
         console.warn('[matchKickoff] stream auto-fill failed:', err.message);
       });
 
-      await EXECUTESQL("UPDATE matches SET status = 'in_progress', updated_date = NOW() WHERE id = ?", [match_id]);
+      await EXECUTESQL(
+        `UPDATE matches
+            SET status = 'in_progress',
+                result_state = ?,
+                result_submit_side = 'home',
+                result_due_at = ?,
+                updated_date = NOW()
+          WHERE id = ?`,
+        [RESULT_STATES.AWAITING_RESULT, hoursFromNow(RESULT_WINDOW_HOURS).toISOString(), match_id]
+      );
       await notifyMatchActor(
         actor,
         match,
@@ -8488,13 +8505,35 @@ const HANDLERS = {
       return { data: { success: true } };
     }
 
-    if (action === 'submit_result') {
+    if (action === 'settle_deadlines') {
       const rows = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [match_id]);
       if (!rows.length) throw new Error('Match not found');
-      const m = rows[0];
-      const actor = await resolveMatchActorSide(m, _auth_user_id);
-      const isHomeSubmission = actor.side === 'home';
+      const settled = await matchResultNegotiationService.settleMatchDeadlines(rows[0]);
+      await broadcastMatchById(match_id);
+      return settled;
+    }
 
+    const negotiationArgs = {
+      home_score,
+      away_score,
+      own_score,
+      opponent_score,
+      player_stats,
+      goal_events,
+      proof_url,
+      participating_player_ids,
+      decided_on_penalties,
+      penalty_winner_side,
+      explanation,
+    };
+
+    async function loadActorMatch() {
+      const rows = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [match_id]);
+      if (!rows.length) throw new Error('Match not found');
+      const settled = await matchResultNegotiationService.settleMatchDeadlines(rows[0]);
+      const match = settled.match || (await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [match_id]))[0];
+      const actor = await resolveMatchActorSide(match, _auth_user_id);
+      const isHomeSubmission = actor.side === 'home';
       const requestedHomeSide = is_home_team === true || is_home_team === 'true' || is_home_team === 1 || is_home_team === '1';
       if (typeof is_home_team !== 'undefined' && requestedHomeSide !== isHomeSubmission) {
         const err = new Error('Submitted match side does not match your team.');
@@ -8502,153 +8541,71 @@ const HANDLERS = {
         err.code = 'MATCH_SIDE_MISMATCH';
         throw err;
       }
+      return { match, actor, isHomeSubmission };
+    }
 
-      // Enforce submission order: the AWAY side cannot submit until the HOME
-      // side has submitted. This stops away-first races where the away score
-      // gets locked in before the home reporter has had a chance to enter it.
-      // (Home is, by convention, the trusted "first reporter" of the match.)
-      if (!isHomeSubmission && !Number(m.result_home_submitted)) {
-        const err = new Error('Home team must submit their result first.');
-        err.status = 409;
-        err.code   = 'AWAITING_HOME_SUBMISSION';
-        throw err;
-      }
+    async function maybeOcr() {
+      if (!proof_url) return null;
+      return recognizeScoreFromImageUrl(proof_url).catch((err) => ({
+        ok: false,
+        reason: 'ocr_failed',
+        error: err.message,
+        text: '',
+      }));
+    }
 
-      if (!proof_url) {
-        const err = new Error('Screenshot proof is required before submitting a result.');
-        err.status = 400;
-        err.code = 'PROOF_REQUIRED';
-        throw err;
-      }
+    if (action === 'submit_result') {
+      const { match: m, actor } = await loadActorMatch();
+      const proofOcr = await maybeOcr();
+      const result = await matchResultNegotiationService.handleSubmitResult(m, actor, negotiationArgs, proofOcr);
+      await broadcastMatchById(match_id);
+      return result;
+    }
 
-      const proofOcr = proof_url
-        ? await recognizeScoreFromImageUrl(proof_url).catch((err) => ({
-            ok: false,
-            reason: 'ocr_failed',
-            error: err.message,
-            text: '',
-          }))
-        : null;
+    if (action === 'confirm_result') {
+      const { match: m, actor } = await loadActorMatch();
+      const result = await matchResultNegotiationService.confirmResult(m, actor, negotiationArgs);
+      await broadcastMatchById(match_id);
+      return result;
+    }
 
-      const side = isHomeSubmission ? 'home' : 'away';
-      const declared = fixtureScoreFromSubmission({
-        home_score,
-        away_score,
-        own_score,
-        opponent_score,
-      }, side);
-      const ownScore = own_score != null && own_score !== ''
-        ? Number(own_score)
-        : (isHomeSubmission ? declared.home : declared.away);
-      const opponentScore = opponent_score != null && opponent_score !== ''
-        ? Number(opponent_score)
-        : (isHomeSubmission ? declared.away : declared.home);
+    if (action === 'propose_correction') {
+      const { match: m, actor } = await loadActorMatch();
+      const result = await matchResultNegotiationService.proposeCorrection(m, actor, negotiationArgs);
+      await broadcastMatchById(match_id);
+      return result;
+    }
 
-      const submission = JSON.stringify({
-        home_score:   declared.home,
-        away_score:   declared.away,
-        own_score:    ownScore,
-        opponent_score: opponentScore,
-        player_stats: player_stats  || [],
-        goal_events:  goal_events   || [],
-        proof_url:    proof_url     || null,
-        proof_ocr:    proofOcr,
-        submitted_at: new Date().toISOString(),
-      });
+    if (action === 'accept_correction') {
+      const { match: m, actor } = await loadActorMatch();
+      const result = await matchResultNegotiationService.acceptCorrection(m, actor);
+      await broadcastMatchById(match_id);
+      return result;
+    }
 
-      if (isHomeSubmission) {
-        await EXECUTESQL(
-          'UPDATE matches SET home_submission = ?, result_home_submitted = 1, updated_date = NOW() WHERE id = ?',
-          [submission, match_id]
-        );
-      } else {
-        await EXECUTESQL(
-          'UPDATE matches SET away_submission = ?, result_away_submitted = 1, updated_date = NOW() WHERE id = ?',
-          [submission, match_id]
-        );
-      }
+    if (action === 'counter_result') {
+      const { match: m, actor } = await loadActorMatch();
+      const result = await matchResultNegotiationService.counterResult(m, actor, negotiationArgs, await maybeOcr());
+      await broadcastMatchById(match_id);
+      return result;
+    }
 
-      const [updated] = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [match_id]);
-      const homeSub = parseSubmission(updated.home_submission);
-      const awaySub = parseSubmission(updated.away_submission);
+    if (action === 'dispute_result') {
+      const { match: m, actor } = await loadActorMatch();
+      const result = await matchResultNegotiationService.disputeResult(m, actor, negotiationArgs);
+      await broadcastMatchById(match_id);
+      return result;
+    }
 
-      if (!homeSub || !awaySub) {
-        if (isHomeSubmission) {
-          await notifyMatchActor(
-            actor,
-            updated,
-            'result_submitted',
-            'Result submitted',
-            'Your result and screenshot were saved. Waiting for the away team to confirm.'
-          ).catch(() => {});
-          await notifyMatchSide(
-            updated,
-            'away',
-            'result_submitted',
-            'Result submitted - your turn',
-            `${updated.home_club_name || updated.home_player_name || 'Home'} submitted the result. Upload your screenshot proof and confirm your score.`,
-            'result_requested'
-          ).catch(() => {});
-        } else {
-          await notifyMatchActor(
-            actor,
-            updated,
-            'result_submitted',
-            'Result submitted',
-            'Your result and screenshot were saved. Waiting for the home team to confirm.'
-          ).catch(() => {});
-        }
-        await broadcastMatchById(match_id);
-        return { data: { status: 'waiting' } };
-      }
-
-      if (!declaredScoresAgree(homeSub, awaySub)) {
-        const homeClaim = fixtureScoreFromSubmission(homeSub, 'home');
-        const awayClaim = fixtureScoreFromSubmission(awaySub, 'away');
-        await EXECUTESQL(
-          "UPDATE matches SET status = 'disputed', admin_notes = ?, updated_date = NOW() WHERE id = ?",
-          [
-            JSON.stringify({
-              reason: 'submitted_scores_disagree',
-              home_score: homeClaim.home,
-              away_score: homeClaim.away,
-              away_submitted_home_score: awayClaim.home,
-              away_submitted_away_score: awayClaim.away,
-              home_own_score: homeSub.own_score ?? homeClaim.home,
-              home_opponent_score: homeSub.opponent_score ?? homeClaim.away,
-              away_own_score: awaySub.own_score ?? awayClaim.away,
-              away_opponent_score: awaySub.opponent_score ?? awayClaim.home,
-              home_proof_url: homeSub.proof_url || null,
-              away_proof_url: awaySub.proof_url || null,
-            }),
-            match_id,
-          ]
-        );
-        await notifyMatchAdmins(
-          updated,
-          'Match result disputed',
-          `${updated.home_club_name || updated.home_player_name || 'Home'} vs ${updated.away_club_name || updated.away_player_name || 'Away'} needs review.`
-        );
-        await notifyMatchSide(updated, 'home', 'match_disputed', 'Match result disputed', 'Admin is reviewing the submitted screenshots and scores.', 'disputed').catch(() => {});
-        await notifyMatchSide(updated, 'away', 'match_disputed', 'Match result disputed', 'Admin is reviewing the submitted screenshots and scores.', 'disputed').catch(() => {});
-        await broadcastMatchById(match_id);
-        return {
-          data: {
-            status: 'disputed',
-            reason: 'submitted_scores_disagree',
-            home_submission: homeSub,
-            away_submission: awaySub,
-          },
-        };
-      }
-
-      // Scores already agree (e.g. 5-2 and 5-2). Close the match and apply
-      // player/club records. Proof stays on the submissions for audit only.
-      return processMatchCompletion(updated, homeSub, awaySub);
+    if (action === 'submit_dispute_evidence') {
+      const { match: m, actor } = await loadActorMatch();
+      const result = await matchResultNegotiationService.submitDisputeEvidence(m, actor, negotiationArgs);
+      await broadcastMatchById(match_id);
+      return result;
     }
 
     if (action === 'admin_resolve') {
-      await requireAdminUser(_auth_user_id);
+      const admin = await requireAdminUser(_auth_user_id);
       if (!['home', 'away'].includes(admin_resolve_winner)) {
         const err = new Error('admin_resolve_winner must be home or away');
         err.status = 400;
@@ -8667,7 +8624,39 @@ const HANDLERS = {
       accepted.home_score = parseAdminMatchScore(accepted.home_score, 'admin_home_score');
       accepted.away_score = parseAdminMatchScore(accepted.away_score, 'admin_away_score');
 
-      return processMatchCompletion(m, accepted, accepted);
+      const combined = matchResultNegotiationService.acceptedForMatch(m, homeSub, awaySub, {
+        useAway: admin_resolve_winner === 'away',
+        resultState: RESULT_STATES.CONFIRMED,
+      });
+      combined.home_score = accepted.home_score;
+      combined.away_score = accepted.away_score;
+      if (admin_home_score != null || admin_away_score != null) {
+        combined.home_score = accepted.home_score;
+        combined.away_score = accepted.away_score;
+      }
+
+      const result = await processMatchCompletion(m, combined, null);
+      await writeAdminAuditLog({
+        admin,
+        action: 'match_admin_resolve',
+        entityType: 'match',
+        entityId: match_id,
+        entityName: `${m.home_club_name || m.home_player_name || 'Home'} vs ${m.away_club_name || m.away_player_name || 'Away'}`,
+        oldValue: {
+          status: m.status,
+          result_state: m.result_state,
+          home_score: m.home_score,
+          away_score: m.away_score,
+        },
+        newValue: {
+          status: 'completed',
+          result_state: RESULT_STATES.CONFIRMED,
+          home_score: combined.home_score,
+          away_score: combined.away_score,
+          approved_side: admin_resolve_winner,
+        },
+      });
+      return result;
     }
 
     throw new Error(`Unsupported matchKickoff action: ${action}`);
@@ -13316,4 +13305,5 @@ module.exports = {
   HANDLERS,
   fulfilCheckoutSession,
   retrieveStripeCheckoutSession,
+  processMatchCompletion,
 };

@@ -6,7 +6,7 @@ const { broadcastMatch, broadcastMatchDeleted } = require('../utils/socketBroadc
 const { v4: uuidv4 } = require('uuid');
 const { normalizeMatchForApi } = require('../utils/datetime');
 const competitionEngineService = require('../services/competitionEngineService');
-const { notifyMatchResultAdmin } = require('../services/notifications');
+const matchResultNegotiationService = require('../services/matchResultNegotiationService');
 const { createNotificationIfEnabled } = require('../services/messageDeliveryService');
 const { resolveMatchSideEmails } = require('../services/matchNotificationService');
 
@@ -601,9 +601,15 @@ router.get('/:id', async (req, res) => {
     const match  = new Match();
     const result = await match.selectOne(req.params.id);
     if (!result.length) return res.status(404).json({ error: 'Not found' });
-    const record = result[0];
+    let record = result[0];
     if (!isAdmin && !matchTouchesAuthScope(record, auth)) {
       return res.status(403).json({ error: 'Forbidden' });
+    }
+    try {
+      const settled = await matchResultNegotiationService.settleMatchDeadlines(record);
+      if (settled?.match) record = settled.match;
+    } catch (err) {
+      console.warn('[matchController] deadline settle failed:', err.message);
     }
     res.json((await enrichMatchRows([record]))[0]);
   } catch (err) {

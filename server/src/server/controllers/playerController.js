@@ -34,8 +34,66 @@ const ADMIN_ONLY_PLAYER_FIELDS = [
   'email',
 ];
 
+// Career/ranking totals are written by match completion on the server.
+// A client PATCH of these fields would bypass the result-trust engine.
+const CAREER_STAT_FIELDS = [
+  'goals',
+  'assists',
+  'goals_player',
+  'matches_played',
+  'matches_played_club',
+  'wins_count',
+  'wins_club',
+  'losses_count',
+  'losses_club',
+  'draws_count',
+  'draws_club',
+  'clean_sheets',
+  'man_of_the_match',
+  'avg_match_rating',
+  'overall_rating',
+  'ranking_points',
+  'ranking_matches',
+  'global_rank',
+  'regional_rank',
+  'country_rank',
+  'position_rank',
+];
+
+// Club officers may patch these on a teammate (ClubDetail, DressingRoom).
+const CLUB_MANAGEMENT_FIELDS = new Set([
+  'club_roles',
+  'role',
+  'dressing_room_seat',
+  'is_ready',
+]);
+
 const CAREER_TILE_KEYS = new Set(['upcoming', 'club', 'player', 'transfers']);
-const GAME_DAY_TILE_KEYS = new Set(['match_screens', 'match_details', 'dressing_room']);
+const GAME_DAY_TILE_KEYS = new Set([
+  'match_screens',
+  'match_details',
+  'dressing_room',
+  'home',
+  'tournaments',
+  'profile',
+  'apps',
+  'inbox',
+  'competitions',
+  'transfers',
+  'find_players',
+  'find_clubs',
+]);
+const TILE_KEY_ALIASES = {
+  gost: 'competitions',
+  transfer_hub: 'transfers',
+  findplayers: 'find_players',
+  find_player: 'find_players',
+  findclubs: 'find_clubs',
+  find_club: 'find_clubs',
+  matchscreens: 'match_screens',
+  matchdetails: 'match_details',
+  dressingroom: 'dressing_room',
+};
 
 function isAdmin(user) {
   return [0, 2].includes(Number(user?.role_id));
@@ -57,6 +115,42 @@ function stripAdminOnlyFields(body) {
   const safe = { ...body };
   for (const field of ADMIN_ONLY_PLAYER_FIELDS) delete safe[field];
   return safe;
+}
+
+function stripCareerStatFields(body) {
+  const safe = { ...body };
+  for (const field of CAREER_STAT_FIELDS) delete safe[field];
+  return safe;
+}
+
+function pickClubManagementFields(body) {
+  const picked = {};
+  for (const key of Object.keys(body || {})) {
+    if (CLUB_MANAGEMENT_FIELDS.has(key)) picked[key] = body[key];
+  }
+  return picked;
+}
+
+function ownsPlayerRecord(existing, req) {
+  return String(existing?.user_id || '') === String(req.user?.id || '')
+    || (
+      String(existing?.email || '').toLowerCase()
+      === String(req.user?.email || '').toLowerCase()
+      && Boolean(req.user?.email)
+    );
+}
+
+async function callerSharesClub(req, existing) {
+  const clubId = String(existing?.club_id || '');
+  if (!clubId) return false;
+  const rows = await EXECUTESQL(
+    `SELECT id FROM players
+      WHERE club_id = ?
+        AND (user_id = ? OR LOWER(email) = LOWER(?))
+      LIMIT 1`,
+    [clubId, req.user?.id || '', req.user?.email || '']
+  ).catch(() => []);
+  return Boolean(rows.length);
 }
 
 function normalizePlayerPayload(body = {}) {
@@ -121,6 +215,41 @@ function parseGameDayTileBackgrounds(value) {
   } catch {
     return {};
   }
+}
+
+function normalizeTileKey(raw) {
+  const key = String(raw || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+  return TILE_KEY_ALIASES[key] || key;
+}
+
+/** Clients send tile_key, tileKey, or title_key — React Native PATCH bodies are not always parsed. */
+function readTileKey(req) {
+  const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
+  const nested = body.data && typeof body.data === 'object' && !Array.isArray(body.data) ? body.data : {};
+  const query = req.query && typeof req.query === 'object' ? req.query : {};
+  const params = req.params && typeof req.params === 'object' ? req.params : {};
+  const headers = req.headers && typeof req.headers === 'object' ? req.headers : {};
+  return normalizeTileKey(
+    params.tileKey
+    || params.tile_key
+    || params.title_key
+    || params.titleKey
+    || body.tile_key
+    || body.tileKey
+    || body.title_key
+    || body.titleKey
+    || nested.tile_key
+    || nested.tileKey
+    || nested.title_key
+    || nested.titleKey
+    || query.tile_key
+    || query.tileKey
+    || query.title_key
+    || query.titleKey
+    || headers['x-tile-key']
+    || headers['x-title-key']
+    || '',
+  );
 }
 
 async function ensureSecondaryPositionColumn() {
@@ -254,11 +383,23 @@ router.patch('/:id', async (req, res) => {
     await ensureSecondaryPositionColumn();
     const { id } = req.params;
     const caller = await getUser(req);
-    const body = isAdmin(caller)
-      ? normalizePlayerPayload(req.body)
-      : normalizePlayerPayload(stripAdminOnlyFields(req.body || {}));
     const existing = await new Player().selectOne(id);
     if (!existing.length) return res.status(404).json({ error: 'Not found' });
+    const current = existing[0];
+    const admin = isAdmin(caller);
+    let body;
+    if (admin) {
+      body = normalizePlayerPayload(req.body);
+    } else {
+      const stripped = stripCareerStatFields(stripAdminOnlyFields(req.body || {}));
+      if (ownsPlayerRecord(current, req)) {
+        body = normalizePlayerPayload(stripped);
+      } else if (await callerSharesClub(req, current)) {
+        body = normalizePlayerPayload(pickClubManagementFields(stripped));
+      } else {
+        return res.status(403).json({ error: 'You can only edit your own player' });
+      }
+    }
     assertPersistableMediaFields(body, ['avatar_url', 'banner_url']);
     if (body?.gamertag) {
       const existingByGamertag = await EXECUTESQL(
@@ -364,7 +505,7 @@ router.patch('/:id/career-tile-background', async (req, res) => {
       return res.status(403).json({ error: 'STAGE Plus is required to customize career tile backgrounds' });
     }
 
-    const tileKey = String(req.body?.tile_key || '').toLowerCase();
+    const tileKey = readTileKey(req);
     if (!CAREER_TILE_KEYS.has(tileKey)) {
       return res.status(400).json({ error: 'Valid tile_key is required' });
     }
@@ -440,7 +581,7 @@ router.patch('/:id/game-day-tile-background', async (req, res) => {
       return res.status(403).json({ error: 'STAGE Plus is required to customize Game Day tile backgrounds' });
     }
 
-    const tileKey = String(req.body?.tile_key || '').toLowerCase();
+    const tileKey = readTileKey(req);
     if (!GAME_DAY_TILE_KEYS.has(tileKey)) {
       return res.status(400).json({ error: 'Valid tile_key is required' });
     }

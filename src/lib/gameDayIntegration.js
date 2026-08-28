@@ -117,36 +117,9 @@ export async function syncFixtureAfterMatch(match) {
 
 // ─── Sync aggregate player career stats after match ───────────────────────────
 
-export async function syncPlayerCareerStats(matchId) {
-  if (!matchId) return;
-  try {
-    const stats = await stageClient.entities.MatchPlayerStat.filter({ match_id: matchId }, null, 50).catch(() => []);
-    if (!stats.length) return;
-
-    await Promise.all(stats.map(async (stat) => {
-      if (!stat.player_email) return;
-      const players = await stageClient.entities.Player.filter({ email: stat.player_email }, null, 1).catch(() => []);
-      const player  = players[0];
-      if (!player) return;
-
-      const allStats = await stageClient.entities.MatchPlayerStat.filter(
-        { player_email: stat.player_email }, null, 500
-      ).catch(() => []);
-
-      const totalGoals   = allStats.reduce((s, r) => s + (r.goals   || 0), 0);
-      const totalAssists = allStats.reduce((s, r) => s + (r.assists  || 0), 0);
-      const rated        = allStats.filter(r => r.rating && r.rating > 0);
-      const avgRating    = rated.length
-        ? Math.round((rated.reduce((s, r) => s + r.rating, 0) / rated.length) * 10) / 10
-        : 0;
-
-      await stageClient.entities.Player.update(player.id, {
-        goals:      totalGoals,
-        assists:    totalAssists,
-        avg_rating: avgRating,
-      }).catch(() => {});
-    }));
-  } catch {
-    // Non-fatal
-  }
+// Career totals are written by the server in processMatchCompletion.
+// A client rewrite of goals/assists used the wrong column (avg_rating) and
+// raced the server increment. Keep the export so old callers compile.
+export async function syncPlayerCareerStats() {
+  return null;
 }

@@ -27,6 +27,24 @@ async function firstStreamUrlForPlayerIds(playerIds) {
 }
 
 /**
+ * Fallback stream source for club matches. The dressing room no longer gates
+ * Game Day, so the seated list may legitimately be empty; fall back to any
+ * player of the club who has linked a Twitch/Kick channel.
+ */
+async function firstStreamUrlForClub(clubId) {
+  if (!clubId) return null;
+  const rows = await EXECUTESQL(
+    `SELECT stream_url FROM players
+     WHERE club_id = ?
+       AND stream_url IS NOT NULL
+       AND TRIM(stream_url) != ''
+     LIMIT 1`,
+    [clubId]
+  ).catch(() => []);
+  return rows[0]?.stream_url || null;
+}
+
+/**
  * Fill empty home/away stream URLs on a match from Twitch/Kick-linked players.
  * Never overwrites a URL that was already set manually.
  */
@@ -46,6 +64,7 @@ async function ensureMatchStreamsFromPlayers(match) {
         [match.id, match.home_club_id]
       ).catch(() => []);
       url = await firstStreamUrlForPlayerIds(rooms[0]?.seated_players);
+      if (!url) url = await firstStreamUrlForClub(match.home_club_id);
     }
     if (url) updates.home_stream_url = url;
   }
@@ -61,6 +80,7 @@ async function ensureMatchStreamsFromPlayers(match) {
         [match.id, match.away_club_id]
       ).catch(() => []);
       url = await firstStreamUrlForPlayerIds(rooms[0]?.seated_players);
+      if (!url) url = await firstStreamUrlForClub(match.away_club_id);
     }
     if (url) updates.away_stream_url = url;
   }

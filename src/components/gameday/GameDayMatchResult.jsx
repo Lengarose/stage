@@ -5,6 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import {
+  evidenceRequired,
+  penaltiesAllowed,
+  parseMatchSubmission,
+} from "@/lib/gameDayResultFlow";
 
 /**
  * GameDayMatchResult — both teams submit independently.
@@ -26,6 +31,10 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
   const [loadingPlayers, setLoadingPlayers] = useState(isClubMatch);
   const [proofUrl,    setProofUrl]    = useState(null);
   const [uploadingProof, setUploadingProof] = useState(false);
+  const [playedIds, setPlayedIds] = useState(() => new Set());
+  const [penaltyChoice, setPenaltyChoice] = useState("none");
+  const [correcting, setCorrecting] = useState(false);
+  const [explanation, setExplanation] = useState("");
   const proofInputRef = useRef(null);
   const proofInputId = useId();
 
@@ -37,36 +46,57 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
   // code=AWAITING_HOME_SUBMISSION); this UI just hides the form so a user
   // never gets to fill it in and click submit only to be rejected.
   const homeHasSubmitted    = Boolean(Number(game.result_home_submitted));
-  const awayLockedWaiting   = !isHomeTeam && !homeHasSubmitted && !alreadySubmitted;
+  const resultState = String(game.result_state || "");
+  const submitSide = String(game.result_submit_side || "home").toLowerCase() === "away" ? "away" : "home";
+  const awaitingConfirm = resultState === "AWAITING_AWAY_CONFIRMATION" || (!resultState && homeHasSubmitted);
+  const awaitingReview = resultState === "AWAITING_HOME_REVIEW";
+  const iAmSubmitter = submitSide === "home" ? isHomeTeam : !isHomeTeam;
+  const confirmMode = awaitingConfirm && !iAmSubmitter && !correcting;
+  const reviewMode = awaitingReview && iAmSubmitter;
+  const needsEvidence = evidenceRequired(game) && !confirmMode && !correcting;
+  const allowPens = penaltiesAllowed(game);
+  const homeSubmission = parseMatchSubmission(game.home_submission);
+  const awaySubmission = parseMatchSubmission(game.away_submission);
+  const submittedScore = submitSide === "away" ? awaySubmission : homeSubmission;
+  const awayLockedWaiting   = !isHomeTeam && !homeHasSubmitted && !alreadySubmitted && submitSide === "home";
 
-  // ── Load seated players ────────────────────────────────────────────────────
+  // ── Load the club squad ────────────────────────────────────────────────────
+  // Phase 2 — the dressing room no longer decides who can be reported. The
+  // squad is offered here; Phase 6 turns this into an explicit "who actually
+  // played" selection. Sourcing from seats produced an empty list for every
+  // arranged match, which made result submission impossible.
   useEffect(() => {
     if (!isClubMatch) { setLoadingPlayers(false); return; }
-    async function loadSeated() {
+    let cancelled = false;
+    async function loadSquad() {
       if (!myClub) { setLoadingPlayers(false); return; }
-      const [dressing, allPlayers] = await Promise.all([
-        stageClient.entities.DressingRoom.filter({ match_id: game.id, club_id: myClub.id }),
-        stageClient.entities.Player.filter({ club_id: myClub.id }),
-      ]);
-      const parseIds = (value) => {
-        if (!value) return [];
-        if (Array.isArray(value)) return value;
-        try {
-          const parsed = JSON.parse(value);
-          return Array.isArray(parsed) ? parsed : [];
-        } catch {
-          return [];
-        }
-      };
-      const seatedIds = parseIds(dressing?.[0]?.seated_players);
-      const seated    = allPlayers.filter(p => seatedIds.includes(p.id));
-      setSeatedPlayers(seated);
+      const squad = await stageClient.entities.Player
+        .filter({ club_id: myClub.id })
+        .catch(() => []);
+      if (cancelled) return;
+      const roster = squad || [];
+      setSeatedPlayers(roster);
       const initRatings = {};
-      seated.forEach(p => { initRatings[p.id] = 6; });
+      roster.forEach(p => { initRatings[p.id] = 6; });
       setRatings(initRatings);
+      let suggested = [];
+      if (game.source_fixture_id && myClub?.id) {
+        const lineups = await stageClient.entities.ClubFixtureLineup
+          .filter({ fixture_id: game.source_fixture_id, club_id: myClub.id })
+          .catch(() => []);
+        const raw = lineups?.[0]?.starting_players;
+        try {
+          const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+          suggested = Array.isArray(parsed) ? parsed.map((entry) => entry?.id || entry?.player_id || entry).filter(Boolean) : [];
+        } catch {
+          suggested = [];
+        }
+      }
+      setPlayedIds(new Set(suggested.map(String)));
       setLoadingPlayers(false);
     }
-    loadSeated();
+    loadSquad();
+    return () => { cancelled = true; };
   }, [game.id, myClub, isClubMatch]);
 
   // ── Goal event helpers ─────────────────────────────────────────────────────
@@ -120,10 +150,10 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
     const statsMap = {};
     seatedPlayers.forEach(p => { statsMap[p.id] = { goals: 0, assists: 0 }; });
     goalEvents.forEach(ev => {
-      if (ev.scorer_player_id && statsMap[ev.scorer_player_id] !== undefined) {
+      if (ev.scorer_player_id && statsMap[ev.scorer_player_id] !== undefined && playedIds.has(String(ev.scorer_player_id))) {
         statsMap[ev.scorer_player_id].goals += 1;
       }
-      if (ev.assist_player_id && statsMap[ev.assist_player_id] !== undefined) {
+      if (ev.assist_player_id && statsMap[ev.assist_player_id] !== undefined && playedIds.has(String(ev.assist_player_id))) {
         statsMap[ev.assist_player_id].assists += 1;
       }
     });
@@ -141,8 +171,8 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
 
   const [submitError, setSubmitError] = useState("");
 
-  async function submit() {
-    if (!proofUrl) {
+  async function submit(actionOverride) {
+    if (needsEvidence && !proofUrl) {
       setSubmitError("Upload screenshot proof before submitting.");
       return;
     }
@@ -151,25 +181,28 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
     setSubmitError("");
     try {
       let playerStatsArr = [];
+      const participating = [...playedIds];
 
       if (isClubMatch) {
         const derived = derivePlayerStats();
-        playerStatsArr = seatedPlayers.map(p => ({
-          player_id:       p.id,
-          player_email:    p.email,
-          player_gamertag: p.gamertag,
-          club_id:         myClub?.id || null,
-          goals:           derived[p.id]?.goals   || 0,
-          assists:         derived[p.id]?.assists  || 0,
-          rating:          Number(ratings[p.id]    || 6),
-        }));
+        playerStatsArr = seatedPlayers
+          .filter((p) => playedIds.has(String(p.id)))
+          .map(p => ({
+            player_id:       p.id,
+            player_email:    p.email,
+            player_gamertag: p.gamertag,
+            club_id:         myClub?.id || null,
+            goals:           derived[p.id]?.goals   || 0,
+            assists:         derived[p.id]?.assists  || 0,
+            rating:          Number(ratings[p.id]    || 6),
+          }));
       } else if (myPlayer) {
         playerStatsArr = [{
           player_id:       myPlayer.id,
           player_email:    myPlayer.email,
           player_gamertag: myPlayer.gamertag,
           club_id:         null,
-          goals:           0,
+          goals:           Number(isHomeTeam ? homeScore : awayScore) || 0,
           assists:         0,
           rating:          6,
         }];
@@ -182,19 +215,28 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
         assist_player_id: ev.assist_player_id || null,
         assist_gamertag:  ev.assist_gamertag  || null,
         is_penalty:       !!ev.is_penalty,
+        side:             isHomeTeam ? "home" : "away",
       }));
+
+      const isDraw = Number(homeScore) === Number(awayScore);
+      const action = actionOverride
+        || (reviewMode ? "accept_correction" : confirmMode ? "confirm_result" : "submit_result");
 
       const res = await stageClient.functions.invoke("matchKickoff", {
         match_id:     game.id,
-        action:       "submit_result",
+        action,
         is_home_team: isHomeTeam,
-        home_score:   Number(homeScore),
-        away_score:   Number(awayScore),
+        home_score:   Number(confirmMode && submittedScore ? submittedScore.home_score : homeScore),
+        away_score:   Number(confirmMode && submittedScore ? submittedScore.away_score : awayScore),
         own_score:    isHomeTeam ? Number(homeScore) : Number(awayScore),
         opponent_score: isHomeTeam ? Number(awayScore) : Number(homeScore),
         player_stats: playerStatsArr,
+        participating_player_ids: participating,
         goal_events:  eventsToStore,
         proof_url:    proofUrl || null,
+        decided_on_penalties: isDraw && penaltyChoice !== "none",
+        penalty_winner_side: penaltyChoice === "none" ? null : penaltyChoice,
+        explanation: explanation || null,
       });
 
       const status = res?.data?.status || 'waiting';
@@ -217,14 +259,14 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
 
   // ── Already submitted state ────────────────────────────────────────────────
 
-  if (alreadySubmitted) {
+  if (alreadySubmitted && !reviewMode && !correcting) {
     return (
       <div className="flex items-center gap-3 px-3 py-3 rounded-lg bg-success/10 border border-success/30">
         <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
         <div>
           <p className="text-xs font-semibold text-success">Result submitted!</p>
           <p className="text-[11px] text-muted-foreground mt-0.5">
-            Waiting for the other {isClubMatch ? "team" : "player"} to submit their score.
+            Waiting for the other {isClubMatch ? "team" : "player"} to confirm the result.
           </p>
         </div>
       </div>
@@ -240,7 +282,7 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
           <p className="text-xs font-semibold text-foreground">Waiting for {homeLabel} to submit</p>
           <p className="text-[11px] text-muted-foreground mt-0.5">
             The {isClubMatch ? "home team" : "home player"} reports the result first.
-            You'll be able to confirm your score once they've submitted.
+            You'll be able to confirm the result once they've submitted.
           </p>
         </div>
       </div>
@@ -254,8 +296,25 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
   return (
     <div className="space-y-4 p-1">
       <p className="text-xs font-semibold text-foreground uppercase tracking-wider">
-        Full Time — Submit Your Result ({isHomeTeam ? "Home" : "Away"})
+        {reviewMode
+          ? "Review proposed correction"
+          : confirmMode
+            ? "Confirm Result"
+            : correcting
+              ? "Proposed correction"
+              : `Full Time — Submit Result (${isHomeTeam ? "Home" : "Away"})`}
       </p>
+
+      {confirmMode && submittedScore && (
+        <div className="rounded-lg border border-[#8eeeff]/30 bg-[#8eeeff]/10 px-3 py-2 text-xs text-[#8eeeff]">
+          {(game.home_club_name || game.home_player_name || "Home")} submitted {submittedScore.home_score}–{submittedScore.away_score}. Is this result correct?
+        </div>
+      )}
+      {reviewMode && awaySubmission && (
+        <div className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
+          {(game.away_club_name || game.away_player_name || "Away")} has proposed a correction: {awaySubmission.home_score}–{awaySubmission.away_score}.
+        </div>
+      )}
 
       {/* ── Score ── */}
       <div className="flex items-center gap-3">
@@ -265,6 +324,7 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
           </p>
           <Input type="number" min={0} max={99} value={homeScore}
             onChange={e => setHomeScore(e.target.value)}
+            readOnly={confirmMode && !correcting}
             className="text-center text-lg font-bold bg-secondary border-border h-12" />
         </div>
         <span className="text-lg font-bold text-muted-foreground pb-4">–</span>
@@ -274,9 +334,51 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
           </p>
           <Input type="number" min={0} max={99} value={awayScore}
             onChange={e => setAwayScore(e.target.value)}
+            readOnly={confirmMode && !correcting}
             className="text-center text-lg font-bold bg-secondary border-border h-12" />
         </div>
       </div>
+
+      {allowPens && Number(homeScore) === Number(awayScore) && !confirmMode && (
+        <div className="space-y-2">
+          <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Penalties</p>
+          {[["none", "No penalties"], ["home", "Home won on penalties"], ["away", "Away won on penalties"]].map(([value, label]) => (
+            <label key={value} className="flex items-center gap-2 text-xs">
+              <input type="radio" name="penalty-outcome" checked={penaltyChoice === value} onChange={() => setPenaltyChoice(value)} />
+              {label}
+            </label>
+          ))}
+        </div>
+      )}
+
+      {isClubMatch && seatedPlayers.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
+            Players Who Played
+          </p>
+          <p className="text-[10px] text-muted-foreground">
+            Tick who actually played for your club. Pre-match lineups are only a suggestion.
+          </p>
+          {seatedPlayers.map((p) => (
+            <label key={p.id} className="flex items-center gap-2 text-xs">
+              <input
+                type="checkbox"
+                checked={playedIds.has(String(p.id))}
+                onChange={() => {
+                  setPlayedIds((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(String(p.id))) next.delete(String(p.id));
+                    else next.add(String(p.id));
+                    return next;
+                  });
+                }}
+              />
+              {p.gamertag}
+              <span className="text-muted-foreground">· {p.position || "—"}</span>
+            </label>
+          ))}
+        </div>
+      )}
 
       {/* ── Goal Events — club mode, my team's goals ── */}
       {isClubMatch && myScore > 0 && (
@@ -377,12 +479,12 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
       )}
 
       {/* ── Player Ratings — club mode ── */}
-      {isClubMatch && seatedPlayers.length > 0 && (
+      {isClubMatch && seatedPlayers.filter((p) => playedIds.has(String(p.id))).length > 0 && (
         <div className="space-y-2">
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
-            Player Ratings ({seatedPlayers.length} seated)
+            Player Ratings ({playedIds.size})
           </p>
-          {seatedPlayers.map(p => {
+          {seatedPlayers.filter((p) => playedIds.has(String(p.id))).map(p => {
             const derived  = derivePlayerStats();
             const pGoals   = derived[p.id]?.goals   || 0;
             const pAssists = derived[p.id]?.assists  || 0;
@@ -416,7 +518,7 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
       {/* ── Proof screenshot ── */}
       <div>
         <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-1.5">
-          Proof Screenshot <span className="normal-case font-normal">(required)</span>
+          Proof Screenshot {needsEvidence ? <span className="normal-case font-normal">(required)</span> : <span className="normal-case font-normal">(optional for Arrange Game)</span>}
         </p>
         <input id={proofInputId} ref={proofInputRef} type="file" accept="image/*" className="sr-only" disabled={uploadingProof} onChange={handleProofChange} />
         <label
@@ -432,26 +534,51 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
           <Upload className="w-3.5 h-3.5" />
           {uploadingProof ? "Uploading…" : proofUrl ? "Screenshot uploaded ✓" : "Attach screenshot"}
         </label>
-        {!proofUrl && (
+        {!proofUrl && needsEvidence && (
           <p className="mt-1.5 text-[10px] text-warning">Upload screenshot proof before submitting.</p>
         )}
       </div>
 
-      {/* ── Submit ── */}
-      <Button onClick={submit} disabled={submitting || uploadingProof || !proofUrl} className="w-full bg-success text-white gap-2 disabled:opacity-50">
+      {reviewMode && (
+        <div className="grid gap-2 sm:grid-cols-2">
+          <Button type="button" onClick={() => submit("accept_correction")} disabled={submitting} className="w-full bg-success text-white">
+            Accept Correction
+          </Button>
+          <Button type="button" variant="outline" onClick={() => submit("dispute_result")} disabled={submitting || !proofUrl} className="w-full">
+            Dispute Result
+          </Button>
+        </div>
+      )}
+      {confirmMode && (
+        <div className="grid gap-2 sm:grid-cols-2">
+          <Button type="button" onClick={() => submit("confirm_result")} disabled={submitting} className="w-full bg-success text-white gap-2">
+            Confirm Result
+          </Button>
+          <Button type="button" variant="outline" onClick={() => setCorrecting(true)} disabled={submitting} className="w-full">
+            Result Is Incorrect
+          </Button>
+        </div>
+      )}
+      {!reviewMode && !confirmMode && (
+      <Button type="button" onClick={() => submit(correcting ? "propose_correction" : "submit_result")} disabled={submitting || uploadingProof || (needsEvidence && !proofUrl)} className="w-full bg-success text-white gap-2 disabled:opacity-50">
         {submitting
           ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
           : <><CheckCircle2 className="w-4 h-4" /> Submit Result</>
         }
       </Button>
+      )}
       {submitError && (
         <p className="text-[11px] text-destructive text-center">{submitError}</p>
       )}
+      {!reviewMode && !confirmMode && (
       <p className="text-[10px] text-muted-foreground text-center">
-        {isHomeTeam
-          ? `As the home ${isClubMatch ? "team" : "player"}, you submit the result first.`
-          : `Both ${isClubMatch ? "teams" : "players"} must submit. If scores match, the result is confirmed automatically.`}
+        {correcting
+          ? "Enter the score you believe is correct. No screenshot is required at this step."
+          : isHomeTeam
+            ? `As the home ${isClubMatch ? "team" : "player"}, you submit the result first.`
+            : "Confirm the submitted score, or mark it incorrect and propose a correction."}
       </p>
+      )}
     </div>
   );
 }

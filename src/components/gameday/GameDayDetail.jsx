@@ -1,13 +1,11 @@
 import { useState, useEffect } from "react";
 import { stageClient } from "@/api/stageClient";
 import { processMatchRevenue, processSoloMatchRevenue } from "@/lib/matchRevenue";
-import { syncPlayerCareerStats } from "@/lib/gameDayIntegration";
 import { parseISO, isValid, differenceInMinutes } from "@/lib/momentDate";
-import { Target, Zap, MessageSquare, Play, Flag, Clock, CheckCircle2, Ticket, UserCheck, MoreHorizontal } from "lucide-react";
+import { Target, Zap, MessageSquare, Play, Flag, Clock, CheckCircle2, Ticket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import GameDayDressingRoom from "./GameDayDressingRoom";
 import GameDayMatchChat from "./GameDayMatchChat";
 import GameDayMatchResult from "./GameDayMatchResult";
 import GameDayKickoffArena from "./GameDayKickoffArena";
@@ -21,7 +19,7 @@ import { getResultSubmissionControls, getKickoffControls, isClubGameDayMatch } f
 import { getMatchSideNames } from "@/lib/gameDayPresentation";
 import { sameRecordId } from "@/lib/gameDayRealtime";
 import { useGameDayMatchRealtime } from "@/lib/useGameDayMatchRealtime";
-import { getGameDayTileBackgroundStyle, GameDayTileBackgroundLayers, hasCustomGameDayTileBackground, gameDayMutedOnBg, gameDayTextOnBg } from "./GameDayTileBackgroundDialog";
+import { getGameDayTileBackgroundStyle, hasCustomGameDayTileBackground, gameDayMutedOnBg } from "./GameDayTileBackgroundDialog";
 
 function parseDate(d) {
   if (!d) return null;
@@ -64,7 +62,6 @@ export default function GameDayDetail({
   onOpsOpenChange,
   onChatOpenChange,
   matchDetailsBackgroundConfig,
-  dressingRoomBackgroundConfig,
   onOpenTileBackgroundDialog,
 }) {
   const { t } = useTranslation();
@@ -74,9 +71,6 @@ export default function GameDayDetail({
   const [kickoffLoading, setKickoffLoading] = useState(false);
   const [kickoffError, setKickoffError]     = useState("");
   const [showResultForm, setShowResultForm] = useState(false);
-  // Live "seated player" counts for the home and away dressing rooms; used to
-  // gate the Kickoff button so a match can't start with an empty roster.
-  const [dressingCounts, setDressingCounts] = useState({ home: 0, away: 0 });
   const [crests, setCrests] = useState({ home: null, away: null });
 
   // Update game when parent passes new data
@@ -156,45 +150,6 @@ export default function GameDayDetail({
     myPlayer,
   ]);
 
-  // Load both dressing rooms (home + away) and stay in sync over the socket
-  // so the Kickoff button enables the moment the opposing club seats a
-  // player. Only meaningful for club matches.
-  useEffect(() => {
-    if (!game?.id || !isClubMatchEarly) {
-      setDressingCounts({ home: 0, away: 0 });
-      return;
-    }
-    let cancelled = false;
-    const homeId = game.home_club_id;
-    const awayId = game.away_club_id;
-
-    function countSeated(raw) {
-      if (raw == null || raw === "") return 0;
-      let val = raw;
-      if (typeof val === "string") {
-        try { val = JSON.parse(val); } catch { return 0; }
-      }
-      return Array.isArray(val) ? val.length : 0;
-    }
-
-    async function loadDressing() {
-      const rows = await stageClient.entities.DressingRoom
-        .filter({ match_id: game.id }, null, 10)
-        .catch(() => []);
-      if (cancelled) return;
-      const next = { home: 0, away: 0 };
-      for (const r of rows || []) {
-        const c = countSeated(r.seated_players);
-        if (String(r.club_id) === String(homeId)) next.home = c;
-        else if (String(r.club_id) === String(awayId)) next.away = c;
-      }
-      setDressingCounts(next);
-    }
-
-    loadDressing();
-    return () => { cancelled = true; };
-  }, [game?.id, game?.home_club_id, game?.away_club_id, isClubMatchEarly]);
-
   useGameDayMatchRealtime({
     matchId: game?.id,
     reloadMatch: async (id) => stageClient.entities.Match.get(id).catch(() => null),
@@ -202,20 +157,6 @@ export default function GameDayDetail({
       if (fresh?.deleted) return;
       setGame((prev) => (prev?.id && sameRecordId(prev.id, fresh.id) ? { ...prev, ...fresh } : fresh));
       onGameUpdate?.(fresh);
-    },
-    onDressing: (room) => {
-      if (!room || !isClubMatchEarly) return;
-      const raw = room.seated_players;
-      let val = raw;
-      if (typeof val === "string") {
-        try { val = JSON.parse(val); } catch { val = []; }
-      }
-      const count = Array.isArray(val) ? val.length : 0;
-      setDressingCounts((prev) => {
-        if (sameRecordId(room.club_id, game.home_club_id)) return { ...prev, home: count };
-        if (sameRecordId(room.club_id, game.away_club_id)) return { ...prev, away: count };
-        return prev;
-      });
     },
   });
 
@@ -250,11 +191,7 @@ export default function GameDayDetail({
 
   const { home, away } = getMatchSideNames(game, t("matchFlow.tbd"));
 
-  // Dressing-room gate — both clubs need ≥1 seated player to allow kickoff.
-  // Solo matches don't have dressing rooms, so they're always "ready".
-  const homeSeatReady   = !isClubMatch || dressingCounts.home > 0;
-  const awaySeatReady   = !isClubMatch || dressingCounts.away > 0;
-  const bothClubsReady  = homeSeatReady && awaySeatReady;
+  // Phase 2 — seats no longer gate kickoff.
   const kickoffControls = getKickoffControls({
     game,
     isMyMatch,
@@ -262,8 +199,6 @@ export default function GameDayDetail({
     isLive,
     showResultForm,
     minutesUntilMatch,
-    isClubMatch,
-    bothClubsReady,
   });
 
   async function handleKickoff() {
@@ -280,12 +215,7 @@ export default function GameDayDetail({
         if (onGameUpdate) onGameUpdate(updated);
       }
     } catch (err) {
-      const code = err?.data?.code || err?.code;
-      if (code === "DRESSING_ROOM_NOT_READY" || err?.status === 409) {
-        setKickoffError(err?.message || t("matchFlow.bothNeedSeat", { home, away }));
-      } else {
-        setKickoffError(err?.message || t("matchFlow.actionFailed"));
-      }
+      setKickoffError(err?.message || t("matchFlow.actionFailed"));
     } finally {
       setKickoffLoading(false);
     }
@@ -309,7 +239,7 @@ export default function GameDayDetail({
       processMatchRevenue(updated);
       processSoloMatchRevenue(updated);
       stageClient.functions.invoke("shirtSales", { action: "generate_for_match", match_id: updated.id }).catch(() => {});
-      syncPlayerCareerStats(updated.id).catch(() => {});
+      // Career totals are incremented on the server during result processing.
     }
   }
 
@@ -335,25 +265,14 @@ export default function GameDayDetail({
   const showResultDock = isMyMatch && !isCompleted && !isDisputed && (
     resultControls.showHomeSubmit
     || resultControls.showAwayWaitingForHome
-    || resultControls.showAwaySubmit
+    ||     resultControls.showAwaySubmit
     || resultControls.showHomeWaitingForAway
     || resultControls.showAwaySubmittedWaitingForHome
+    || resultControls.showHomeReview
     || showResultForm
   );
-  const showDressingRoomPanel = isClubMatch && isMyMatch && myClub && !isDisputed;
   const matchDetailsBackgroundStyle = getGameDayTileBackgroundStyle(matchDetailsBackgroundConfig);
-  const dressingRoomBackgroundStyle = getGameDayTileBackgroundStyle(dressingRoomBackgroundConfig);
-  const hasDressingRoomBg = hasCustomGameDayTileBackground(dressingRoomBackgroundConfig);
   const hasMatchDetailsBg = hasCustomGameDayTileBackground(matchDetailsBackgroundConfig);
-  const updateDressingCountForClub = ({ clubId, seatedPlayers }) => {
-    const count = Array.isArray(seatedPlayers) ? seatedPlayers.length : 0;
-    setDressingCounts((prev) => {
-      if (sameRecordId(clubId, game.home_club_id)) return { ...prev, home: count };
-      if (sameRecordId(clubId, game.away_club_id)) return { ...prev, away: count };
-      return prev;
-    });
-  };
-
   return (
     <div className="space-y-5">
       <GameDayKickoffArena
@@ -391,21 +310,6 @@ export default function GameDayDetail({
                     {t("matchFlow.kickoffAvailable")}
                   </div>
                 )}
-                {kickoffControls.dressingBlocked && (
-                  <div className="flex items-start gap-2 rounded-sm border border-[#d8dee8]/35 bg-black/65 px-3 py-2 text-xs text-white backdrop-blur-sm">
-                    <UserCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                    <div className="space-y-0.5">
-                      <p className="font-semibold">{t("matchFlow.dressingRoomsNotReady")}</p>
-                      <p className="text-[10px] opacity-90">
-                        {!homeSeatReady && !awaySeatReady
-                          ? t("matchFlow.bothNeedSeat", { home, away })
-                          : !homeSeatReady
-                            ? t("matchFlow.yourClubNeedsSeat")
-                            : t("matchFlow.waitingAwaySeat", { away })}
-                      </p>
-                    </div>
-                  </div>
-                )}
                 <Button
                   onClick={handleKickoff}
                   disabled={kickoffLoading || !kickoffControls.canPressKickoff}
@@ -427,78 +331,11 @@ export default function GameDayDetail({
                   <Clock className="h-3.5 w-3.5 shrink-0 text-[#00e5ff]" />
                   {t("matchFlow.waitingHomeKickoff")}
                 </div>
-                {isClubMatch && !bothClubsReady && (
-                  <div className="flex items-start gap-2 rounded-sm border border-[#d8dee8]/35 bg-black/65 px-3 py-2 text-xs text-white backdrop-blur-sm">
-                    <UserCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                    <div className="space-y-0.5">
-                      <p className="font-semibold">{t("matchFlow.kickoffBlocked")}</p>
-                      <p className="text-[10px] opacity-90">
-                        {!awaySeatReady && !homeSeatReady
-                          ? t("matchFlow.takeSeatBoth", { home })
-                          : !awaySeatReady
-                            ? t("matchFlow.takeSeatYourClub")
-                            : t("matchFlow.waitingHomeSeat", { home })}
-                      </p>
-                    </div>
-                  </div>
-                )}
               </div>
             )}
           </div>
         ) : null}
       </GameDayKickoffArena>
-
-      {showDressingRoomPanel && (
-        <section className={cn(
-          "relative px-4 py-4 sm:px-6",
-          hasDressingRoomBg ? "bg-transparent" : "bg-gradient-to-r from-[#171d27] via-black/40 to-[#202632]",
-        )}>
-          <div className={cn(
-            "relative mx-auto max-w-5xl overflow-hidden border border-[#eef3fb]/28 p-4 shadow-[0_0_38px_-18px_rgba(238,243,251,0.65)] [clip-path:polygon(18px_0,100%_0,calc(100%_-_18px)_100%,0_100%)] sm:p-5",
-            hasDressingRoomBg ? "bg-black/40" : "bg-black/35",
-          )}
-          >
-            <GameDayTileBackgroundLayers style={dressingRoomBackgroundStyle} variant="card" />
-            <div aria-hidden className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#f8fbff] to-transparent" />
-            <div className="relative z-[1]">
-            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className={cn("font-heading text-[11px] font-black uppercase tracking-[0.2em]", hasDressingRoomBg ? gameDayTextOnBg : "text-[#f8fbff]")}>
-                  {t("matchFlow.dressingRoom")}
-                </p>
-                <p className={cn("mt-1 text-xs", hasDressingRoomBg ? gameDayMutedOnBg : "text-white/55")}>
-                  Available players take a seat here before kickoff so they can be featured in the game.
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-[0.14em]">
-                <span className="border border-white/20 bg-white/10 px-2.5 py-1 text-white/80 [clip-path:polygon(7px_0,100%_0,calc(100%_-_7px)_100%,0_100%)]">
-                  Home {dressingCounts.home}
-                </span>
-                <span className="border border-[#8eeeff]/35 bg-[#8eeeff]/10 px-2.5 py-1 text-[#8eeeff] [clip-path:polygon(7px_0,100%_0,calc(100%_-_7px)_100%,0_100%)]">
-                  Away {dressingCounts.away}
-                </span>
-                <button
-                  type="button"
-                  aria-label="Change Dressing Room background"
-                  onClick={() => onOpenTileBackgroundDialog?.({ tileKey: "dressing_room", title: "Dressing Room" })}
-                  className="flex h-8 w-8 items-center justify-center border border-white/15 bg-black/35 text-white/65 transition hover:border-[#f8fbff]/60 hover:bg-[#d8dee8]/15 hover:text-white [clip-path:polygon(7px_0,100%_0,calc(100%_-_7px)_100%,0_100%)]"
-                >
-                  <MoreHorizontal className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-            <GameDayDressingRoom
-              game={game}
-              myClub={myClub}
-              myPlayer={myPlayer}
-              user={user}
-              hasCustomBackground={hasDressingRoomBg}
-              onSeatChange={updateDressingCountForClub}
-            />
-            </div>
-          </div>
-        </section>
-      )}
 
       {showResultDock && (
         <section className="border-t border-[#d8dee8]/15 bg-black/45 px-4 py-4 sm:px-6">
@@ -523,7 +360,15 @@ export default function GameDayDetail({
                 variant="outline"
                 className="h-12 w-full gap-2 rounded-sm border-[#f8fbff] font-heading text-sm font-black uppercase tracking-[0.18em] text-[#dbe4ef] hover:text-white"
               >
-                <Flag className="h-4 w-4" /> {t("matchFlow.submitMyResult")}
+                <Flag className="h-4 w-4" /> {resultControls.showConfirmResult ? t("matchFlow.confirmResult") : t("matchFlow.submitMyResult")}
+              </Button>
+            )}
+            {resultControls.showHomeReview && (
+              <Button
+                onClick={() => setShowResultForm(true)}
+                className="h-12 w-full gap-2 rounded-sm bg-warning font-heading text-sm font-black uppercase tracking-[0.18em] text-black"
+              >
+                <Flag className="h-4 w-4" /> {t("matchFlow.reviewCorrection")}
               </Button>
             )}
             {resultControls.showHomeWaitingForAway && (

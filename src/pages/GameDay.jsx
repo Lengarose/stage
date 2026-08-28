@@ -228,6 +228,9 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
   }, [searchParams, scopedTournamentId, refreshTick]);
 
   async function loadGames(playerId, clubId) {
+    if (clubId) {
+      stageClient.functions.invoke("matchKickoff", { action: "settle_club_matches", club_id: clubId }).catch(() => {});
+    }
     // Fetch all scheduled/in_progress matches then filter in JS
     // Fetch from multiple angles to cover both club and player matches
     const fetchPromises = [];
@@ -345,7 +348,9 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
   }
 
   const canCustomizeGameDayTiles = hasStagePlus(myPlayer?.subscription);
-  const matchScreensBackgroundConfig = getGameDayTileBackgroundConfig(myPlayer, "match_screens");
+  const matchScreensBackgroundConfig = canCustomizeGameDayTiles
+    ? getGameDayTileBackgroundConfig(myPlayer, "match_screens")
+    : { type: "default", url: "" };
   const matchScreensBackgroundStyle = getGameDayTileBackgroundStyle(matchScreensBackgroundConfig);
   const hasMatchScreensBg = hasCustomGameDayTileBackground(matchScreensBackgroundConfig);
 
@@ -359,8 +364,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
       chatOpen={chatOpen}
       onOpsOpenChange={setOpsOpen}
       onChatOpenChange={setChatOpen}
-      matchDetailsBackgroundConfig={getGameDayTileBackgroundConfig(myPlayer, "match_details")}
-      dressingRoomBackgroundConfig={getGameDayTileBackgroundConfig(myPlayer, "dressing_room")}
+      matchDetailsBackgroundConfig={canCustomizeGameDayTiles ? getGameDayTileBackgroundConfig(myPlayer, "match_details") : undefined}
       canCustomizeGameDayTiles={canCustomizeGameDayTiles}
       onOpenTileBackgroundDialog={setTileBackgroundDialog}
       onGameUpdate={(updated) => {
