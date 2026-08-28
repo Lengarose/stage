@@ -2947,6 +2947,140 @@ function calculateTournamentGroupStandings(matches, numGroups = 2) {
   );
 }
 
+function calculateTournamentLeagueStandings(matches, participantType = 'club') {
+  const isPlayerTournament = String(participantType || '').toLowerCase() === 'player';
+  const table = {};
+
+  matches
+    .filter(match => ['completed', 'forfeit'].includes(String(match.status || '')))
+    .forEach((match) => {
+      const homeId = isPlayerTournament ? match.home_player_id : match.home_club_id;
+      const awayId = isPlayerTournament ? match.away_player_id : match.away_club_id;
+      const homeName = isPlayerTournament ? match.home_player_name : match.home_club_name;
+      const awayName = isPlayerTournament ? match.away_player_name : match.away_club_name;
+      const winnerId = isPlayerTournament ? match.winner_player_id : match.winner_club_id;
+      const home = addGroupStandingTeam(table, homeId, homeName);
+      const away = addGroupStandingTeam(table, awayId, awayName);
+      if (!home || !away) return;
+
+      const homeScore = Number(match.home_score || 0);
+      const awayScore = Number(match.away_score || 0);
+      home.P += 1;
+      away.P += 1;
+      home.GF += homeScore;
+      home.GA += awayScore;
+      away.GF += awayScore;
+      away.GA += homeScore;
+      home.GD = home.GF - home.GA;
+      away.GD = away.GF - away.GA;
+
+      if (String(winnerId || '') === String(homeId || '')) {
+        home.W += 1;
+        home.Pts += 3;
+        away.L += 1;
+      } else if (String(winnerId || '') === String(awayId || '')) {
+        away.W += 1;
+        away.Pts += 3;
+        home.L += 1;
+      } else {
+        home.D += 1;
+        away.D += 1;
+        home.Pts += 1;
+        away.Pts += 1;
+      }
+    });
+
+  return Object.values(table).sort((a, b) =>
+    b.Pts - a.Pts || b.GD - a.GD || b.GF - a.GF || String(a.name || '').localeCompare(String(b.name || ''))
+  );
+}
+
+const LEAGUE_TOURNAMENT_ALLOWED_MATCH_TYPES = new Set(['league']);
+const LEAGUE_TOURNAMENT_MANUAL_REVIEW_STATUSES = new Set(['completed', 'forfeit']);
+
+function normalizeStringList(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.map(item => String(item || '').trim()).filter(Boolean);
+  return String(value).split(',').map(item => item.trim()).filter(Boolean);
+}
+
+function isInvalidLeagueTournamentMatch(match) {
+  return !LEAGUE_TOURNAMENT_ALLOWED_MATCH_TYPES.has(String(match?.type || '').toLowerCase());
+}
+
+function mapLeagueTournamentMatchIssue(match) {
+  const status = String(match.status || '').toLowerCase();
+  return {
+    id: match.id,
+    round: Number(match.round || 0) || null,
+    type: match.type || null,
+    status: match.status || null,
+    home: match.home_club_name || match.home_player_name || null,
+    away: match.away_club_name || match.away_player_name || null,
+    requires_manual_review: LEAGUE_TOURNAMENT_MANUAL_REVIEW_STATUSES.has(status),
+  };
+}
+
+async function buildLeagueTournamentRoundCleanupPlan({ tournamentIds = [], tournamentNames = [] } = {}) {
+  const ids = normalizeStringList(tournamentIds).map(String);
+  const names = normalizeStringList(tournamentNames).map(name => name.toLowerCase());
+  const tournaments = await EXECUTESQL(
+    `SELECT id, name, type, status, current_round, participant_type, created_date, updated_date
+       FROM tournaments
+      WHERE LOWER(COALESCE(type, '')) = 'league'
+      ORDER BY updated_date DESC, created_date DESC`
+  );
+  const selected = tournaments.filter((tournament) => {
+    const idMatch = ids.length ? ids.includes(String(tournament.id)) : true;
+    const nameMatch = names.length ? names.includes(String(tournament.name || '').toLowerCase()) : true;
+    return idMatch && nameMatch;
+  });
+
+  const plans = [];
+  for (const tournament of selected) {
+    const matches = await EXECUTESQL(
+      `SELECT id, tournament_id, round, type, status, home_club_name, away_club_name,
+              home_player_name, away_player_name, created_date, updated_date
+         FROM matches
+        WHERE tournament_id = ?
+        ORDER BY round ASC, created_date ASC`,
+      [tournament.id]
+    );
+    const invalidMatches = matches.filter(isInvalidLeagueTournamentMatch).map(mapLeagueTournamentMatchIssue);
+    const manualReviewMatches = invalidMatches.filter(match => match.requires_manual_review);
+    const safeCleanupMatches = invalidMatches.filter(match => !match.requires_manual_review);
+    plans.push({
+      tournament_id: tournament.id,
+      tournament_name: tournament.name,
+      status: tournament.status,
+      participant_type: tournament.participant_type,
+      current_round: tournament.current_round,
+      total_matches: matches.length,
+      league_matches: matches.length - invalidMatches.length,
+      invalid_matches: invalidMatches.length,
+      safe_cleanup_matches: safeCleanupMatches.length,
+      manual_review_matches: manualReviewMatches.length,
+      can_auto_cleanup: safeCleanupMatches.length > 0 && manualReviewMatches.length === 0,
+      issue_summary: invalidMatches.length
+        ? 'League-format tournament contains non-league match rows.'
+        : 'No bad league tournament rounds found.',
+      invalid_match_ids: invalidMatches.map(match => match.id),
+      safe_cleanup_match_ids: safeCleanupMatches.map(match => match.id),
+      manual_review_match_ids: manualReviewMatches.map(match => match.id),
+      invalid_match_preview: invalidMatches.slice(0, 25),
+    });
+  }
+
+  const affected = plans.filter(plan => plan.invalid_matches > 0);
+  return {
+    checked_tournaments: selected.length,
+    affected_tournaments: affected.length,
+    safe_cleanup_tournaments: affected.filter(plan => plan.can_auto_cleanup).length,
+    manual_review_tournaments: affected.filter(plan => plan.manual_review_matches > 0).length,
+    tournaments: plans,
+  };
+}
+
 function buildGroupKnockoutPairs(standings) {
   const populatedGroups = standings.filter(group => group.length);
   if (populatedGroups.length < 2) {
@@ -4678,6 +4812,117 @@ const HANDLERS = {
     return { data: { success: true, deleted } };
   },
 
+  async auditLeagueTournamentRounds({ _auth_user_id, tournament_ids, tournament_names }) {
+    const admin = await requireAdminUser(_auth_user_id);
+    void admin;
+    const plan = await buildLeagueTournamentRoundCleanupPlan({ tournamentIds: tournament_ids, tournamentNames: tournament_names });
+    return {
+      data: {
+        success: true,
+        destructive: false,
+        cleanup_function: 'cleanupLeagueTournamentRounds',
+        required_confirm: 'DELETE_BAD_LEAGUE_TOURNAMENT_ROUNDS',
+        ...plan,
+      },
+    };
+  },
+
+  async cleanupLeagueTournamentRounds({
+    _auth_user_id,
+    tournament_ids,
+    tournament_names,
+    dry_run = true,
+    confirm,
+    reason,
+  }) {
+    const admin = await requireAdminUser(_auth_user_id);
+    const plan = await buildLeagueTournamentRoundCleanupPlan({ tournamentIds: tournament_ids, tournamentNames: tournament_names });
+    const targets = plan.tournaments.filter(tournament => tournament.safe_cleanup_match_ids.length > 0);
+
+    if (dry_run !== false || confirm !== 'DELETE_BAD_LEAGUE_TOURNAMENT_ROUNDS') {
+      return {
+        data: {
+          success: true,
+          dry_run: true,
+          destructive: false,
+          required_confirm: 'DELETE_BAD_LEAGUE_TOURNAMENT_ROUNDS',
+          message: 'Dry run only. Send dry_run=false and the exact confirm value to delete safe non-league rows.',
+          ...plan,
+        },
+      };
+    }
+
+    if (!normalizeStringList(tournament_ids).length && !normalizeStringList(tournament_names).length) {
+      throw new Error('tournament_ids or tournament_names required for confirmed cleanup');
+    }
+
+    if (!targets.length) {
+      return {
+        data: {
+          success: true,
+          dry_run: false,
+          deleted_matches: 0,
+          message: 'No safe non-league match rows found to delete.',
+          ...plan,
+        },
+      };
+    }
+
+    const deleted = await withTransaction(async (query) => {
+      let deletedMatches = 0;
+      for (const tournament of targets) {
+        const safeIds = tournament.safe_cleanup_match_ids;
+        if (!safeIds.length) continue;
+        const inMatches = placeholders(safeIds);
+        await query(`DELETE FROM match_player_stats WHERE match_id IN (${inMatches})`, safeIds).catch(() => {});
+        await query(`DELETE FROM dressing_rooms WHERE match_id IN (${inMatches})`, safeIds).catch(() => {});
+        await query(`DELETE FROM predictions WHERE live_match_id IN (SELECT id FROM live_matches WHERE match_id IN (${inMatches}))`, safeIds).catch(() => {});
+        await query(`DELETE FROM live_matches WHERE match_id IN (${inMatches})`, safeIds).catch(() => {});
+        const result = await query(
+          `DELETE FROM matches
+            WHERE tournament_id = ?
+              AND id IN (${inMatches})
+              AND LOWER(COALESCE(type, '')) <> 'league'
+              AND LOWER(COALESCE(status, '')) NOT IN ('completed', 'forfeit')`,
+          [tournament.tournament_id, ...safeIds]
+        );
+        const affectedRows = Number(result?.affectedRows || 0);
+        deletedMatches += affectedRows;
+        await createAuditLog({
+          adminUserId: admin.id,
+          adminEmail: admin.email,
+          action: 'league_tournament_round_cleanup',
+          entityType: 'tournament',
+          entityId: tournament.tournament_id,
+          entityName: tournament.tournament_name,
+          oldValue: {
+            invalid_match_ids: tournament.invalid_match_ids,
+            invalid_match_preview: tournament.invalid_match_preview,
+          },
+          newValue: {
+            deleted_match_ids: safeIds,
+            deleted_matches: affectedRows,
+          },
+          reason: reason || 'Confirmed cleanup of non-league rounds from a league-format tournament',
+        });
+      }
+      return deletedMatches;
+    });
+
+    return {
+      data: {
+        success: true,
+        dry_run: false,
+        deleted_matches: deleted,
+        manual_review_tournaments: plan.manual_review_tournaments,
+        message: plan.manual_review_tournaments
+          ? 'Safe rows were deleted. Some completed/forfeit rows still require manual review.'
+          : 'Safe non-league rows were deleted.',
+        before: plan,
+      },
+    };
+  },
+
   async advanceRound({ _auth_user_id, tournamentId, tournament_id }) {
     if (!_auth_user_id) throw new Error('not authenticated');
     const id = tournamentId || tournament_id;
@@ -4687,10 +4932,105 @@ const HANDLERS = {
       const tournaments = await query('SELECT * FROM tournaments WHERE id = ? LIMIT 1 FOR UPDATE', [id]);
       if (!tournaments.length) throw new Error('Tournament not found');
       const tournament = tournaments[0];
-      await assertTournamentOrganizer(_auth_user_id, tournament);
+      const actor = await assertTournamentOrganizer(_auth_user_id, tournament);
       const currentRound = Number(tournament.current_round || 1);
+      const tournamentType = String(tournament.type || '').toLowerCase();
+      const participantType = String(tournament.participant_type || '').toLowerCase() === 'player' ? 'player' : 'club';
 
-      if (String(tournament.type || '').toLowerCase() === 'group_stage') {
+      if (tournamentType === 'league') {
+        const leagueMatches = await query(
+          `SELECT * FROM matches
+            WHERE tournament_id = ?
+              AND type = 'league'
+            ORDER BY round ASC, created_date ASC
+            FOR UPDATE`,
+          [id]
+        );
+        if (!leagueMatches.length) throw new Error('No league fixtures found');
+        const incompleteLeagueMatch = leagueMatches.find((m) => !['completed', 'forfeit'].includes(String(m.status || '')));
+        if (incompleteLeagueMatch) throw new Error('All league fixtures must be completed before ending the tournament');
+
+        const standings = calculateTournamentLeagueStandings(leagueMatches, participantType);
+        const winner = standings[0] || null;
+        if (!winner?.id) throw new Error('No league winner found');
+        const finalRound = Math.max(
+          currentRound,
+          ...leagueMatches.map((match) => Number(match.round || 0)).filter(Boolean)
+        );
+
+        if (participantType === 'player') {
+          await query(
+            `UPDATE tournaments SET
+              status = 'completed',
+              winner_club_id = NULL,
+              winner_club_name = NULL,
+              winner_player_id = ?,
+              winner_player_name = ?,
+              current_round = ?,
+              end_date = COALESCE(end_date, NOW()),
+              updated_date = NOW()
+             WHERE id = ?`,
+            [winner.id, winner.name, finalRound, id]
+          );
+          await awardPlayerOnlyTrophy({
+            query,
+            playerId: winner.id,
+            trophyItemId: tournament.trophy_item_id,
+            tournamentId: id,
+            tournament,
+          }).catch((err) => console.error('[league tournament player trophy award]', err.message));
+        } else {
+          await query(
+            `UPDATE tournaments SET
+              status = 'completed',
+              winner_club_id = ?,
+              winner_club_name = ?,
+              winner_player_id = NULL,
+              winner_player_name = NULL,
+              current_round = ?,
+              end_date = COALESCE(end_date, NOW()),
+              updated_date = NOW()
+             WHERE id = ?`,
+            [winner.id, winner.name, finalRound, id]
+          );
+          await awardTournamentTrophyServer(query, tournament, winner.id).catch((err) => {
+            console.error('[league tournament club trophy award]', err.message);
+          });
+        }
+
+        if (actor.isAdmin) {
+          await createAuditLog({
+            adminUserId: actor.user.id,
+            adminEmail: actor.user.email,
+            action: 'end_league_tournament',
+            entityType: 'tournament',
+            entityId: id,
+            entityName: tournament.name,
+            oldValue: {
+              status: tournament.status,
+              winner_club_id: tournament.winner_club_id,
+              winner_player_id: tournament.winner_player_id,
+            },
+            newValue: {
+              status: 'completed',
+              winner_id: winner.id,
+              winner_name: winner.name,
+              type: 'league',
+            },
+            reason: 'League-format tournament ended from final table',
+          }).catch((err) => console.error('[league tournament audit]', err.message));
+        }
+
+        return {
+          completed: true,
+          league: true,
+          current_round: finalRound,
+          winner: { id: winner.id, name: winner.name },
+          standings: standings.slice(0, 3),
+        };
+      }
+
+      if (tournamentType === 'group_stage') {
         const groupMatches = await query(
           `SELECT * FROM matches
             WHERE tournament_id = ?
@@ -7186,14 +7526,23 @@ const HANDLERS = {
     );
 
     const isPlayerTournament = String(t.participant_type || '').toLowerCase() === 'player';
+    const isLeagueTournament = String(t.type || '').toLowerCase() === 'league';
     const hasWinner = (match) => Boolean(isPlayerTournament ? match?.winner_player_id : match?.winner_club_id);
     const isFinalMatch = (match) => {
       const type = String(match?.type || '').toLowerCase();
       if (type.includes('semi') || type.includes('quarter') || type.includes('third') || type.includes('bronze')) return false;
       return type === 'final' || type === 'grand_final' || type === 'championship' || type.endsWith('_final');
     };
-    const finalMatch = matches.find(m => isFinalMatch(m) && hasWinner(m))
-      || matches.find(m => (isPlayerTournament ? m.winner_player_id : m.winner_club_id));
+    const leagueStandings = isLeagueTournament
+      ? calculateTournamentLeagueStandings(
+        matches.filter(m => String(m.type || '').toLowerCase() === 'league'),
+        isPlayerTournament ? 'player' : 'club'
+      )
+      : [];
+    const finalMatch = isLeagueTournament
+      ? null
+      : (matches.find(m => isFinalMatch(m) && hasWinner(m))
+        || matches.find(m => (isPlayerTournament ? m.winner_player_id : m.winner_club_id)));
     const thirdPlaceMatch = matches.find(m => ['third_place', 'third-place', 'placement_third', 'bronze'].includes(String(m.type || '').toLowerCase()) && hasWinner(m));
 
     const loserOf = (match) => {
@@ -7220,7 +7569,28 @@ const HANDLERS = {
     const fallbackRunnerUp = fallbackPool > 0 ? Math.round(fallbackPool * 0.2) : 0;
     const fallbackThirdPlace = fallbackPool > 0 ? Math.max(0, fallbackPool - fallbackWinner - fallbackRunnerUp) : 0;
 
-    const payouts = [
+    const leaguePayoutTarget = (standing) => ({
+      clubId: isPlayerTournament ? null : standing?.id,
+      playerId: isPlayerTournament ? standing?.id : null,
+    });
+
+    const payouts = (isLeagueTournament ? [
+      {
+        label: 'Winner',
+        ...leaguePayoutTarget(leagueStandings[0]),
+        amount: Number(t.prize_winner_stc || 0) || fallbackWinner,
+      },
+      {
+        label: 'Runner-up',
+        ...leaguePayoutTarget(leagueStandings[1]),
+        amount: Number(t.prize_runner_up_stc || 0) || fallbackRunnerUp,
+      },
+      {
+        label: 'Third place',
+        ...leaguePayoutTarget(leagueStandings[2]),
+        amount: Number(t.prize_third_place_stc || t.prize_semi_final_stc || 0) || fallbackThirdPlace,
+      },
+    ] : [
       {
         label: 'Winner',
         clubId: isPlayerTournament ? null : (t.winner_club_id || finalMatch?.winner_club_id),
@@ -7239,7 +7609,7 @@ const HANDLERS = {
         playerId: isPlayerTournament ? thirdPlaceMatch?.winner_player_id : null,
         amount: Number(t.prize_third_place_stc || t.prize_semi_final_stc || 0) || fallbackThirdPlace,
       },
-    ].filter(p => (p.clubId || p.playerId) && p.amount > 0);
+    ]).filter(p => (p.clubId || p.playerId) && p.amount > 0);
 
     let paid = 0;
     let skipped = 0;

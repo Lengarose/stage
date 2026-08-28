@@ -39,13 +39,15 @@ export default function UCLStandings({ matches, registeredClubs }) {
     });
 
   const sorted = Object.values(table).sort((a, b) => b.Pts - a.Pts || b.GD - a.GD || b.GF - a.GF);
+  const panelClip = { clipPath: "polygon(18px 0, 100% 0, calc(100% - 18px) 100%, 0 100%)" };
 
   return (
-    <div className="space-y-3">
+    <div className="relative space-y-3 overflow-hidden border border-cyan-200/15 bg-[#07121f]/90 p-4 shadow-[0_0_38px_rgba(148,163,184,0.08)]" style={panelClip}>
+      <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-slate-200/55 to-transparent" />
       {showZones ? (
         <div className="flex flex-wrap gap-2">
           {ZONE_CONFIG.map(z => (
-            <div key={z.label} className={cn("text-xs px-2.5 py-1 rounded-full font-medium", z.badge)}>
+            <div key={z.label} className={cn("border px-3 py-1 text-xs font-medium", z.badge)}>
               {z.from === z.to ? `#${z.from}` : `#${z.from}–#${z.to}`} · {z.label}
             </div>
           ))}
@@ -56,10 +58,10 @@ export default function UCLStandings({ matches, registeredClubs }) {
         </div>
       )}
 
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="overflow-x-auto border border-white/10 bg-black/20">
         <table className="w-full text-xs">
           <thead>
-            <tr className="border-b border-border text-xs text-muted-foreground uppercase tracking-wider bg-secondary/40">
+            <tr className="border-b border-white/10 bg-white/[0.035] text-xs text-muted-foreground uppercase tracking-wider">
               <th className="px-2 py-2 text-left w-7">#</th>
               <th className="px-2 py-2 text-left">Club</th>
               <th className="px-1.5 py-2 text-center">P</th>

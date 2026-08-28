@@ -19,22 +19,36 @@ const TOURNAMENT_FORMAT_RULES = {
     defaultMaxTeams: 16,
     allowedMaxTeams: [8, 16, 24, 32],
   },
-  double_elimination: {
-    defaultMaxTeams: 8,
-    allowedMaxTeams: [8, 16, 32],
-  },
   swiss_ucl: {
     defaultMaxTeams: 36,
     allowedMaxTeams: [36],
   },
 };
 
+const DISABLED_TOURNAMENT_FORMATS = new Set(['double_elimination']);
+
+function createDisabledFormatError(format) {
+  const error = new Error(`${format} is no longer available for new tournaments.`);
+  error.statusCode = 400;
+  return error;
+}
+
+function normalizeTournamentFormat(format, options = {}) {
+  const type = String(format || 'knockout').toLowerCase();
+  if (DISABLED_TOURNAMENT_FORMATS.has(type)) {
+    if (options.allowDisabled) return type;
+    throw createDisabledFormatError('Double Elimination');
+  }
+  return TOURNAMENT_FORMAT_RULES[type] ? type : 'knockout';
+}
+
 function getTournamentFormatRule(format) {
   return TOURNAMENT_FORMAT_RULES[format] || TOURNAMENT_FORMAT_RULES.knockout;
 }
 
-function normalizeTournamentMaxTeams(format, maxTeams) {
-  const rule = getTournamentFormatRule(format);
+function normalizeTournamentMaxTeams(format, maxTeams, options = {}) {
+  const type = normalizeTournamentFormat(format, options);
+  const rule = getTournamentFormatRule(type);
   const requested = Number(maxTeams);
   if (rule.allowedMaxTeams.includes(requested)) return requested;
   const lowerOrEqual = rule.allowedMaxTeams.filter(n => n <= requested).pop();
@@ -57,9 +71,10 @@ function calculateTournamentPrizeBreakdown(entryFeeStc, maxTeams) {
   };
 }
 
-function normalizeTournamentEconomics(body = {}) {
-  const type = body.type || 'knockout';
-  const maxTeams = normalizeTournamentMaxTeams(type, body.max_teams);
+function normalizeTournamentEconomics(body = {}, options = {}) {
+  const allowDisabled = Boolean(options.allowDisabled);
+  const type = normalizeTournamentFormat(body.type || 'knockout', { allowDisabled });
+  const maxTeams = normalizeTournamentMaxTeams(type, body.max_teams, { allowDisabled });
   const entryFee = Math.max(0, Number(body.entry_fee_stc) || 0);
   const prizes = calculateTournamentPrizeBreakdown(entryFee, maxTeams);
 
@@ -82,6 +97,7 @@ module.exports = {
   TOURNAMENT_CREDIT_COST,
   TOURNAMENT_PRIZE_SPLIT,
   TOURNAMENT_FORMAT_RULES,
+  normalizeTournamentFormat,
   normalizeTournamentMaxTeams,
   calculateTournamentPrizeBreakdown,
   normalizeTournamentEconomics,

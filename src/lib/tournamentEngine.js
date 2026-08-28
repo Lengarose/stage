@@ -65,6 +65,22 @@ export function generateLeagueMatches(clubs) {
   return matches;
 }
 
+export function isLeagueTournamentFixtureMatch(match) {
+  return String(match?.type || "").toLowerCase() === "league";
+}
+
+export function getLeagueTournamentFixtureMatches(matches) {
+  if (!Array.isArray(matches)) return [];
+  return matches.filter(isLeagueTournamentFixtureMatch);
+}
+
+const SWISS_UCL_DISPLAY_MATCH_TYPES = new Set(["ucl_league", "ucl_playoff", "ucl_r16", "ucl_qf", "ucl_sf", "final"]);
+
+export function getSwissUclDisplayMatches(matches) {
+  if (!Array.isArray(matches)) return [];
+  return matches.filter((match) => SWISS_UCL_DISPLAY_MATCH_TYPES.has(String(match?.type || "").toLowerCase()));
+}
+
 // League standings from all league matches
 export function calculateLeagueStandings(matches) {
   const table = {};

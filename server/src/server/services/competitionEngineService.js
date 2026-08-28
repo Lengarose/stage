@@ -1502,8 +1502,13 @@ function addCommunityStanding(table, id, name) {
 function calculateCommunityStandings(matches, filterFn = () => true) {
   const table = {};
   matches.filter(row => filterFn(row) && isFinishedStatus(row.status)).forEach((row) => {
-    const home = addCommunityStanding(table, row.home_club_id, row.home_club_name);
-    const away = addCommunityStanding(table, row.away_club_id, row.away_club_name);
+    const homeId = row.home_club_id || row.home_player_id;
+    const awayId = row.away_club_id || row.away_player_id;
+    const homeName = row.home_club_name || row.home_player_name;
+    const awayName = row.away_club_name || row.away_player_name;
+    const winnerId = row.winner_club_id || row.winner_player_id;
+    const home = addCommunityStanding(table, homeId, homeName);
+    const away = addCommunityStanding(table, awayId, awayName);
     if (!home || !away) return;
     const homeScore = Number(row.home_score || 0);
     const awayScore = Number(row.away_score || 0);
@@ -1511,9 +1516,9 @@ function calculateCommunityStandings(matches, filterFn = () => true) {
     home.GF += homeScore; home.GA += awayScore;
     away.GF += awayScore; away.GA += homeScore;
     home.GD = home.GF - home.GA; away.GD = away.GF - away.GA;
-    if (String(row.winner_club_id || '') === String(row.home_club_id || '')) {
+    if (String(winnerId || '') === String(homeId || '')) {
       home.W += 1; home.Pts += 3; away.L += 1;
-    } else if (String(row.winner_club_id || '') === String(row.away_club_id || '')) {
+    } else if (String(winnerId || '') === String(awayId || '')) {
       away.W += 1; away.Pts += 3; home.L += 1;
     } else {
       home.D += 1; away.D += 1; home.Pts += 1; away.Pts += 1;
@@ -1884,25 +1889,13 @@ async function advanceCommunityTournamentIfReady(match) {
     }
     const winner = calculateCommunityStandings(leagueMatches, row => String(row.type || '') === 'league')[0] || null;
     if (!winner) return { advanced: false, reason: 'winner_missing' };
-    await EXECUTESQL(
-      `UPDATE tournaments SET status = 'completed', winner_club_id = ?, winner_club_name = ?,
-        current_round = ?, end_date = COALESCE(end_date, NOW()), updated_date = NOW()
-       WHERE id = ?`,
-      [winner.id, winner.name, Number(tournament.current_round || match.round || 1), tournament.id],
-    );
-    await awardClubTrophyToClubAndPlayers({
-      clubId: winner.id,
-      trophyItemId: tournament.trophy_item_id,
-      tournamentId: tournament.id,
-      tournament,
-    }).catch(err => console.error('[community league trophy award]', err.message));
-    broadcastCommunityTournamentState(tournament, {
-      status: 'completed',
-      winner_club_id: winner.id,
-      winner_club_name: winner.name,
-      current_round: Number(tournament.current_round || match.round || 1),
-    });
-    return { advanced: true, completed: true, winner_id: winner.id };
+    return {
+      advanced: false,
+      ready_to_end: true,
+      reason: 'league_ready_for_manual_end',
+      winner_id: winner.id,
+      winner_name: winner.name,
+    };
   }
   if (type === 'group_stage') return advanceCommunityGroupStage(tournament, allMatches);
   if (type === 'swiss_ucl') return advanceCommunitySwissUcl(tournament, allMatches);
