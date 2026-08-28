@@ -120,11 +120,17 @@ async function withTransaction(fn) {
     await conn.beginTransaction();
     const exec = async (sql, vals = []) => {
       const params = coerceParams(vals);
-      const [rows] = await conn.execute(sql, params);
-      return rows;
+      try {
+        const [rows] = await conn.query(sql, params);
+        return rows;
+      } catch (err) {
+        console.error('[SQL TX ERROR]', err.message, sql);
+        throw err;
+      }
     };
-    await fn(exec);
+    const result = await fn(exec);
     await conn.commit();
+    return result;
   } catch (err) {
     await conn.rollback();
     throw err;
