@@ -66,7 +66,7 @@ router.get('/', async (req, res) => {
     res.json(result);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message });
+    res.status(err.statusCode || 500).json({ error: err.message });
   }
 });
 
@@ -79,7 +79,7 @@ router.get('/:id', async (req, res) => {
     res.json(result[0]);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message });
+    res.status(err.statusCode || 500).json({ error: err.message });
   }
 });
 
@@ -110,7 +110,7 @@ router.post('/', async (req, res) => {
       }
     }
 
-    const body = normalizeTournamentEconomics(req.body);
+    const body = normalizeTournamentEconomics(req.body, { allowDisabled: false });
     const tournament = new Tournament(body);
     await tournament.create();
     if (!isAdmin && userId) {
@@ -129,7 +129,7 @@ router.post('/', async (req, res) => {
     res.status(201).json(record);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message });
+    res.status(err.statusCode || 500).json({ error: err.message });
   }
 });
 
@@ -141,7 +141,7 @@ router.patch('/:id', async (req, res) => {
     if (!existing.length) return res.status(404).json({ error: 'Not found' });
     const shouldNormalize = ['type', 'max_teams', 'entry_fee_stc'].some(key => req.body[key] !== undefined);
     const merged = { ...existing[0], ...req.body };
-    const tournament = new Tournament(shouldNormalize ? normalizeTournamentEconomics(merged) : merged);
+    const tournament = new Tournament(shouldNormalize ? normalizeTournamentEconomics(merged, { allowDisabled: true }) : merged);
     await tournament.update(id);
     const updated = await tournament.selectOne(id);
     const record  = updated[0];
@@ -149,7 +149,7 @@ router.patch('/:id', async (req, res) => {
     res.json(record);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message });
+    res.status(err.statusCode || 500).json({ error: err.message });
   }
 });
 

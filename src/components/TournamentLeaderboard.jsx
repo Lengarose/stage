@@ -58,29 +58,36 @@ export default function TournamentLeaderboard({ tournamentId }) {
 
   const activeTab = tabs.find(t => t.key === tab);
   const sorted = [...players].sort(activeTab.sort).slice(0, 10);
+  const panelClip = { clipPath: "polygon(18px 0, 100% 0, calc(100% - 18px) 100%, 0 100%)" };
+  const chipClip = { clipPath: "polygon(9px 0, 100% 0, calc(100% - 9px) 100%, 0 100%)" };
 
   return (
-    <div className="bg-card border border-border rounded-2xl overflow-hidden">
-      <div className="px-5 py-4 border-b border-border flex items-center gap-2">
-        <Trophy className="w-5 h-5 text-warning" />
-        <span className="leading-relaxed text-lg font-bold text-foreground">Tournament Leaderboard</span>
+    <div className="relative overflow-hidden border border-cyan-200/15 bg-[#07121f]/90 shadow-[0_0_38px_rgba(148,163,184,0.08)]" style={panelClip}>
+      <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-slate-200/55 to-transparent" />
+      <div className="flex items-center gap-2 border-b border-white/10 bg-white/[0.03] px-5 py-4">
+        <Trophy className="w-5 h-5 text-cyan-100" />
+        <span className="font-heading text-sm font-black uppercase tracking-[0.16em] text-foreground">Tournament Leaderboard</span>
       </div>
 
       {/* Sub tabs */}
-      <div className="flex border-b border-border">
+      <div className="flex overflow-x-auto border-b border-white/10 px-4">
         {tabs.map(t => {
           const Icon = t.icon;
           return (
             <button
+              type="button"
               key={t.key}
               onClick={() => setTab(t.key)}
               className={cn(
-                "flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs leading-relaxed uppercase tracking-wider transition-colors",
-                tab === t.key ? "text-primary border-b-2 border-primary" : "text-muted-foreground hover:text-foreground"
+                "relative flex min-w-max items-center justify-center gap-1.5 px-4 py-3 font-heading text-[10px] font-black uppercase tracking-[0.16em] transition-colors",
+                tab === t.key ? "text-cyan-100" : "text-muted-foreground hover:text-foreground"
               )}
             >
               <Icon className="w-3.5 h-3.5" />
               {t.label}
+              {tab === t.key && (
+                <span className="absolute inset-x-3 bottom-0 h-[2px] bg-gradient-to-r from-cyan-200 via-slate-100 to-transparent" />
+              )}
             </button>
           );
         })}
@@ -89,24 +96,25 @@ export default function TournamentLeaderboard({ tournamentId }) {
       {sorted.length === 0 ? (
         <div className="py-10 text-center text-muted-foreground text-sm">No stats recorded yet.</div>
       ) : (
-        <div className="divide-y divide-border">
+        <div className="divide-y divide-white/10">
           {sorted.map((p, i) => (
-            <div key={p.email} className="flex items-center gap-4 px-5 py-3">
+            <div key={p.email} className="flex items-center gap-4 px-5 py-3.5 transition-colors hover:bg-white/[0.025]">
               <span className={cn(
-                "w-7 h-7 rounded-full flex items-center justify-center leading-relaxed font-bold text-sm shrink-0",
-                i === 0 ? "bg-warning/20 text-warning" :
-                i === 1 ? "bg-muted-foreground/20 text-muted-foreground" :
-                i === 2 ? "bg-amber-700/20 text-amber-600" :
-                "text-muted-foreground text-xs"
-              )}>
+                "flex h-8 w-9 shrink-0 items-center justify-center border text-sm font-black leading-relaxed",
+                i === 0 ? "border-amber-200/35 bg-amber-300/10 text-amber-100" :
+                i === 1 ? "border-slate-200/25 bg-slate-200/8 text-slate-100" :
+                i === 2 ? "border-cyan-200/25 bg-cyan-300/8 text-cyan-100" :
+                "border-white/10 bg-white/[0.035] text-muted-foreground"
+              )}
+                style={chipClip}>
                 {i + 1}
               </span>
-              <p className="flex-1 leading-relaxed font-semibold text-foreground text-sm truncate">{p.gamertag || p.email}</p>
+              <p className="min-w-0 flex-1 truncate font-heading text-sm font-black uppercase tracking-wide leading-relaxed text-foreground">{p.gamertag || p.email}</p>
               <div className="flex items-center gap-4 text-sm shrink-0">
                 <span className="text-muted-foreground text-xs">{p.matches}g</span>
-                {tab === "goals" && <span className="leading-relaxed font-bold text-success w-6 text-right">{p.goals}</span>}
-                {tab === "assists" && <span className="leading-relaxed font-bold text-primary w-6 text-right">{p.assists}</span>}
-                {tab === "rating" && <span className={cn("leading-relaxed font-bold w-10 text-right", Number.parseFloat(p.avg_rating) >= 7 ? "text-success" : Number.parseFloat(p.avg_rating) >= 6 ? "text-warning" : "text-muted-foreground")}>{p.avg_rating}</span>}
+                {tab === "goals" && <span className="w-8 text-right font-heading text-lg font-black leading-relaxed text-cyan-100">{p.goals}</span>}
+                {tab === "assists" && <span className="w-8 text-right font-heading text-lg font-black leading-relaxed text-cyan-100">{p.assists}</span>}
+                {tab === "rating" && <span className="w-12 text-right font-heading text-lg font-black leading-relaxed text-cyan-100">{p.avg_rating}</span>}
               </div>
             </div>
           ))}

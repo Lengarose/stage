@@ -1887,8 +1887,7 @@ export default function Admin(props) {
                         <SelectItem value="knockout">{t("admin.dialogs.formats.knockout")}</SelectItem>
                         <SelectItem value="league">{t("admin.dialogs.formats.league")}</SelectItem>
                         <SelectItem value="group_stage">{t("admin.dialogs.formats.group_stage")}</SelectItem>
-                        <SelectItem value="double_elimination">{t("admin.dialogs.formats.double_elimination")}</SelectItem>
-                        <SelectItem value="swiss_ucl">{t("admin.dialogs.formats.swiss_ucl")}</SelectItem>
+                        <SelectItem value="swiss_ucl">Swiss UCL</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

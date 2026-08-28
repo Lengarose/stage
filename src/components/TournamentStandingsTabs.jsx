@@ -5,6 +5,7 @@ import { calculateLeagueStandings } from "../lib/tournamentEngine";
 
 export default function TournamentStandingsTabs({ tournament, matches, registeredClubs, groupStandingsData, activeTab }) {
   const type = tournament?.type;
+  const panelClip = { clipPath: "polygon(18px 0, 100% 0, calc(100% - 18px) 100%, 0 100%)" };
 
   // ── League Standings ──────────────────────────────────────────────────────
   const LeagueStandings = () => {
@@ -19,17 +20,18 @@ export default function TournamentStandingsTabs({ tournament, matches, registere
     const total = standings.length;
     const relegZone = total >= 6 ? 3 : total >= 4 ? 2 : total >= 3 ? 1 : 0;
     return (
-      <div className="space-y-3">
+      <div className="relative overflow-hidden border border-cyan-200/15 bg-[#07121f]/90 p-4 shadow-[0_0_38px_rgba(148,163,184,0.08)]" style={panelClip}>
+        <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-slate-200/55 to-transparent" />
         {allDone && (
-          <div className="flex flex-wrap gap-2">
-            <div className="text-xs px-2.5 py-1 rounded-full font-medium bg-warning/20 text-warning">🏆 #1 · Champion</div>
-            {relegZone > 0 && <div className="text-xs px-2.5 py-1 rounded-full font-medium bg-destructive/10 text-destructive">Bottom {relegZone} · Eliminated</div>}
+          <div className="mb-3 flex flex-wrap gap-2">
+            <div className="border border-amber-200/25 bg-amber-300/10 px-3 py-1 text-xs font-medium text-amber-100">#1 · Champion</div>
+            {relegZone > 0 && <div className="border border-red-200/20 bg-red-400/8 px-3 py-1 text-xs font-medium text-red-100/80">Bottom {relegZone} · Eliminated</div>}
           </div>
         )}
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="overflow-x-auto border border-white/10 bg-black/20">
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-border text-xs text-muted-foreground uppercase tracking-wider">
+              <tr className="border-b border-white/10 bg-white/[0.035] text-xs text-muted-foreground uppercase tracking-wider">
                 <th className="text-left px-2 py-2.5">#</th>
                 <th className="text-left px-2 py-2.5">Club</th>
                 <th className="px-1.5 py-2.5 text-center">P</th>
@@ -49,10 +51,10 @@ export default function TournamentStandingsTabs({ tournament, matches, registere
                 const isBoundary = allDone && relegZone > 0 && i === total - relegZone - 1;
                 return (
                   <tr key={row.id} className={cn(
-                    "border-b border-border/50",
-                    isChamp && "bg-warning/10 border-l-2 border-l-warning",
-                    isElim && "bg-destructive/5 border-l-2 border-l-destructive/50",
-                    isBoundary && "border-b-2 border-b-destructive/30"
+                    "border-b border-white/10",
+                    isChamp && "bg-amber-300/10 border-l-2 border-l-amber-200",
+                    isElim && "bg-red-400/5 border-l-2 border-l-red-300/50",
+                    isBoundary && "border-b-2 border-b-red-300/30"
                   )}>
                     <td className="px-2 py-2 text-muted-foreground">{i + 1}</td>
                     <td className="px-2 py-2 font-medium text-foreground">
@@ -68,7 +70,7 @@ export default function TournamentStandingsTabs({ tournament, matches, registere
                     <td className="hidden sm:table-cell px-1.5 py-2 text-center text-muted-foreground">{row.GF}</td>
                     <td className="hidden sm:table-cell px-1.5 py-2 text-center text-muted-foreground">{row.GA}</td>
                     <td className="px-1.5 py-2 text-center text-muted-foreground">{row.GD > 0 ? "+" : ""}{row.GD}</td>
-                    <td className="px-1.5 py-2 text-center font-bold text-primary">{row.Pts}</td>
+                    <td className="px-1.5 py-2 text-center font-bold text-cyan-100">{row.Pts}</td>
                   </tr>
                 );
               })}
@@ -91,11 +93,12 @@ export default function TournamentStandingsTabs({ tournament, matches, registere
       </div>
     );
     return (
-      <div className="space-y-6">
+      <div className="relative space-y-6 overflow-hidden border border-cyan-200/15 bg-[#07121f]/90 p-4 shadow-[0_0_38px_rgba(148,163,184,0.08)]" style={panelClip}>
+        <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-slate-200/55 to-transparent" />
         {allGroupDone && (
           <div className="flex flex-wrap gap-2">
-            <div className="text-xs px-2.5 py-1 rounded-full font-medium bg-success/20 text-success">#1–#2 · Qualify</div>
-            <div className="text-xs px-2.5 py-1 rounded-full font-medium bg-destructive/10 text-destructive">Bottom · Eliminated</div>
+            <div className="border border-cyan-200/25 bg-cyan-300/10 px-3 py-1 text-xs font-medium text-cyan-100">#1-#2 · Qualify</div>
+            <div className="border border-red-200/20 bg-red-400/8 px-3 py-1 text-xs font-medium text-red-100/80">Bottom · Eliminated</div>
           </div>
         )}
         {groupStandingsData.map((group) => {
@@ -103,10 +106,10 @@ export default function TournamentStandingsTabs({ tournament, matches, registere
           return (
             <div key={group.groupIndex}>
               <h3 className="leading-relaxed text-base font-bold text-foreground mb-2">Group {group.groupName}</h3>
-              <div className="bg-card border border-border rounded-xl overflow-hidden">
+              <div className="overflow-x-auto border border-white/10 bg-black/20">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="border-b border-border text-xs text-muted-foreground uppercase tracking-wider">
+                    <tr className="border-b border-white/10 bg-white/[0.035] text-xs text-muted-foreground uppercase tracking-wider">
                       <th className="text-left px-2 py-2">#</th>
                       <th className="text-left px-2 py-2">Club</th>
                       <th className="px-1.5 py-2 text-center">P</th>
@@ -124,10 +127,10 @@ export default function TournamentStandingsTabs({ tournament, matches, registere
                       const isBoundary = allGroupDone && i === 1;
                       return (
                         <tr key={row.id} className={cn(
-                          "border-b border-border/50",
-                          qualifies && "bg-success/10 border-l-2 border-l-success",
-                          eliminated && "bg-destructive/5 border-l-2 border-l-destructive/50",
-                          isBoundary && "border-b-2 border-b-destructive/20"
+                          "border-b border-white/10",
+                          qualifies && "bg-cyan-300/10 border-l-2 border-l-cyan-200",
+                          eliminated && "bg-red-400/5 border-l-2 border-l-red-300/50",
+                          isBoundary && "border-b-2 border-b-red-300/20"
                         )}>
                           <td className="px-2 py-2 text-muted-foreground">{i + 1}</td>
                           <td className="px-2 py-2 font-medium text-foreground max-w-[90px] truncate">
@@ -141,7 +144,7 @@ export default function TournamentStandingsTabs({ tournament, matches, registere
                           <td className="px-1.5 py-2 text-center text-muted-foreground">{row.draws}</td>
                           <td className="px-1.5 py-2 text-center text-destructive">{row.losses}</td>
                           <td className="px-1.5 py-2 text-center text-muted-foreground">{row.goalDiff > 0 ? "+" : ""}{row.goalDiff}</td>
-                          <td className="px-1.5 py-2 text-center font-bold text-primary">{row.points}</td>
+                          <td className="px-1.5 py-2 text-center font-bold text-cyan-100">{row.points}</td>
                         </tr>
                       );
                     })}

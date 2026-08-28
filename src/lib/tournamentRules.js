@@ -28,13 +28,6 @@ export const TOURNAMENT_FORMAT_RULES = {
     minTeams: 8,
     hint: "Groups first, then knockout bracket.",
   },
-  double_elimination: {
-    label: "Double Elim.",
-    defaultMaxTeams: 8,
-    allowedMaxTeams: [8, 16, 32],
-    minTeams: 8,
-    hint: "Bracket format. Starts at 8 teams minimum.",
-  },
   swiss_ucl: {
     label: "Swiss UCL",
     defaultMaxTeams: 36,

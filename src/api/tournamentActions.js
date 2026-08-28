@@ -213,12 +213,12 @@ export async function simulateTournamentScore(tournamentId, matchId) {
 }
 
 export async function advanceTournamentRound(tournamentId) {
-  await stageClient.functions.invoke("advanceRound", { tournamentId });
+  const res = await stageClient.functions.invoke("advanceRound", { tournamentId });
   const [matches, tournaments] = await Promise.all([
     fetchTournamentMatches(tournamentId),
     stageClient.entities.Tournament.filter({ id: tournamentId }, null, 1),
   ]);
-  return { matches, tournament: tournaments[0] || null };
+  return { ...res?.data, matches, tournament: tournaments[0] || null };
 }
 
 export async function createTournamentFinalAndThirdPlace(tournamentId) {

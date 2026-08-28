@@ -398,8 +398,7 @@ export default function Tournaments() {
                         <SelectItem value="knockout">{t("commonPages.cdKnockout")}</SelectItem>
                         <SelectItem value="league">{t("commonPages.homeLeagues")}</SelectItem>
                         <SelectItem value="group_stage">{t("commonPages.cdGroupStage")}</SelectItem>
-                        <SelectItem value="double_elimination">{t("commonPages.cdDoubleElim")}</SelectItem>
-                        <SelectItem value="swiss_ucl">⭐ {t("commonPages.trnSwissUcl")}</SelectItem>
+                        <SelectItem value="swiss_ucl">Swiss UCL</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -679,8 +678,7 @@ export default function Tournaments() {
                 <SelectItem value="knockout">{t("commonPages.cdKnockout")}</SelectItem>
                 <SelectItem value="league">{t("commonPages.homeLeagues")}</SelectItem>
                 <SelectItem value="group_stage">{t("commonPages.cdGroupStage")}</SelectItem>
-                <SelectItem value="double_elimination">{t("commonPages.trnDoubleElimination")}</SelectItem>
-                <SelectItem value="swiss_ucl">{t("commonPages.trnSwissUcl")}</SelectItem>
+                <SelectItem value="swiss_ucl">Swiss UCL</SelectItem>
               </SelectContent>
             </Select>
             <TournamentRules type={rulesType} />
@@ -878,7 +876,6 @@ const RULES = {
   knockout: { title: "Knockout", rules: ["Single elimination — lose once and you're out.", "Each round, winners advance to the next stage.", "Number of rounds = log₂(teams). 8 teams = 3 rounds.", "Finals is the last remaining match between 2 participants."] },
   league: { title: "League", rules: ["Every team plays against every other participant TWICE.", "Win = 3 pts · Draw = 1 pt · Loss = 0 pts.", "Final standings: points → goal difference → goals scored."] },
   group_stage: { title: "Group Stage", rules: ["Participants split into groups.", "Within each group, everyone plays each other once.", "Top participants advance to knockout.", "Tie-breakers: points → GD → goals scored."] },
-  double_elimination: { title: "Double Elimination", rules: ["Two brackets: Winners and Losers.", "Lose in Winners → drop to Losers.", "Lose in Losers → eliminated.", "Winners champion vs Losers champion in Grand Final."] },
   swiss_ucl: { title: "Swiss UCL", rules: ["36 teams in league phase (8 matchdays).", "Top 8 → direct Round of 16.", "#9–24 → Playoff round.", "#25–36 → eliminated.", "R16 onwards: 2-leg ties. Final: single match."] },
 };
 

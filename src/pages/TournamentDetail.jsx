@@ -24,6 +24,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { cn } from "@/lib/utils";
 import {
   calculateGroupStandings,
+  getLeagueTournamentFixtureMatches,
+  getSwissUclDisplayMatches,
 } from "../lib/tournamentEngine";
 import { COUNTRIES } from "../lib/countries";
 import KnockoutBracket from "../components/KnockoutBracket";
@@ -314,6 +316,7 @@ export default function TournamentDetail() {
 
     const isFinished = (match) => ["completed", "forfeit"].includes(String(match.status || ""));
     const tournamentType = String(tournament.type || "").toLowerCase();
+    if (tournamentType === "league") return;
     const finalMatch = matches.find(match => String(match.type || "").toLowerCase() === "final");
     const thirdPlaceMatch = matches.find(match => ["third_place", "third-place", "bronze"].includes(String(match.type || "").toLowerCase()));
     const finalWinnerId = tournament.participant_type === "player" ? finalMatch?.winner_player_id : finalMatch?.winner_club_id;
@@ -992,6 +995,19 @@ function resetUI() {
     }
   }
 
+  async function endLeagueTournament() {
+    if (!(await swalConfirm("End this league tournament from the final table?"))) return;
+    try {
+      const result = await advanceTournamentRound(id);
+      if (result.matches) setMatches(result.matches);
+      if (result.tournament) setTournament(result.tournament);
+      setActiveTab("league_standings");
+      await swalAlert(`${result.winner?.name || "The table leader"} is champion. Prizes and trophies have been processed.`);
+    } catch (err) {
+      await swalAlert(err?.data?.error || err?.message || "Could not end tournament.");
+    }
+  }
+
   if (loading) return <div className="flex items-center justify-center h-full"><div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" /></div>;
   if (!tournament) return <div className="p-6 lg:p-10 text-center"><p className="text-muted-foreground">{t("tournamentDetail.tournamentNotFound")}</p><Link to="/tournaments"><Button variant="outline" className="mt-4">{t("tournamentDetail.back")}</Button></Link></div>;
 
@@ -1013,7 +1029,18 @@ function resetUI() {
   const isOrganizer = tournament.organizer_email === user?.email;
   const canManageTournament = isAdmin || isCreator || isOrganizer;
   const myClubId = effectiveClubId;
+  const isLeagueTournament = tournament.type === "league";
   const isGroupStageTournament = tournament.type === "group_stage";
+  const leagueMatches = isLeagueTournament
+    ? getLeagueTournamentFixtureMatches(matches)
+    : [];
+  const fixtureMatches = isLeagueTournament ? leagueMatches : matches;
+  const visibleFixtureMatches = tournament.type === "swiss_ucl"
+    ? getSwissUclDisplayMatches(matches)
+    : fixtureMatches;
+  const leagueMatchesComplete = leagueMatches.length > 0
+    && leagueMatches.every(m => m.status === "completed" || m.status === "forfeit");
+  const tournamentWinnerId = isPlayerTournament ? tournament.winner_player_id : tournament.winner_club_id;
   const groupMatches = isGroupStageTournament
     ? matches.filter(m => ["group", "group_stage"].includes(String(m.type || "")))
     : [];
@@ -1031,18 +1058,24 @@ function resetUI() {
   const finalComplete = finalMatch && (finalMatch.status === "completed" || finalMatch.status === "forfeit") && finalWinnerId;
   const thirdPlaceComplete = !thirdPlaceMatch || ((thirdPlaceMatch.status === "completed" || thirdPlaceMatch.status === "forfeit") && thirdPlaceWinnerId);
   const canOfficializeTournament = canManageTournament
+    && !isLeagueTournament
     && tournament.status === "in_progress"
     && finalComplete
     && thirdPlaceComplete;
-  const allMatchesPlayed = matches.length > 0
-    && matches.every(m => m.status === "completed" || m.status === "forfeit")
+  const canEndLeagueTournament = canManageTournament
+    && isLeagueTournament
+    && tournament.status === "in_progress"
+    && leagueMatchesComplete
+    && !tournamentWinnerId;
+  const allMatchesPlayed = visibleFixtureMatches.length > 0
+    && visibleFixtureMatches.every(m => m.status === "completed" || m.status === "forfeit")
     && (!isGroupStageTournament || knockoutStarted);
   const winnerClub = allMatchesPlayed && tournament.winner_club_id ? clubs.find(c => c.id === tournament.winner_club_id) || allClubs.find(c => c.id === tournament.winner_club_id) : null;
   // Compute winner points for display
   const winnerPoints = (() => {
     if (!allMatchesPlayed || !tournament.winner_club_id) return null;
     let pts = 0;
-    matches.forEach(m => {
+    visibleFixtureMatches.forEach(m => {
       const hs = m.home_score ?? 0, as_ = m.away_score ?? 0;
       if (m.home_club_id === tournament.winner_club_id) pts += hs > as_ ? 3 : hs === as_ ? 1 : 0;
       if (m.away_club_id === tournament.winner_club_id) pts += as_ > hs ? 3 : as_ === hs ? 1 : 0;
@@ -1051,10 +1084,11 @@ function resetUI() {
   })();
 
   // Group rounds
-  const rounds = [...new Set(matches.map(m => m.round))].sort((a, b) => a - b);
+  const rounds = [...new Set(visibleFixtureMatches.map(m => m.round))].sort((a, b) => a - b);
 
   // UCL / generic round label helper
   function getRoundLabel(round, matchType) {
+    if (isLeagueTournament) return t("tournamentDetail.matchday", { round });
     if (matchType === "ucl_league" || matchType === "league") return t("tournamentDetail.matchday", { round });
     if (matchType === "ucl_playoff") return t("tournamentDetail.playoffs");
     if (matchType === "ucl_r16" || matchType === "round_of_16") return t("tournamentDetail.roundOf16");
@@ -1074,17 +1108,76 @@ function resetUI() {
     return t("tournamentDetail.roundN", { round });
   }
 
-  // Determine the "current" round to show by default (latest with incomplete or last)
-  const activeRound = (() => {
-    if (visibleRound !== null) return visibleRound;
-    const incomplete = rounds.find(r => matches.filter(m => m.round === r).some(m => m.status !== "completed" && m.status !== "forfeit"));
-    return incomplete ?? rounds[rounds.length - 1] ?? null;
+  function buildMatchGroup(id, label, groupMatches) {
+    return {
+      id,
+      label,
+      matches: [...groupMatches].sort((a, b) => Number(a.round || 0) - Number(b.round || 0)),
+    };
+  }
+
+  const fixtureGroups = (() => {
+    const withMatches = (groups) => groups.filter(group => group.matches.length > 0);
+
+    if (isLeagueTournament) {
+      const homeMatches = myClubId
+        ? leagueMatches.filter(match => match.home_club_id === myClubId)
+        : leagueMatches.filter(match => Number(match.round) === 1);
+      const awayMatches = myClubId
+        ? leagueMatches.filter(match => match.away_club_id === myClubId)
+        : leagueMatches.filter(match => Number(match.round) === 2);
+      const otherMatches = myClubId
+        ? leagueMatches.filter(match => match.home_club_id !== myClubId && match.away_club_id !== myClubId)
+        : [];
+
+      return withMatches([
+        buildMatchGroup("league-home", "Home Games", homeMatches),
+        buildMatchGroup("league-away", "Away Games", awayMatches),
+        buildMatchGroup("league-other", "Other Fixtures", otherMatches),
+      ]);
+    }
+
+    if (tournament.type === "swiss_ucl") {
+      const uclLeagueMatches = visibleFixtureMatches.filter(match => String(match.type || "").toLowerCase() === "ucl_league");
+      const phaseGroups = myClubId
+        ? [
+            buildMatchGroup("ucl-home", "Home Games", uclLeagueMatches.filter(match => match.home_club_id === myClubId)),
+            buildMatchGroup("ucl-away", "Away Games", uclLeagueMatches.filter(match => match.away_club_id === myClubId)),
+            buildMatchGroup("ucl-other", "Other League Phase", uclLeagueMatches.filter(match => match.home_club_id !== myClubId && match.away_club_id !== myClubId)),
+          ]
+        : [buildMatchGroup("ucl-league", "League Phase", uclLeagueMatches)];
+
+      return withMatches([
+        ...phaseGroups,
+        buildMatchGroup("ucl-playoff", "Playoff Round", visibleFixtureMatches.filter(match => String(match.type || "").toLowerCase() === "ucl_playoff")),
+        buildMatchGroup("ucl-r16", "Round of 16", visibleFixtureMatches.filter(match => String(match.type || "").toLowerCase() === "ucl_r16")),
+        buildMatchGroup("ucl-qf", "Quarter Final", visibleFixtureMatches.filter(match => String(match.type || "").toLowerCase() === "ucl_qf")),
+        buildMatchGroup("ucl-sf", "Semi Final", visibleFixtureMatches.filter(match => String(match.type || "").toLowerCase() === "ucl_sf")),
+        buildMatchGroup("ucl-final", "Final", visibleFixtureMatches.filter(match => String(match.type || "").toLowerCase() === "final")),
+      ]);
+    }
+
+    return rounds.map(round => {
+      const roundMatches = visibleFixtureMatches.filter(match => match.round === round);
+      return buildMatchGroup(round, getRoundLabel(round, roundMatches[0]?.type), roundMatches);
+    });
   })();
+
+  // Determine the current fixture group to show by default.
+  const activeFixtureGroup = (() => {
+    if (visibleRound !== null) {
+      const requestedGroup = fixtureGroups.find(group => String(group.id) === String(visibleRound));
+      if (requestedGroup) return requestedGroup;
+    }
+    const incomplete = fixtureGroups.find(group => group.matches.some(match => match.status !== "completed" && match.status !== "forfeit"));
+    return incomplete ?? fixtureGroups[fixtureGroups.length - 1] ?? null;
+  })();
+  const activeGroupMatches = activeFixtureGroup?.matches || [];
   const hasKnockoutTree = tournament.type === "knockout" || tournament.type === "double_elimination"
     || (tournament.type === "group_stage" && matches.some(m => !["group", "group_stage"].includes(String(m.type || ""))));
   const bracketMatches = tournament.type === "group_stage"
     ? matches.filter(m => !["group", "group_stage"].includes(String(m.type || "")))
-    : matches;
+    : visibleFixtureMatches;
 
   const TYPE_COLOR = {
     knockout: "#ef4444",
@@ -1324,6 +1417,14 @@ function resetUI() {
               </Button>
             )}
 
+            {canEndLeagueTournament && (
+              <Button type="button" onClick={endLeagueTournament} size="sm"
+                className="h-9 rounded-none border border-amber-300/30 bg-amber-300/10 text-xs text-amber-200 hover:bg-amber-300/15"
+                style={{ clipPath: "polygon(9px 0, 100% 0, calc(100% - 9px) 100%, 0 100%)" }}>
+                <Trophy className="w-3 h-3 mr-1.5" /> End Tournament
+              </Button>
+            )}
+
             {canManageTournament && ["registration", "in_progress"].includes(tournament.status) && registeredCount >= 2 && matches.length === 0 && (
               <Button type="button" onClick={generateDraw} size="sm" className="h-9 rounded-none border border-cyan-300/25 bg-cyan-300/10 text-xs text-cyan-100 hover:bg-cyan-300/15"
                 style={{ clipPath: "polygon(9px 0, 100% 0, calc(100% - 9px) 100%, 0 100%)" }}>
@@ -1442,7 +1543,7 @@ function resetUI() {
           const finalExists = matches.some(m => m.type === "final");
           return (
             <div className="bg-card border border-primary/20 rounded-xl p-4 flex flex-wrap items-center gap-3">
-              <span className="text-xs font-heading uppercase tracking-widest text-primary font-bold">⭐ {t("tournamentDetail.uclControls")}</span>
+              <span className="text-xs font-heading uppercase tracking-widest text-primary font-bold">{t("tournamentDetail.uclControls")}</span>
               {["ucl_playoff","ucl_r16","ucl_qf","ucl_sf"].map(mType => {
                 const byTie = {};
                 matches.filter(m => m.type === mType).forEach(m => {
@@ -1508,8 +1609,10 @@ function resetUI() {
 
         {/* ── BRACKET TAB ─── */}
         {activeTab === "bracket" && (
-          matches.length === 0 ? (
-            <div className="bg-card border border-border rounded-xl p-10 text-center">
+          visibleFixtureMatches.length === 0 ? (
+            <div className="relative overflow-hidden border border-cyan-200/15 bg-[#07121f]/90 p-10 text-center shadow-[0_0_38px_rgba(148,163,184,0.08)]"
+              style={{ clipPath: "polygon(18px 0, 100% 0, calc(100% - 18px) 100%, 0 100%)" }}>
+              <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-slate-200/55 to-transparent" />
               <Trophy className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
               {tournament.status === "registration" && canManageTournament && registeredCount >= 2
                 ? <p className="text-muted-foreground text-sm">{t("tournamentDetail.bracketEmptyGeneratePrefix")} <span className="text-primary font-semibold">{t("tournamentDetail.generateDraw")}</span> {t("tournamentDetail.bracketEmptyGenerateSuffix")}</p>
@@ -1517,9 +1620,11 @@ function resetUI() {
               }
             </div>
           ) : hasKnockoutTree ? (
-            <div className="bg-card border border-border rounded-2xl p-6">
-              {tournament.status === "registration" && matches.length > 0 && (
-                <div className="mb-4 px-3 py-2 rounded-lg bg-primary/5 border border-primary/20 text-xs text-primary flex items-center gap-2">
+            <div className="relative overflow-hidden border border-cyan-200/15 bg-[#07121f]/90 p-6 shadow-[0_0_38px_rgba(148,163,184,0.08)]"
+              style={{ clipPath: "polygon(18px 0, 100% 0, calc(100% - 18px) 100%, 0 100%)" }}>
+              <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-slate-200/55 to-transparent" />
+              {tournament.status === "registration" && visibleFixtureMatches.length > 0 && (
+                <div className="mb-4 border border-cyan-200/15 bg-cyan-300/5 px-3 py-2 text-xs text-cyan-100/80">
                   {t("tournamentDetail.drawPreview")}
                 </div>
               )}
@@ -1537,8 +1642,8 @@ function resetUI() {
             </div>
           ) : (
             <div className="space-y-4">
-              {tournament.status === "registration" && matches.length > 0 && (
-                <div className="px-3 py-2 rounded-lg bg-primary/5 border border-primary/20 text-xs text-primary flex items-center gap-2">
+              {tournament.status === "registration" && visibleFixtureMatches.length > 0 && (
+                <div className="border border-cyan-200/15 bg-cyan-300/5 px-3 py-2 text-xs text-cyan-100/80">
                   {t("tournamentDetail.drawPreview")}
                 </div>
               )}
@@ -1547,24 +1652,23 @@ function resetUI() {
                 <GroupStageVisual matches={matches} registeredClubs={registeredClubs} numGroups={tournament.num_groups || 2} />
               )}
 
-              {/* Round selector pills */}
-              {rounds.length > 1 && (
-                <div className="flex flex-wrap gap-2">
-                  {rounds.map(round => {
-                    const rm = matches.filter(m => m.round === round);
-                    const label = getRoundLabel(round, rm[0]?.type);
-                    const isActive = round === activeRound;
-                    const hasMyMatch = rm.some(m => m.home_club_id === myClubId || m.away_club_id === myClubId);
-                    const allDone = rm.every(m => m.status === "completed" || m.status === "forfeit");
+              {/* Fixture group selector pills */}
+              {fixtureGroups.length > 1 && (
+                <div className="flex flex-wrap gap-2 border-b border-white/10 pb-3">
+                  {fixtureGroups.map(group => {
+                    const isActive = String(group.id) === String(activeFixtureGroup?.id);
+                    const hasMyMatch = group.matches.some(m => m.home_club_id === myClubId || m.away_club_id === myClubId);
+                    const allDone = group.matches.every(m => m.status === "completed" || m.status === "forfeit");
                     return (
-                      <button type="button" key={round} onClick={() => setVisibleRound(round)} className={cn(
-                        "px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all",
-                        isActive ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-secondary text-muted-foreground border-border hover:border-primary/40 hover:text-foreground",
-                        hasMyMatch && !isActive && "border-primary/30 text-primary/80",
+                      <button type="button" key={group.id} onClick={() => setVisibleRound(group.id)} className={cn(
+                        "relative min-h-9 px-4 py-2 font-heading text-[10px] font-black uppercase tracking-[0.16em] transition-all",
+                        isActive ? "border border-cyan-200/45 bg-cyan-300/12 text-white shadow-[0_0_24px_rgba(103,232,249,0.12)]"
+                          : "border border-cyan-200/10 bg-white/[0.03] text-white/45 hover:border-cyan-200/30 hover:text-white/80",
+                        hasMyMatch && !isActive && "border-cyan-300/30 text-cyan-100/80",
                         allDone && !isActive && "opacity-50"
-                      )}>
-                        {label}
+                      )}
+                        style={{ clipPath: "polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)" }}>
+                        {group.label}
                         {hasMyMatch && !allDone && <span className="ml-1.5 w-1.5 h-1.5 rounded-full bg-primary inline-block align-middle" />}
                       </button>
                     );
@@ -1573,13 +1677,16 @@ function resetUI() {
               )}
 
               {/* Active round matches */}
-              {activeRound !== null && (() => {
-                const roundMatches = matches.filter(m => m.round === activeRound);
+              {activeFixtureGroup && (() => {
+                const roundMatches = activeGroupMatches;
                 return (
-                  <div>
-                    <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-2">
-                      <span className="w-6 h-6 rounded bg-primary/10 text-primary text-[10px] flex items-center justify-center font-black">{activeRound}</span>
-                      {getRoundLabel(activeRound, roundMatches[0]?.type)}
+                  <div className="relative overflow-hidden border border-cyan-200/15 bg-[#07121f]/90 p-4 shadow-[0_0_38px_rgba(148,163,184,0.08)]"
+                    style={{ clipPath: "polygon(18px 0, 100% 0, calc(100% - 18px) 100%, 0 100%)" }}>
+                    <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-slate-200/55 to-transparent" />
+                    <h3 className="mb-4 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-muted-foreground">
+                      <span className="flex h-7 w-8 items-center justify-center border border-cyan-200/20 bg-cyan-300/8 text-[10px] font-black text-cyan-100"
+                        style={{ clipPath: "polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%)" }}>{roundMatches.length}</span>
+                      {activeFixtureGroup.label}
                     </h3>
                     <div className="space-y-2">
                       {roundMatches.map(match => {
@@ -1588,14 +1695,16 @@ function resetUI() {
                         const awayClubData = allClubs.find(c => c.id === match.away_club_id);
                         return (
                           <div key={match.id} className={cn(
-                            "bg-card border rounded-xl px-4 py-3 transition-all",
-                            isMyMatch ? "border-primary/25" : "border-border",
+                            "relative border bg-black/24 px-4 py-4 transition-all",
+                            isMyMatch ? "border-cyan-200/30 shadow-[0_0_26px_rgba(103,232,249,0.08)]" : "border-white/10",
                             match.status === "completed" && "opacity-80"
-                          )}>
+                          )}
+                            style={{ clipPath: "polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%)" }}>
                             {/* EA FC-style match row */}
-                            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                            <div className="grid grid-cols-1 items-center gap-3 sm:grid-cols-[1fr_auto_1fr]">
                               <div className="flex items-center gap-2.5 min-w-0">
-                                <div className="w-9 h-9 rounded-lg bg-secondary border border-border overflow-hidden shrink-0">
+                                <div className="w-10 h-10 bg-secondary border border-cyan-200/15 overflow-hidden shrink-0"
+                                  style={{ clipPath: "polygon(7px 0, 100% 0, calc(100% - 7px) 100%, 0 100%)" }}>
                                   {homeClubData?.logo_url
                                     ? <img src={homeClubData.logo_url} alt={match.home_club_name} className="w-full h-full object-cover" style={{ objectPosition: homeClubData.logo_position || "50% 50%" }} />
                                     : <Shield className="w-4 h-4 text-muted-foreground m-2.5" />}
@@ -1607,11 +1716,11 @@ function resetUI() {
                                 )}>{match.home_club_name}</p>
                               </div>
 
-                              <div className="shrink-0 text-center min-w-[64px] px-2">
+                              <div className="shrink-0 text-center min-w-[92px] px-2">
                                 {match.status === "completed" || match.status === "forfeit" ? (
-                                  <span className="font-heading font-black text-lg tabular-nums text-foreground">{match.home_score} – {match.away_score}</span>
+                                  <span className="font-heading font-black text-2xl tabular-nums text-white/85">{match.home_score} - {match.away_score}</span>
                                 ) : (
-                                  <span className="text-muted-foreground text-xs font-bold uppercase tracking-widest">vs</span>
+                                  <span className="font-heading text-lg font-black uppercase tracking-widest text-white/35">vs</span>
                                 )}
                                 {match.scheduled_date && match.status === "scheduled" && (
                                   <p className="text-[10px] text-muted-foreground/60 mt-0.5">{new Date(match.scheduled_date).toLocaleDateString()}</p>
@@ -1624,7 +1733,8 @@ function resetUI() {
                                   match.status === "completed" && match.winner_club_id && match.winner_club_id !== match.away_club_id ? "text-muted-foreground" :
                                   "text-foreground"
                                 )}>{match.away_club_name}</p>
-                                <div className="w-9 h-9 rounded-lg bg-secondary border border-border overflow-hidden shrink-0">
+                                <div className="w-10 h-10 bg-secondary border border-cyan-200/15 overflow-hidden shrink-0"
+                                  style={{ clipPath: "polygon(7px 0, 100% 0, calc(100% - 7px) 100%, 0 100%)" }}>
                                   {awayClubData?.logo_url
                                     ? <img src={awayClubData.logo_url} alt={match.away_club_name} className="w-full h-full object-cover" style={{ objectPosition: awayClubData.logo_position || "50% 50%" }} />
                                     : <Shield className="w-4 h-4 text-muted-foreground m-2.5" />}
@@ -1728,7 +1838,9 @@ function resetUI() {
             (() => {
               const registeredPlayerIds = tournament.registered_players || [];
               if (registeredPlayerIds.length === 0) return (
-                <div className="bg-card border border-border rounded-xl p-10 text-center">
+                <div className="relative overflow-hidden border border-cyan-200/15 bg-[#07121f]/90 p-10 text-center"
+                  style={{ clipPath: "polygon(18px 0, 100% 0, calc(100% - 18px) 100%, 0 100%)" }}>
+                  <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-slate-200/55 to-transparent" />
                   <Users className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
                   <p className="text-muted-foreground text-sm">{t("commonPages.cdNoPlayers")}</p>
                 </div>
@@ -1737,7 +1849,9 @@ function resetUI() {
             })()
           ) : (
             registeredClubs.length === 0 ? (
-              <div className="bg-card border border-border rounded-xl p-10 text-center">
+              <div className="relative overflow-hidden border border-cyan-200/15 bg-[#07121f]/90 p-10 text-center"
+                style={{ clipPath: "polygon(18px 0, 100% 0, calc(100% - 18px) 100%, 0 100%)" }}>
+                <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-slate-200/55 to-transparent" />
                 <Users className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
                 <p className="text-muted-foreground text-sm">{t("commonPages.tdNoTeams")}</p>
               </div>
@@ -1745,15 +1859,19 @@ function resetUI() {
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {registeredClubs.map((club, i) => (
                   <Link key={club.id} to={`/clubs/${club.id}`} className="block group">
-                    <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-3 hover:border-primary/30 transition-all">
-                      <span className="w-7 h-7 rounded bg-secondary flex items-center justify-center text-xs font-black text-muted-foreground shrink-0">{i + 1}</span>
-                      <div className="w-10 h-10 rounded-lg bg-secondary border border-border overflow-hidden shrink-0">
+                    <div className="relative flex min-h-[86px] items-center gap-3 overflow-hidden border border-cyan-200/12 bg-[#07121f]/90 p-4 transition-all hover:border-cyan-200/35 hover:bg-cyan-300/[0.045]"
+                      style={{ clipPath: "polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%)" }}>
+                      <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-slate-200/40 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+                      <span className="flex h-8 w-9 shrink-0 items-center justify-center border border-cyan-200/15 bg-white/[0.04] text-xs font-black text-muted-foreground"
+                        style={{ clipPath: "polygon(7px 0, 100% 0, calc(100% - 7px) 100%, 0 100%)" }}>{i + 1}</span>
+                      <div className="w-11 h-11 bg-secondary border border-cyan-200/15 overflow-hidden shrink-0"
+                        style={{ clipPath: "polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%)" }}>
                         {club.logo_url
                           ? <img src={club.logo_url} alt={club.name} className="w-full h-full object-cover" style={{ objectPosition: club.logo_position || "50% 50%" }} />
                           : <Shield className="w-5 h-5 text-muted-foreground m-2.5" />}
                       </div>
                       <div className="min-w-0">
-                        <p className="font-bold text-sm text-foreground truncate">{club.name} <span className="text-xs text-primary font-mono">[{club.tag}]</span></p>
+                        <p className="font-heading text-sm font-black uppercase tracking-wide text-foreground truncate">{club.name} <span className="text-xs text-primary font-mono">[{club.tag}]</span></p>
                         <p className="text-xs text-muted-foreground">{club.platform} · Rating: {club.rating || 0}</p>
                       </div>
                     </div>
