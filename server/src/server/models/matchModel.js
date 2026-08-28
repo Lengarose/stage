@@ -115,30 +115,30 @@ class Match {
 
   create() {
     this.id = this.id || uuidv4();
-    const sql = `INSERT INTO matches
-      (id, tournament_id,
-       home_club_id, away_club_id, home_club_name, away_club_name,
-       home_owner_email, away_owner_email,
-       home_player_id, home_player_name, home_player_email,
-       away_player_id, away_player_name, away_player_email,
-       home_score, away_score, status, mode, type, stats_processed,
-       winner_club_id, winner_club_name, winner_player_id, winner_player_name,
-       loser_club_id, loser_club_name, loser_player_id, loser_player_name,
-       round, group_number, bracket_side, scheduled_date,
-       scheduling_status, home_proposed_date, away_proposed_date, last_proposed_by, proposal_count, confirmed_date,
-       result_home_submitted, result_away_submitted,
-       home_submission, away_submission,
-       home_submitted_score, away_submitted_score,
-       first_submission_at, first_submitter_club_id,
-       video_url, proof_url,
-       stream_url, home_stream_url, away_stream_url, stream_embed_html,
-       forfeit_claimed_by, forfeit_proof_url, forfeit_status,
-       admin_notes, notes,
-       wager_stc, wager_status, wager_home_locked, wager_away_locked,
-       wager_home_player_id, wager_away_player_id,
-       source_fixture_id, source_fixture_type, competition_context,
-       home_goal_events, away_goal_events)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+    const columns = [
+      'id', 'tournament_id',
+      'home_club_id', 'away_club_id', 'home_club_name', 'away_club_name',
+      'home_owner_email', 'away_owner_email',
+      'home_player_id', 'home_player_name', 'home_player_email',
+      'away_player_id', 'away_player_name', 'away_player_email',
+      'home_score', 'away_score', 'status', 'mode', 'type', 'stats_processed',
+      'winner_club_id', 'winner_club_name', 'winner_player_id', 'winner_player_name',
+      'loser_club_id', 'loser_club_name', 'loser_player_id', 'loser_player_name',
+      'round', 'group_number', 'bracket_side', 'scheduled_date',
+      'scheduling_status', 'home_proposed_date', 'away_proposed_date', 'last_proposed_by', 'proposal_count', 'confirmed_date',
+      'result_home_submitted', 'result_away_submitted',
+      'home_submission', 'away_submission',
+      'home_submitted_score', 'away_submitted_score',
+      'first_submission_at', 'first_submitter_club_id',
+      'video_url', 'proof_url',
+      'stream_url', 'home_stream_url', 'away_stream_url', 'stream_embed_html',
+      'forfeit_claimed_by', 'forfeit_proof_url', 'forfeit_status',
+      'admin_notes', 'notes',
+      'wager_stc', 'wager_status', 'wager_home_locked', 'wager_away_locked',
+      'wager_home_player_id', 'wager_away_player_id',
+      'source_fixture_id', 'source_fixture_type', 'competition_context',
+      'home_goal_events', 'away_goal_events',
+    ];
     const values = [
       this.id, this.tournament_id,
       this.home_club_id, this.away_club_id, this.home_club_name, this.away_club_name,
@@ -163,6 +163,11 @@ class Match {
       this.source_fixture_id, this.source_fixture_type, this.competition_context,
       this.home_goal_events, this.away_goal_events,
     ];
+    const placeholders = values.map(() => '?').join(',');
+    const sql = `INSERT INTO matches (${columns.join(', ')}) VALUES (${placeholders})`;
+    if (columns.length !== values.length) {
+      throw new Error(`Match insert column/value mismatch: ${columns.length} columns for ${values.length} values`);
+    }
     return EXECUTESQL(sql, values);
   }
 
