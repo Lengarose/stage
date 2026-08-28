@@ -4,6 +4,7 @@ const {
   RESULT_STATES,
   evidenceRequired,
   penaltiesAllowed,
+  penaltiesFlagForCreatedMatch,
   normalizePenaltySelection,
   assertNoForeignPlayerStats,
   filterOwnSideStats,
@@ -17,11 +18,29 @@ test('evidence is required for league and knockout, optional for Arrange Game', 
   assert.equal(evidenceRequired({ type: 'ranked', source_fixture_type: 'arranged_game' }), false);
 });
 
+test('evidence is required whenever a match carries an STC wager, including ranked club Arrange Games', () => {
+  assert.equal(evidenceRequired({ type: 'ranked', wager_stc: 2000000 }), true);
+  assert.equal(evidenceRequired({ type: 'ranked', source_fixture_type: 'arranged_game', wager_stc: 1 }), true);
+  assert.equal(evidenceRequired({ type: 'ranked', wager_stc: 0 }), false);
+});
+
 test('penalties are offered on knockout phases only, never on a normal league draw', () => {
   assert.equal(penaltiesAllowed({ competition_context: 'Supreme · knockout_final' }), true);
+  assert.equal(penaltiesAllowed({ competition_context: 'Supreme · Final' }), true);
   assert.equal(penaltiesAllowed({ source_fixture_type: 'regional_league', competition_context: 'Regional League · Division 1 · Matchday 4' }), false);
   assert.equal(penaltiesAllowed({ type: 'ranked' }), false);
   assert.equal(penaltiesAllowed({ type: 'ranked', allow_penalties: 1 }), true);
+  assert.equal(penaltiesAllowed({ source_fixture_type: 'competition_engine', competition_context: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee' }), false);
+  assert.equal(penaltiesAllowed({ source_fixture_type: 'competition_engine', competition_context: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', allow_penalties: 1 }), true);
+});
+
+test('knockout fixture creation writes allow_penalties; league and UUID context do not', () => {
+  assert.equal(penaltiesFlagForCreatedMatch({ phase: 'knockout_final' }), 1);
+  assert.equal(penaltiesFlagForCreatedMatch({ phase: 'playoff_round' }), 1);
+  assert.equal(penaltiesFlagForCreatedMatch({ type: 'knockout' }), 1);
+  assert.equal(penaltiesFlagForCreatedMatch({ type: 'final' }), 1);
+  assert.equal(penaltiesFlagForCreatedMatch({ phase: 'league', type: 'competition' }), 0);
+  assert.equal(penaltiesFlagForCreatedMatch({ type: 'competition_engine' }), 0);
 });
 
 test('penalty selection is ignored unless the score is a draw, and rejected when ineligible', () => {
@@ -74,7 +93,7 @@ test('home missing the 48h window passes submission to away; nobody submitting m
   assert.equal(overdue.patch.result_state, RESULT_STATES.RESULT_OVERDUE);
 });
 
-test('away silence auto-confirms; home review silence applies the correction', () => {
+test('away silence auto-confirms; home review silence keeps the originally submitted result', () => {
   const now = new Date('2026-08-28T12:00:00Z');
   const auto = settleDeadlinesPure({
     status: 'in_progress',
@@ -89,7 +108,9 @@ test('away silence auto-confirms; home review silence applies the correction', (
     result_state: RESULT_STATES.AWAITING_HOME_REVIEW,
     review_due_at: '2026-08-26T12:00:00Z',
   }, now);
-  assert.equal(review.useAwayCorrection, true);
+  assert.equal(review.useAwayCorrection, undefined);
+  assert.equal(review.appliedFrom, 'original_submission');
+  assert.equal(review.event, 'review_timeout_apply_original');
   assert.equal(review.patch.result_state, RESULT_STATES.AUTO_CONFIRMED_TIMEOUT);
 });
 

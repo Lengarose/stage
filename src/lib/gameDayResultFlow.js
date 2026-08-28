@@ -10,16 +10,18 @@ export function isArrangeGame(game) {
 }
 
 export function evidenceRequired(game) {
+  if (Number(game?.wager_stc || 0) > 0) return true;
   return !isArrangeGame(game);
 }
 
 export function penaltiesAllowed(game) {
   if (Number(game?.allow_penalties) === 1) return true;
   const blob = `${game?.competition_context || ""} ${game?.source_fixture_type || ""} ${game?.type || ""}`.toLowerCase();
-  if (/regional_league/.test(blob) && !/knockout_r16|knockout_qf|knockout_sf|knockout_final|\bknockout\b|\bplayoff\b/.test(blob)) {
+  const knockout = /knockout_r16|knockout_qf|knockout_sf|knockout_final|\bknockout\b|\bplayoff\b|round of 16|quarter-finals?|semi-finals?|(?:^|[·\-–]\s*)final\b/;
+  if (/regional_league/.test(blob) && !knockout.test(blob)) {
     return false;
   }
-  return /knockout_r16|knockout_qf|knockout_sf|knockout_final|\bknockout\b|\bplayoff\b/.test(blob);
+  return knockout.test(blob);
 }
 
 export function parseMatchSubmission(raw) {

@@ -22,7 +22,7 @@ const RESULT_WINDOW_HOURS = 48;
 const CONFIRM_WINDOW_HOURS = 48;
 const REVIEW_WINDOW_HOURS = 48;
 
-const KNOCKOUT_MARKERS = /knockout_r16|knockout_qf|knockout_sf|knockout_final|\bknockout\b|\bplayoff\b/;
+const KNOCKOUT_MARKERS = /knockout_r16|knockout_qf|knockout_sf|knockout_final|\bknockout\b|\bplayoff\b|round of 16|quarter-finals?|semi-finals?|(?:^|[·\-–]\s*)final\b/;
 
 function hoursFromNow(hours, now = new Date()) {
   return new Date(now.getTime() + Number(hours) * 3600 * 1000);
@@ -48,8 +48,18 @@ function isArrangeGame(match) {
     || blob.includes('arrange');
 }
 
+function hasWager(match) {
+  return Number(match?.wager_stc || 0) > 0;
+}
+
 function evidenceRequired(match) {
+  if (hasWager(match)) return true;
   return !isArrangeGame(match);
+}
+
+function penaltiesFlagForCreatedMatch({ phase, type, format } = {}) {
+  const blob = [phase, type, format].filter(Boolean).join(' ').toLowerCase();
+  return /knockout|playoff|\bfinal\b/.test(blob) ? 1 : 0;
 }
 
 function penaltiesAllowed(match) {
@@ -215,9 +225,9 @@ function settleDeadlinesPure(match, now = new Date()) {
           result_state: RESULT_STATES.AUTO_CONFIRMED_TIMEOUT,
           status: 'completed',
         },
-        event: 'review_timeout_apply_correction',
+        event: 'review_timeout_apply_original',
         autoConfirm: true,
-        useAwayCorrection: true,
+        appliedFrom: 'original_submission',
       };
     }
     return { changed: false };
@@ -245,6 +255,7 @@ module.exports = {
   hoursFromNow,
   isArrangeGame,
   evidenceRequired,
+  penaltiesFlagForCreatedMatch,
   penaltiesAllowed,
   normalizePenaltySelection,
   currentSubmitSide,

@@ -58,6 +58,7 @@ test('createMatchFromFixture creates a match with club and owner snapshots', asy
   assert.equal(match.home_owner_email, 'home-owner@example.test');
   assert.equal(match.away_owner_email, 'away-owner@example.test');
   assert.equal(match.source_fixture_type, 'competition_engine');
+  assert.equal(match.allow_penalties, 0);
   assert.ok(calls.some((call) => /INSERT INTO matches/.test(call.sql)));
 });
 

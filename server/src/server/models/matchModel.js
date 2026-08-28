@@ -80,6 +80,7 @@ class Match {
     this.source_fixture_id     = body.source_fixture_id;
     this.source_fixture_type   = body.source_fixture_type;
     this.competition_context   = body.competition_context;
+    this.allow_penalties       = body.allow_penalties;
     this.home_goal_events      = body.home_goal_events
       ? (typeof body.home_goal_events === 'string' ? body.home_goal_events : JSON.stringify(body.home_goal_events))
       : null;
@@ -136,7 +137,7 @@ class Match {
        admin_notes, notes,
        wager_stc, wager_status, wager_home_locked, wager_away_locked,
        wager_home_player_id, wager_away_player_id,
-       source_fixture_id, source_fixture_type, competition_context,
+       source_fixture_id, source_fixture_type, competition_context, allow_penalties,
        home_goal_events, away_goal_events)
       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
     const values = [
@@ -160,7 +161,7 @@ class Match {
       this.admin_notes, this.notes,
       this.wager_stc, this.wager_status, this.wager_home_locked, this.wager_away_locked,
       this.wager_home_player_id, this.wager_away_player_id,
-      this.source_fixture_id, this.source_fixture_type, this.competition_context,
+      this.source_fixture_id, this.source_fixture_type, this.competition_context, this.allow_penalties,
       this.home_goal_events, this.away_goal_events,
     ];
     return EXECUTESQL(sql, values);
@@ -188,7 +189,7 @@ class Match {
       admin_notes=?, notes=?,
       wager_stc=?, wager_status=?, wager_home_locked=?, wager_away_locked=?,
       wager_home_player_id=?, wager_away_player_id=?,
-      source_fixture_id=?, source_fixture_type=?, competition_context=?,
+      source_fixture_id=?, source_fixture_type=?, competition_context=?, allow_penalties=?,
       home_goal_events=?, away_goal_events=?
       WHERE id=?`;
     const values = [
@@ -212,7 +213,7 @@ class Match {
       this.admin_notes, this.notes,
       this.wager_stc, this.wager_status, this.wager_home_locked, this.wager_away_locked,
       this.wager_home_player_id, this.wager_away_player_id,
-      this.source_fixture_id, this.source_fixture_type, this.competition_context,
+      this.source_fixture_id, this.source_fixture_type, this.competition_context, this.allow_penalties,
       this.home_goal_events, this.away_goal_events,
       id,
     ];

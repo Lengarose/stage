@@ -194,9 +194,21 @@ function acceptedForMatch(match, homeSub, awaySub, options) {
 }
 
 async function applyTimeoutSettlement(match, decision) {
+  const homeSub = parseSubmission(match.home_submission);
+  const awaySub = parseSubmission(match.away_submission);
+  const useAway = decision.appliedFrom === 'away_correction' || Boolean(decision.useAwayCorrection);
+  const appliedFrom = decision.appliedFrom || (useAway ? 'away_correction' : 'original_submission');
+  const primary = useAway ? (awaySub || homeSub) : (homeSub || awaySub);
+
   await patchMatch(match.id, {
     ...decision.patch,
-    result_history: appendHistory(match, { event: decision.event, patch: decision.patch }),
+    result_history: appendHistory(match, {
+      event: decision.event,
+      applied_from: appliedFrom,
+      home_score: primary?.home_score ?? null,
+      away_score: primary?.away_score ?? null,
+      patch: decision.patch,
+    }),
   });
   const fresh = await loadMatch(match.id);
   if (!decision.autoConfirm) {
@@ -211,15 +223,12 @@ async function applyTimeoutSettlement(match, decision) {
     return { data: { status: 'settled', result_state: fresh.result_state, event: decision.event }, match: fresh };
   }
 
-  const homeSub = parseSubmission(fresh.home_submission);
-  const awaySub = parseSubmission(fresh.away_submission);
-  const primary = decision.useAwayCorrection ? (awaySub || homeSub) : (homeSub || awaySub);
   if (!primary) {
     await patchMatch(fresh.id, { result_state: RESULT_STATES.RESULT_OVERDUE, status: 'in_progress' });
     return { data: { status: 'overdue', result_state: RESULT_STATES.RESULT_OVERDUE }, match: await loadMatch(fresh.id) };
   }
   const accepted = acceptedForMatch(fresh, homeSub, awaySub, {
-    useAway: Boolean(decision.useAwayCorrection),
+    useAway,
     resultState: RESULT_STATES.AUTO_CONFIRMED_TIMEOUT,
   });
   return finalizeOfficial(fresh, accepted, null, RESULT_STATES.AUTO_CONFIRMED_TIMEOUT);

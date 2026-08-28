@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const { EXECUTESQL } = require('../db/database');
 const CompetitionEngineModel = require('../models/competitionEngineModel');
 const Match = require('../models/matchModel');
+const { penaltiesFlagForCreatedMatch } = require('../lib/matchResultNegotiation');
 const {
   broadcastMatch,
   broadcastInbox,
@@ -82,6 +83,7 @@ function mapFixtureToMatch(fixture) {
     source_fixture_id: fixture.id,
     source_fixture_type: 'competition_engine',
     competition_context: fixture.competition_instance_id,
+    allow_penalties: penaltiesFlagForCreatedMatch({ phase: fixture.phase, type: fixture.format || 'competition_engine' }),
   };
 }
 
@@ -1855,6 +1857,7 @@ async function insertCommunityTournamentMatch(tournament, home, away, round, typ
     away_score: 0,
     stats_processed: 0,
     ...extra,
+    allow_penalties: extra.allow_penalties ?? penaltiesFlagForCreatedMatch({ type, phase: extra.phase }),
     status: hasConfirmedSchedule || terminalStatus ? (extra.status || 'scheduled') : 'unscheduled',
     scheduling_status: schedulingStatus,
     scheduled_date: hasConfirmedSchedule ? (extra.scheduled_date || extra.confirmed_date || null) : null,

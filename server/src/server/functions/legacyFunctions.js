@@ -46,6 +46,7 @@ const {
   RESULT_STATES,
   RESULT_WINDOW_HOURS,
   hoursFromNow,
+  penaltiesFlagForCreatedMatch,
 } = require('../lib/matchResultNegotiation');
 const Match = require('../models/matchModel');
 const { DEFAULT_STORE_SETTINGS, getCreditPack, getActiveStoreSettings } = require('../utils/storeSettings');
@@ -1889,13 +1890,14 @@ async function insertTournamentMatch(query, match) {
   const terminalStatus = ['completed', 'forfeit', 'cancelled', 'canceled', 'disputed', 'in_progress', 'awaiting_confirmation'].includes(rawStatus);
   const schedulingStatus = match.scheduling_status || (hasConfirmedSchedule ? 'confirmed' : 'open');
   const status = hasConfirmedSchedule || terminalStatus ? (match.status || 'scheduled') : 'unscheduled';
+  const matchType = match.type || 'knockout';
   await query(
     `INSERT INTO matches
        (id, tournament_id, home_club_id, away_club_id, home_club_name, away_club_name,
         home_score, away_score, status, mode, type, round, group_number, scheduled_date,
         scheduling_status, home_proposed_date, away_proposed_date, last_proposed_by,
-        proposal_count, confirmed_date, created_date, updated_date)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+        proposal_count, confirmed_date, allow_penalties, created_date, updated_date)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
     [
       id,
       match.tournament_id,
@@ -1907,7 +1909,7 @@ async function insertTournamentMatch(query, match) {
       Number(match.away_score || 0),
       status,
       match.mode || 'club',
-      match.type || 'knockout',
+      matchType,
       Number(match.round || 1),
       match.group_number ?? match.group ?? null,
       hasConfirmedSchedule ? (match.scheduled_date || match.confirmed_date || null) : null,
@@ -1917,6 +1919,7 @@ async function insertTournamentMatch(query, match) {
       match.last_proposed_by || null,
       Number(match.proposal_count || 0),
       match.confirmed_date || null,
+      penaltiesFlagForCreatedMatch({ type: matchType, phase: match.phase }),
     ]
   );
   return id;
@@ -5315,6 +5318,7 @@ const HANDLERS = {
       stats_processed: 0,
       wager_stc: 0,
       wager_status: 'none',
+      allow_penalties: penaltiesFlagForCreatedMatch({ phase: fixture.phase, type: sourceType }),
     });
 
     const match = new Match(payload);
