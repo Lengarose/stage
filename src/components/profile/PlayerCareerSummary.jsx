@@ -449,9 +449,15 @@ export function CareerTileBackgroundDialog({ player, tileKey, open, onOpenChange
     setSaving(busyKey);
     setError("");
     try {
-      const updated = await stageClient.http.patch(`/players/${encodeURIComponent(player.id)}/career-tile-background`, {
+      const key = String(tileKey || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+      if (!key) {
+        setError('Valid tile_key is required');
+        return;
+      }
+      const updated = await stageClient.http.patch(`/players/${encodeURIComponent(player.id)}/career-tile-background?tile_key=${encodeURIComponent(key)}`, {
         ...payload,
-        tile_key: tileKey,
+        tile_key: key,
+        tileKey: key,
       });
       onPlayerChanged?.(updated);
       setFile(null);

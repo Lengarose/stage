@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Image as ImageIcon, Loader2, Lock, RotateCcw, Sparkles, Upload } from "lucide-react";
+import { Image as ImageIcon, Loader2, AlertCircle, RotateCcw, Sparkles, Upload } from "lucide-react";
 import { Link } from "react-router-dom";
 import { stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
@@ -44,6 +44,8 @@ export function getGameDayTileBackgroundStyle(config) {
 export function hasCustomGameDayTileBackground(config) {
   return Boolean(config?.url && config?.type && config.type !== "default");
 }
+
+const STAGE_PLUS_TILE_BACKGROUND_ERROR = "STAGE Plus is required to change this tile background.";
 
 const OVERLAY_BY_VARIANT = {
   panel: {
@@ -108,7 +110,9 @@ export default function GameDayTileBackgroundDialog({
   const currentConfig = getGameDayTileBackgroundConfig(player, tileKey);
 
   useEffect(() => {
-    if (!open || !canCustomize) return undefined;
+    if (!open) return undefined;
+    setError(canCustomize ? "" : STAGE_PLUS_TILE_BACKGROUND_ERROR);
+    if (!canCustomize) return undefined;
     let cancelled = false;
     setLoading(true);
     stageClient.entities.PlayerCardBackground
@@ -139,13 +143,25 @@ export default function GameDayTileBackgroundDialog({
   }, [file]);
 
   async function saveBackground(payload, busyKey) {
+    if (!canCustomize) {
+      setError(STAGE_PLUS_TILE_BACKGROUND_ERROR);
+      return;
+    }
     if (!player?.id || !tileKey) return;
     setSaving(busyKey);
     setError("");
     try {
-      const updated = await stageClient.http.patch(`/players/${encodeURIComponent(player.id)}/game-day-tile-background`, {
+      const key = String(tileKey || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+      if (!key) {
+        setError('Valid title_key is required');
+        return;
+      }
+      const updated = await stageClient.http.patch(`/players/${encodeURIComponent(player.id)}/game-day-tile-background?tile_key=${encodeURIComponent(key)}&tileKey=${encodeURIComponent(key)}&title_key=${encodeURIComponent(key)}`, {
         ...payload,
-        tile_key: tileKey,
+        tile_key: key,
+        tileKey: key,
+        title_key: key,
+        titleKey: key,
       });
       onPlayerChanged?.({ ...player, ...updated });
       setFile(null);
@@ -189,13 +205,13 @@ export default function GameDayTileBackgroundDialog({
         </DialogHeader>
 
         {!canCustomize ? (
-          <div className="border border-[#d8dee8]/25 bg-[#d8dee8]/10 p-4 [clip-path:polygon(12px_0,100%_0,calc(100%_-_12px)_100%,0_100%)]">
+          <div className="border border-red-400/40 bg-red-500/10 p-4 [clip-path:polygon(12px_0,100%_0,calc(100%_-_12px)_100%,0_100%)]">
             <div className="mb-3 flex items-start gap-3">
-              <Lock className="mt-0.5 h-5 w-5 shrink-0 text-[#f8fbff]" />
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-300" />
               <div>
-                <p className="font-heading text-base font-black uppercase text-white">STAGE Plus feature</p>
-                <p className="mt-1 text-sm text-white/65">
-                  STAGE Plus unlocks custom Game Day tile backgrounds, personal uploads, and official visual designs.
+                <p className="font-heading text-base font-black uppercase text-red-300">STAGE Plus required</p>
+                <p className="mt-1 text-sm text-white">
+                  {STAGE_PLUS_TILE_BACKGROUND_ERROR}
                 </p>
               </div>
             </div>

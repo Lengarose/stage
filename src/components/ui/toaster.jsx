@@ -1,33 +1,23 @@
 import { useToast } from "@/components/ui/use-toast";
-import {
-  Toast,
-  ToastClose,
-  ToastDescription,
-  ToastProvider,
-  ToastTitle,
-  ToastViewport,
-} from "@/components/ui/toast";
+import { ToastNotification, resolveToastVariant } from "@/components/ui/toast-notification";
 
 export function Toaster() {
-  const { toasts } = useToast();
+  const { toasts, dismiss } = useToast();
 
   return (
-    <ToastProvider>
-      {toasts.map(function ({ id, title, description, action, ...props }) {
-        return (
-          <Toast key={id} {...props}>
-            <div className="grid gap-1">
-              {title && <ToastTitle>{title}</ToastTitle>}
-              {description && (
-                <ToastDescription>{description}</ToastDescription>
-              )}
-            </div>
-            {action}
-            <ToastClose />
-          </Toast>
-        );
-      })}
-      <ToastViewport />
-    </ToastProvider>
+    <div
+      className="pointer-events-none fixed inset-x-4 bottom-6 z-[100] flex flex-col items-end gap-3 sm:inset-x-auto sm:bottom-8 sm:right-6"
+      aria-live="polite"
+    >
+      {toasts.filter((item) => item.open !== false).map((item) => (
+        <ToastNotification
+          key={item.id}
+          title={item.title}
+          message={item.description}
+          variant={resolveToastVariant(item.variant)}
+          onClose={() => dismiss(item.id)}
+        />
+      ))}
+    </div>
   );
-} 
+}

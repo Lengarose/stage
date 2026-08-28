@@ -6,11 +6,13 @@ import {
   NOTIFICATION_SETTINGS,
   NOTIFICATION_SETTING_GROUPS,
   NOTIFICATION_CHANNELS,
+  TEST_TOAST_SAMPLES,
   getDefaultNotificationSettings,
   materializeNotificationSettings,
   setChannelCategory,
   isChannelCategoryOn,
 } from "@/lib/notificationTypes";
+import { toast } from "@/components/ui/use-toast";
 import { useIsPhoneOrPwa } from "@/hooks/useIsPhoneOrPwa";
 import { getWebPushStatus, setWebPushEnabled } from "@/lib/oneSignal";
 
@@ -188,6 +190,33 @@ export default function NotificationSettings() {
           <p className="text-sm text-muted-foreground">Toasts and the notification list in the STAGE website. Messages also covers live match and club chat.</p>
         </div>
         {status}
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-xl border border-border bg-secondary/40 p-4">
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Preview toast</p>
+        <button
+          type="button"
+          onClick={() => TEST_TOAST_SAMPLES.forEach((row, index) => {
+            setTimeout(() => {
+              toast({ title: row.title, description: row.message, variant: row.variant });
+            }, index * 450);
+          })}
+          className="rounded-xl border border-primary/35 px-4 py-2.5 font-heading text-[11px] font-black uppercase tracking-[0.16em] text-primary transition-colors hover:bg-primary/10"
+        >
+          Send all test toasts
+        </button>
+        <div className="flex flex-wrap gap-2">
+          {TEST_TOAST_SAMPLES.map((row) => (
+            <button
+              key={row.key}
+              type="button"
+              onClick={() => toast({ title: row.title, description: row.message, variant: row.variant })}
+              className="rounded-full border border-white/14 px-3 py-1.5 text-[11px] font-semibold text-foreground/80 transition-colors hover:border-primary/40 hover:text-primary"
+            >
+              {row.title}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="space-y-4">

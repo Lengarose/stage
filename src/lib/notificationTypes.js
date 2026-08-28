@@ -81,6 +81,15 @@ export const NOTIFICATION_CHANNELS = [
   },
 ];
 
+export const TEST_TOAST_SAMPLES = [
+  { key: "messages", variant: "info", title: "Messages", message: "New chat from Neo" },
+  { key: "contract_offers", variant: "info", title: "Contract offers", message: "Ajax sent you a contract" },
+  { key: "match_reminders", variant: "warning", title: "Match reminders", message: "Kickoff in 30 minutes" },
+  { key: "match_results", variant: "success", title: "Match results", message: "Result confirmed 3–1" },
+  { key: "club_updates", variant: "success", title: "Club updates", message: "Join request approved" },
+  { key: "announcements", variant: "info", title: "Announcements", message: "Transfer window is open" },
+];
+
 export function parseNotificationSettings(raw) {
   if (!raw) return {};
   if (typeof raw === "string") {
