@@ -574,7 +574,7 @@ export default function TournamentDetail() {
       proposal_count: Number(scheduleMatch.proposal_count || 0) + 1,
     });
 
-    await Promise.all(awayEmails.map((email, index) =>
+    await Promise.all(awayEmails.map((email) =>
       stageClient.functions.invoke("sendInboxMessage", {
         recipient_email: email,
         sender_email: user?.email || myPlayer?.email || null,
@@ -585,7 +585,7 @@ export default function TournamentDetail() {
         body: `${homeName} proposed ${displayDate} for ${tournament?.name || "this tournament"}.\n\nAccept or decline this time from your inbox. If you decline, the fixture stays open and the home team can propose another time.`,
         message_type: "tournament_schedule",
         action_type: "accept_decline",
-        related_entity_id: `${scheduleMatch.id}:${Date.now()}:${index}`,
+        related_entity_id: scheduleMatch.id,
         related_entity_type: "tournament_match_schedule",
         metadata: {
           match_id: scheduleMatch.id,

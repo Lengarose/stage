@@ -5,6 +5,10 @@
 
 ---
 
+> **Working loop:** Cursor writes its report to `docs/CURSOR_STATUS.md` when a task is
+> finished. Claude reads that, reviews the diff, and writes the next task to
+> `docs/NEXT_TASK.md`. This file is the SPEC — keep it clean, no status updates here.
+
 ## 0. How to work
 
 1. **Read `AGENTS.md` first.** It is binding: MVC recipe (§2), when not to use CRUD (§3),
