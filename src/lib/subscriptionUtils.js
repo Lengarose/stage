@@ -45,8 +45,22 @@ export function getSubscriptionTier(purchases = []) {
   return SUBSCRIPTION_TIERS.free;
 }
 
-export function hasStagePlus(tier) {
-  return normalizeSubscriptionTier(tier) === SUBSCRIPTION_TIERS.stage_plus;
+/**
+ * STAGE Plus access. Paid tiers without an expiry stay active (legacy).
+ * A parseable expires_at at or before now is not Plus.
+ */
+export function hasStagePlus(tierOrEntity, expiresAt, now = new Date()) {
+  let tier = tierOrEntity;
+  let expiry = expiresAt;
+  if (tierOrEntity && typeof tierOrEntity === "object" && !Array.isArray(tierOrEntity)) {
+    expiry = expiresAt ?? tierOrEntity.subscription_expires_at ?? tierOrEntity.expires_at ?? null;
+    tier = tierOrEntity.subscription ?? tierOrEntity.tier ?? null;
+  }
+  if (normalizeSubscriptionTier(tier) !== SUBSCRIPTION_TIERS.stage_plus) return false;
+  if (expiry == null || expiry === "") return true;
+  const expires = new Date(expiry);
+  if (Number.isNaN(expires.getTime())) return true;
+  return expires.getTime() > new Date(now).getTime();
 }
 
 export function canPlayRankedPvP(tier) {
@@ -94,7 +108,7 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
  * is how much of the current period has elapsed (0 = just renewed, 100 = due).
  */
 export function getSubscriptionCountdown(player, now = new Date()) {
-  if (!player || !hasStagePlus(player.subscription)) return null;
+  if (!player || !hasStagePlus(player)) return null;
   if (!player.subscription_expires_at) return null;
 
   const expires = new Date(player.subscription_expires_at);

@@ -102,7 +102,7 @@ export default function Tournaments() {
       } else {
         const { player } = await resolveMyPlayerAndClub();
         setMyPlayer(player);
-        setCanCreate(hasStagePlus(player?.subscription));
+        setCanCreate(hasStagePlus(player));
       }
     } catch (err) {
       console.error("[Tournaments] load error:", err);
@@ -131,7 +131,7 @@ export default function Tournaments() {
   async function createTournament() {
     const user = await stageClient.auth.me();
     if (user.role !== "admin") {
-      if (!hasStagePlus(myPlayer?.subscription)) { await swalAlert(t("competitionFlow.stagePlusRequired")); return; }
+      if (!hasStagePlus(myPlayer)) { await swalAlert(t("competitionFlow.stagePlusRequired")); return; }
     }
     setCreating(true);
     try {

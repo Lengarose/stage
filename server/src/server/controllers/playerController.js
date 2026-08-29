@@ -4,6 +4,7 @@ const Player  = require('../models/playerModel');
 const { EXECUTESQL } = require('../db/database');
 const { broadcastPlayer, broadcastPlayerDeleted } = require('../utils/socketBroadcast');
 const { assertPersistableMediaFields } = require('../lib/mediaUrls');
+const { hasStagePlus } = require('../utils/subscriptionAccess');
 
 let secondaryPositionColumnReady = null;
 
@@ -97,10 +98,6 @@ const TILE_KEY_ALIASES = {
 
 function isAdmin(user) {
   return [0, 2].includes(Number(user?.role_id));
-}
-
-function hasStagePlus(subscription) {
-  return ['stage_plus', 'plus', 'pro', 'elite'].includes(String(subscription || '').toLowerCase());
 }
 
 async function getUser(req) {
@@ -440,7 +437,7 @@ router.patch('/:id/card-background', async (req, res) => {
     if (!ownsPlayer) {
       return res.status(403).json({ error: 'You can only change your own player card background' });
     }
-    if (!hasStagePlus(existing.subscription)) {
+    if (!hasStagePlus(existing)) {
       return res.status(403).json({ error: 'STAGE Plus is required to customize player card backgrounds' });
     }
 
@@ -501,7 +498,7 @@ router.patch('/:id/career-tile-background', async (req, res) => {
     if (!ownsPlayer && !isAdmin(req.user)) {
       return res.status(403).json({ error: 'You can only change your own career tile backgrounds' });
     }
-    if (!isAdmin(req.user) && !hasStagePlus(existing.subscription)) {
+    if (!isAdmin(req.user) && !hasStagePlus(existing)) {
       return res.status(403).json({ error: 'STAGE Plus is required to customize career tile backgrounds' });
     }
 
@@ -577,7 +574,7 @@ router.patch('/:id/game-day-tile-background', async (req, res) => {
     if (!ownsPlayer && !isAdmin(req.user)) {
       return res.status(403).json({ error: 'You can only change your own Game Day tile backgrounds' });
     }
-    if (!isAdmin(req.user) && !hasStagePlus(existing.subscription)) {
+    if (!isAdmin(req.user) && !hasStagePlus(existing)) {
       return res.status(403).json({ error: 'STAGE Plus is required to customize Game Day tile backgrounds' });
     }
 

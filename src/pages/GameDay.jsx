@@ -184,15 +184,17 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
           return;
         }
 
-        const { user: u, player, club } = await resolveMyPlayerAndClub();
+        const { user: u, player, club, presidentClub } = await resolveMyPlayerAndClub();
         if (!u) return;
         setUser(u);
         userEmail = u.email;
 
         if (player) setMyPlayer(player);
         if (club) setMyClub(club);
+        else if (presidentClub) setMyClub(presidentClub);
 
-        await loadGames(player?.id, club?.id || player?.club_id);
+        const clubIds = [club?.id, player?.club_id, presidentClub?.id].filter(Boolean);
+        await loadGames(player?.id, clubIds);
       } finally {
         setLoading(false);
       }
@@ -227,15 +229,16 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
     return () => unsubMatch();
   }, [searchParams, scopedTournamentId, refreshTick]);
 
-  async function loadGames(playerId, clubId) {
-    if (clubId) {
+  async function loadGames(playerId, clubIds) {
+    const ids = [...new Set((Array.isArray(clubIds) ? clubIds : [clubIds]).filter(Boolean).map(String))];
+    for (const clubId of ids) {
       stageClient.functions.invoke("matchKickoff", { action: "settle_club_matches", club_id: clubId }).catch(() => {});
     }
     // Fetch all scheduled/in_progress matches then filter in JS
     // Fetch from multiple angles to cover both club and player matches
     const fetchPromises = [];
     // This avoids N×status queries and stays within rate limits
-    if (clubId) {
+    for (const clubId of ids) {
       fetchPromises.push(
         stageClient.entities.Match.filter({ home_club_id: clubId }, "-scheduled_date", 50),
         stageClient.entities.Match.filter({ away_club_id: clubId }, "-scheduled_date", 50),
@@ -251,21 +254,22 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
     // Fixtures with `scheduling_status = confirmed` and `status = scheduled`
     // travel together (both set the moment a fixture is ready to play), so
     // filtering on just `scheduling_status` is enough — the post-filter below
-    // still accepts either column. We only fetch fixtures involving the
-    // user's club; no global "scan all leagues" fallback (it pulled ~1000
-    // rows per page load just to throw 99% away).
+    // still accepts either column. We fetch fixtures for the signed club AND
+    // the president club so dual identities see both calendars.
     const fixturePromises = [];
-    if (clubId && stageClient.entities.CompetitionFixture) {
-      fixturePromises.push(
-        { type: "competition", promise: stageClient.entities.CompetitionFixture.filter({ home_club_id: clubId, scheduling_status: "confirmed" }, "-confirmed_date", 50).catch(() => []) },
-        { type: "competition", promise: stageClient.entities.CompetitionFixture.filter({ away_club_id: clubId, scheduling_status: "confirmed" }, "-confirmed_date", 50).catch(() => []) },
-      );
-    }
-    if (clubId && stageClient.entities.RegionalLeagueFixture) {
-      fixturePromises.push(
-        { type: "regional_league", promise: stageClient.entities.RegionalLeagueFixture.filter({ home_club_id: clubId, scheduling_status: "confirmed" }, "-confirmed_date", 50).catch(() => []) },
-        { type: "regional_league", promise: stageClient.entities.RegionalLeagueFixture.filter({ away_club_id: clubId, scheduling_status: "confirmed" }, "-confirmed_date", 50).catch(() => []) },
-      );
+    for (const clubId of ids) {
+      if (stageClient.entities.CompetitionFixture) {
+        fixturePromises.push(
+          { type: "competition", promise: stageClient.entities.CompetitionFixture.filter({ home_club_id: clubId, scheduling_status: "confirmed" }, "-confirmed_date", 50).catch(() => []) },
+          { type: "competition", promise: stageClient.entities.CompetitionFixture.filter({ away_club_id: clubId, scheduling_status: "confirmed" }, "-confirmed_date", 50).catch(() => []) },
+        );
+      }
+      if (stageClient.entities.RegionalLeagueFixture) {
+        fixturePromises.push(
+          { type: "regional_league", promise: stageClient.entities.RegionalLeagueFixture.filter({ home_club_id: clubId, scheduling_status: "confirmed" }, "-confirmed_date", 50).catch(() => []) },
+          { type: "regional_league", promise: stageClient.entities.RegionalLeagueFixture.filter({ away_club_id: clubId, scheduling_status: "confirmed" }, "-confirmed_date", 50).catch(() => []) },
+        );
+      }
     }
 
     const [arrays, fixtureResults] = await Promise.all([
@@ -275,12 +279,13 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
     const matchMap = new Map();
     arrays.flat().forEach(m => matchMap.set(m.id, m));
 
+    const clubIdSet = new Set(ids);
     const confirmedFixtures = fixtureResults
       .flatMap(result => (result.rows || []).map(fixture => ({ fixture, type: result.type })))
       .filter(({ fixture }) =>
         fixture?.id &&
         (fixture.scheduling_status === "confirmed" || fixture.status === "scheduled") &&
-        (fixture.home_club_id === clubId || fixture.away_club_id === clubId)
+        (clubIdSet.has(String(fixture.home_club_id || "")) || clubIdSet.has(String(fixture.away_club_id || "")))
       );
     const confirmedSourceKeys = new Set(
       confirmedFixtures
@@ -347,7 +352,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
     );
   }
 
-  const canCustomizeGameDayTiles = hasStagePlus(myPlayer?.subscription);
+  const canCustomizeGameDayTiles = hasStagePlus(myPlayer);
   const matchScreensBackgroundConfig = canCustomizeGameDayTiles
     ? getGameDayTileBackgroundConfig(myPlayer, "match_screens")
     : { type: "default", url: "" };

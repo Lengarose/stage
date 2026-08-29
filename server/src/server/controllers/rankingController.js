@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { EXECUTESQL } = require('../db/database');
+const { hasStagePlus } = require('../utils/subscriptionAccess');
 
 const COMPLETE_STATUSES = new Set(['completed', 'confirmed', 'played', 'forfeit']);
 const DEFENSIVE_POSITIONS = new Set(['GK', 'CB', 'LCB', 'RCB', 'LB', 'RB', 'LWB', 'RWB']);
@@ -29,10 +30,6 @@ function parseJson(value) {
 
 function normalizeStatus(value) {
   return text(value).toLowerCase();
-}
-
-function hasStagePlus(subscription) {
-  return ['stage_plus', 'plus', 'pro', 'elite'].includes(String(subscription || '').toLowerCase());
 }
 
 function safeRankSort(a, b) {
@@ -683,7 +680,7 @@ async function hasFullRankingAccess(req) {
     : [];
   if ([0, 2].includes(Number(userRows[0]?.role_id))) return true;
   const playerRows = await query(
-    `SELECT subscription
+    `SELECT subscription, subscription_expires_at
        FROM players
       WHERE user_id = ?
          OR LOWER(TRIM(email)) = LOWER(TRIM(?))
@@ -691,7 +688,7 @@ async function hasFullRankingAccess(req) {
       LIMIT 1`,
     [userId || '', email, userId || '']
   );
-  return hasStagePlus(playerRows[0]?.subscription);
+  return hasStagePlus(playerRows[0]);
 }
 
 function publicClubRanking(row) {

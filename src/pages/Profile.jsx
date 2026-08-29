@@ -495,12 +495,12 @@ export default function Profile({
                         playerId={player?.id}
                         player={player}
                         canCustomize={true}
-                        canUseCareerTileBackgrounds={hasStagePlus(player?.subscription)}
+                        canUseCareerTileBackgrounds={hasStagePlus(player)}
                         onPlayerChanged={(updated) => setPlayer((prev) => ({ ...asObject(prev), ...asObject(updated) }))}
                       />
                     )}
                     canCustomize={true}
-                    canUseCareerTileBackgrounds={hasStagePlus(player?.subscription)}
+                    canUseCareerTileBackgrounds={hasStagePlus(player)}
                     onPlayerChanged={(updated) => setPlayer((prev) => ({ ...asObject(prev), ...asObject(updated) }))}
                   />
                 </div>

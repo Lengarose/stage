@@ -56,7 +56,7 @@ test("club creation skips standalone president profile in new player-president f
   assert.doesNotMatch(clubSetup, /step === "president"/);
   assert.doesNotMatch(clubSetup, /setStep\("president"\)/);
 
-  assert.match(modal, /choose \| club_profile \| join/);
+  assert.match(modal, /choose \| club_profile/);
   assert.doesNotMatch(modal, /step === "president"/);
   assert.match(modal, /step === "club_profile"/);
 });
@@ -80,38 +80,31 @@ test("club detail prefers canonical president Player identity", () => {
   const detail = readRepoFile("src/pages/ClubDetail.jsx");
   const hero = readRepoFile("src/components/profile/gamer/GamerClubProfileHero.jsx");
   const app = readRepoFile("src/App.jsx");
-  const presidentPage = readRepoFile("src/pages/PresidentProfile.jsx");
 
   assert.match(detail, /ClubPresidentChip/, "ClubDetail should render a compact president chip in the hero");
   assert.match(detail, /infoAside=\{/);
-  assert.match(detail, /c\?\.president_player_id/, "ClubDetail should read the canonical club president_player_id");
+  assert.match(detail, /c\.president_player_id/, "ClubDetail should read the canonical club president_player_id");
   assert.match(detail, /entities\.Player\.get\(c\.president_player_id\)/, "ClubDetail should load the President as a Player first");
-  assert.match(detail, /profile_path:\s*`\/players\/\$\{presidentPlayer\.id\}`/);
-  assert.match(detail, /club\?\.president_player_id \? `\/players\/\$\{club\.president_player_id\}`/);
-  assert.match(detail, /entities\.President/, "ClubDetail should keep legacy President fallback compatibility");
+  assert.match(detail, /profile_path:\s*`\/players\/\$\{player\.id\}`/);
+  assert.doesNotMatch(detail, /\/presidents\/\$\{/);
   assert.doesNotMatch(detail, /PresidentProfileCard/);
   assert.doesNotMatch(detail, /View president profile/);
   assert.match(hero, /infoAside/);
   assert.match(detail, /president\?\.avatar_url|president\.avatar_url/);
   assert.match(app, /path="\/presidents\/:id"/);
-  assert.match(presidentPage, /entities\.President\.get/);
+  assert.match(app, /PresidentLegacyRedirect/);
+  assert.doesNotMatch(app, /pages\/PresidentProfile/);
 });
 
-test("president profile supports owner/admin edit via shared ProfileEditShell", () => {
-  const presidentPage = readRepoFile("src/pages/PresidentProfile.jsx");
+test("public president identity is the player profile, not a President page", () => {
   const presidentEdit = readRepoFile("src/components/presidents/PresidentProfileEdit.jsx");
   const shell = readRepoFile("src/components/profile/ProfileEditShell.jsx");
   const clubEdit = readRepoFile("src/components/club/ClubProfileEdit.jsx");
   const layout = readRepoFile("src/components/Layout.jsx");
+  const redirect = readRepoFile("src/pages/PresidentLegacyRedirect.jsx");
 
-  assert.match(presidentPage, /entities\.Player\s*\.\s*filter\(\{\s*user_id:\s*presidentRow\.user_id\s*\}/);
-  assert.match(presidentPage, /navigate\(`\/players\/\$\{mappedPlayer\.id\}`,\s*\{\s*replace:\s*true\s*\}\)/);
-  assert.match(presidentPage, /legacy President profile is kept for compatibility/i);
-  assert.match(presidentPage, /PresidentProfileEdit/);
-  assert.match(presidentPage, /canEdit/);
+  assert.match(redirect, /Navigate to=\{`\/players\/\$\{playerId\}`\}/);
   assert.match(presidentEdit, /ProfileEditShell/);
-  assert.match(presidentEdit, /entities\.President\.update/);
-  assert.match(presidentEdit, /profChangeBanner|onBannerChange/);
   assert.match(shell, /profPhotoBanner/);
   assert.match(shell, /profRepositionPhoto/);
   assert.match(shell, /profChangeBanner/);
@@ -133,8 +126,8 @@ test("presidents list page derives public presidents from Player-linked clubs", 
   assert.match(app, /import\('\.\/pages\/Presidents'\)/);
   assert.match(layout, /\/presidents-list/);
   assert.match(layout, /nav\.presidents/);
-  assert.match(page, /entities\.Club\.list/);
-  assert.match(page, /entities\.Player\.list/);
+  assert.match(page, /loadClubDirectoryPages/);
+  assert.match(page, /loadPlayerDirectoryPages/);
   assert.match(page, /buildPlayerPresidentDirectoryRows/);
   assert.match(page, /to=\{`\/players\/\$\{president\.player_id\}`\}/);
   assert.doesNotMatch(page, /entities\.President\.list/);
@@ -155,28 +148,17 @@ test("search President results use Player president links", () => {
   assert.doesNotMatch(search, /to=\{`\/presidents\/\$\{p\.id\}`\}/);
 });
 
-test("president profile loads and renders club history", () => {
-  const presidentPage = readRepoFile("src/pages/PresidentProfile.jsx");
-  const contractsPanel = readRepoFile("src/components/presidents/PresidentContractsPanel.jsx");
+test("president club history API remains for transfer/admin, without a public President page", () => {
   const client = readRepoFile("src/api/stageClient.js");
   const controller = readRepoFile("server/src/server/controllers/presidentController.js");
   const schema = readRepoFile("server/schema.sql");
+  const contractsPanel = readRepoFile("src/components/presidents/PresidentContractsPanel.jsx");
 
   assert.match(schema, /CREATE TABLE IF NOT EXISTS president_club_history/);
   assert.match(controller, /\/:id\/history/);
   assert.match(controller, /listHistoryForPresident/);
   assert.match(client, /history\(presidentId/);
   assert.match(client, /\/presidents\/\$\{encodeURIComponent\(presidentId\)\}\/history/);
-  assert.match(presidentPage, /presidents\.history/);
-  assert.match(presidentPage, /presClubHistory/);
-  assert.match(presidentPage, /clubHistory/);
-  assert.match(presidentPage, /BannerSelector/);
-  assert.match(presidentPage, /GamerPresidentProfileHero/);
-  assert.match(presidentPage, /presTabHistory/);
-  assert.match(presidentPage, /presTabContracts/);
-  assert.match(presidentPage, /presTabPlayersSigned/);
-  assert.match(presidentPage, /showOfferStatuses=\{canEdit\}/);
-  assert.match(presidentPage, /PresidentContractsPanel/);
   assert.match(contractsPanel, /showOfferStatuses/);
   assert.match(contractsPanel, /presNoSignedPlayers/);
   assert.match(contractsPanel, /SIGNED_STATUSES|statuses:\s*\["active"\]/);

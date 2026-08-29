@@ -18,6 +18,7 @@ const { upsertActiveMembership } = require('../services/clubMembershipService');
 const { assertLineupEligibleForClub } = require('../services/playerLoanService');
 const { extractPresidentProfileFromClubBody } = require('./presidentController');
 const { assertPersistableMediaFields } = require('../lib/mediaUrls');
+const { hasStagePlus } = require('../utils/subscriptionAccess');
 const {
   STARTER_CLUB_FINANCE,
   assertClubFinanceWithinTier,
@@ -96,10 +97,6 @@ function hasLegacyCaptainProfileAccess(access) {
   return Boolean(access?.roles?.some((role) => ['captain', 'vice_captain', 'vice-captain'].includes(role)));
 }
 
-function hasStagePlus(subscription) {
-  return ['stage_plus', 'plus', 'pro', 'elite'].includes(String(subscription || '').toLowerCase());
-}
-
 function normalizeStatsTileBackgroundUrl(url) {
   const value = String(url || '').trim();
   if (!value) return '';
@@ -169,7 +166,7 @@ function assertClubPatchAllowed(access, fields) {
 
 async function resolveCurrentPlayerForUser(req, clubId) {
   const rows = await EXECUTESQL(
-    `SELECT id, user_id, email, subscription
+    `SELECT id, user_id, email, subscription, subscription_expires_at
      FROM players
      WHERE club_id = ?
        AND (user_id = ? OR LOWER(email) = LOWER(?))
@@ -573,7 +570,7 @@ router.patch('/:id/stats-tile-background', async (req, res) => {
 
     if (!access?.admin) {
       const currentPlayer = await resolveCurrentPlayerForUser(req, id);
-      if (!hasStagePlus(currentPlayer?.subscription)) {
+      if (!hasStagePlus(currentPlayer)) {
         return res.status(403).json({ error: 'STAGE Plus is required to customize club stats tile backgrounds' });
       }
     }

@@ -6,7 +6,7 @@ import { hasStagePlus } from "@/lib/subscriptionUtils";
 function hasActivePlan(user) {
   const roleId = Number(user?.role_id ?? 1);
   if (roleId === 0 || roleId === 2 || user?.role === "admin") return true;
-  return hasStagePlus(user?.subscription);
+  return hasStagePlus(user);
 }
 
 function isAllowedTournamentLimitedPath(pathname, tournamentId) {

@@ -40,7 +40,7 @@ const Social = React.lazy(() => import('./pages/Social'));
 const Search = React.lazy(() => import('./pages/Search'));
 const Store = React.lazy(() => import('./pages/Store'));
 const PlayerProfile = React.lazy(() => import('./pages/PlayerProfile'));
-const PresidentProfile = React.lazy(() => import('./pages/PresidentProfile'));
+const PresidentLegacyRedirect = React.lazy(() => import('./pages/PresidentLegacyRedirect'));
 const Presidents = React.lazy(() => import('./pages/Presidents'));
 const EAFCClub = React.lazy(() => import('./pages/EAFCClub'));
 const FreeAgents = React.lazy(() => import('./pages/FreeAgents'));
@@ -410,7 +410,7 @@ const AuthenticatedApp = () => {
             <Route path="/store" element={<Store />} />
             <Route path="/players/:id" element={<PlayerProfile />} />
             <Route path="/presidents-list" element={<Presidents />} />
-            <Route path="/presidents/:id" element={<PresidentProfile />} />
+            <Route path="/presidents/:id" element={<PresidentLegacyRedirect />} />
             <Route path="/eafc" element={<EAFCClub />} />
             <Route path="/free-agents" element={<FreeAgents />} />
             <Route path="/stats" element={<PlayerStats />} />

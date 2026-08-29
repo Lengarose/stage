@@ -1,6 +1,7 @@
 const express  = require('express');
 const { EXECUTESQL } = require('../db/database');
 const { v4: uuidv4 } = require('uuid');
+const { hasStagePlus } = require('../utils/subscriptionAccess');
 
 // Table name used by all competition/league entities (single flexible store).
 const TABLE = 'league_entities';
@@ -33,10 +34,6 @@ function serializeVal(v) {
   if (v === null || v === undefined) return null;
   if (typeof v === 'object') return JSON.stringify(v);
   return v;
-}
-
-function hasStagePlus(subscription) {
-  return ['stage_plus', 'plus', 'pro', 'elite'].includes(String(subscription || '').toLowerCase());
 }
 
 const AUDITED_ENTITY_TYPES = new Set([
@@ -186,10 +183,10 @@ function makeRouter(entityType) {
         const isAdmin = [0, 2].includes(Number(user?.role_id));
         if (!isAdmin) {
           const playerRows = await EXECUTESQL(
-            'SELECT id, subscription FROM players WHERE user_id = ? OR LOWER(TRIM(email)) = LOWER(TRIM(?)) ORDER BY user_id = ? DESC, updated_date DESC LIMIT 1',
+            'SELECT id, subscription, subscription_expires_at FROM players WHERE user_id = ? OR LOWER(TRIM(email)) = LOWER(TRIM(?)) ORDER BY user_id = ? DESC, updated_date DESC LIMIT 1',
             [req.user?.id || null, user?.email || '', req.user?.id || null]
           );
-          if (!hasStagePlus(playerRows[0]?.subscription)) {
+          if (!hasStagePlus(playerRows[0])) {
             return res.status(403).json({ error: 'STAGE Plus is required to enter STAGE regional leagues and official competitions.' });
           }
         }

@@ -425,12 +425,12 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
                   playerId={player?.id}
                   player={player}
                   canCustomize={isOwner}
-                  canUseCareerTileBackgrounds={isOwner && hasStagePlus(player?.subscription)}
+                  canUseCareerTileBackgrounds={isOwner && hasStagePlus(player)}
                   onPlayerChanged={(updated) => setPlayer((prev) => ({ ...asObject(prev), ...asObject(updated) }))}
                 />
               )}
               canCustomize={isOwner}
-              canUseCareerTileBackgrounds={isOwner && hasStagePlus(player?.subscription)}
+              canUseCareerTileBackgrounds={isOwner && hasStagePlus(player)}
               onPlayerChanged={(updated) => setPlayer((prev) => ({ ...asObject(prev), ...asObject(updated) }))}
             />
           </div>

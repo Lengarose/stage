@@ -187,7 +187,7 @@ export default function Store() {
 
   async function handleSubscription() {
     if (window.self !== window.top) { await swalAlert('Checkout is only available from the published app.'); return; }
-    if (hasStagePlus(player?.subscription) && player?.subscription_expires_at) {
+    if (hasStagePlus(player) && player?.subscription_expires_at) {
       const expires = new Date(player.subscription_expires_at);
       if (expires > new Date()) {
         setSubError(`STAGE Plus is active until ${expires.toLocaleDateString('en-GB')}.`);
@@ -212,7 +212,7 @@ export default function Store() {
   }
 
   async function handleCancelSubscription() {
-    if (!hasStagePlus(player?.subscription)) return;
+    if (!hasStagePlus(player)) return;
     const expiresLabel = player?.subscription_expires_at
       ? new Date(player.subscription_expires_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
       : null;
@@ -394,7 +394,7 @@ export default function Store() {
                   {t("commonPages.storeYearly")} <span className="text-[10px] font-bold bg-success/20 text-success px-1.5 py-0.5 rounded-full">{t("commonPages.storeSave25")}</span>
                 </button>
               </div>
-              {hasStagePlus(player?.subscription) && player?.subscription_expires_at && (
+              {hasStagePlus(player) && player?.subscription_expires_at && (
                 <div className="text-xs text-muted-foreground bg-secondary border border-border rounded-lg px-3 py-2">
                   {t("commonPages.storeExpires")} <strong className="text-foreground">{new Date(player.subscription_expires_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>
                 </div>
@@ -492,7 +492,7 @@ function SubCard({ item, purchasing, cancelling, onBuy, onCancel, currentTier, b
   const badgeImg = item.id === "sub_stage_plus" ? storeConfig.badge_image_url : BADGE_IMAGES[item.id];
   const tier = item.id.replace('sub_', '');
   const isCurrentTier = item.id === `sub_${currentTier}`;
-  const hasActiveSub = hasStagePlus(currentTier) && expiresAt && new Date(expiresAt) > new Date();
+  const hasActiveSub = hasStagePlus(currentTier, expiresAt);
   const prices = tier === "stage_plus"
     ? {
         monthly: Number(storeConfig.stage_plus_monthly_price || STAGE_PLUS_PRICE.monthly),

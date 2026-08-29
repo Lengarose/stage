@@ -5,10 +5,7 @@ const { EXECUTESQL } = require('../db/database');
 const { broadcastTournament, broadcastTournamentDeleted } = require('../utils/socketBroadcast');
 const { TOURNAMENT_CREDIT_COST, normalizeTournamentEconomics } = require('../utils/tournamentRules');
 const { getUserCredits, spendUserCredits } = require('../services/userCreditsService');
-
-function hasStagePlus(subscription) {
-  return ['stage_plus', 'plus', 'pro', 'elite'].includes(String(subscription || '').toLowerCase());
-}
+const { hasStagePlus } = require('../utils/subscriptionAccess');
 
 function isCommunityTournament(tournament) {
   return Boolean(tournament?.creator_gamertag) || Boolean(tournament?.creator_id);
@@ -96,12 +93,12 @@ router.post('/', async (req, res) => {
 
     if (!isAdmin) {
       const playerRows = await EXECUTESQL(
-        'SELECT id, subscription FROM players WHERE user_id = ? OR LOWER(TRIM(email)) = LOWER(TRIM(?)) ORDER BY user_id = ? DESC, updated_date DESC LIMIT 1',
+        'SELECT id, subscription, subscription_expires_at FROM players WHERE user_id = ? OR LOWER(TRIM(email)) = LOWER(TRIM(?)) ORDER BY user_id = ? DESC, updated_date DESC LIMIT 1',
         [userId, user?.email || '', userId]
       );
       const player = playerRows[0] || null;
       creatorPlayerId = player?.id || null;
-      if (!hasStagePlus(player?.subscription)) {
+      if (!hasStagePlus(player)) {
         return res.status(403).json({ error: 'STAGE Plus is required to create tournaments.' });
       }
       const userCredits = await getUserCredits(userId);

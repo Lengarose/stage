@@ -232,7 +232,7 @@ export default function PlayersTab({
               )}
             </div>
             <div className="flex gap-2 shrink-0 flex-wrap">
-              {hasStagePlus(p.subscription) ? (
+              {hasStagePlus(p) ? (
                 <Button size="sm" variant="outline" onClick={() => removeStagePlus?.(p)} className="border-primary/30 text-primary hover:bg-primary/10 gap-1 text-xs">
                   <Crown className="w-3.5 h-3.5" /> Plus
                 </Button>

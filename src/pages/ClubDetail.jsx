@@ -158,16 +158,19 @@ async function resolvePresidentRecord(club) {
 
 function ClubPresidentChip({ club, president }) {
   const { t } = useTranslation();
-  const presidentId = president?.player_id || president?.id || club?.president_player_id || club?.president_id;
-  if (!presidentId) return null;
+  const playerId = president?.player_id || club?.president_player_id;
+  if (!playerId && !president?.id) return null;
   const name = t("commonPages.cdPresident");
-  const profilePath = president?.profile_path || (club?.president_player_id ? `/players/${club.president_player_id}` : `/presidents/${presidentId}`);
+  const profilePath = president?.profile_path || (playerId ? `/players/${playerId}` : null);
+  const chipClassName = "inline-flex max-w-[240px] items-center gap-3 border border-cyan-200/25 bg-black/24 px-4 py-2 text-cyan-50/95 backdrop-blur-md transition-all hover:border-cyan-200/55 hover:bg-cyan-300/10 hover:shadow-[0_0_24px_-10px_rgba(0,229,255,0.9)]";
+  const ChipTag = profilePath ? Link : "span";
+  const chipProps = profilePath
+    ? { to: profilePath, className: chipClassName, title: t("commonPages.presProfileMenu") }
+    : { className: chipClassName, title: t("commonPages.presProfileMenu") };
   return (
-    <Link
-      to={profilePath}
-      className="inline-flex max-w-[240px] items-center gap-3 border border-cyan-200/25 bg-black/24 px-4 py-2 text-cyan-50/95 backdrop-blur-md transition-all hover:border-cyan-200/55 hover:bg-cyan-300/10 hover:shadow-[0_0_24px_-10px_rgba(0,229,255,0.9)]"
+    <ChipTag
+      {...chipProps}
       style={{ clipPath: "polygon(10% 0, 100% 0, 90% 100%, 0 100%)" }}
-      title={t("commonPages.presProfileMenu")}
     >
       <span
         className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden border border-cyan-200/25 bg-[#101827]"
@@ -184,7 +187,7 @@ function ClubPresidentChip({ club, president }) {
       <span className="truncate font-heading text-sm font-black uppercase tracking-[0.08em] text-white">
         {name}
       </span>
-    </Link>
+    </ChipTag>
   );
 }
 
@@ -1203,7 +1206,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
               clubPlayerStatsById={clubPlayerStatsById}
               myPlayer={myPlayer}
               canCustomize={canOpenClubOffice}
-              canUseStatsTileBackgrounds={isAdminTakeover || hasStagePlus(myPlayer?.subscription)}
+              canUseStatsTileBackgrounds={isAdminTakeover || hasStagePlus(myPlayer)}
               onClubChanged={handleClubStatsTileBackgroundChanged}
             />
           </TabsContent>
@@ -3757,7 +3760,7 @@ function PlayerCard({
     ? savedCardBackgroundZoom
     : 120;
   const canChangeOwnBackground = String(_myPlayer?.id || "") === String(player.id || "");
-  const canUseCardBackgrounds = hasStagePlus(player.subscription || _myPlayer?.subscription);
+  const canUseCardBackgrounds = hasStagePlus(player?.id ? player : _myPlayer);
   const clubAverageRating = formatRating(clubStats?.avgRating);
   const clubGoals = Number(clubStats?.goals || 0);
   const clubAssists = Number(clubStats?.assists || 0);

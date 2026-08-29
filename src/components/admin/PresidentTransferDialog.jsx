@@ -141,9 +141,9 @@ export default function PresidentTransferDialog({
               <div className="flex items-center gap-2 min-w-0">
                 <Shield className="w-4 h-4 text-amber-400 shrink-0" />
                 <p className="text-sm text-foreground truncate">{presidentLabel}</p>
-                {currentPresident?.id ? (
+                {(club?.president_player_id || currentPresident?.player_id) ? (
                   <Link
-                    to={`/presidents/${currentPresident.id}`}
+                    to={`/players/${club?.president_player_id || currentPresident.player_id}`}
                     className="text-xs text-primary hover:underline shrink-0 ml-auto"
                   >
                     {t("admin.actions.view")}
