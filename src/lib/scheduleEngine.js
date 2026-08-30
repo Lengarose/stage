@@ -311,7 +311,13 @@ export async function forceSchedule({ fixture, fixtureType, date, adminNote = ""
 
   // Auto-create a Match record so this fixture appears on Game Day.
   const { createMatchFromFixture } = await import("./gameDayIntegration");
-  await createMatchFromFixture({ ...fixture, confirmed_date: date, status: "scheduled" }, fixtureType);
+  await createMatchFromFixture({
+    ...fixture,
+    scheduling_status: "confirmed",
+    confirmed_date: date,
+    scheduled_date: date,
+    status: "scheduled",
+  }, fixtureType);
 
   const fixtureName = `${fixture.home_club_name} vs ${fixture.away_club_name}`;
   const msg = `An admin has scheduled your match: ${fixtureName} on ${formattedDate}.`;

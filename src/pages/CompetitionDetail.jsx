@@ -174,7 +174,7 @@ function FixtureRow({ fixture, isAdmin, onSubmitResult, legLabel, isFinalLeg, my
   async function openGameDay() {
     const match = await createMatchFromFixture(fixture, "competition").catch(() => null);
     const matchId = match?.id || fixture.match_id;
-    if (matchId) window.location.assign(`/gameday?match=${encodeURIComponent(matchId)}`);
+    if (matchId) window.location.assign(`/game-day?match=${encodeURIComponent(matchId)}`);
   }
 
   const isDone = fixture.status === "completed" || fixture.status === "forfeit";

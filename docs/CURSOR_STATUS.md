@@ -10,28 +10,18 @@ with your report, then stop. Overwrite, do not append. Never write status into
 
 ## STATUS — DONE
 
-GOST (Supreme / Elite / Challenger) web path: open → propose/accept → confirmed → Game Day. No deploy. Task 4 (mobile) skipped.
+P0 Game Day sync hard fixes (web). Mobile prompt written for eafc-app. No deploy.
 
 ### Diff
 
-1. **open → confirmed → Game Day**
-   - `fixtureBase` still sets `scheduling_status: "open"` (no auto-confirm on generate).
-   - `acceptProposal` sets confirmed + creates Match (same as mobile).
-   - `createMatchFromFixture` / `createMatchFromLeagueFixture` require `scheduling_status === "confirmed"` only — `status: "scheduled"` from fixtureBase is not enough.
-   - `GameDay.jsx` loads open / home_proposed / away_proposed GOST fixtures and surfaces them with `FixtureSchedulerPanel`; kickoff/Match list stays confirmed-only.
-   - `CompetitionDetail.jsx` FixtureRow: Schedule panel for club fixtures; Game Day link only when confirmed.
+1. `CompetitionDetail.jsx` — Game Day CTA uses `/game-day?match=` (was broken `/gameday`).
+2. `scheduleEngine.forceSchedule` — passes `scheduling_status: "confirmed"` (+ dates) into `createMatchFromFixture` so admin force-schedule still creates the Match after the confirmed-only gate.
+3. `LeagueDetail.jsx` — Game Day CTA / scheduled list require `scheduling_status === "confirmed"` (no longer `status === "scheduled"` alone).
 
-2. **num_league_matchdays**
-   - `generateLeaguePhaseFixtures` uses `season.num_league_matchdays` (even, ≥2, capped at circle rounds × 2) and writes the actual count back.
+### Mobile handoff
 
-3. **Availability bound to THIS season**
-   - `officialStageClubAvailability`: qualification match via `target_season_id` / `season_id` only; slug lookup uses `slug` OR `competition_slug` / `slug` in JSON.
-   - `ClubDetail.jsx` registration fixtures: no competition_id-only qualification attach.
-
-4. **Skipped** — mobile (BertonLutina/Stage PR #3).
-
-5. **Admin check**
-   - `CompetitionDetail` uses `isAppAdminUser`; `adminAuth` includes `role === "admin" || role_id === 0 || role_id === 2` (registrationEngine).
+Prompt for eafc-app: `eafc-app/docs/MOBILE_GAMEDAY_SYNC_P0_PROMPT.md`  
+(confirmed-only materialize, acceptProposal payload, competition/league CTAs, pending GOST on Matches hub, dual club identity).
 
 ### Verification
 

@@ -175,7 +175,7 @@ export default function LeagueDetail() {
     b.points - a.points || (b.goals_for - b.goals_against) - (a.goals_for - a.goals_against)
   );
   const playedFixtures = fixtures.filter(f => f.status === "played" || f.status === "completed");
-  const scheduledFixtures = fixtures.filter(f => f.scheduling_status === "confirmed" || f.status === "scheduled");
+  const scheduledFixtures = fixtures.filter(f => f.scheduling_status === "confirmed");
   const myFixtures = myClub ? fixtures.filter(f => f.home_club_id === myClub.id || f.away_club_id === myClub.id) : [];
   const leader = sortedStandings[0];
   const topScorers = buildLeaguePlayerStats(playerStats, playersByEmail).sort((a, b) =>
@@ -717,7 +717,9 @@ function FixtureRow({ fixture, myClub, myEmail, myGamertag, onUpdate, onOpenGame
   const badge = SCHEDULING_BADGE[sched] || SCHEDULING_BADGE.open;
   const isMyFixture = myClub && (fixture.home_club_id === myClub.id || fixture.away_club_id === myClub.id);
   const isPlayed = fixture.status === "played";
-  const canOpenGameDay = fixture.match_id || fixture.scheduling_status === "confirmed" || fixture.status === "scheduled";
+  const canOpenGameDay = Boolean(
+    fixture.match_id || String(fixture.scheduling_status || "").toLowerCase() === "confirmed"
+  );
 
   return (
     <div className={cn("transition-colors", isMyFixture && "bg-primary/5")}>
