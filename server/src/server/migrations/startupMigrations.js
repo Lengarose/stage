@@ -163,6 +163,9 @@ async function runStartupMigrations() {
   await addCol('users', 'credits_refreshed_at', 'DATETIME NULL');
   await addCol('users', 'timezone', "VARCHAR(80) NULL DEFAULT 'Europe/Brussels'");
   await addCol('users', 'location', 'TEXT NULL');
+  await addCol('matches', 'timezone', 'VARCHAR(80) NULL');
+  await addCol('competition_fixtures', 'timezone', 'VARCHAR(80) NULL');
+  await addCol('regional_league_fixtures', 'timezone', 'VARCHAR(80) NULL');
   // One-time backfill: seed user credits from the higher of linked player/club wallets.
   await EXECUTESQL(`
     UPDATE users u

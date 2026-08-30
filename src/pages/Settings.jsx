@@ -187,26 +187,6 @@ const PRESET_THEMES = [
 ];
 
 const DEFAULT_TIMEZONE = "Europe/Brussels";
-const COMMON_TIMEZONES = [
-  { value: "Europe/Brussels", label: "Brussels, Belgium - Europe/Brussels" },
-  { value: "Europe/London", label: "London, UK - Europe/London" },
-  { value: "Europe/Paris", label: "Paris, France - Europe/Paris" },
-  { value: "Europe/Amsterdam", label: "Amsterdam, Netherlands - Europe/Amsterdam" },
-  { value: "America/New_York", label: "New York, USA - America/New_York" },
-  { value: "America/Los_Angeles", label: "Los Angeles, USA - America/Los_Angeles" },
-  { value: "America/Toronto", label: "Toronto, Canada - America/Toronto" },
-  { value: "Africa/Lagos", label: "Lagos, Nigeria - Africa/Lagos" },
-  { value: "Africa/Johannesburg", label: "Johannesburg, South Africa - Africa/Johannesburg" },
-  { value: "Asia/Dubai", label: "Dubai, UAE - Asia/Dubai" },
-];
-
-function detectBrowserTimezone() {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || DEFAULT_TIMEZONE;
-  } catch {
-    return DEFAULT_TIMEZONE;
-  }
-}
 
 export default function Settings() {
   const { language, setLanguage: setContextLanguage, t } = useTranslation();
@@ -243,7 +223,7 @@ export default function Settings() {
   const [liveDarkSlots, setLiveDarkSlots] = useState(() => getLiveDarkUploadSlots());
   const [liveDarkFx, setLiveDarkFxState] = useState(() => getLiveDarkFx());
   const [liveDarkUploading, setLiveDarkUploading] = useState(false);
-  const [timezone, setTimezone] = useState(() => detectBrowserTimezone());
+  const [timezone, setTimezone] = useState(DEFAULT_TIMEZONE);
   const [tutorialOpen, setTutorialOpen] = useState(false);
 
   useEffect(() => {
@@ -253,7 +233,7 @@ export default function Settings() {
       const currentTheme = localStorage.getItem("stage-theme");
       setTheme(currentTheme || "theme-dark");
       if (u.language) setLocalLanguage(u.language);
-      setTimezone(u.timezone || detectBrowserTimezone());
+      setTimezone(u.timezone || DEFAULT_TIMEZONE);
       if (u.primaryColor) setPrimaryColor(u.primaryColor);
       if (u.gradientColor) setGradientColor(u.gradientColor);
       if (u.backgroundImage) setBackgroundImage(u.backgroundImage);
@@ -386,7 +366,6 @@ export default function Settings() {
         customSecondaryTextColor,
         backgroundImage,
       });
-      await stageClient.auth.updateTimezone(timezone);
     } catch (err) {
       console.error("Failed to save settings:", err);
     } finally {
@@ -567,23 +546,11 @@ export default function Settings() {
             <label className="text-[10px] font-black uppercase tracking-[0.22em] text-white/45">
               Timezone
             </label>
-            <Select value={timezone} onValueChange={setTimezone}>
-              <SelectTrigger className="h-11 bg-black/25 border-white/10 text-white">
-                <SelectValue placeholder="Select timezone" />
-              </SelectTrigger>
-              <SelectContent className="bg-card border-border text-foreground">
-                {!COMMON_TIMEZONES.some((zone) => zone.value === timezone) && (
-                  <SelectItem value={timezone}>{timezone}</SelectItem>
-                )}
-                {COMMON_TIMEZONES.map((zone) => (
-                  <SelectItem key={zone.value} value={zone.value}>
-                    {zone.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="h-11 flex items-center rounded-md border border-white/10 bg-black/25 px-3 text-sm text-white">
+              {timezone || DEFAULT_TIMEZONE}
+            </div>
             <p className="text-[11px] text-white/40">
-              Match times use this timezone. Brussels automatically switches between CET and CEST.
+              Set automatically from your login location. Match kickoffs use this zone.
             </p>
           </div>
         </GamerSettingsSection>

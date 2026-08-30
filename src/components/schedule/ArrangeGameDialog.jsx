@@ -8,9 +8,12 @@ import { cn } from "@/lib/utils";
 import { getClubPresidentContactEmail } from "@/lib/clubPresidentAccess";
 import { combineDateTimeToMysql } from "@/lib/momentDate";
 import { useTranslation } from "@/hooks/useTranslation";
+import { useAuth } from "@/lib/AuthContext";
 
 export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onSent }) {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const kickoffTimezone = user?.timezone || "Europe/Brussels";
   const accountMode = localStorage.getItem("stage-account-mode") || "player";
   const isPresidentMode = accountMode === "club";
   const forcedSearchType = isPresidentMode ? "club" : "player";
@@ -406,6 +409,9 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
             </div>
 
             <div className="space-y-3">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                Kickoff in {kickoffTimezone}
+              </p>
               <div>
                 <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5 block">{t("commonPages.agdDate")}</label>
                 <div className="relative">

@@ -10,27 +10,25 @@ with your report, then stop. Overwrite, do not append. Never write status into
 
 ## STATUS — DONE
 
-User location / timezone on login (web + API). No deploy. Commit `b1701eb` (not pushed).
+User location/timezone on login **+** match kickoff timezone stamping (same deploy). No FTP/deploy.
 
-### Diff
+### Already on main (prior commit `b1701eb`)
+- `users.location`, GPS sync after `me()`, `PATCH /timezone` optional location, `geolocation=(self)`, `/me` + mobile payload.
 
-**Server**
-- `startupMigrations.js` — `users.location TEXT NULL` after timezone.
-- `utils/userLocation.js` — `normalizeUserLocation` / `parseStoredLocation`.
-- `utils/__tests__/userLocation.test.js` — Belgium GPS + JSON parse (4 pass).
-- `authController.js` — `/me` selects + returns parsed `location`; `PATCH /timezone` writes location only when normalized body present (timezone-only leaves GPS).
-- `mobile/helpers.js` — `buildMePayload` SELECT + `mapUserFromMe.location`.
-- `securityHeaders.js` — `geolocation=(self)`.
+### This pass
+**Read-only timezone UI**
+- Onboarding + Settings: no timezone picker; display `users.timezone` from login GPS.
 
-**Web**
-- `stageClient.auth.updateTimezone(timezone, location = null)`.
-- `src/lib/userLocation.js` — browser geolocation (8s, coarse), Intl IANA, BE→Brussels, 15m cooldown `syncSessionLocation`.
-- `AuthContext.jsx` — after successful `me()`, fire-and-forget sync then refresh `me()` into `user`.
-
-Onboarding/Settings still call `updateTimezone(timezone)` alone — does not wipe `users.location`.
+**Match hours**
+- Migrations: `matches.timezone`, `competition_fixtures.timezone`, `regional_league_fixtures.timezone` (addCol; missing table fails soft).
+- `datetime.js`: `wallClockToOffsetIso`; `normalizeMatchForApi` emits `scheduled_date` as offset ISO + `timezone` (Brussels Aug → `…T17:20:00+02:00`).
+- Match POST/PATCH stamps timezone from auth user; ignores `body.timezone`.
+- League fixture create/update stamps timezone into `data_json` when schedule fields change.
+- `createMatchFromLeagueFixture` copies fixture/auth timezone onto Match.
+- FixtureSchedulerPanel + Arrange Game: label `Kickoff in {users.timezone}` (no zone dropdown).
+- `momentDate.formatInViewerTimezone` for display; `toMysqlDateTime` still keeps picker digits.
 
 ### Verification
-
+`node --test` datetime + userLocation — 8 pass.  
 `npm run lint && npm run typecheck` — exit 0.  
-`node --test server/src/server/utils/__tests__/userLocation.test.js` — 4 pass.  
-`node --check server/src/server.js` — ok.
+`node --check` server entry + match/league/datetime — ok.

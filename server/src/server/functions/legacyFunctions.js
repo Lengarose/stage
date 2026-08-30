@@ -5620,6 +5620,12 @@ const HANDLERS = {
       throw new Error('Fixture must be confirmed before creating a Game Day match');
     }
     const scheduledDate = fixture.confirmed_date || fixture.scheduled_date || null;
+    let matchTimezone = fixture.timezone || null;
+    if (!matchTimezone && _auth_user_id) {
+      const tzRows = await EXECUTESQL('SELECT timezone FROM users WHERE id = ? LIMIT 1', [_auth_user_id]).catch(() => []);
+      matchTimezone = tzRows[0]?.timezone || 'Europe/Brussels';
+    }
+    matchTimezone = matchTimezone || 'Europe/Brussels';
 
     if (fixture.match_id) {
       const existingRows = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [fixture.match_id]).catch(() => []);
@@ -5668,6 +5674,7 @@ const HANDLERS = {
       mode: fixture.home_player_id || fixture.away_player_id ? 'solo' : 'club',
       status: 'scheduled',
       scheduled_date: scheduledDate,
+      timezone: matchTimezone,
       // `matches.tournament_id` has an FK to `tournaments.id`.
       // Official/regional fixture IDs live in league_entities, so keep FK null
       // and store competition identity in source_fixture_* + competition_context.

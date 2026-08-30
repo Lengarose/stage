@@ -42,6 +42,7 @@ class Match {
     this.group_number          = body.group_number ?? body.group;
     this.bracket_side          = body.bracket_side;
     this.scheduled_date        = toMysqlDateTime(body.scheduled_date);
+    this.timezone              = body.timezone || null;
     this.scheduling_status     = body.scheduling_status;
     this.home_proposed_date    = toMysqlDateTime(body.home_proposed_date);
     this.away_proposed_date    = toMysqlDateTime(body.away_proposed_date);
@@ -125,7 +126,7 @@ class Match {
       'home_score', 'away_score', 'status', 'mode', 'type', 'stats_processed',
       'winner_club_id', 'winner_club_name', 'winner_player_id', 'winner_player_name',
       'loser_club_id', 'loser_club_name', 'loser_player_id', 'loser_player_name',
-      'round', 'group_number', 'bracket_side', 'scheduled_date',
+      'round', 'group_number', 'bracket_side', 'scheduled_date', 'timezone',
       'scheduling_status', 'home_proposed_date', 'away_proposed_date', 'last_proposed_by', 'proposal_count', 'confirmed_date',
       'result_home_submitted', 'result_away_submitted',
       'home_submission', 'away_submission',
@@ -137,7 +138,7 @@ class Match {
       'admin_notes', 'notes',
       'wager_stc', 'wager_status', 'wager_home_locked', 'wager_away_locked',
       'wager_home_player_id', 'wager_away_player_id',
-      'source_fixture_id', 'source_fixture_type', 'competition_context',
+      'source_fixture_id', 'source_fixture_type', 'competition_context', 'allow_penalties',
       'home_goal_events', 'away_goal_events',
     ];
     const values = [
@@ -149,7 +150,7 @@ class Match {
       this.home_score, this.away_score, this.status, this.mode, this.type, this.stats_processed,
       this.winner_club_id, this.winner_club_name, this.winner_player_id, this.winner_player_name,
       this.loser_club_id, this.loser_club_name, this.loser_player_id, this.loser_player_name,
-      this.round, this.group_number, this.bracket_side, this.scheduled_date,
+      this.round, this.group_number, this.bracket_side, this.scheduled_date, this.timezone,
       this.scheduling_status, this.home_proposed_date, this.away_proposed_date, this.last_proposed_by, this.proposal_count, this.confirmed_date,
       this.result_home_submitted, this.result_away_submitted,
       this.home_submission, this.away_submission,
@@ -182,7 +183,7 @@ class Match {
       home_score=?, away_score=?, status=?, mode=?, type=?, stats_processed=?,
       winner_club_id=?, winner_club_name=?, winner_player_id=?, winner_player_name=?,
       loser_club_id=?, loser_club_name=?, loser_player_id=?, loser_player_name=?,
-      round=?, group_number=?, bracket_side=?, scheduled_date=?,
+      round=?, group_number=?, bracket_side=?, scheduled_date=?, timezone=?,
       scheduling_status=?, home_proposed_date=?, away_proposed_date=?, last_proposed_by=?, proposal_count=?, confirmed_date=?,
       result_home_submitted=?, result_away_submitted=?,
       home_submission=?, away_submission=?,
@@ -206,7 +207,7 @@ class Match {
       this.home_score, this.away_score, this.status, this.mode, this.type, this.stats_processed,
       this.winner_club_id, this.winner_club_name, this.winner_player_id, this.winner_player_name,
       this.loser_club_id, this.loser_club_name, this.loser_player_id, this.loser_player_name,
-      this.round, this.group_number, this.bracket_side, this.scheduled_date,
+      this.round, this.group_number, this.bracket_side, this.scheduled_date, this.timezone,
       this.scheduling_status, this.home_proposed_date, this.away_proposed_date, this.last_proposed_by, this.proposal_count, this.confirmed_date,
       this.result_home_submitted, this.result_away_submitted,
       this.home_submission, this.away_submission,

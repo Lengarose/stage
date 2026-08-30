@@ -83,6 +83,71 @@ export function parseISO(value) {
   return loose.isValid() ? loose.toDate() : new Date("invalid");
 }
 
+/**
+ * Parse naive DATETIME as wall clock in `rowTimezone`, then format for the viewer.
+ * Offset ISO values are shown with Intl in `viewerTimezone`.
+ */
+export function formatInViewerTimezone(
+  value,
+  {
+    rowTimezone = "Europe/Brussels",
+    viewerTimezone = "Europe/Brussels",
+    options = {
+      dateStyle: "medium",
+      timeStyle: "short",
+    },
+  } = {},
+) {
+  if (value == null || value === "") return "";
+  const raw = String(value).trim();
+  let date;
+  if (/[+-]\d{2}:?\d{2}$/.test(raw) || /Z$/i.test(raw)) {
+    date = new Date(raw);
+  } else {
+    const wall = asWallClockDateTimeString(value);
+    if (!wall) return "";
+    // Attach a temporary Z then adjust via offset of rowTimezone at that UTC guess —
+    // same digits, interpret as row zone by building offset ISO then parsing.
+    const m = wall.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/);
+    if (!m) return format(parseISO(value), "d MMM yyyy HH:mm");
+    // Prefer Intl on a Date from offset-aware construction: use Date with local components
+    // only for display of wall digits in viewer zone via formatToParts approach.
+    date = new Date(`${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6] || "00"}`);
+    // Fall back: show wall digits if zone tools unavailable
+    if (Number.isNaN(date.getTime())) return wall;
+    try {
+      // Re-interpret: format wall as if already in viewer — for same zone this is exact.
+      // Cross-zone: construct from offset by asking Intl what UTC instant maps to wall in rowTimezone.
+      const asUtc = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]), Number(m[6] || 0));
+      const probe = new Date(asUtc);
+      const dtf = new Intl.DateTimeFormat("en-US", {
+        timeZone: rowTimezone || "Europe/Brussels",
+        timeZoneName: "longOffset",
+        hour: "numeric",
+      });
+      const tzName = dtf.formatToParts(probe).find((p) => p.type === "timeZoneName")?.value || "GMT";
+      let offsetMin = 0;
+      const om = tzName.match(/GMT([+-])(\d{1,2})(?::?(\d{2}))?/i);
+      if (om) {
+        const sign = om[1] === "-" ? -1 : 1;
+        offsetMin = sign * (Number(om[2] || 0) * 60 + Number(om[3] || 0));
+      }
+      date = new Date(asUtc - offsetMin * 60_000);
+    } catch {
+      /* keep date */
+    }
+  }
+  if (Number.isNaN(date.getTime())) return "";
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      timeZone: viewerTimezone || "Europe/Brussels",
+      ...options,
+    }).format(date);
+  } catch {
+    return format(date, "d MMM yyyy HH:mm");
+  }
+}
+
 export function isValid(value) {
   return toMoment(value).isValid();
 }

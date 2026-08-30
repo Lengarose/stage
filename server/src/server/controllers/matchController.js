@@ -4,11 +4,38 @@ const Match   = require('../models/matchModel');
 const { EXECUTESQL } = require('../db/database');
 const { broadcastMatch, broadcastMatchDeleted } = require('../utils/socketBroadcast');
 const { v4: uuidv4 } = require('uuid');
-const { normalizeMatchForApi } = require('../utils/datetime');
+const { normalizeMatchForApi, resolveTimeZone, DEFAULT_TIMEZONE } = require('../utils/datetime');
 const competitionEngineService = require('../services/competitionEngineService');
 const matchResultNegotiationService = require('../services/matchResultNegotiationService');
 const { createNotificationIfEnabled } = require('../services/messageDeliveryService');
 const { resolveMatchSideEmails } = require('../services/matchNotificationService');
+
+async function resolveAuthUserTimezone(userId) {
+  if (!userId) return DEFAULT_TIMEZONE;
+  const rows = await EXECUTESQL('SELECT timezone FROM users WHERE id = ? LIMIT 1', [userId]).catch(() => []);
+  return resolveTimeZone(rows[0]?.timezone);
+}
+
+const SCHEDULE_STAMP_FIELDS = [
+  'scheduled_date',
+  'confirmed_date',
+  'home_proposed_date',
+  'away_proposed_date',
+];
+
+function bodyTouchesSchedule(body = {}) {
+  return SCHEDULE_STAMP_FIELDS.some((field) => body[field] !== undefined);
+}
+
+/** Stamp match timezone from auth user; never trust client body.timezone. */
+async function stampMatchTimezoneFromAuth(payload, auth, { force = false } = {}) {
+  const next = { ...(payload || {}) };
+  delete next.timezone;
+  if (force || bodyTouchesSchedule(payload) || !payload?.timezone) {
+    next.timezone = await resolveAuthUserTimezone(auth?.userId);
+  }
+  return next;
+}
 
 function formatKickoff(kickoff) {
   if (!kickoff) return 'today';
@@ -630,7 +657,8 @@ router.post('/', async (req, res) => {
       if (!matchTouchesAuthScope(payload, auth)) return res.status(403).json({ error: 'Forbidden' });
     }
     const payloadWithNames = await attachMatchNames(req.body);
-    const match = new Match(payloadWithNames);
+    const stamped = await stampMatchTimezoneFromAuth(payloadWithNames, auth, { force: true });
+    const match = new Match(stamped);
     await match.create();
     const created = await match.selectOne(match.id);
     const record  = created[0];
@@ -659,7 +687,13 @@ router.patch('/:id', async (req, res) => {
       if (!matchTouchesAuthScope(record, auth)) return res.status(403).json({ error: 'Forbidden' });
     }
     const previous = existing[0];
-    const payloadWithNames = await attachMatchNames({ ...previous, ...req.body });
+    const mergedBody = { ...previous, ...req.body };
+    delete mergedBody.timezone;
+    const shouldStamp = bodyTouchesSchedule(req.body) || !previous.timezone;
+    const stampedBody = shouldStamp
+      ? await stampMatchTimezoneFromAuth(mergedBody, auth, { force: true })
+      : { ...mergedBody, timezone: previous.timezone || DEFAULT_TIMEZONE };
+    const payloadWithNames = await attachMatchNames(stampedBody);
     const match = new Match(payloadWithNames);
     await match.update(id);
     const updated = await match.selectOne(id);

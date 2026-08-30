@@ -2,9 +2,46 @@ const express  = require('express');
 const { EXECUTESQL } = require('../db/database');
 const { v4: uuidv4 } = require('uuid');
 const { hasStagePlus } = require('../utils/subscriptionAccess');
+const { resolveTimeZone, DEFAULT_TIMEZONE, toMysqlDateTime } = require('../utils/datetime');
 
 // Table name used by all competition/league entities (single flexible store).
 const TABLE = 'league_entities';
+
+const FIXTURE_ENTITY_TYPES = new Set(['competition_fixture', 'regional_league_fixture']);
+const FIXTURE_SCHEDULE_FIELDS = [
+  'scheduled_date',
+  'confirmed_date',
+  'home_proposed_date',
+  'away_proposed_date',
+  'scheduled_at',
+  'confirmed_at',
+];
+
+async function resolveAuthUserTimezone(userId) {
+  if (!userId) return DEFAULT_TIMEZONE;
+  const rows = await EXECUTESQL('SELECT timezone FROM users WHERE id = ? LIMIT 1', [userId]).catch(() => []);
+  return resolveTimeZone(rows[0]?.timezone);
+}
+
+function fixtureTouchesSchedule(body = {}) {
+  return FIXTURE_SCHEDULE_FIELDS.some((field) => body[field] !== undefined);
+}
+
+async function stampFixtureTimezone(entityType, body, req, { force = false } = {}) {
+  if (!FIXTURE_ENTITY_TYPES.has(entityType)) return body;
+  const next = { ...(body || {}) };
+  delete next.timezone;
+  if (force || fixtureTouchesSchedule(body)) {
+    next.timezone = await resolveAuthUserTimezone(req.user?.id);
+  }
+  // Keep wall-clock digits for schedule fields (no toISOString).
+  for (const field of FIXTURE_SCHEDULE_FIELDS) {
+    if (next[field] !== undefined && next[field] !== null && next[field] !== '') {
+      next[field] = toMysqlDateTime(next[field]);
+    }
+  }
+  return next;
+}
 
 // Route segment → entity_type value stored in DB.
 const ROUTE_TO_TYPE = {
@@ -172,7 +209,7 @@ function makeRouter(entityType) {
   // POST /
   router.post('/', async (req, res) => {
     try {
-      const body = req.body || {};
+      const body = await stampFixtureTimezone(entityType, req.body || {}, req, { force: true });
       if (entityType === 'game_day_config') {
         const admin = await getAdminUser(req).catch(() => null);
         if (!admin) return res.status(403).json({ error: 'Admin access required.' });
@@ -227,9 +264,18 @@ function makeRouter(entityType) {
       const existing = await EXECUTESQL(`SELECT * FROM \`${TABLE}\` WHERE id = ? LIMIT 1`, [id]);
       if (!existing.length) return res.status(404).json({ error: 'Not found' });
 
-      const body    = req.body || {};
       const current = parseRow(existing[0]);
-      const merged  = { ...current, ...body, id };
+      const rawBody = req.body || {};
+      const body = await stampFixtureTimezone(
+        entityType,
+        rawBody,
+        req,
+        { force: fixtureTouchesSchedule(rawBody) || (FIXTURE_ENTITY_TYPES.has(entityType) && !current.timezone) },
+      );
+      const merged = { ...current, ...body, id };
+      if (FIXTURE_ENTITY_TYPES.has(entityType)) {
+        merged.timezone = body.timezone || current.timezone || DEFAULT_TIMEZONE;
+      }
 
       const indexed  = extractIndexed(merged);
       const idxCols  = Object.keys(indexed);

@@ -11,6 +11,7 @@ import {
   checkAndExpire,
 } from "@/lib/scheduleEngine";
 import { useTranslation } from "@/hooks/useTranslation";
+import { useAuth } from "@/lib/AuthContext";
 
 // ─── Status colours ───────────────────────────────────────────────────────────
 const STATUS_CLS = {
@@ -32,6 +33,8 @@ const STATUS_CLS = {
 
 export default function FixtureSchedulerPanel({ fixture, fixtureType, myClub, myEmail, myGamertag, onUpdate }) {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const kickoffTimezone = user?.timezone || "Europe/Brussels";
   const role = myClub?.id === fixture.home_club_id ? "home"
              : myClub?.id === fixture.away_club_id ? "away"
              : null;
@@ -209,6 +212,7 @@ export default function FixtureSchedulerPanel({ fixture, fixtureType, myClub, my
       {sched === "open" && role === "home" && (
         proposing
           ? <ProposalForm t={t} propDate={propDate} propTime={propTime} deadline={deadline}
+              kickoffTimezone={kickoffTimezone}
               onDateChange={setPropDate} onTimeChange={setPropTime}
               onSubmit={handlePropose} onCancel={() => setProposing(false)} busy={busy} />
           : <Button size="sm" onClick={() => setProposing(true)}
@@ -251,7 +255,7 @@ export default function FixtureSchedulerPanel({ fixture, fixtureType, myClub, my
   );
 }
 
-function ProposalForm({ t, propDate, propTime, deadline, onDateChange, onTimeChange, onSubmit, onCancel, busy }) {
+function ProposalForm({ t, propDate, propTime, deadline, kickoffTimezone, onDateChange, onTimeChange, onSubmit, onCancel, busy }) {
   const minDate = new Date().toISOString().split("T")[0];
   const deadlineIso = deadline instanceof Date
     ? (Number.isNaN(deadline.getTime()) ? null : deadline.toISOString())
@@ -264,6 +268,9 @@ function ProposalForm({ t, propDate, propTime, deadline, onDateChange, onTimeCha
         {deadline && <span className="normal-case font-normal ml-1 text-muted-foreground">
           ({t("commonPages.fspMustBeBefore", { date: format(new Date(deadline), "d MMM") })})
         </span>}
+      </p>
+      <p className="text-[10px] text-muted-foreground">
+        Kickoff in {kickoffTimezone || "Europe/Brussels"}
       </p>
       <div className="flex gap-2">
         <div className="relative flex-1">
