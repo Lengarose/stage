@@ -10,7 +10,7 @@ with your report, then stop. Overwrite, do not append. Never write status into
 
 ## STATUS — DONE
 
-User location / timezone on login (web + API). No deploy. Not committed yet (say the word to commit).
+User location / timezone on login (web + API). No deploy. Commit `b1701eb` (not pushed).
 
 ### Diff
 
