@@ -1,6 +1,7 @@
 import { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { stageClient } from '@/api/stageClient';
 import { initWebOneSignal, loginWebOneSignal, logoutWebOneSignal } from '@/lib/oneSignal';
+import { syncSessionLocation } from '@/lib/userLocation';
 
 const AuthContext = createContext(null);
 
@@ -35,6 +36,14 @@ export const AuthProvider = ({ children }) => {
       const currentUser = await stageClient.auth.me();
       setUser(currentUser);
       setIsAuthenticated(true);
+      // Fire-and-forget GPS + timezone sync; never block login if denied.
+      syncSessionLocation(stageClient.auth)
+        .then(async (synced) => {
+          if (!synced) return;
+          const refreshed = await stageClient.auth.me().catch(() => null);
+          if (refreshed) setUser(refreshed);
+        })
+        .catch(() => {});
     } catch (error) {
       setIsAuthenticated(false);
       setUser(null);

@@ -10,21 +10,27 @@ with your report, then stop. Overwrite, do not append. Never write status into
 
 ## STATUS — DONE
 
-P0 Game Day sync hard fixes (web). Mobile prompt written for eafc-app. No deploy.
+User location / timezone on login (web + API). No deploy. Not committed yet (say the word to commit).
 
 ### Diff
 
-1. `CompetitionDetail.jsx` — Game Day CTA uses `/game-day?match=` (was broken `/gameday`).
-2. `scheduleEngine.forceSchedule` — passes `scheduling_status: "confirmed"` (+ dates) into `createMatchFromFixture` so admin force-schedule still creates the Match after the confirmed-only gate.
-3. `LeagueDetail.jsx` — Game Day CTA / scheduled list require `scheduling_status === "confirmed"` (no longer `status === "scheduled"` alone).
+**Server**
+- `startupMigrations.js` — `users.location TEXT NULL` after timezone.
+- `utils/userLocation.js` — `normalizeUserLocation` / `parseStoredLocation`.
+- `utils/__tests__/userLocation.test.js` — Belgium GPS + JSON parse (4 pass).
+- `authController.js` — `/me` selects + returns parsed `location`; `PATCH /timezone` writes location only when normalized body present (timezone-only leaves GPS).
+- `mobile/helpers.js` — `buildMePayload` SELECT + `mapUserFromMe.location`.
+- `securityHeaders.js` — `geolocation=(self)`.
 
-### Mobile handoff
+**Web**
+- `stageClient.auth.updateTimezone(timezone, location = null)`.
+- `src/lib/userLocation.js` — browser geolocation (8s, coarse), Intl IANA, BE→Brussels, 15m cooldown `syncSessionLocation`.
+- `AuthContext.jsx` — after successful `me()`, fire-and-forget sync then refresh `me()` into `user`.
 
-Prompt for eafc-app: `eafc-app/docs/MOBILE_GAMEDAY_SYNC_P0_PROMPT.md`  
-(confirmed-only materialize, acceptProposal payload, competition/league CTAs, pending GOST on Matches hub, dual club identity).
+Onboarding/Settings still call `updateTimezone(timezone)` alone — does not wipe `users.location`.
 
 ### Verification
 
-`npm run lint && npm run typecheck && node --check server/src/server.js` — exit 0.
-
-Commit on `main` (not pushed).
+`npm run lint && npm run typecheck` — exit 0.  
+`node --test server/src/server/utils/__tests__/userLocation.test.js` — 4 pass.  
+`node --check server/src/server.js` — ok.

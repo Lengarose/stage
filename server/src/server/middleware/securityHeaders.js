@@ -17,7 +17,7 @@ function securityHeaders() {
     res.setHeader('Permissions-Policy', [
       'camera=()',
       'microphone=()',
-      'geolocation=()',
+      'geolocation=(self)',
       'payment=()',
       'usb=()',
     ].join(', '));

@@ -8,6 +8,7 @@ const jwt = require('jsonwebtoken');
 const { ACCESS_TOKEN_SECRET, REFRESH_TOKEN_SECRET } = require('../../constants/constants');
 const { validate, rules } = require('../middleware/validate');
 const { notifySignup } = require('../services/notifications');
+const { normalizeUserLocation, parseStoredLocation } = require('../utils/userLocation');
 
 function isValidTimeZone(value) {
   if (!value || typeof value !== 'string' || value.length > 80) return false;
@@ -237,6 +238,7 @@ router.get('/me', async (req, res) => {
          u.credits,
          u.credits_refreshed_at,
          u.timezone,
+         u.location,
          u.created_date,
          u.updated_date,
          r.name AS db_role_name,
@@ -293,6 +295,7 @@ router.get('/me', async (req, res) => {
       credits: Math.max(0, Number(me.credits || 0)),
       credits_refreshed_at: me.credits_refreshed_at || null,
       timezone: me.timezone || 'Europe/Brussels',
+      location: parseStoredLocation(me.location),
       subscription: me.subscription || null,
       subscription_expires_at: me.subscription_expires_at || null,
       gamertag: me.gamertag || null,
@@ -313,8 +316,16 @@ router.patch('/timezone', async (req, res) => {
     if (!isValidTimeZone(timezone)) {
       return res.status(400).json({ error: 'Invalid timezone. Use an IANA timezone like Europe/Brussels.' });
     }
-    await EXECUTESQL('UPDATE users SET timezone = ?, updated_date = NOW() WHERE id = ?', [timezone, decoded.id]);
-    res.json({ success: true, timezone });
+    const location = normalizeUserLocation(req.body?.location);
+    if (location) {
+      await EXECUTESQL(
+        'UPDATE users SET timezone = ?, location = ?, updated_date = NOW() WHERE id = ?',
+        [timezone, JSON.stringify(location), decoded.id],
+      );
+    } else {
+      await EXECUTESQL('UPDATE users SET timezone = ?, updated_date = NOW() WHERE id = ?', [timezone, decoded.id]);
+    }
+    res.json({ success: true, timezone, location });
   } catch {
     res.status(401).json({ error: 'Invalid token' });
   }

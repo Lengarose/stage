@@ -1,4 +1,5 @@
 const { EXECUTESQL } = require('../db/database');
+const { parseStoredLocation } = require('../utils/userLocation');
 
 function ok(res, data, status = 200) {
   return res.status(status).json({ data, message: 'ok' });
@@ -59,6 +60,7 @@ function mapUserFromMe(me = {}) {
     role_id: me.role_id,
     credits: me.credits,
     timezone: me.timezone,
+    location: parseStoredLocation(me.location),
     subscription: me.subscription,
     club_name: me.club_name || null,
   };
@@ -170,7 +172,7 @@ async function resolveCallerContext(user) {
 async function buildMePayload(userId) {
   const rows = await EXECUTESQL(
     `SELECT
-       u.id, u.email, u.role_id, u.credits, u.timezone,
+       u.id, u.email, u.role_id, u.credits, u.timezone, u.location,
        p.id AS player_id, p.gamertag, p.subscription, p.role AS player_role, p.club_id,
        c.id AS owned_club_id, c.name AS club_name,
        c.id AS president_club_id
