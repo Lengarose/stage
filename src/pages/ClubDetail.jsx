@@ -2305,11 +2305,9 @@ function buildClubOfficialStageRegistrationFixtures(seasons, standings, qualific
   const confirmedEntries = asObjectArray(qualificationEntries)
     .filter((entry) => String(entry.club_id || "") === String(clubId))
     .filter((entry) => ["confirmed", "approved", "registered", "active"].includes(String(entry.status || "").toLowerCase()));
-  const qualifiedSeasonKeys = new Set(confirmedEntries.map(competitionSeasonKey).filter(Boolean));
-  const qualifiedCompetitionIds = new Set(
+  const qualifiedSeasonIds = new Set(
     confirmedEntries
-      .flatMap((entry) => [entry.target_competition_id, entry.competition_id])
-      .map((value) => String(value || "").trim())
+      .map((entry) => String(entry.target_season_id || entry.season_id || "").trim())
       .filter(Boolean)
   );
 
@@ -2318,16 +2316,16 @@ function buildClubOfficialStageRegistrationFixtures(seasons, standings, qualific
       if (!season?.id) return false;
       const status = String(season.status || "").toLowerCase();
       if (["archived", "completed", "cancelled", "canceled"].includes(status)) return false;
-      const seasonKey = competitionSeasonKey(season);
-      const eventKeys = [seasonKey, season.competition_id, season.competition_slug]
+      const seasonKey = String(season.id);
+      const eventKeys = [seasonKey, season.competition_slug]
         .map((value) => String(value || "").trim())
         .filter(Boolean);
       if (eventKeys.some((key) => fixtureSeasonKeys.has(key))) return false;
       const seasonClubIds = competitionClubIds(season);
+      // Bind to THIS season — do not attach via competition_id alone.
       const clubQualified = seasonClubIds.includes(String(clubId))
-        || eventKeys.some((key) => standingSeasonKeys.has(key))
-        || eventKeys.some((key) => qualifiedSeasonKeys.has(key))
-        || qualifiedCompetitionIds.has(String(season.competition_id || ""));
+        || standingSeasonKeys.has(seasonKey)
+        || qualifiedSeasonIds.has(seasonKey);
       return clubQualified;
     })
     .map((season) => {

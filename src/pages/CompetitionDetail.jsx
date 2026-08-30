@@ -1,11 +1,14 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { stageClient } from "@/api/stageClient";
+import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { useTranslation } from "@/hooks/useTranslation";
-import { Trophy, Shield, ChevronLeft, ChevronDown, Star, CheckCircle2 } from "lucide-react";
+import { Trophy, Shield, ChevronLeft, ChevronDown, Star, CheckCircle2, ExternalLink } from "lucide-react";
 import TrophyHistorySection from "@/components/rewards/TrophyHistorySection";
+import FixtureSchedulerPanel from "@/components/schedule/FixtureSchedulerPanel";
 import { cn } from "@/lib/utils";
 import { getCompetitionMeta, sortStandings } from "@/lib/competitionUtils";
+import { isAppAdminUser } from "@/lib/adminAuth";
+import { createMatchFromFixture } from "@/lib/gameDayIntegration";
 
 const PHASE_LABEL = {
   league: "League Phase",
@@ -125,15 +128,24 @@ function StandingsTable({ standings, directSpots = 8, playoffSpots = 16 }) {
   );
 }
 
-function FixtureRow({ fixture, isAdmin, onSubmitResult, legLabel, isFinalLeg }) {
+function FixtureRow({ fixture, isAdmin, onSubmitResult, legLabel, isFinalLeg, myClub, myEmail, myGamertag }) {
   const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const [home, setHome] = useState("");
   const [away, setAway] = useState("");
   const [tieWinner, setTieWinner] = useState(""); // for final leg: explicit tie winner override
   const [saving, setSaving] = useState(false);
 
   const isKnockout = fixture.phase !== "league";
+  const sched = String(fixture.scheduling_status || "open").toLowerCase();
+  const isMyFixture = Boolean(
+    myClub?.id
+    && (String(fixture.home_club_id) === String(myClub.id) || String(fixture.away_club_id) === String(myClub.id))
+  );
+  const canSchedule = isMyFixture && ["open", "home_proposed", "away_proposed"].includes(sched);
+  // Kickoff only after accept confirms — fixtureBase uses status:"scheduled" while still open.
+  const canOpenGameDay = sched === "confirmed";
 
   async function save() {
     setSaving(true);
@@ -159,12 +171,22 @@ function FixtureRow({ fixture, isAdmin, onSubmitResult, legLabel, isFinalLeg }) 
     onSubmitResult?.();
   }
 
+  async function openGameDay() {
+    const match = await createMatchFromFixture(fixture, "competition").catch(() => null);
+    const matchId = match?.id || fixture.match_id;
+    if (matchId) window.location.assign(`/gameday?match=${encodeURIComponent(matchId)}`);
+  }
+
   const isDone = fixture.status === "completed" || fixture.status === "forfeit";
   return (
     <div className={cn(
-      "flex items-center gap-3 px-4 py-3 border-b border-border/40 last:border-0",
-      isDone ? "opacity-90" : "hover:bg-secondary/20"
+      "border-b border-border/40 last:border-0",
+      isDone ? "opacity-90" : "hover:bg-secondary/20",
+      isMyFixture && "bg-primary/5",
     )}>
+      <div className={cn(
+        "flex items-center gap-3 px-4 py-3",
+      )}>
       {legLabel && (
         <span className="text-[9px] text-muted-foreground uppercase tracking-widest font-bold shrink-0 w-8">{legLabel}</span>
       )}
@@ -201,6 +223,22 @@ function FixtureRow({ fixture, isAdmin, onSubmitResult, legLabel, isFinalLeg }) 
         </div>
       </div>
 
+      {!isDone && (
+        <span className="shrink-0 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border border-border text-muted-foreground">
+          {sched.replace(/_/g, " ")}
+        </span>
+      )}
+
+      {canOpenGameDay && !isDone && (
+        <button
+          type="button"
+          onClick={openGameDay}
+          className="inline-flex shrink-0 items-center gap-1 rounded border border-primary/30 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-primary hover:bg-primary/10"
+        >
+          Game Day <ExternalLink className="w-3 h-3" />
+        </button>
+      )}
+
       {/* Admin controls */}
       {isAdmin && !isDone && (
         <div className="shrink-0 flex flex-col gap-1 items-end">
@@ -231,11 +269,33 @@ function FixtureRow({ fixture, isAdmin, onSubmitResult, legLabel, isFinalLeg }) 
       {isDone && (
         <CheckCircle2 className="w-3.5 h-3.5 text-success/60 shrink-0" />
       )}
+      {canSchedule && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="shrink-0 text-[10px] px-2 py-1 rounded border border-border text-muted-foreground hover:text-foreground"
+        >
+          {expanded ? "Hide schedule" : "Schedule"}
+        </button>
+      )}
+      </div>
+      {expanded && canSchedule && (
+        <div className="px-4 pb-3">
+          <FixtureSchedulerPanel
+            fixture={fixture}
+            fixtureType="competition"
+            myClub={myClub}
+            myEmail={myEmail}
+            myGamertag={myGamertag}
+            onUpdate={onSubmitResult}
+          />
+        </div>
+      )}
     </div>
   );
 }
 
-function TieCard({ leg1, leg2, isAdmin, onRefresh, label }) {
+function TieCard({ leg1, leg2, isAdmin, onRefresh, label, myClub, myEmail, myGamertag }) {
   const { t } = useTranslation();
   const done1 = leg1?.status === "completed" || leg1?.status === "forfeit";
   const done2 = leg2?.status === "completed" || leg2?.status === "forfeit";
@@ -245,6 +305,7 @@ function TieCard({ leg1, leg2, isAdmin, onRefresh, label }) {
   if (done2 && leg2) { agg1 += leg2.away_score ?? 0; agg2 += leg2.home_score ?? 0; }
 
   const hasAgg = done1 || done2;
+  const rowProps = { isAdmin, onSubmitResult: onRefresh, myClub, myEmail, myGamertag };
 
   return (
     <div className="bg-card border border-border rounded overflow-hidden">
@@ -261,13 +322,13 @@ function TieCard({ leg1, leg2, isAdmin, onRefresh, label }) {
           )}
         </div>
       )}
-      {leg1 && <FixtureRow fixture={leg1} isAdmin={isAdmin} onSubmitResult={onRefresh} legLabel="Leg 1" />}
-      {leg2 && <FixtureRow fixture={leg2} isAdmin={isAdmin} onSubmitResult={onRefresh} legLabel="Leg 2" isFinalLeg />}
+      {leg1 && <FixtureRow fixture={leg1} {...rowProps} legLabel="Leg 1" />}
+      {leg2 && <FixtureRow fixture={leg2} {...rowProps} legLabel="Leg 2" isFinalLeg />}
     </div>
   );
 }
 
-function FixturesPanel({ fixtures, isAdmin, onRefresh }) {
+function FixturesPanel({ fixtures, isAdmin, onRefresh, myClub, myEmail, myGamertag }) {
   const { t } = useTranslation();
   if (!fixtures.length) return (
     <div className="border border-dashed border-border rounded p-12 text-center">
@@ -277,6 +338,7 @@ function FixturesPanel({ fixtures, isAdmin, onRefresh }) {
 
   const leagueFixtures = fixtures.filter(f => f.phase === "league");
   const knockoutFixtures = fixtures.filter(f => f.phase !== "league");
+  const rowProps = { isAdmin, onSubmitResult: onRefresh, myClub, myEmail, myGamertag };
 
   // League: group by matchday
   const byMatchday = {};
@@ -306,7 +368,7 @@ function FixturesPanel({ fixtures, isAdmin, onRefresh }) {
               <div className="px-4 py-2.5 bg-secondary/40 border-b border-border">
                 <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Matchday {md}</span>
               </div>
-              {rows.map(f => <FixtureRow key={f.id} fixture={f} isAdmin={isAdmin} onSubmitResult={onRefresh} />)}
+              {rows.map(f => <FixtureRow key={f.id} fixture={f} {...rowProps} />)}
             </div>
           ))}
         </div>
@@ -337,7 +399,7 @@ function FixturesPanel({ fixtures, isAdmin, onRefresh }) {
                         <div className="px-4 py-2.5 bg-secondary/40 border-b border-border">
                           <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{t("commonPages.cpFinal")}</span>
                         </div>
-                        <FixtureRow fixture={leg1} isAdmin={isAdmin} onSubmitResult={onRefresh} />
+                        <FixtureRow fixture={leg1} {...rowProps} />
                       </div>
                     </div>
                   );
@@ -351,6 +413,9 @@ function FixturesPanel({ fixtures, isAdmin, onRefresh }) {
                     isAdmin={isAdmin}
                     onRefresh={onRefresh}
                     label={`Tie ${bp}`}
+                    myClub={myClub}
+                    myEmail={myEmail}
+                    myGamertag={myGamertag}
                   />
                 );
               })}
@@ -414,6 +479,9 @@ export default function CompetitionDetail() {
   const [qualEntries, setQualEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [myClub, setMyClub] = useState(null);
+  const [myEmail, setMyEmail] = useState("");
+  const [myGamertag, setMyGamertag] = useState("");
   const [seasonPickerOpen, setSeasonPickerOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
 
@@ -423,11 +491,15 @@ export default function CompetitionDetail() {
   async function loadComp() {
     setLoading(true);
     try {
-      const [comps, user] = await Promise.all([
+      const [comps, identity] = await Promise.all([
         stageClient.entities.Competition.filter({ slug }, null, 1).catch(() => []),
-        stageClient.auth.me().catch(() => null),
+        resolveMyPlayerAndClub().catch(() => ({})),
       ]);
-      setIsAdmin(user?.role === "admin");
+      const user = identity?.user || null;
+      setIsAdmin(isAppAdminUser(user));
+      setMyClub(identity?.club || identity?.presidentClub || null);
+      setMyEmail(user?.email || identity?.player?.email || "");
+      setMyGamertag(identity?.player?.gamertag || user?.email || "");
       const comp = comps[0];
       if (!comp) { setLoading(false); return; }
       setCompetition(comp);
@@ -691,6 +763,9 @@ export default function CompetitionDetail() {
               <FixturesPanel
                 fixtures={fixtures}
                 isAdmin={isAdmin}
+                myClub={myClub}
+                myEmail={myEmail}
+                myGamertag={myGamertag}
                 onRefresh={() => loadSeasonData(selectedSeason)}
               />
             )}

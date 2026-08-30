@@ -144,9 +144,9 @@ function fixtureClubFields(prefix, club) {
 // ─── League phase (8-matchday format for 36 clubs) ─────────────────────────────
 
 /**
- * Generate 8-matchday fixtures from standings.
- * Matchdays 1-4: circle method rounds 0-3.
- * Matchdays 5-8: same rounds with home/away swapped → perfect 4H/4A balance.
+ * Generate league-phase fixtures from standings.
+ * Honors season.num_league_matchdays (even, >=2), capped at available
+ * circle-method rounds × 2 (home + away). Writes the actual count back.
  */
 export async function generateLeaguePhaseFixtures(season, standings) {
   const clubs = sortStandings(standings).map(standingToClub);
@@ -155,7 +155,16 @@ export async function generateLeaguePhaseFixtures(season, standings) {
   const n = clubs.length % 2 === 0 ? clubs.length : clubs.length - 1;
   const evenClubs = clubs.slice(0, n);
   const allRounds = circleMethod(evenClubs);
-  const numUniqueRounds = Math.min(4, Math.floor(allRounds.length / 2));
+  const uniqueCircleRounds = allRounds.length; // n - 1
+
+  let desiredTotal = Number(season.num_league_matchdays);
+  if (!Number.isFinite(desiredTotal) || desiredTotal < 2) desiredTotal = 8;
+  desiredTotal = Math.floor(desiredTotal);
+  if (desiredTotal % 2 !== 0) desiredTotal += 1;
+  desiredTotal = Math.max(2, desiredTotal);
+  const maxTotal = uniqueCircleRounds * 2;
+  desiredTotal = Math.min(desiredTotal, maxTotal);
+  const numUniqueRounds = desiredTotal / 2;
 
   const matchdays = [
     ...allRounds.slice(0, numUniqueRounds),

@@ -12,6 +12,7 @@ import GameDayTileBackgroundDialog, {
   hasCustomGameDayTileBackground,
 } from "@/components/gameday/GameDayTileBackgroundDialog";
 import ArrangeGameDialog from "@/components/schedule/ArrangeGameDialog";
+import FixtureSchedulerPanel from "@/components/schedule/FixtureSchedulerPanel";
 import { createMatchFromFixture } from "@/lib/gameDayIntegration";
 import { isActiveGameDayMatch } from "@/lib/gameDayPresentation";
 import { isGameDayMatchSocketPayload, sameRecordId } from "@/lib/gameDayRealtime";
@@ -63,6 +64,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
   const [myClub, setMyClub] = useState(null);
   const [presidentClub, setPresidentClub] = useState(null);
   const [selectedGame, setSelectedGame] = useState(null);
+  const [pendingScheduleFixtures, setPendingScheduleFixtures] = useState([]);
   const [tournamentMap, setTournamentMap] = useState({});
   const [arrangeOpen, setArrangeOpen] = useState(false);
   const [opsOpen, setOpsOpen] = useState(false);
@@ -289,17 +291,22 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
       );
     }
 
-    // Fixtures with `scheduling_status = confirmed` and `status = scheduled`
-    // travel together (both set the moment a fixture is ready to play), so
-    // filtering on just `scheduling_status` is enough — the post-filter below
-    // still accepts either column. We fetch fixtures for the signed club AND
-    // the president club so dual identities see both calendars.
+    // Confirmed fixtures → Match for kickoff. Open / proposed GOST fixtures
+    // stay visible for negotiation (FixtureSchedulerPanel) until accept creates
+    // the Match. Kickoff remains confirmed-only.
+    const PENDING_SCHEDULE_STATUSES = new Set(["open", "home_proposed", "away_proposed"]);
     const fixturePromises = [];
     for (const clubId of ids) {
       if (stageClient.entities.CompetitionFixture) {
         fixturePromises.push(
           { type: "competition", promise: stageClient.entities.CompetitionFixture.filter({ home_club_id: clubId, scheduling_status: "confirmed" }, "-confirmed_date", 50).catch(() => []) },
           { type: "competition", promise: stageClient.entities.CompetitionFixture.filter({ away_club_id: clubId, scheduling_status: "confirmed" }, "-confirmed_date", 50).catch(() => []) },
+          { type: "competition", promise: stageClient.entities.CompetitionFixture.filter({ home_club_id: clubId, scheduling_status: "open" }, "-updated_date", 50).catch(() => []) },
+          { type: "competition", promise: stageClient.entities.CompetitionFixture.filter({ away_club_id: clubId, scheduling_status: "open" }, "-updated_date", 50).catch(() => []) },
+          { type: "competition", promise: stageClient.entities.CompetitionFixture.filter({ home_club_id: clubId, scheduling_status: "home_proposed" }, "-updated_date", 50).catch(() => []) },
+          { type: "competition", promise: stageClient.entities.CompetitionFixture.filter({ away_club_id: clubId, scheduling_status: "home_proposed" }, "-updated_date", 50).catch(() => []) },
+          { type: "competition", promise: stageClient.entities.CompetitionFixture.filter({ home_club_id: clubId, scheduling_status: "away_proposed" }, "-updated_date", 50).catch(() => []) },
+          { type: "competition", promise: stageClient.entities.CompetitionFixture.filter({ away_club_id: clubId, scheduling_status: "away_proposed" }, "-updated_date", 50).catch(() => []) },
         );
       }
       if (stageClient.entities.RegionalLeagueFixture) {
@@ -318,13 +325,27 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
     arrays.flat().forEach(m => matchMap.set(m.id, m));
 
     const clubIdSet = new Set(ids);
-    const confirmedFixtures = fixtureResults
+    const typedFixtures = fixtureResults
       .flatMap(result => (result.rows || []).map(fixture => ({ fixture, type: result.type })))
       .filter(({ fixture }) =>
-        fixture?.id &&
-        (fixture.scheduling_status === "confirmed" || fixture.status === "scheduled") &&
-        (clubIdSet.has(String(fixture.home_club_id || "")) || clubIdSet.has(String(fixture.away_club_id || "")))
+        fixture?.id
+        && (clubIdSet.has(String(fixture.home_club_id || "")) || clubIdSet.has(String(fixture.away_club_id || "")))
       );
+
+    // Kickoff / Match materialization requires scheduling_status confirmed.
+    // fixtureBase sets status:"scheduled" while still open — do not treat that as ready.
+    const confirmedFixtures = typedFixtures.filter(({ fixture }) =>
+      String(fixture.scheduling_status || "").toLowerCase() === "confirmed"
+    );
+    const pendingMap = new Map();
+    for (const { fixture, type } of typedFixtures) {
+      const sched = String(fixture.scheduling_status || "").toLowerCase();
+      if (!PENDING_SCHEDULE_STATUSES.has(sched)) continue;
+      if (type !== "competition") continue; // GOST surface — competition fixtures
+      if (!pendingMap.has(fixture.id)) pendingMap.set(fixture.id, { fixture, type });
+    }
+    setPendingScheduleFixtures(Array.from(pendingMap.values()));
+
     const confirmedSourceKeys = new Set(
       confirmedFixtures
         .map(({ fixture, type }) => confirmedFixtureSourceKey(fixture, type))
@@ -558,11 +579,54 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
               </Select>
             )}
           </div>
+          {pendingScheduleFixtures.length > 0 && !scopedTournamentId ? (
+            <div className="mx-2 mb-3 space-y-2">
+              <p className="px-1 font-heading text-[10px] font-black uppercase tracking-[0.18em] text-[#f8fbff]/70">
+                Schedule · GOST
+              </p>
+              {pendingScheduleFixtures.map(({ fixture }) => {
+                const panelClub = identityClubs.find((c) =>
+                  String(c?.id) === String(fixture.home_club_id) || String(c?.id) === String(fixture.away_club_id)
+                ) || myClub;
+                return (
+                  <div
+                    key={fixture.id}
+                    className="border border-[#eef3fb]/18 bg-black/45 p-2.5"
+                  >
+                    <div className="mb-2 flex items-center justify-between gap-2 px-0.5">
+                      <p className="truncate text-[11px] font-semibold text-white/90">
+                        {fixture.home_club_name} vs {fixture.away_club_name}
+                      </p>
+                      <span className="shrink-0 text-[9px] font-bold uppercase tracking-wider text-white/40">
+                        {String(fixture.scheduling_status || "open").replace(/_/g, " ")}
+                      </span>
+                    </div>
+                    <p className="mb-2 truncate px-0.5 text-[10px] uppercase tracking-wider text-white/35">
+                      {fixture.competition_name || fixture.competition_slug || "GOST"}
+                      {fixture.matchday ? ` · MD ${fixture.matchday}` : ""}
+                    </p>
+                    <FixtureSchedulerPanel
+                      fixture={fixture}
+                      fixtureType="competition"
+                      myClub={panelClub}
+                      myEmail={user?.email || myPlayer?.email || ""}
+                      myGamertag={myPlayer?.gamertag || user?.email || ""}
+                      onUpdate={() => setRefreshTick((v) => v + 1)}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
           {visibleGames.length === 0 ? (
             <div className="mx-2 rounded-sm border border-white/10 px-4 py-8 text-center">
               <Zap className="mx-auto mb-2 h-8 w-8 text-white/20" />
               <p className="text-sm text-white/55">
-                {games.length === 0 ? t("matchFlow.noScheduledGames") : t("matchFlow.noMatchesInLeague")}
+                {games.length === 0 && pendingScheduleFixtures.length === 0
+                  ? t("matchFlow.noScheduledGames")
+                  : games.length === 0
+                    ? "Confirm a GOST schedule above to unlock kickoff."
+                    : t("matchFlow.noMatchesInLeague")}
               </p>
               {games.length > 0 ? <p className="mt-1 text-xs text-white/35">{t("matchFlow.switchToAll")}</p> : null}
             </div>

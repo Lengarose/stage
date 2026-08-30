@@ -1,6 +1,6 @@
-/** Database admin: role slug or roles.id === 0 */
+/** Database admin: role slug, roles.id === 0, or role_id 2 (registrationEngine). */
 export function isAppAdminUser(u) {
-  return u?.role === 'admin' || Number(u?.role_id) === 0;
+  return u?.role === 'admin' || Number(u?.role_id) === 0 || Number(u?.role_id) === 2;
 }
 
 /** Admin panel mode (respects stage_admin_effective_role_id impersonation override). */

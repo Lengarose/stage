@@ -178,7 +178,9 @@ export async function proposeTime({ fixture, fixtureType, role, proposedDate, my
 export async function acceptProposal({ fixture, fixtureType, role, myClub, myEmail }) {
   const isHome        = role === "home";
   const confirmedDate = isHome ? fixture.away_proposed_date : fixture.home_proposed_date;
-  if (!confirmedDate) return;
+  if (!confirmedDate) {
+    throw new Error("No proposed time to accept");
+  }
 
   const proposerClubId    = isHome ? fixture.away_club_id : fixture.home_club_id;
   const proposerEmails    = await getClubManagerEmails(proposerClubId);
@@ -193,7 +195,13 @@ export async function acceptProposal({ fixture, fixtureType, role, myClub, myEma
     scheduled_date:    confirmedDate,
   });
   const { createMatchFromFixture } = await import("./gameDayIntegration");
-  await createMatchFromFixture({ ...fixture, confirmed_date: confirmedDate, scheduled_date: confirmedDate, status: "scheduled" }, fixtureType);
+  await createMatchFromFixture({
+    ...fixture,
+    scheduling_status: "confirmed",
+    confirmed_date: confirmedDate,
+    scheduled_date: confirmedDate,
+    status: "scheduled",
+  }, fixtureType);
   await markMyPendingScheduleMessages({ fixtureId: fixture.id, myEmail, status: "confirmed" });
 
   await Promise.all(proposerEmails.map((proposerEmail) =>

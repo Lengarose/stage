@@ -10,29 +10,31 @@ with your report, then stop. Overwrite, do not append. Never write status into
 
 ## STATUS — DONE
 
-Game Day result-engine alignment with mobile (web only). No deploy.
+GOST (Supreme / Elite / Challenger) web path: open → propose/accept → confirmed → Game Day. No deploy. Task 4 (mobile) skipped.
 
 ### Diff
 
-- `src/lib/gameDayResultFlow.js` — mobile control matrix (`canShowResultAction` during negotiation, `showAwaySubmit` not in confirm state, `canCounter` / overdue / admin / final flags); `fixtureScoreFromSubmission` + own/opponent mapping; `pickMyClubForMatch` / `uniqueIdentityClubs` with **no** first-club fallback.
-- `src/components/gameday/GameDayMatchResult.jsx` — `isClubGameDayMatch` (club ids, not `mode === "club"` alone); confirm/review labels via `formatSideClaim`.
-- `src/components/gameday/GameDayDetail.jsx` — dedicated Confirm Result button; dock includes `showConfirmResult`.
-- `src/pages/GameDay.jsx` — load signed `club` + `presidentClub`; pick fixture club per match; hub Match socket ignores foreign fixtures.
-- `server/.../legacyFunctions.js` — solo career credits goals from official score when `player_stats` omit goals (no silent 0-goal row).
-- Tests updated for Phase 2 (no dressing-room subscribe) + new control/score helpers.
+1. **open → confirmed → Game Day**
+   - `fixtureBase` still sets `scheduling_status: "open"` (no auto-confirm on generate).
+   - `acceptProposal` sets confirmed + creates Match (same as mobile).
+   - `createMatchFromFixture` / `createMatchFromLeagueFixture` require `scheduling_status === "confirmed"` only — `status: "scheduled"` from fixtureBase is not enough.
+   - `GameDay.jsx` loads open / home_proposed / away_proposed GOST fixtures and surfaces them with `FixtureSchedulerPanel`; kickoff/Match list stays confirmed-only.
+   - `CompetitionDetail.jsx` FixtureRow: Schedule panel for club fixtures; Game Day link only when confirmed.
 
-Out of scope left alone: deploy, ui/*, base44, availability, President profile, unused `submitted` lint.
+2. **num_league_matchdays**
+   - `generateLeaguePhaseFixtures` uses `season.num_league_matchdays` (even, ≥2, capped at circle rounds × 2) and writes the actual count back.
+
+3. **Availability bound to THIS season**
+   - `officialStageClubAvailability`: qualification match via `target_season_id` / `season_id` only; slug lookup uses `slug` OR `competition_slug` / `slug` in JSON.
+   - `ClubDetail.jsx` registration fixtures: no competition_id-only qualification attach.
+
+4. **Skipped** — mobile (BertonLutina/Stage PR #3).
+
+5. **Admin check**
+   - `CompetitionDetail` uses `isAppAdminUser`; `adminAuth` includes `role === "admin" || role_id === 0 || role_id === 2` (registrationEngine).
 
 ### Verification
 
 `npm run lint && npm run typecheck && node --check server/src/server.js` — exit 0.
 
-Unit: `gameDayResultSubmissionFlow` + `gameDayRealtime` — 16 pass.
-
-Smoke summary:
-
-```
-ALL ASSERTIONS PASSED
-```
-
-A (home submit → away confirm → completed) and C (away correction → home accept) both 2xx / `status=completed`.
+Commit on `main` (not pushed).

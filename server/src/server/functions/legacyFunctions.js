@@ -5616,6 +5616,9 @@ const HANDLERS = {
     );
     if (!fixtureRows.length) throw new Error('Fixture not found');
     const fixture = parseLeagueEntityRow(fixtureRows[0]);
+    if (String(fixture.scheduling_status || '').toLowerCase() !== 'confirmed') {
+      throw new Error('Fixture must be confirmed before creating a Game Day match');
+    }
     const scheduledDate = fixture.confirmed_date || fixture.scheduled_date || null;
 
     if (fixture.match_id) {
@@ -12498,11 +12501,15 @@ const HANDLERS = {
         seasonRows = await query(
           `SELECT * FROM league_entities
             WHERE entity_type = 'competition_season'
-              AND slug = ?
+              AND (
+                slug = ?
+                OR JSON_UNQUOTE(JSON_EXTRACT(data_json, '$.competition_slug')) = ?
+                OR JSON_UNQUOTE(JSON_EXTRACT(data_json, '$.slug')) = ?
+              )
               AND status NOT IN ('completed', 'archived', 'cancelled', 'canceled')
             ORDER BY updated_date DESC
             LIMIT 1 FOR UPDATE`,
-          [competition_slug],
+          [competition_slug, competition_slug, competition_slug],
         );
       }
 
@@ -12532,13 +12539,10 @@ const HANDLERS = {
         .map(parseLeagueEntityRow)
         .some((entry) => {
           const entryStatus = String(entry?.status || '').toLowerCase();
-          return ['confirmed', 'approved', 'registered', 'active'].includes(entryStatus)
-            && (
-              String(entry.target_season_id || '') === String(season.id || '')
-              || String(entry.season_id || '') === String(season.id || '')
-              || String(entry.target_competition_id || '') === String(season.competition_id || '')
-              || String(entry.competition_id || '') === String(season.competition_id || '')
-            );
+          if (!['confirmed', 'approved', 'registered', 'active'].includes(entryStatus)) return false;
+          // Bind to THIS season only — never competition_id-only matching.
+          return String(entry.target_season_id || '') === String(season.id || '')
+            || String(entry.season_id || '') === String(season.id || '');
         });
       if (!registered.includes(String(club_id)) && !qualified.includes(String(club_id)) && !standingRows.length && !hasConfirmedQualification) {
         throw new Error('Club is not qualified for this GOST event');
