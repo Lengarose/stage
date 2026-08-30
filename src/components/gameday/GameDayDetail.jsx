@@ -265,7 +265,8 @@ export default function GameDayDetail({
   const showResultDock = isMyMatch && !isCompleted && !isDisputed && (
     resultControls.showHomeSubmit
     || resultControls.showAwayWaitingForHome
-    ||     resultControls.showAwaySubmit
+    || resultControls.showAwaySubmit
+    || resultControls.showConfirmResult
     || resultControls.showHomeWaitingForAway
     || resultControls.showAwaySubmittedWaitingForHome
     || resultControls.showHomeReview
@@ -360,7 +361,16 @@ export default function GameDayDetail({
                 variant="outline"
                 className="h-12 w-full gap-2 rounded-sm border-[#f8fbff] font-heading text-sm font-black uppercase tracking-[0.18em] text-[#dbe4ef] hover:text-white"
               >
-                <Flag className="h-4 w-4" /> {resultControls.showConfirmResult ? t("matchFlow.confirmResult") : t("matchFlow.submitMyResult")}
+                <Flag className="h-4 w-4" /> {t("matchFlow.submitMyResult")}
+              </Button>
+            )}
+            {resultControls.showConfirmResult && (
+              <Button
+                onClick={() => setShowResultForm(true)}
+                variant="outline"
+                className="h-12 w-full gap-2 rounded-sm border-[#f8fbff] font-heading text-sm font-black uppercase tracking-[0.18em] text-[#dbe4ef] hover:text-white"
+              >
+                <Flag className="h-4 w-4" /> {t("matchFlow.confirmResult")}
               </Button>
             )}
             {resultControls.showHomeReview && (

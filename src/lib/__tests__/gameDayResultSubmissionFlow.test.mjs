@@ -4,8 +4,11 @@ import { resolve } from "node:path";
 import test from "node:test";
 import {
   canResolveDisputeWithScore,
+  fixtureScoreFromSubmission,
   getKickoffControls,
   getResultSubmissionControls,
+  isClubGameDayMatch,
+  pickMyClubForMatch,
 } from "../gameDayResultFlow.js";
 
 const root = resolve(import.meta.dirname, "../../..");
@@ -26,16 +29,57 @@ test("away side cannot open result submission before home has submitted full tim
   assert.equal(controls.showAwayWaitingForHome, true);
 });
 
-test("away side can submit after home submission even when away flag is a string zero", () => {
+test("away confirm state opens confirm, not a second submit_result", () => {
   const controls = getResultSubmissionControls({
-    game: { result_home_submitted: "1", result_away_submitted: "0" },
+    game: {
+      result_state: "AWAITING_AWAY_CONFIRMATION",
+      result_submit_side: "home",
+      result_home_submitted: "1",
+      result_away_submitted: "0",
+    },
     isLive: true,
     showResultForm: false,
     amIHomeTeam: false,
   });
 
-  assert.equal(controls.showAwaySubmit, true);
+  assert.equal(controls.showConfirmResult, true);
+  assert.equal(controls.showAwaySubmit, false);
   assert.equal(controls.showAwayWaitingForHome, false);
+});
+
+test("result actions stay visible during negotiation even if status left in_progress", () => {
+  const controls = getResultSubmissionControls({
+    game: {
+      status: "pending_confirmation",
+      result_state: "AWAITING_AWAY_CONFIRMATION",
+      result_submit_side: "home",
+      result_home_submitted: 1,
+    },
+    isLive: false,
+    showResultForm: false,
+    amIHomeTeam: false,
+  });
+
+  assert.equal(controls.showConfirmResult, true);
+  assert.equal(controls.showAwaySubmit, false);
+});
+
+test("home review offers one counter until it is used", () => {
+  const open = getResultSubmissionControls({
+    game: { result_state: "AWAITING_HOME_REVIEW", result_submit_side: "home", home_counter_count: 0 },
+    isLive: true,
+    showResultForm: false,
+    amIHomeTeam: true,
+  });
+  assert.equal(open.showHomeReview, true);
+  assert.equal(open.canCounter, true);
+  const spent = getResultSubmissionControls({
+    game: { result_state: "AWAITING_HOME_REVIEW", result_submit_side: "home", home_counter_count: 1 },
+    isLive: true,
+    showResultForm: false,
+    amIHomeTeam: true,
+  });
+  assert.equal(spent.canCounter, false);
 });
 
 test("home side sees waiting state after submitting full time", () => {
@@ -48,6 +92,36 @@ test("home side sees waiting state after submitting full time", () => {
 
   assert.equal(controls.showHomeSubmit, false);
   assert.equal(controls.showHomeWaitingForAway, true);
+});
+
+test("fixtureScoreFromSubmission maps away own/opponent into Home–Away", () => {
+  assert.deepEqual(
+    fixtureScoreFromSubmission({ own_score: 2, opponent_score: 5 }, "away"),
+    { home: 5, away: 2 }
+  );
+  assert.deepEqual(
+    fixtureScoreFromSubmission({ home_score: 3, away_score: 1 }, "home"),
+    { home: 3, away: 1 }
+  );
+});
+
+test("isClubGameDayMatch treats club-id fixtures as club even without mode", () => {
+  assert.equal(isClubGameDayMatch({ mode: "club" }), true);
+  assert.equal(isClubGameDayMatch({ mode: "solo" }), false);
+  assert.equal(isClubGameDayMatch({ home_club_id: "c1", away_club_id: "c2" }), true);
+  assert.equal(isClubGameDayMatch({ home_player_id: "p1" }), false);
+});
+
+test("pickMyClubForMatch returns null when neither identity club is in the fixture", () => {
+  const picked = pickMyClubForMatch(
+    { home_club_id: "home", away_club_id: "away" },
+    [{ id: "other", name: "Spectator FC" }, { id: "also-other" }]
+  );
+  assert.equal(picked, null);
+  assert.equal(
+    pickMyClubForMatch({ home_club_id: "home", away_club_id: "away" }, [{ id: "away" }])?.id,
+    "away"
+  );
 });
 
 test("admin dispute resolution accepts only finite non-negative integer scores", () => {

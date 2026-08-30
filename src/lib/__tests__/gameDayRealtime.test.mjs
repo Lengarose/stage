@@ -50,8 +50,11 @@ test("GameDay keeps the selected match fresh through targeted realtime and fallb
   );
 });
 
-test("GameDay detail subscribes to match and dressing-room sockets", () => {
+test("GameDay detail subscribes to match sockets without dressing-room gate", () => {
   const source = readFileSync(resolve(root, "src/components/gameday/GameDayDetail.jsx"), "utf8");
+  const realtime = readFileSync(resolve(root, "src/lib/useGameDayMatchRealtime.js"), "utf8");
   assert.match(source, /useGameDayMatchRealtime/);
-  assert.match(source, /onDressing/);
+  assert.doesNotMatch(source, /onDressing|GameDayDressingRoom|showDressingRoomPanel/);
+  assert.match(realtime, /if \(!resolved\) return/);
+  assert.doesNotMatch(realtime, /DressingRoom\.subscribe|onDressing/);
 });

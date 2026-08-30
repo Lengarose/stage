@@ -7,6 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { cn } from "@/lib/utils";
 import {
   evidenceRequired,
+  fixtureScoreFromSubmission,
+  formatSideClaim,
+  isClubGameDayMatch,
   penaltiesAllowed,
   parseMatchSubmission,
 } from "@/lib/gameDayResultFlow";
@@ -20,7 +23,7 @@ import {
  * Player ratings are still entered individually.
  */
 export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam, onSubmitted }) {
-  const isClubMatch   = game.mode === "club";
+  const isClubMatch   = isClubGameDayMatch(game);
   const [homeScore,   setHomeScore]   = useState(0);
   const [awayScore,   setAwayScore]   = useState(0);
   const [seatedPlayers, setSeatedPlayers] = useState([]);
@@ -58,6 +61,7 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
   const homeSubmission = parseMatchSubmission(game.home_submission);
   const awaySubmission = parseMatchSubmission(game.away_submission);
   const submittedScore = submitSide === "away" ? awaySubmission : homeSubmission;
+  const submittedFixture = fixtureScoreFromSubmission(submittedScore, submitSide);
   const awayLockedWaiting   = !isHomeTeam && !homeHasSubmitted && !alreadySubmitted && submitSide === "home";
 
   // ── Load the club squad ────────────────────────────────────────────────────
@@ -221,15 +225,19 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
       const isDraw = Number(homeScore) === Number(awayScore);
       const action = actionOverride
         || (reviewMode ? "accept_correction" : confirmMode ? "confirm_result" : "submit_result");
+      const confirmHome = Number.isFinite(submittedFixture.home) ? submittedFixture.home : Number(homeScore);
+      const confirmAway = Number.isFinite(submittedFixture.away) ? submittedFixture.away : Number(awayScore);
+      const fixtureHome = confirmMode ? confirmHome : Number(homeScore);
+      const fixtureAway = confirmMode ? confirmAway : Number(awayScore);
 
       const res = await stageClient.functions.invoke("matchKickoff", {
         match_id:     game.id,
         action,
         is_home_team: isHomeTeam,
-        home_score:   Number(confirmMode && submittedScore ? submittedScore.home_score : homeScore),
-        away_score:   Number(confirmMode && submittedScore ? submittedScore.away_score : awayScore),
-        own_score:    isHomeTeam ? Number(homeScore) : Number(awayScore),
-        opponent_score: isHomeTeam ? Number(awayScore) : Number(homeScore),
+        home_score:   fixtureHome,
+        away_score:   fixtureAway,
+        own_score:    isHomeTeam ? fixtureHome : fixtureAway,
+        opponent_score: isHomeTeam ? fixtureAway : fixtureHome,
         player_stats: playerStatsArr,
         participating_player_ids: participating,
         goal_events:  eventsToStore,
@@ -307,12 +315,12 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
 
       {confirmMode && submittedScore && (
         <div className="rounded-lg border border-[#8eeeff]/30 bg-[#8eeeff]/10 px-3 py-2 text-xs text-[#8eeeff]">
-          {(game.home_club_name || game.home_player_name || "Home")} submitted {submittedScore.home_score}–{submittedScore.away_score}. Is this result correct?
+          {(game.home_club_name || game.home_player_name || "Home")} submitted {formatSideClaim(submittedScore, submitSide)}. Is this result correct?
         </div>
       )}
       {reviewMode && awaySubmission && (
         <div className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
-          {(game.away_club_name || game.away_player_name || "Away")} has proposed a correction: {awaySubmission.home_score}–{awaySubmission.away_score}.
+          {(game.away_club_name || game.away_player_name || "Away")} has proposed a correction: {formatSideClaim(awaySubmission, "away")}.
         </div>
       )}
 

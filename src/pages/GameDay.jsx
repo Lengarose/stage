@@ -15,6 +15,7 @@ import ArrangeGameDialog from "@/components/schedule/ArrangeGameDialog";
 import { createMatchFromFixture } from "@/lib/gameDayIntegration";
 import { isActiveGameDayMatch } from "@/lib/gameDayPresentation";
 import { isGameDayMatchSocketPayload, sameRecordId } from "@/lib/gameDayRealtime";
+import { pickMyClubForMatch, uniqueIdentityClubs } from "@/lib/gameDayResultFlow";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -60,6 +61,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
   const [user, setUser] = useState(null);
   const [myPlayer, setMyPlayer] = useState(null);
   const [myClub, setMyClub] = useState(null);
+  const [presidentClub, setPresidentClub] = useState(null);
   const [selectedGame, setSelectedGame] = useState(null);
   const [tournamentMap, setTournamentMap] = useState({});
   const [arrangeOpen, setArrangeOpen] = useState(false);
@@ -72,6 +74,19 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
   const chatUnread = selectedGame?.id ? getUnreadCount(selectedGame.id) : 0;
   // "all" or a group key (see groupKeyForGame). Stable across re-renders.
   const [leagueFilter, setLeagueFilter] = useState("all");
+
+  const identityClubs = useMemo(
+    () => uniqueIdentityClubs(
+      myClub,
+      presidentClub,
+      myPlayer?.club_id ? { id: myPlayer.club_id } : null,
+    ),
+    [myClub, presidentClub, myPlayer?.club_id],
+  );
+  const selectedMatchClub = useMemo(
+    () => (selectedGame ? pickMyClubForMatch(selectedGame, identityClubs) : null),
+    [selectedGame, identityClubs],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -176,6 +191,20 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
 
   useEffect(() => {
     let userEmail = null;
+    let identityClubIds = new Set();
+    let identityPlayerId = null;
+
+    function matchBelongsToIdentity(data, alreadyOnHub) {
+      if (alreadyOnHub) return true;
+      if (!data) return false;
+      if (data.home_club_id && identityClubIds.has(String(data.home_club_id))) return true;
+      if (data.away_club_id && identityClubIds.has(String(data.away_club_id))) return true;
+      if (identityPlayerId && (
+        sameRecordId(data.home_player_id, identityPlayerId)
+        || sameRecordId(data.away_player_id, identityPlayerId)
+      )) return true;
+      return false;
+    }
 
     async function load() {
       try {
@@ -184,17 +213,23 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
           return;
         }
 
-        const { user: u, player, club, presidentClub } = await resolveMyPlayerAndClub();
+        const { user: u, player, club, presidentClub: ownedClub } = await resolveMyPlayerAndClub();
         if (!u) return;
         setUser(u);
         userEmail = u.email;
 
         if (player) setMyPlayer(player);
-        if (club) setMyClub(club);
-        else if (presidentClub) setMyClub(presidentClub);
+        setMyClub(club || null);
+        setPresidentClub(ownedClub || null);
 
-        const clubIds = [club?.id, player?.club_id, presidentClub?.id].filter(Boolean);
-        await loadGames(player?.id, clubIds);
+        const clubs = uniqueIdentityClubs(
+          club,
+          ownedClub,
+          player?.club_id ? { id: player.club_id } : null,
+        );
+        identityClubIds = new Set(clubs.map((row) => String(row.id)));
+        identityPlayerId = player?.id || null;
+        await loadGames(player?.id, clubs.map((row) => row.id));
       } finally {
         setLoading(false);
       }
@@ -202,7 +237,9 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
 
     load();
 
-    // Real-time subscription — keep live/active matches in the list
+    // Real-time subscription — keep live/active matches in the list.
+    // Match channel is global: only apply events for fixtures already on the
+    // hub or that belong to this identity's clubs/player.
     const unsubMatch = stageClient.entities.Match.subscribe((event) => {
       if (!userEmail) return;
       setGames(prev => {
@@ -217,8 +254,9 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
 
         if (!isActiveGameDayMatch(data)) return prev.filter(m => !sameRecordId(m.id, data.id));
 
-        // Update existing or add new (for in_progress matches that just became live)
         const exists = prev.some(m => sameRecordId(m.id, data.id));
+        if (!matchBelongsToIdentity(data, exists)) return prev;
+
         if (exists) {
           return prev.map(m => sameRecordId(m.id, data.id) ? { ...m, ...data } : m);
         }
@@ -362,7 +400,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
   const detail = selectedGame ? (
     <GameDayDetail
       game={selectedGame}
-      myClub={myClub}
+      myClub={selectedMatchClub}
       myPlayer={myPlayer}
       user={user}
       opsOpen={opsOpen}
@@ -536,7 +574,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
                 game={game}
                 selected={selectedGame?.id === game.id}
                 onClick={() => setSelectedGame(game)}
-                myClub={myClub}
+                myClub={pickMyClubForMatch(game, identityClubs)}
                 myPlayer={myPlayer}
                 tournament={tournamentMap[game.tournament_id]}
                 glass={hasMatchScreensBg}

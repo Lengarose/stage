@@ -1338,8 +1338,18 @@ async function processMatchCompletion(match, acceptedSubmission, secondarySubmis
     const awayResult = winnerIsAway ? 'win' : winnerIsHome ? 'loss' : 'draw';
     const homeStat = playerStats.find((stat) => String(stat.player_id) === String(fresh.home_player_id)) || {};
     const awayStat = playerStats.find((stat) => String(stat.player_id) === String(fresh.away_player_id)) || {};
-    await applySoloPlayerRecord(fresh.home_player_id, homeResult, homeStat);
-    await applySoloPlayerRecord(fresh.away_player_id, awayResult, awayStat);
+    // Solo 1v1: if a client omitted player_stats, credit goals from the official score
+    // instead of writing a silent 0-goal career row.
+    await applySoloPlayerRecord(fresh.home_player_id, homeResult, {
+      ...homeStat,
+      goals: homeStat.goals != null && homeStat.goals !== '' ? homeStat.goals : homeScore,
+      assists: homeStat.assists != null && homeStat.assists !== '' ? homeStat.assists : 0,
+    });
+    await applySoloPlayerRecord(fresh.away_player_id, awayResult, {
+      ...awayStat,
+      goals: awayStat.goals != null && awayStat.goals !== '' ? awayStat.goals : awayScore,
+      assists: awayStat.assists != null && awayStat.assists !== '' ? awayStat.assists : 0,
+    });
   }
 
   const [completedForSourceSync] = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [matchId]);

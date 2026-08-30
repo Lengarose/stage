@@ -10,33 +10,24 @@ with your report, then stop. Overwrite, do not append. Never write status into
 
 ## STATUS — DONE
 
-Two known fixes. Not pushed. `TournamentDetail.jsx` and `env.local.js` left alone.
+Game Day result-engine alignment with mobile (web only). No deploy.
 
-### Fix 1 — `startupMigrations.js` orphan lookup
+### Diff
 
-SQL error no longer fabricates a fake orphan row. Lookup failure logs and skips the NOT NULL alter. Real orphan rows still throw.
+- `src/lib/gameDayResultFlow.js` — mobile control matrix (`canShowResultAction` during negotiation, `showAwaySubmit` not in confirm state, `canCounter` / overdue / admin / final flags); `fixtureScoreFromSubmission` + own/opponent mapping; `pickMyClubForMatch` / `uniqueIdentityClubs` with **no** first-club fallback.
+- `src/components/gameday/GameDayMatchResult.jsx` — `isClubGameDayMatch` (club ids, not `mode === "club"` alone); confirm/review labels via `formatSideClaim`.
+- `src/components/gameday/GameDayDetail.jsx` — dedicated Confirm Result button; dock includes `showConfirmResult`.
+- `src/pages/GameDay.jsx` — load signed `club` + `presidentClub`; pick fixture club per match; hub Match socket ignores foreign fixtures.
+- `server/.../legacyFunctions.js` — solo career credits goals from official score when `player_stats` omit goals (no silent 0-goal row).
+- Tests updated for Phase 2 (no dressing-room subscribe) + new control/score helpers.
 
-### Fix 2 — `processMatchCompletion` career UPDATE
-
-The My Club Career `UPDATE players` is in a `try/catch` that logs
-`[processMatchCompletion] derived club career failed match=<id> player=<id>: <message>`
-and then returns the already-official success. Prefix is greppable from the boot log with match id, so an admin or later job can replay the career write. Not a bare `catch {}`.
-
-Logged this run (result still 200):
-
-```
-[processMatchCompletion] derived club career failed match=c5ac13e4-9c43-40b9-88af-e8007e55ab79 player=16ebf8b1-3196-4a05-81ff-1dfe0f1901de: Unknown column 'matches_played_club' in 'field list'
-```
-
-### Diff (code only)
-
-`startupMigrations.js`: `.catch` returns `[]` + `clubPresidentOrphanLookupFailed`; throw only on real ids; skip NOT NULL on lookup failure.
-
-`legacyFunctions.js` ~1280: wrap career UPDATE in try/catch with the log line above.
+Out of scope left alone: deploy, ui/*, base44, availability, President profile, unused `submitted` lint.
 
 ### Verification
 
 `npm run lint && npm run typecheck && node --check server/src/server.js` — exit 0.
+
+Unit: `gameDayResultSubmissionFlow` + `gameDayRealtime` — 16 pass.
 
 Smoke summary:
 
@@ -44,4 +35,4 @@ Smoke summary:
 ALL ASSERTIONS PASSED
 ```
 
-A confirm and C accept are 200 (`{"data":{"status":"completed"}}`). Club/player POST 500s (`banner_url` / `goals_player`) unchanged — out of scope (`rank` / missing-column audit deferred).
+A (home submit → away confirm → completed) and C (away correction → home accept) both 2xx / `status=completed`.
