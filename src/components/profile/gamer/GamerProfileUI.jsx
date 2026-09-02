@@ -11,6 +11,24 @@ const ACCENT = {
   sky: "from-sky-400 to-blue-500",
 };
 
+const ACCENT_TINT = {
+  cyan: "border-cyan-400/25 bg-gradient-to-br from-cyan-950/80 via-[#061018]/95 to-black/92",
+  gold: "border-amber-400/25 bg-gradient-to-br from-amber-950/70 via-[#100c06]/95 to-black/92",
+  green: "border-emerald-400/25 bg-gradient-to-br from-emerald-950/70 via-[#061210]/95 to-black/92",
+  rose: "border-rose-400/25 bg-gradient-to-br from-rose-950/70 via-[#100608]/95 to-black/92",
+  violet: "border-violet-400/25 bg-gradient-to-br from-violet-950/70 via-[#0c0618]/95 to-black/92",
+  sky: "border-sky-400/25 bg-gradient-to-br from-sky-950/70 via-[#060e18]/95 to-black/92",
+};
+
+const ACCENT_VALUE = {
+  cyan: "text-cyan-200",
+  gold: "text-amber-200",
+  green: "text-emerald-200",
+  rose: "text-rose-200",
+  violet: "text-violet-200",
+  sky: "text-sky-200",
+};
+
 export function GamerProfileShell({ children, className }) {
   return (
     <div className={cn("min-h-screen bg-[#060912] text-white relative overflow-x-hidden", className)}>
@@ -202,22 +220,31 @@ export function GamerTabNav({ tabs, active, onChange, className }) {
   );
 }
 
-export function GamerStatTile({ label, value, accent = "cyan", sub, className, shape = "rounded" }) {
+export function GamerStatTile({ label, value, accent = "cyan", sub, className, shape = "rounded", tinted = false }) {
   const rounded = shape === "rounded";
   return (
     <div
       className={cn(
-        "min-w-0 border bg-white/[0.03] p-3",
-        rounded ? "rounded-xl border-white/10" : "border-cyan-300/15",
+        "min-w-0 border p-3 backdrop-blur-md",
+        tinted
+          ? (ACCENT_TINT[accent] || ACCENT_TINT.cyan)
+          : rounded
+            ? "rounded-xl border-white/10 bg-white/[0.03]"
+            : "border-cyan-300/15 bg-white/[0.03]",
         className,
       )}
       style={rounded ? undefined : { clipPath: "polygon(6% 0, 100% 0, 94% 100%, 0 100%)" }}
     >
-      <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-white/40 mb-1">{label}</p>
-      <p className={cn("font-heading text-2xl font-black leading-none bg-gradient-to-r bg-clip-text text-transparent", ACCENT[accent] || ACCENT.cyan)}>
+      <p className={cn("text-[9px] font-bold uppercase tracking-[0.22em] mb-1", tinted ? "text-white/55" : "text-white/40")}>{label}</p>
+      <p className={cn(
+        "font-heading text-2xl font-black leading-none",
+        tinted
+          ? (ACCENT_VALUE[accent] || ACCENT_VALUE.cyan)
+          : cn("bg-gradient-to-r bg-clip-text text-transparent", ACCENT[accent] || ACCENT.cyan),
+      )}>
         {value}
       </p>
-      {sub ? <p className="text-[10px] text-white/40 mt-1">{sub}</p> : null}
+      {sub ? <p className={cn("text-[10px] mt-1", tinted ? "text-white/50" : "text-white/40")}>{sub}</p> : null}
     </div>
   );
 }
@@ -245,8 +272,10 @@ export function GamerSectionCard({ title, action, children, className, shape = "
   return (
     <section
       className={cn(
-        "overflow-hidden border bg-white/[0.03] backdrop-blur-sm",
-        rounded ? "rounded-2xl border-white/10" : "border-cyan-300/15",
+        "overflow-hidden border backdrop-blur-md",
+        rounded
+          ? "rounded-2xl border-white/10 bg-[#070b14]/82"
+          : "border-cyan-300/15 bg-[#070b14]/82",
         className,
       )}
       style={rounded ? undefined : { clipPath: "polygon(2% 0, 100% 0, 98% 100%, 0 100%)" }}
@@ -254,7 +283,7 @@ export function GamerSectionCard({ title, action, children, className, shape = "
       {title ? (
         <div className={cn(
           "flex items-center justify-between gap-3 border-b px-5 py-3",
-          rounded ? "border-white/10 bg-white/[0.02]" : "border-cyan-300/10 bg-cyan-300/[0.03]",
+          rounded ? "border-white/10 bg-black/35" : "border-cyan-300/10 bg-black/35",
         )}>
           <h3 className="font-heading text-sm font-black uppercase tracking-[0.16em] text-white/90">{title}</h3>
           {action}

@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useId } from "react";
-import TournamentResultDialog from "../components/TournamentResultDialog";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import {
@@ -38,6 +37,7 @@ import { isWallClockPast, toMysqlDateTime, toDatetimeLocalValue } from "@/lib/mo
 import { swalAlert, swalConfirm } from "@/lib/swal";
 import { getTournamentEntryCost } from "@/lib/subscriptionUtils";
 import { getClubManagerEmails } from "@/lib/scheduleEngine";
+import { canOpenTournamentGameDay, tournamentGameDayWebPath } from "@/lib/tournamentGameDay";
 import { useTranslation } from "@/hooks/useTranslation";
 
 function requiresClubTournamentAdminReview(tournament) {
@@ -59,17 +59,12 @@ export default function TournamentDetail() {
   const [_isBasic, setIsBasic] = useState(false);
   const [_tournamentEntryCost, setTournamentEntryCost] = useState(50);
   const [loading, setLoading] = useState(true);
-  const [resultDialogOpen, setResultDialogOpen] = useState(false);
-  const [activeMatch, setActiveMatch] = useState(null);
-  const [resultForm, setResultForm] = useState({ home_score: "", away_score: "", video_url: "", proof_url: "" });
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const [scheduleMatch, setScheduleMatch] = useState(null);
   const [scheduleDate, setScheduleDate] = useState("");
   const [statsMatch, setStatsMatch] = useState(null);
   const [statsModalOpen, setStatsModalOpen] = useState(false);
-  const [myClubPlayers, setMyClubPlayers] = useState([]);
   const [groupStandingsData, setGroupStandingsData] = useState([]);
-  const [playerStats, setPlayerStats] = useState({});
   const [isAdmin, setIsAdmin] = useState(false);
   const [activeDispute, setActiveDispute] = useState(null);
   const [disputeDialogOpen, setDisputeDialogOpen] = useState(false);
@@ -196,8 +191,6 @@ export default function TournamentDetail() {
   const [isCreator, setIsCreator] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [rulesModalOpen, setRulesModalOpen] = useState(false);
-  const [uploadingProof, setUploadingProof] = useState(false);
-  const [uploadingVideo, setUploadingVideo] = useState(false);
   const [streamMatch, setStreamMatch] = useState(null);
   const [streamDialogOpen, setStreamDialogOpen] = useState(false);
   const [streamUrl, setStreamUrl] = useState("");
@@ -236,14 +229,6 @@ export default function TournamentDetail() {
         }
         if (myPl) {
           setMyPlayer(myPl);
-          if (myPl.club_id) {
-            const clubPlayers = await stageClient.entities.Player.filter({ club_id: myPl.club_id }).catch(() => []);
-            setMyClubPlayers(clubPlayers);
-          }
-        }
-        if (!myPl?.club_id && myResolvedClub?.id) {
-          const clubPlayers = await stageClient.entities.Player.filter({ club_id: myResolvedClub.id }).catch(() => []);
-          setMyClubPlayers(clubPlayers);
         }
 
         setIsBasic(u?.role === "admin");
@@ -256,8 +241,6 @@ export default function TournamentDetail() {
             const tcArr = await stageClient.entities.Club.filter({ id: tcId }).catch(() => []);
             if (tcArr.length > 0) {
               setTakeoverClub(tcArr[0]);
-              const tcPlayers = await stageClient.entities.Player.filter({ club_id: tcId }).catch(() => []);
-              setMyClubPlayers(tcPlayers);
             }
           }
         }
@@ -632,42 +615,12 @@ export default function TournamentDetail() {
     setDisputeForm({ home_score: "", away_score: "", admin_notes: "" });
   }
 
-  async function submitResult() {
-  if (!activeMatch) return;
-
-  const hs = parseInt(resultForm.home_score);
-  const as_ = parseInt(resultForm.away_score);
-  if (isNaN(hs) || isNaN(as_)) return;
-
-  const isHome = activeMatch.home_club_id === myPlayer?.club_id;
-  const submittedScore = `${hs}-${as_}`;
-  const now = new Date().toISOString();
-
-  if (!(await validatePlayerGoals(hs, as_, isHome))) return;
-
-  const context = buildSubmissionContext({
-    hs,
-    as_,
-    isHome,
-    submittedScore,
-    now,
-  });
-
-  if (context.otherSubmitted && context.otherScore) {
-    if (context.otherScore === submittedScore) {
-      await handleAgreement(context);
-    } else {
-      await handleDispute(context);
-    }
-  } else {
-    await handleFirstSubmission(context);
+  function openGameDay(match) {
+    if (!match?.id) return;
+    navigate(tournamentGameDayWebPath(match.id));
   }
 
-  await refreshMatches();
-  resetUI();
-}
-
-function GroupStageVisual({ matches, registeredClubs, numGroups }) {
+  function GroupStageVisual({ matches, registeredClubs, numGroups }) {
   const groups = Array.from({ length: Math.max(1, Number(numGroups) || 2) }, (_, index) => ({
     index,
     name: String.fromCharCode(65 + index),
@@ -730,163 +683,6 @@ function GroupStageVisual({ matches, registeredClubs, numGroups }) {
   );
 }
 
-async function validatePlayerGoals(hs, as_, isHome) {
-  const myGoals = Object.values(playerStats).reduce(
-    (sum, s) => sum + (s.goals || 0),
-    0
-  );
-  const myScore = isHome ? hs : as_;
-
-  if (myGoals > myScore) {
-    await swalAlert(
-      `Total goals entered (${myGoals}) exceeds your team's score (${myScore}).`
-    );
-    return false;
-  }
-  return true;
-}
-
-function buildSubmissionContext({ hs, as_, isHome, submittedScore, now }) {
-  const proofData = resultForm.proof_url
-    ? { proof_url: resultForm.proof_url }
-    : {};
-  const submissionPayload = {
-    home_score: hs,
-    away_score: as_,
-    player_stats: [],
-    goal_events: [],
-    proof_url: resultForm.proof_url || null,
-    submitted_at: now,
-  };
-
-  const mySubmitData = isHome
-    ? { result_home_submitted: true, home_submitted_score: submittedScore, home_submission: submissionPayload, ...proofData }
-    : { result_away_submitted: true, away_submitted_score: submittedScore, away_submission: submissionPayload, ...proofData };
-
-  return {
-    hs,
-    as_,
-    isHome,
-    submittedScore,
-    now,
-    mySubmitData,
-    otherSubmitted: isHome
-      ? activeMatch.result_away_submitted
-      : activeMatch.result_home_submitted,
-    otherScore: isHome
-      ? activeMatch.away_submitted_score
-      : activeMatch.home_submitted_score,
-  };
-}
-
-async function handleAgreement(ctx) {
-  const { hs, as_, mySubmitData } = ctx;
-
-    const winnerId = hs > as_ ? activeMatch.home_club_id : as_ == hs ? null: activeMatch.away_club_id;
-    const winner_name = hs > as_ ? activeMatch.home_club_name: as_ == hs ? null : activeMatch.away_club_name ;
-    const loserId = hs < as_ ? activeMatch.away_club_id : as_ == hs ? null  :activeMatch.home_club_id;
-    const loser_name = hs < as_ ? activeMatch.away_club_name: as_ == hs ? null : activeMatch.home_club_name;
-
-  await stageClient.entities.Match.update(activeMatch.id, {
-    ...mySubmitData,
-    home_score: hs,
-    away_score: as_,
-    winner_club_id: winnerId,
-    winner_club_name:winner_name, 
-    loser_club_id:loserId, 
-    loser_club_name:loser_name,
-    status: "completed",
-    ...(resultForm.video_url && { video_url: resultForm.video_url }),
-  });
-
-  await savePlayerStats();
-  // Notify both clubs that the result is confirmed
-  await notifyClubs(
-    [activeMatch.home_club_id, activeMatch.away_club_id],
-    `✅ Result Confirmed: ${activeMatch.home_club_name} ${hs}-${as_} ${activeMatch.away_club_name}`,
-    `Both sides agreed on the score. Match is now complete.`
-  );
-}
-
-async function handleDispute(ctx) {
-  await stageClient.entities.Match.update(activeMatch.id, {
-    ...ctx.mySubmitData,
-    status: "disputed",
-  });
-
-  await notifyClubs(
-    [activeMatch.home_club_id, activeMatch.away_club_id],
-    "⚠️ Match Score Disputed",
-    `${activeMatch.home_club_name} vs ${activeMatch.away_club_name}: Scores don't match.`
-  );
-
-  await swalAlert(
-    `Score disputed! You submitted ${ctx.submittedScore}, opponent submitted ${ctx.otherScore}.`
-  );
-}
-
-async function handleFirstSubmission(ctx) {
-  await stageClient.entities.Match.update(activeMatch.id, {
-    ...ctx.mySubmitData,
-    status: "awaiting_confirmation",
-    first_submission_at: ctx.now,
-    first_submitter_club_id: ctx.isHome
-      ? activeMatch.home_club_id
-      : activeMatch.away_club_id,
-  });
-
-  const opponentClubId = ctx.isHome
-    ? activeMatch.away_club_id
-    : activeMatch.home_club_id;
-
-  await savePlayerStats();
-  await notifyClubs(
-    [opponentClubId],
-    "Opponent Submitted Match Result",
-    `${activeMatch.home_club_name} vs ${activeMatch.away_club_name}: ${ctx.submittedScore}`
-  );
-  await swalAlert(t("tournamentDetail.resultSubmitted"));
-}
-
-async function savePlayerStats() {
-  const entries = Object.entries(playerStats).filter(
-    ([, s]) => s.goals > 0 || s.assists > 0 || s.rating
-  );
-
-  await Promise.all(
-    entries.map(async ([email, stat]) => {
-      const player = myClubPlayers.find((p) => p.email === email);
-
-      return stageClient.entities.MatchPlayerStat.create({
-        tournament_id: id,
-        match_id: activeMatch.id,
-        club_id: myClub?.id || myPlayer?.club_id || null,
-        player_email: email,
-        player_gamertag: player?.gamertag || email,
-        goals: stat.goals || 0,
-        assists: stat.assists || 0,
-        rating: parseFloat(stat.rating) || 6.0,
-      });
-    })
-  );
-}
-
-async function notifyClubs(_clubIds, _title, _body) {
-  // Notifications removed
-}
-
-function resetUI() {
-  setResultDialogOpen(false);
-  setActiveMatch(null);
-  setResultForm({
-    home_score: "",
-    away_score: "",
-    video_url: "",
-    proof_url: "",
-  });
-  setPlayerStats({});
-}
-
   async function claimForfeit(match, proofUrl) {
     const claimClubId = myClub?.id || myPlayer?.club_id;
     if (!claimClubId) return;
@@ -917,11 +713,6 @@ function resetUI() {
     setMatches(refreshed);
     setDisputeDialogOpen(false);
     setActiveDispute(null);
-  }
-
-  async function refreshMatches() {
-    const refreshed = await fetchTournamentMatches(id);
-    setMatches(refreshed);
   }
 
   async function simulateScore(match) {
@@ -1636,6 +1427,7 @@ function resetUI() {
               <KnockoutBracket
                 matches={bracketMatches}
                 myClubId={myClubId}
+                onSubmit={openGameDay}
                 onSchedule={(match) => { setScheduleMatch(match); setScheduleDate(toDatetimeLocalValue(match.scheduled_date)); setScheduleDialogOpen(true); }}
                 onViewStats={(match) => { setStatsMatch(match); setStatsModalOpen(true); }}
               />
@@ -1744,13 +1536,16 @@ function resetUI() {
 
                             {/* Status / action strip */}
                             {match.status === "awaiting_confirmation" && (
-                              <div className="mt-2 text-xs text-warning flex items-center gap-1">
-                                <AlertTriangle className="w-3 h-3" /> Awaiting opponent confirmation (24h timeout)
-                              </div>
+                              <button type="button" onClick={() => openGameDay(match)}
+                                className="mt-2 text-xs text-warning flex items-center gap-1">
+                                <AlertTriangle className="w-3 h-3" /> Awaiting confirmation on Game Day
+                              </button>
                             )}
                             {match.status === "disputed" && (
                               <div className="mt-2 flex items-center gap-2">
                                 <span className="text-xs text-destructive font-bold">⚠️ Score disputed</span>
+                                <Button size="sm" type="button" onClick={() => openGameDay(match)}
+                                  className="bg-primary/10 text-primary text-xs border border-primary/30 h-6 px-2">Game Day</Button>
                                 {isAdmin && (
                                   <Button size="sm" type="button" onClick={() => { setActiveDispute(match); setDisputeDialogOpen(true); }}
                                     className="bg-destructive/10 text-destructive text-xs border border-destructive/30 h-6 px-2">{t("commonPages.tdResolve")}</Button>
@@ -1763,15 +1558,23 @@ function resetUI() {
                               </div>
                             )}
 
-                            {isMyMatch && match.home_club_id === myClubId && (match.status === "unscheduled" || match.status === "scheduled" || match.status === "in_progress" || match.status === "awaiting_confirmation") && (
+                            {(canOpenTournamentGameDay(match) || (isMyMatch && match.home_club_id === myClubId && (match.status === "unscheduled" || match.status === "scheduled" || match.status === "in_progress" || match.status === "awaiting_confirmation"))) && (
                               <div className="mt-3 pt-2.5 border-t border-border/60 flex flex-wrap gap-1.5 justify-end">
-                                {match.scheduling_status === "home_proposed" ? (
-                                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                    Proposal sent
-                                  </span>
-                                ) : (
-                                  <Button size="sm" type="button" variant="outline" onClick={() => { setScheduleMatch(match); setScheduleDate(toDatetimeLocalValue(match.scheduled_date || match.home_proposed_date)); setScheduleDialogOpen(true); }}
-                                    className="border-border text-xs text-muted-foreground h-7">{t("nav.schedule")}</Button>
+                                {isMyMatch && match.home_club_id === myClubId && (match.status === "unscheduled" || match.status === "scheduled" || match.status === "in_progress" || match.status === "awaiting_confirmation") && (
+                                  match.scheduling_status === "home_proposed" ? (
+                                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                      Proposal sent
+                                    </span>
+                                  ) : (
+                                    <Button size="sm" type="button" variant="outline" onClick={() => { setScheduleMatch(match); setScheduleDate(toDatetimeLocalValue(match.scheduled_date || match.home_proposed_date)); setScheduleDialogOpen(true); }}
+                                      className="border-border text-xs text-muted-foreground h-7">{t("nav.schedule")}</Button>
+                                  )
+                                )}
+                                {canOpenTournamentGameDay(match) && (
+                                  <Button size="sm" type="button" onClick={() => openGameDay(match)}
+                                    className="bg-primary/10 text-primary border border-primary/30 text-xs h-7">
+                                    Game Day
+                                  </Button>
                                 )}
                               </div>
                             )}
@@ -2173,22 +1976,6 @@ function resetUI() {
           )}
         </DialogContent>
       </Dialog>
-
-      <TournamentResultDialog
-        open={resultDialogOpen}
-        onClose={setResultDialogOpen}
-        activeMatch={activeMatch}
-        resultForm={resultForm}
-        setResultForm={setResultForm}
-        myClubPlayers={myClubPlayers}
-        playerStats={playerStats}
-        setPlayerStats={setPlayerStats}
-        uploadingProof={uploadingProof}
-        setUploadingProof={setUploadingProof}
-        uploadingVideo={uploadingVideo}
-        setUploadingVideo={setUploadingVideo}
-        onSubmit={submitResult}
-      />
     </div>
   );
 }

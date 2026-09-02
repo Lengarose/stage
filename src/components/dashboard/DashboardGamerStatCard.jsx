@@ -1,27 +1,13 @@
 import { cn } from "@/lib/utils";
-
-const ACCENTS = {
-  cyan: "from-cyan-400/20 to-teal-500/10 border-cyan-400/25 text-cyan-300",
-  gold: "from-amber-400/20 to-yellow-500/10 border-amber-400/25 text-amber-300",
-  green: "from-emerald-400/20 to-green-500/10 border-emerald-400/25 text-emerald-300",
-  violet: "from-violet-400/20 to-purple-500/10 border-violet-400/25 text-violet-300",
-  rose: "from-rose-400/20 to-red-500/10 border-rose-400/25 text-rose-300",
-};
+import { GamerStatTile } from "@/components/profile/gamer/GamerProfileUI";
 
 export default function DashboardGamerStatCard({ label, value, sub, accent = "cyan", icon: Icon, className }) {
   return (
-    <div className={cn(
-      "relative rounded-xl border bg-gradient-to-br p-4 min-w-0 overflow-hidden",
-      ACCENTS[accent] || ACCENTS.cyan,
-      className
-    )}>
-      <div className="absolute -right-4 -top-4 w-20 h-20 rounded-full bg-white/[0.04] blur-xl pointer-events-none" />
+    <div className={cn("relative min-w-0", className)}>
       {Icon ? (
-        <Icon className="w-4 h-4 opacity-50 mb-2" />
+        <Icon className="absolute right-3 top-3 z-[1] h-4 w-4 text-white/35" />
       ) : null}
-      <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-white/40 mb-1">{label}</p>
-      <p className="font-heading font-black text-2xl leading-none text-white">{value}</p>
-      {sub ? <p className="text-[10px] text-white/45 mt-1">{sub}</p> : null}
+      <GamerStatTile label={label} value={value} sub={sub} accent={accent} shape="angled" tinted />
     </div>
   );
 }

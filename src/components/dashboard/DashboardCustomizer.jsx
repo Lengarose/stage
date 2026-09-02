@@ -1,44 +1,45 @@
 import { Plus, RotateCcw } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { GamerHeroAction } from "@/components/profile/gamer/GamerProfileUI";
 import { DASHBOARD_WIDGET_META } from "@/lib/dashboardLayout";
 import { useTranslation } from "@/hooks/useTranslation";
+
+const CLIP = { clipPath: "polygon(2% 0, 100% 0, 98% 100%, 0 100%)" };
 
 export default function DashboardCustomizer({ activeWidgets, onAddWidget, onReset }) {
   const { t } = useTranslation();
   const availableToAdd = DASHBOARD_WIDGET_META.filter((w) => !activeWidgets.includes(w.id));
 
   return (
-    <div className="rounded-xl border border-dashed border-primary/30 bg-primary/5 p-4 space-y-3">
-      <p className="text-xs text-muted-foreground">{t("commonPages.dashboardLayoutHint")}</p>
+    <div
+      className="border border-dashed border-cyan-300/30 bg-gradient-to-br from-[#070b14]/95 via-cyan-950/40 to-black/90 p-4 space-y-3 backdrop-blur-md"
+      style={CLIP}
+    >
+      <p className="text-xs text-white/45">{t("commonPages.dashboardLayoutHint")}</p>
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex flex-wrap gap-2 flex-1">
           {availableToAdd.map((widget) => (
-            <Button
+            <GamerHeroAction
               key={widget.id}
               type="button"
-              size="sm"
-              variant="outline"
               onClick={() => onAddWidget(widget.id)}
-              className="gap-1 font-heading uppercase text-xs"
+              className="max-w-none text-[10px] px-3 py-1.5"
             >
               <Plus className="w-3 h-3" />
               {t(`commonPages.${widget.labelKey}`)}
-            </Button>
+            </GamerHeroAction>
           ))}
           {availableToAdd.length === 0 ? (
-            <span className="text-xs text-muted-foreground">{t("commonPages.dashboardLayoutAllVisible")}</span>
+            <span className="text-xs text-white/40">{t("commonPages.dashboardLayoutAllVisible")}</span>
           ) : null}
         </div>
-        <Button
+        <GamerHeroAction
           type="button"
-          size="sm"
-          variant="ghost"
           onClick={onReset}
-          className="gap-1 font-heading uppercase text-xs shrink-0"
+          className="max-w-none shrink-0 text-[10px] px-3 py-1.5 border-white/15 text-white/60 hover:text-white"
         >
           <RotateCcw className="w-3 h-3" />
           {t("commonPages.dashboardLayoutReset")}
-        </Button>
+        </GamerHeroAction>
       </div>
     </div>
   );

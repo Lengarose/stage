@@ -1,17 +1,19 @@
 import { Shield, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { canOpenTournamentGameDay } from "@/lib/tournamentGameDay";
 
 function MatchCard({ match, myClubId, onSubmit, onSchedule, onViewStats, onAddStream, onForfeit }) {
   const isMyMatch = match?.home_club_id === myClubId || match?.away_club_id === myClubId;
   const completed = match?.status === "completed";
   const homeWon = completed && match.winner_club_id === match.home_club_id;
   const awayWon = completed && match.winner_club_id === match.away_club_id;
-  const pending = match?.status === "unscheduled" || match?.status === "scheduled" || match?.status === "in_progress" || match?.status === "awaiting_confirmation";
+  const pending = match?.status === "unscheduled" || match?.status === "scheduled" || match?.status === "in_progress" || match?.status === "awaiting_confirmation" || match?.status === "disputed";
   const isHomeMatch = match?.home_club_id === myClubId;
   const scheduleProposalSent = isHomeMatch && match?.scheduling_status === "home_proposed";
   const canSchedule = onSchedule && isHomeMatch && !scheduleProposalSent;
+  const openGameDay = onSubmit && canOpenTournamentGameDay(match);
   const showCompletedStats = completed && onViewStats;
-  const showPendingActions = isMyMatch && pending && (canSchedule || onSubmit || onAddStream || onForfeit || scheduleProposalSent);
+  const showPendingActions = isMyMatch && pending && (canSchedule || openGameDay || onAddStream || onForfeit || scheduleProposalSent);
 
   if (!match) {
     return (
@@ -115,7 +117,7 @@ function MatchCard({ match, myClubId, onSubmit, onSchedule, onViewStats, onAddSt
       )}
       {showPendingActions && (
         <div className="border-t border-border/50">
-          <div className={cn("grid", canSchedule && onSubmit ? "grid-cols-2" : "grid-cols-1")}>
+          <div className={cn("grid", canSchedule && openGameDay ? "grid-cols-2" : "grid-cols-1")}>
             {canSchedule && (
               <button type="button" onClick={() => onSchedule(match)}
                 className="text-xs uppercase tracking-wider font-semibold text-muted-foreground bg-secondary/40 hover:bg-secondary py-2.5 transition-colors border-r border-border/50">
@@ -127,18 +129,9 @@ function MatchCard({ match, myClubId, onSubmit, onSchedule, onViewStats, onAddSt
                 Proposal sent
               </div>
             )}
-            {onSubmit && (
-              match.status !== "awaiting_confirmation" ? (
-                <button type="button" onClick={() => onSubmit(match)}
-                  className="text-xs uppercase tracking-wider font-semibold text-primary bg-primary/5 hover:bg-primary/10 py-2.5 transition-colors">
-                  Result
-                </button>
-              ) : !((match.home_club_id === myClubId && match.result_home_submitted) || (match.away_club_id === myClubId && match.result_away_submitted)) ? (
-                <button type="button" onClick={() => onSubmit(match)}
-                  className="text-xs uppercase tracking-wider font-semibold text-warning bg-warning/5 hover:bg-warning/10 py-2.5 transition-colors">
-                  Confirm
-                </button>
-              ) : <div />
+            {openGameDay && (
+              <button type="button" onClick={() => onSubmit(match)}
+                className="text-xs uppercase tracking-wider font-semibold text-primary bg-primary/5 hover:bg-primary/10 py-2.5 transition-colors">Game Day</button>
             )}
           </div>
           {(onAddStream || onForfeit) && (

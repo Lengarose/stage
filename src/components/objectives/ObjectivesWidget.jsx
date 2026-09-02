@@ -1,6 +1,9 @@
 import { useEffect, useState, useCallback } from 'react';
 import { stageClient } from '@/api/stageClient';
 import { useTranslation } from '@/hooks/useTranslation';
+import { GamerHeroAction } from '@/components/profile/gamer/GamerProfileUI';
+
+const ROW_CLIP = { clipPath: "polygon(4% 0, 100% 0, 96% 100%, 0 100%)" };
 
 /**
  * ObjectivesWidget — dashboard widget showing the current player's open
@@ -54,9 +57,9 @@ export default function ObjectivesWidget({ playerId, scope, onClaimed }) {
   };
 
   if (!playerId) return null;
-  if (loading) return <div className="p-4 text-sm text-muted-foreground">{t('commonPages.dashboardObjectivesLoading')}</div>;
-  if (error)   return <div className="p-4 text-sm text-red-500">{error}</div>;
-  if (!items.length) return <div className="p-4 text-sm text-muted-foreground">{t('commonPages.dashboardObjectivesEmpty')}</div>;
+  if (loading) return <div className="text-sm text-white/45">{t('commonPages.dashboardObjectivesLoading')}</div>;
+  if (error)   return <div className="text-sm text-rose-400">{error}</div>;
+  if (!items.length) return <div className="text-sm text-white/45">{t('commonPages.dashboardObjectivesEmpty')}</div>;
 
   return (
     <div className="space-y-2">
@@ -68,43 +71,43 @@ export default function ObjectivesWidget({ playerId, scope, onClaimed }) {
         const claimed   = !!it.claimed_at;
 
         return (
-          <div key={it.id} className="rounded-md border border-border bg-card p-3">
+          <div key={it.id} className="border border-cyan-300/20 bg-gradient-to-r from-[#070b14]/95 via-black/88 to-[#070b14]/90 p-3 backdrop-blur-md" style={ROW_CLIP}>
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-300/80">
                     {(it.def_scope || it.scope || 'daily').toUpperCase()}
                   </span>
-                  <span className="font-semibold truncate">{it.title || it.objective_id}</span>
+                  <span className="font-heading font-black uppercase text-sm text-white truncate">{it.title || it.objective_id}</span>
                 </div>
                 {it.description ? (
-                  <p className="text-xs text-muted-foreground mb-2">{it.description}</p>
+                  <p className="text-xs text-white/45 mb-2">{it.description}</p>
                 ) : null}
-                <div className="h-2 w-full rounded bg-muted overflow-hidden">
+                <div className="h-1.5 w-full rounded-full bg-white/[0.06] overflow-hidden">
                   <div
-                    className="h-full bg-primary transition-all"
+                    className="h-full bg-gradient-to-r from-cyan-400 to-teal-500 transition-all"
                     style={{ width: `${pct}%` }}
                   />
                 </div>
-                <div className="mt-1 text-xs text-muted-foreground">
+                <div className="mt-1 text-xs text-white/40">
                   {current} / {target} · {t('commonPages.dashboardObjectivesReward')}: {Number(it.reward_stc || 0).toLocaleString()} STC
                   {it.reward_xp ? ` · ${it.reward_xp} XP` : ''}
                 </div>
               </div>
               <div className="shrink-0">
                 {claimed ? (
-                  <span className="text-xs text-muted-foreground">{t('commonPages.dashboardObjectivesClaimed')}</span>
+                  <span className="text-xs text-white/40">{t('commonPages.dashboardObjectivesClaimed')}</span>
                 ) : completed ? (
-                  <button
+                  <GamerHeroAction
                     type="button"
                     onClick={() => handleClaim(it.id)}
                     disabled={claimingId === it.id}
-                    className="px-3 py-1 text-xs rounded bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                    className="max-w-none px-3 py-1.5 text-[10px] disabled:opacity-50"
                   >
                     {claimingId === it.id ? t('commonPages.dashboardObjectivesClaiming') : t('commonPages.dashboardObjectivesClaim')}
-                  </button>
+                  </GamerHeroAction>
                 ) : (
-                  <span className="text-xs text-muted-foreground">{t('commonPages.dashboardObjectivesInProgress')}</span>
+                  <span className="text-xs text-white/40">{t('commonPages.dashboardObjectivesInProgress')}</span>
                 )}
               </div>
             </div>

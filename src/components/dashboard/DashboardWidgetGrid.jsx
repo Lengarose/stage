@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import { LayoutGrid } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import DashboardWidget from "@/components/DashboardWidget";
 import DashboardCustomizer from "@/components/dashboard/DashboardCustomizer";
+import { GamerHeroAction } from "@/components/profile/gamer/GamerProfileUI";
 import {
   DASHBOARD_WIDGET_META,
   loadDashboardLayout,
@@ -81,16 +81,14 @@ export default function DashboardWidgetGrid({ widgets, hiddenByDefault = new Set
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-end gap-2">
-        <Button
+        <GamerHeroAction
           type="button"
-          size="sm"
-          variant={editMode ? "default" : "outline"}
-          className="gap-2 font-heading uppercase text-xs"
           onClick={() => setEditMode((v) => !v)}
+          className={editMode ? "border-cyan-200/55 bg-cyan-300/15 text-white" : undefined}
         >
           <LayoutGrid className="w-3.5 h-3.5" />
           {editMode ? t("commonPages.dashboardLayoutDone") : t("commonPages.dashboardLayoutEdit")}
-        </Button>
+        </GamerHeroAction>
       </div>
 
       {editMode ? (

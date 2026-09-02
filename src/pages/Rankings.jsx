@@ -207,27 +207,44 @@ export default function Rankings() {
           </div>
         ) : null}
 
-        <div className="mb-6 flex flex-wrap items-end gap-3 border-b border-white/10 pb-4">
-          <Segment value={view} onChange={setView} items={[
-            { value: "clubs", label: t("competitionFlow.clubs"), icon: Shield },
-            { value: "players", label: t("competitionFlow.players"), icon: Users },
-            ...(hasFullRankings ? [{ value: "positions", label: t("competitionFlow.bestByPosition"), icon: Crosshair }] : []),
-          ]} />
+        <div className="mb-6 space-y-3">
+          <div className="flex flex-wrap gap-2">
+            <Segment
+              value={view}
+              onChange={setView}
+              items={[
+                { value: "clubs", label: t("competitionFlow.clubs"), icon: Shield },
+                { value: "players", label: t("competitionFlow.players"), icon: Users },
+                ...(hasFullRankings ? [{ value: "positions", label: t("competitionFlow.bestByPosition"), icon: Crosshair }] : []),
+              ]}
+            />
+          </div>
+
           {hasFullRankings ? (
-            <Segment value={scope} onChange={setScope} items={[
-              { value: "global", label: t("competitionFlow.global"), icon: Globe },
-              { value: "regional", label: t("competitionFlow.regional"), icon: MapPin },
-              { value: "country", label: t("competitionFlow.country"), icon: Medal },
-            ]} />
-          ) : null}
-          {hasFullRankings && scope === "regional" ? (
-            <Select value={region} onChange={setRegion} options={regions} placeholder={t("competitionFlow.allRegions")} />
-          ) : null}
-          {hasFullRankings && scope === "country" ? (
-            <Select value={country} onChange={setCountry} options={countries} placeholder={t("competitionFlow.allCountries")} />
-          ) : null}
-          {hasFullRankings && view === "positions" ? (
-            <Select value={position} onChange={setPosition} options={POSITIONS} placeholder="Position" />
+            <div
+              className="flex flex-wrap items-center gap-3 border border-cyan-300/15 bg-[#070b14]/82 px-4 py-3 backdrop-blur-md"
+              style={{ clipPath: "polygon(1% 0, 100% 0, 99% 100%, 0 100%)" }}
+            >
+              <Segment
+                variant="filter"
+                value={scope}
+                onChange={setScope}
+                items={[
+                  { value: "global", label: t("competitionFlow.global"), icon: Globe },
+                  { value: "regional", label: t("competitionFlow.regional"), icon: MapPin },
+                  { value: "country", label: t("competitionFlow.country"), icon: Medal },
+                ]}
+              />
+              {scope === "regional" ? (
+                <Select value={region} onChange={setRegion} options={regions} placeholder={t("competitionFlow.allRegions")} />
+              ) : null}
+              {scope === "country" ? (
+                <Select value={country} onChange={setCountry} options={countries} placeholder={t("competitionFlow.allCountries")} />
+              ) : null}
+              {view === "positions" ? (
+                <Select value={position} onChange={setPosition} options={POSITIONS} placeholder="Position" />
+              ) : null}
+            </div>
           ) : null}
         </div>
 
@@ -253,26 +270,40 @@ export default function Rankings() {
   );
 }
 
-function Segment({ value, onChange, items }) {
+function Segment({ value, onChange, items, variant = "primary" }) {
+  const isFilter = variant === "filter";
   return (
     <div className="flex flex-wrap gap-2">
-      {items.map(({ value: itemValue, label, icon: Icon }) => (
-        <button
-          key={itemValue}
-          type="button"
-          onClick={() => onChange(itemValue)}
-          className={cn(
-            "flex items-center gap-2 border px-4 py-2.5 text-xs font-black uppercase tracking-widest transition-all",
-            value === itemValue
-              ? "border-cyan-200/55 bg-gradient-to-r from-sky-500/35 via-cyan-400/20 to-blue-600/30 text-cyan-50 shadow-[0_0_22px_-10px_rgba(0,229,255,0.95)]"
-              : "border-cyan-300/15 bg-[#06111d]/75 text-cyan-100/45 hover:border-cyan-300/35 hover:bg-cyan-300/10 hover:text-cyan-50"
-          )}
-          style={{ clipPath: "polygon(10% 0, 100% 0, 90% 100%, 0 100%)" }}
-        >
-          <Icon className="h-4 w-4" />
-          {label}
-        </button>
-      ))}
+      {items.map(({ value: itemValue, label, icon: Icon }) => {
+        const active = value === itemValue;
+        return (
+          <button
+            key={itemValue}
+            type="button"
+            onClick={() => onChange(itemValue)}
+            className={cn(
+              "flex items-center gap-2 border text-xs font-black uppercase transition-all",
+              isFilter
+                ? cn(
+                    "rounded-lg px-3 py-2 tracking-wider",
+                    active
+                      ? "border-cyan-200/45 bg-cyan-300/15 text-cyan-100"
+                      : "border-white/10 bg-black/30 text-white/45 hover:border-cyan-300/30 hover:text-cyan-100",
+                  )
+                : cn(
+                    "px-4 py-2.5 tracking-widest",
+                    active
+                      ? "border-cyan-200/55 bg-gradient-to-r from-sky-500/35 via-cyan-400/20 to-blue-600/30 text-cyan-50 shadow-[0_0_22px_-10px_rgba(0,229,255,0.95)]"
+                      : "border-cyan-300/15 bg-[#06111d]/75 text-cyan-100/45 hover:border-cyan-300/35 hover:bg-cyan-300/10 hover:text-cyan-50",
+                  ),
+            )}
+            style={isFilter ? undefined : { clipPath: "polygon(10% 0, 100% 0, 90% 100%, 0 100%)" }}
+          >
+            <Icon className="h-4 w-4 shrink-0" />
+            {label}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -282,7 +313,7 @@ function Select({ value, onChange, options, placeholder }) {
     <select
       value={value}
       onChange={(event) => onChange(event.target.value)}
-      className="h-10 rounded-lg border border-white/10 bg-[#07111f] px-3 text-sm text-white outline-none focus:border-cyan-300/60"
+      className="h-10 min-w-[120px] rounded-lg border border-cyan-300/20 bg-[#061018]/95 px-3 text-sm text-white outline-none focus:border-cyan-300/60"
     >
       <option value="">{placeholder}</option>
       {options.map((option) => <option key={option} value={option}>{option}</option>)}
