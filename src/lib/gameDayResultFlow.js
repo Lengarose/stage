@@ -30,14 +30,55 @@ export function parseMatchSubmission(raw) {
   try { return JSON.parse(raw); } catch { return null; }
 }
 
+export function sideHasResultClaim(game, side = "home") {
+  const flag = side === "away" ? game?.result_away_submitted : game?.result_home_submitted;
+  if (isSubmittedFlag(flag)) return true;
+  const raw = side === "away" ? game?.away_submission : game?.home_submission;
+  const parsed = parseMatchSubmission(raw);
+  if (!parsed) return false;
+  return parsed.home_score != null || parsed.away_score != null || parsed.own_score != null;
+}
+
+/** Score claimed during negotiation (not yet official until confirmed). */
+export function pendingFixtureScore(game) {
+  const submitSide = String(game?.result_submit_side || "home").toLowerCase() === "away" ? "away" : "home";
+  const submitted = parseMatchSubmission(submitSide === "away" ? game?.away_submission : game?.home_submission);
+  const fixture = fixtureScoreFromSubmission(submitted, submitSide);
+  const officialHome = Number(game?.home_score);
+  const officialAway = Number(game?.away_score);
+  const state = String(game?.result_state || "");
+  const negotiating = state === "AWAITING_AWAY_CONFIRMATION"
+    || state === "AWAITING_HOME_REVIEW"
+    || (!state && sideHasResultClaim(game, "home"));
+  if (negotiating && Number.isFinite(fixture.home) && Number.isFinite(fixture.away)) {
+    return { home: fixture.home, away: fixture.away, pending: true };
+  }
+  return {
+    home: Number.isFinite(officialHome) ? officialHome : 0,
+    away: Number.isFinite(officialAway) ? officialAway : 0,
+    pending: false,
+  };
+}
+
 export function getResultSubmissionControls({ game, isLive, showResultForm, amIHomeTeam }) {
-  const homeResultSubmitted = isSubmittedFlag(game?.result_home_submitted);
+  const homeResultSubmitted = sideHasResultClaim(game, "home");
   const awayResultSubmitted = isSubmittedFlag(game?.result_away_submitted);
   const state = String(game?.result_state || "");
   const submitSide = String(game?.result_submit_side || "home").toLowerCase() === "away" ? "away" : "home";
-  const awaitingResult = state === "AWAITING_RESULT" || (!state && !homeResultSubmitted && !awayResultSubmitted);
+  // Kickoff writes AWAITING_RESULT. After Home submits, if the client still has
+  // that kickoff state, treat a home claim as confirmation-wait — never as a
+  // second Full Time Submit.
+  const awaitingResult = (state === "AWAITING_RESULT" || !state)
+    && !homeResultSubmitted
+    && !awayResultSubmitted;
   const awaitingConfirm = state === "AWAITING_AWAY_CONFIRMATION"
-    || (!state && homeResultSubmitted && !awayResultSubmitted);
+    || (homeResultSubmitted && !awayResultSubmitted
+      && state !== "AWAITING_HOME_REVIEW"
+      && state !== "DISPUTED"
+      && state !== "ADMIN_REVIEW"
+      && state !== "CONFIRMED"
+      && state !== "AUTO_CONFIRMED_TIMEOUT"
+      && state !== "VOIDED");
   const awaitingReview = state === "AWAITING_HOME_REVIEW";
   const iAmSubmitter = submitSide === "home" ? Boolean(amIHomeTeam) : !amIHomeTeam;
   const negotiationOpen = awaitingResult || awaitingConfirm || awaitingReview
@@ -47,11 +88,11 @@ export function getResultSubmissionControls({ game, isLive, showResultForm, amIH
   return {
     homeResultSubmitted,
     awayResultSubmitted,
-    showHomeSubmit: canShowResultAction && awaitingResult && Boolean(amIHomeTeam) && submitSide === "home",
+    showHomeSubmit: canShowResultAction && awaitingResult && Boolean(amIHomeTeam) && submitSide === "home" && !homeResultSubmitted,
     showAwayWaitingForHome: canShowResultAction && awaitingResult && !amIHomeTeam && submitSide === "home",
-    // Away confirms in AWAITING_AWAY_CONFIRMATION — they do not submit_result again.
     showAwaySubmit: canShowResultAction && awaitingResult && !amIHomeTeam && submitSide === "away",
     showHomeWaitingForAway: canShowResultAction && awaitingConfirm && Boolean(amIHomeTeam) && submitSide === "home",
+    showAmendResult: canShowResultAction && awaitingConfirm && iAmSubmitter,
     showAwaySubmittedWaitingForHome: canShowResultAction && (
       (awaitingConfirm && !amIHomeTeam && submitSide === "away")
       || (awaitingReview && !iAmSubmitter)

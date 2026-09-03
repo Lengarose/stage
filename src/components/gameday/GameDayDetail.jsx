@@ -15,7 +15,7 @@ import GameDayFixtureActions from "./GameDayFixtureActions";
 import { cn } from "@/lib/utils";
 import { useChatNotifications } from "@/lib/ChatNotificationsContext";
 import { useTranslation } from "@/hooks/useTranslation";
-import { getResultSubmissionControls, getKickoffControls, isClubGameDayMatch } from "@/lib/gameDayResultFlow";
+import { getResultSubmissionControls, getKickoffControls, isClubGameDayMatch, pendingFixtureScore } from "@/lib/gameDayResultFlow";
 import { getMatchSideNames } from "@/lib/gameDayPresentation";
 import { sameRecordId } from "@/lib/gameDayRealtime";
 import { useGameDayMatchRealtime } from "@/lib/useGameDayMatchRealtime";
@@ -224,10 +224,25 @@ export default function GameDayDetail({
   async function handleResultSubmitted(status, homeScore, awayScore) {
     setShowResultForm(false);
 
+    const waiting = status === "waiting" || status === "awaiting_home_review";
+    const optimistic = waiting
+      ? {
+          result_state: status === "awaiting_home_review" ? "AWAITING_HOME_REVIEW" : "AWAITING_AWAY_CONFIRMATION",
+          result_home_submitted: 1,
+          home_submission: {
+            home_score: homeScore,
+            away_score: awayScore,
+            own_score: amIHomeTeam ? homeScore : awayScore,
+            opponent_score: amIHomeTeam ? awayScore : homeScore,
+          },
+        }
+      : {};
+
     // Always reload from server — captures submission flags, goal events, scores
     const fresh = await stageClient.entities.Match.filter({ id: game.id }, null, 1).catch(() => null);
-    let updated = fresh?.[0] ? { ...game, ...fresh[0] } : {
+    let updated = fresh?.[0] ? { ...game, ...optimistic, ...fresh[0] } : {
       ...game,
+      ...optimistic,
       status: status === "disputed" ? "disputed" : status === "completed" ? "completed" : game.status,
       ...(status === "completed" && homeScore != null ? { home_score: homeScore, away_score: awayScore } : {}),
     };
@@ -239,7 +254,6 @@ export default function GameDayDetail({
       processMatchRevenue(updated);
       processSoloMatchRevenue(updated);
       stageClient.functions.invoke("shirtSales", { action: "generate_for_match", match_id: updated.id }).catch(() => {});
-      // Career totals are incremented on the server during result processing.
     }
   }
 
@@ -260,6 +274,7 @@ export default function GameDayDetail({
   ].sort((a, b) => (Number(a.minute) || 0) - (Number(b.minute) || 0));
   const hasGoalTimeline = allGoalEvents.length > 0;
 
+  const pendingScore = pendingFixtureScore(game);
   const showKickoffDock = isMyMatch && !isCompleted && !isDisputed
     && (kickoffControls.showHomeKickoff || kickoffControls.showAwayWaiting);
   const showResultDock = isMyMatch && !isCompleted && !isDisputed && (
@@ -268,6 +283,7 @@ export default function GameDayDetail({
     || resultControls.showAwaySubmit
     || resultControls.showConfirmResult
     || resultControls.showHomeWaitingForAway
+    || resultControls.showAmendResult
     || resultControls.showAwaySubmittedWaitingForHome
     || resultControls.showHomeReview
     || showResultForm
@@ -289,8 +305,8 @@ export default function GameDayDetail({
         status={game.status}
         statusLabel={statusLabel}
         competitionLabel={competitionLabel}
-        homeScore={game.home_score}
-        awayScore={game.away_score}
+        homeScore={pendingScore.home}
+        awayScore={pendingScore.away}
         wagerStc={game.wager_stc}
         wagerLocked={Boolean(game.wager_home_locked && game.wager_away_locked)}
         backgroundStyle={matchDetailsBackgroundStyle}
@@ -381,10 +397,22 @@ export default function GameDayDetail({
                 <Flag className="h-4 w-4" /> {t("matchFlow.reviewCorrection")}
               </Button>
             )}
-            {resultControls.showHomeWaitingForAway && (
-              <div className="flex items-center gap-2 rounded-sm border border-[#8eeeff]/30 bg-[#8eeeff]/10 px-3 py-2 text-xs text-[#8eeeff]">
-                <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-                {t("matchFlow.resultWaitingAway")}
+            {resultControls.showHomeWaitingForAway && !showResultForm && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 rounded-sm border border-[#8eeeff]/30 bg-[#8eeeff]/10 px-3 py-2 text-xs text-[#8eeeff]">
+                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                  {t("matchFlow.resultWaitingAway")}
+                </div>
+                {resultControls.showAmendResult ? (
+                  <Button
+                    type="button"
+                    onClick={() => setShowResultForm(true)}
+                    variant="outline"
+                    className="h-11 w-full gap-2 rounded-sm border-[#f8fbff]/50 font-heading text-xs font-black uppercase tracking-[0.18em] text-[#dbe4ef] hover:text-white"
+                  >
+                    <Flag className="h-4 w-4" /> {t("matchFlow.updateResult") || "Update Result"}
+                  </Button>
+                ) : null}
               </div>
             )}
             {resultControls.showAwaySubmittedWaitingForHome && (

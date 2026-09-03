@@ -1042,6 +1042,81 @@ async function applySoloPlayerRecord(playerId, result, extras = {}) {
   ).catch(() => {});
 }
 
+// Goal events are the source of truth for goals/assists. Overlay event counts
+// onto submitted player_stats (which still carry ratings / participation).
+function applyGoalEventsToPlayerStats(playerStats, goalEvents) {
+  const events = Array.isArray(goalEvents) ? goalEvents : [];
+  const list = Array.isArray(playerStats) ? playerStats.map((stat) => ({ ...stat })) : [];
+  if (!events.length) return list;
+
+  const goalsBy = new Map();
+  const assistsBy = new Map();
+  const metaBy = new Map();
+  for (const ev of events) {
+    const scorerId = ev?.scorer_player_id ? String(ev.scorer_player_id) : '';
+    if (scorerId) {
+      goalsBy.set(scorerId, (goalsBy.get(scorerId) || 0) + 1);
+      if (!metaBy.has(scorerId)) {
+        metaBy.set(scorerId, {
+          player_id: ev.scorer_player_id,
+          player_gamertag: ev.scorer_gamertag || null,
+          club_id: ev.club_id || null,
+        });
+      }
+    }
+    const assistId = ev?.assist_player_id ? String(ev.assist_player_id) : '';
+    if (assistId) {
+      assistsBy.set(assistId, (assistsBy.get(assistId) || 0) + 1);
+      if (!metaBy.has(assistId)) {
+        metaBy.set(assistId, {
+          player_id: ev.assist_player_id,
+          player_gamertag: ev.assist_gamertag || null,
+          club_id: ev.club_id || null,
+        });
+      }
+    }
+  }
+
+  const byId = new Map();
+  for (const stat of list) {
+    const id = stat?.player_id ? String(stat.player_id) : '';
+    if (!id) continue;
+    byId.set(id, {
+      ...stat,
+      goals: Number(stat.goals || 0),
+      assists: Number(stat.assists || 0),
+    });
+  }
+
+  for (const [id, goals] of goalsBy.entries()) {
+    const existing = byId.get(id);
+    const meta = metaBy.get(id) || {};
+    byId.set(id, {
+      rating: 6,
+      ...meta,
+      ...existing,
+      player_id: existing?.player_id || meta.player_id,
+      player_gamertag: existing?.player_gamertag || meta.player_gamertag || null,
+      club_id: existing?.club_id || meta.club_id || null,
+      goals,
+      assists: existing?.assists || 0,
+    });
+  }
+  for (const [id, assists] of assistsBy.entries()) {
+    const existing = byId.get(id) || {
+      rating: 6,
+      ...(metaBy.get(id) || {}),
+      goals: 0,
+    };
+    byId.set(id, {
+      ...existing,
+      assists,
+    });
+  }
+
+  return Array.from(byId.values());
+}
+
 // Drops match stat rows that attribute a player to a club they cannot play
 // for. A player out on loan plays for the borrower; the owner cannot record
 // them. Rows without a player_id or club_id, and players the loan module does
@@ -1106,11 +1181,6 @@ async function processMatchCompletion(match, acceptedSubmission, secondarySubmis
           ? []
           : (Array.isArray(secondarySubmission.player_stats) ? secondarySubmission.player_stats : [])),
       ];
-  // Eligibility is enforced on the recorded result, not only on the planned
-  // lineup: a loaned-out player must not be reported as having played for the
-  // club that owns them. Ineligible rows are dropped and reported rather than
-  // failing the whole result submission.
-  const { playerStats, rejectedStats } = await filterEligibleMatchStats(submittedStats);
   const homeGoalEvents = Array.isArray(acceptedSubmission.home_goal_events)
     ? acceptedSubmission.home_goal_events
     : (Array.isArray(acceptedSubmission.goal_events) ? acceptedSubmission.goal_events : []);
@@ -1119,6 +1189,17 @@ async function processMatchCompletion(match, acceptedSubmission, secondarySubmis
     : (duplicateSecondary || !secondarySubmission
       ? []
       : (Array.isArray(secondarySubmission.goal_events) ? secondarySubmission.goal_events : []));
+  // Goal events are the source of truth for G/A — re-apply onto submitted rating rows
+  // so a missing client derive still credits scorers in career / match_player_stats.
+  const statsWithGoals = applyGoalEventsToPlayerStats(
+    submittedStats,
+    [...homeGoalEvents, ...awayGoalEvents],
+  );
+  // Eligibility is enforced on the recorded result, not only on the planned
+  // lineup: a loaned-out player must not be reported as having played for the
+  // club that owns them. Ineligible rows are dropped and reported rather than
+  // failing the whole result submission.
+  const { playerStats, rejectedStats } = await filterEligibleMatchStats(statsWithGoals);
 
   const freshRows = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [matchId]);
   const fresh = freshRows[0] || match;
@@ -8961,6 +9042,14 @@ const HANDLERS = {
       const { match: m, actor } = await loadActorMatch();
       const proofOcr = await maybeOcr();
       const result = await matchResultNegotiationService.handleSubmitResult(m, actor, negotiationArgs, proofOcr);
+      await broadcastMatchById(match_id);
+      return result;
+    }
+
+    if (action === 'amend_result') {
+      const { match: m, actor } = await loadActorMatch();
+      const proofOcr = await maybeOcr();
+      const result = await matchResultNegotiationService.amendSubmittedResult(m, actor, negotiationArgs, proofOcr);
       await broadcastMatchById(match_id);
       return result;
     }
