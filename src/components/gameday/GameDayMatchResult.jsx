@@ -65,7 +65,6 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
   const submittedFixture = fixtureScoreFromSubmission(submittedScore, submitSide);
   const submittedHomeScore = Number.isFinite(submittedFixture.home) ? submittedFixture.home : null;
   const submittedAwayScore = Number.isFinite(submittedFixture.away) ? submittedFixture.away : null;
-  const myScore = isHomeTeam ? Number(homeScore) : Number(awayScore);
   const awayLockedWaiting   = !isHomeTeam && !homeHasSubmitted && !alreadySubmitted && submitSide === "home";
   const myPriorSubmission = isHomeTeam ? homeSubmission : awaySubmission;
 
