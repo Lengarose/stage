@@ -105,7 +105,7 @@ test("home review offers one counter until it is used", () => {
 
 test("home side sees waiting state after submitting full time", () => {
   const controls = getResultSubmissionControls({
-    game: { result_home_submitted: "1", result_away_submitted: "0" },
+    game: { result_home_submitted: "1", result_away_submitted: "0", result_state: "AWAITING_RESULT" },
     isLive: true,
     showResultForm: false,
     amIHomeTeam: true,
@@ -113,6 +113,19 @@ test("home side sees waiting state after submitting full time", () => {
 
   assert.equal(controls.showHomeSubmit, false);
   assert.equal(controls.showHomeWaitingForAway, true);
+  assert.equal(controls.showAmendResult, true);
+});
+
+test("away side cannot amend while confirming home submission", () => {
+  const controls = getResultSubmissionControls({
+    game: { result_home_submitted: "1", result_away_submitted: "0", result_state: "AWAITING_AWAY_CONFIRMATION" },
+    isLive: true,
+    showResultForm: false,
+    amIHomeTeam: false,
+  });
+
+  assert.equal(controls.showAmendResult, false);
+  assert.equal(controls.showConfirmResult, true);
 });
 
 test("fixtureScoreFromSubmission maps away own/opponent into Home–Away", () => {

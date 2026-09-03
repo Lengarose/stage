@@ -55,6 +55,8 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
   const iAmSubmitter = submitSide === "home" ? isHomeTeam : !isHomeTeam;
   const confirmMode = awaitingConfirm && !iAmSubmitter && !correcting;
   const reviewMode = awaitingReview && iAmSubmitter;
+  // Home (submit side) can reopen the form to change score/stats before Away confirms.
+  const amendMode = Boolean(Number(alreadySubmitted)) && iAmSubmitter && awaitingConfirm && !correcting;
   const needsEvidence = evidenceRequired(game) && !confirmMode && !correcting;
   const allowPens = penaltiesAllowed(game);
   const homeSubmission = parseMatchSubmission(game.home_submission);
@@ -65,6 +67,57 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
   const submittedAwayScore = Number.isFinite(submittedFixture.away) ? submittedFixture.away : null;
   const myScore = isHomeTeam ? Number(homeScore) : Number(awayScore);
   const awayLockedWaiting   = !isHomeTeam && !homeHasSubmitted && !alreadySubmitted && submitSide === "home";
+  const myPriorSubmission = isHomeTeam ? homeSubmission : awaySubmission;
+
+  // Prefill Home–Away boxes from the claim being confirmed/corrected/amended (was stuck at 0–0).
+  useEffect(() => {
+    if (!(confirmMode || correcting || reviewMode || amendMode)) return;
+    if (!Number.isFinite(submittedFixture.home) || !Number.isFinite(submittedFixture.away)) return;
+    setHomeScore(submittedFixture.home);
+    setAwayScore(submittedFixture.away);
+  }, [confirmMode, correcting, reviewMode, amendMode, submittedFixture.home, submittedFixture.away]);
+
+  // Prefill proof + goal events + ratings from our prior submission when amending.
+  useEffect(() => {
+    if (!amendMode || !myPriorSubmission) return;
+    if (myPriorSubmission.proof_url) setProofUrl(myPriorSubmission.proof_url);
+    const priorEvents = Array.isArray(myPriorSubmission.goal_events) ? myPriorSubmission.goal_events : [];
+    if (priorEvents.length) {
+      setGoalEvents(priorEvents.map((ev) => ({
+        minute: ev.minute ?? "",
+        scorer_player_id: ev.scorer_player_id || "",
+        scorer_gamertag: ev.scorer_gamertag || "",
+        assist_player_id: ev.assist_player_id || "",
+        assist_gamertag: ev.assist_gamertag || "",
+        is_penalty: !!ev.is_penalty,
+      })));
+    }
+    const priorStats = Array.isArray(myPriorSubmission.player_stats) ? myPriorSubmission.player_stats : [];
+    if (priorStats.length) {
+      const nextRatings = {};
+      const nextPlayed = new Set();
+      priorStats.forEach((stat) => {
+        if (stat?.player_id) {
+          nextPlayed.add(String(stat.player_id));
+          if (stat.rating != null) nextRatings[stat.player_id] = Number(stat.rating);
+        }
+      });
+      if (nextPlayed.size) setPlayedIds(nextPlayed);
+      if (Object.keys(nextRatings).length) setRatings((prev) => ({ ...prev, ...nextRatings }));
+    }
+    if (Number(myPriorSubmission.decided_on_penalties) === 1) {
+      setPenaltyChoice(myPriorSubmission.penalty_winner_side === "away" ? "away" : "home");
+    }
+  }, [amendMode, game.id]);
+
+  // Fixture score used for goal-event quotas (confirm mode must use submitted 5–3, not local 0–0).
+  const fixtureHomeScore = (confirmMode || reviewMode) && Number.isFinite(submittedFixture.home)
+    ? submittedFixture.home
+    : Number(homeScore) || 0;
+  const fixtureAwayScore = (confirmMode || reviewMode) && Number.isFinite(submittedFixture.away)
+    ? submittedFixture.away
+    : Number(awayScore) || 0;
+  const myScore = isHomeTeam ? fixtureHomeScore : fixtureAwayScore;
 
   useEffect(() => {
     if (!confirmMode) return;
@@ -129,15 +182,46 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
       if (i !== idx) return ev;
       if (field === "scorer_player_id") {
         const p = seatedPlayers.find(pl => pl.id === value);
+        if (value) {
+          setPlayedIds((prevIds) => {
+            const next = new Set(prevIds);
+            next.add(String(value));
+            return next;
+          });
+        }
         return { ...ev, scorer_player_id: value, scorer_gamertag: p?.gamertag || "" };
       }
       if (field === "assist_player_id") {
         const p = value ? seatedPlayers.find(pl => pl.id === value) : null;
+        if (value) {
+          setPlayedIds((prevIds) => {
+            const next = new Set(prevIds);
+            next.add(String(value));
+            return next;
+          });
+        }
         return { ...ev, assist_player_id: value, assist_gamertag: p?.gamertag || "" };
       }
       return { ...ev, [field]: value };
     }));
   }
+
+  // Prefill one blank goal-event row per goal scored by this club.
+  useEffect(() => {
+    if (!isClubMatch || myScore <= 0) return;
+    setGoalEvents((prev) => {
+      if (prev.length >= myScore) return prev;
+      const extras = Array.from({ length: myScore - prev.length }, () => ({
+        minute: "",
+        scorer_player_id: "",
+        scorer_gamertag: "",
+        assist_player_id: "",
+        assist_gamertag: "",
+        is_penalty: false,
+      }));
+      return [...prev, ...extras];
+    });
+  }, [isClubMatch, myScore]);
 
   // ── Proof upload ───────────────────────────────────────────────────────────
 
@@ -162,10 +246,10 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
     const statsMap = {};
     seatedPlayers.forEach(p => { statsMap[p.id] = { goals: 0, assists: 0 }; });
     goalEvents.forEach(ev => {
-      if (ev.scorer_player_id && statsMap[ev.scorer_player_id] !== undefined && playedIds.has(String(ev.scorer_player_id))) {
+      if (ev.scorer_player_id && statsMap[ev.scorer_player_id] !== undefined) {
         statsMap[ev.scorer_player_id].goals += 1;
       }
-      if (ev.assist_player_id && statsMap[ev.assist_player_id] !== undefined && playedIds.has(String(ev.assist_player_id))) {
+      if (ev.assist_player_id && statsMap[ev.assist_player_id] !== undefined) {
         statsMap[ev.assist_player_id].assists += 1;
       }
     });
@@ -176,8 +260,10 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
 
   const goalCount   = goalEvents.length;
   const needsEvents = isClubMatch && myScore > 0;
-  // Warn if goal count != my score (soft validation — don't block submit)
   const goalsMismatch = needsEvents && goalCount !== myScore;
+  const missingScorers = needsEvents && goalEvents.some((ev) => !ev.scorer_player_id);
+  const goalsIncomplete = needsEvents && (goalsMismatch || missingScorers);
+  const noPlayersSelected = isClubMatch && seatedPlayers.length > 0 && playedIds.size === 0;
 
   // ── Submit ─────────────────────────────────────────────────────────────────
 
@@ -186,6 +272,18 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
   async function submit(actionOverride) {
     if (needsEvidence && !proofUrl) {
       setSubmitError("Upload screenshot proof before submitting.");
+      return;
+    }
+    if (noPlayersSelected) {
+      setSubmitError("Tick at least one player who played for your club.");
+      return;
+    }
+    if (goalsIncomplete) {
+      setSubmitError(
+        goalsMismatch
+          ? `Add exactly ${myScore} goal event${myScore === 1 ? "" : "s"} for your club (currently ${goalCount}).`
+          : "Select a scorer for every goal event before submitting.",
+      );
       return;
     }
 
@@ -197,8 +295,13 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
 
       if (isClubMatch) {
         const derived = derivePlayerStats();
+        // Include anyone who scored/assisted even if the checkbox was missed.
+        const ids = new Set([...playedIds].map(String));
+        Object.entries(derived).forEach(([pid, row]) => {
+          if ((row.goals || 0) > 0 || (row.assists || 0) > 0) ids.add(String(pid));
+        });
         playerStatsArr = seatedPlayers
-          .filter((p) => playedIds.has(String(p.id)))
+          .filter((p) => ids.has(String(p.id)))
           .map(p => ({
             player_id:       p.id,
             player_email:    p.email,
@@ -231,9 +334,9 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
       }));
 
       const action = actionOverride
-        || (reviewMode ? "accept_correction" : confirmMode ? "confirm_result" : "submit_result");
-      const confirmHome = submittedHomeScore !== null ? submittedHomeScore : Number(homeScore);
-      const confirmAway = submittedAwayScore !== null ? submittedAwayScore : Number(awayScore);
+        || (reviewMode ? "accept_correction" : confirmMode ? "confirm_result" : amendMode ? "amend_result" : "submit_result");
+      const confirmHome = Number.isFinite(submittedFixture.home) ? submittedFixture.home : Number(homeScore);
+      const confirmAway = Number.isFinite(submittedFixture.away) ? submittedFixture.away : Number(awayScore);
       const fixtureHome = confirmMode ? confirmHome : Number(homeScore);
       const fixtureAway = confirmMode ? confirmAway : Number(awayScore);
       const fixtureIsDraw = fixtureHome === fixtureAway;
@@ -263,7 +366,9 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
       const code = err?.data?.code || err?.code;
       if (code === "PROOF_REQUIRED" || err?.status === 400) {
         setSubmitError("Upload screenshot proof before submitting.");
-      } else if (code === "AWAITING_HOME_SUBMISSION" || err?.status === 409) {
+      } else if (code === "AWAITING_CONFIRMATION" || code === "RESULT_ALREADY_SUBMITTED") {
+        if (onSubmitted) onSubmitted("waiting", Number(homeScore), Number(awayScore), goalEvents);
+      } else if (code === "AWAITING_HOME_SUBMISSION") {
         setSubmitError("The home team hasn't submitted their result yet. Please wait for them to submit first.");
       } else {
         setSubmitError(err?.message || "Could not submit result. Try again.");
@@ -275,7 +380,7 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
 
   // ── Already submitted state ────────────────────────────────────────────────
 
-  if (alreadySubmitted && !reviewMode && !correcting) {
+  if (alreadySubmitted && !reviewMode && !correcting && !amendMode) {
     return (
       <div className="flex items-center gap-3 px-3 py-3 rounded-lg bg-success/10 border border-success/30">
         <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
@@ -316,10 +421,18 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
           ? "Review proposed correction"
           : confirmMode
             ? "Confirm Result"
-            : correcting
-              ? "Proposed correction"
-              : `Full Time — Submit Result (${isHomeTeam ? "Home" : "Away"})`}
+            : amendMode
+              ? `Update Result (${isHomeTeam ? "Home" : "Away"})`
+              : correcting
+                ? "Proposed correction"
+                : `Full Time — Submit Result (${isHomeTeam ? "Home" : "Away"})`}
       </p>
+
+      {amendMode ? (
+        <div className="rounded-lg border border-cyan-300/30 bg-cyan-300/10 px-3 py-2 text-xs text-cyan-100">
+          You already submitted a result. Update the score or stats below — Away will confirm the new claim.
+        </div>
+      ) : null}
 
       {confirmMode && submittedScore && (
         <div className="rounded-lg border border-[#8eeeff]/30 bg-[#8eeeff]/10 px-3 py-2 text-xs text-[#8eeeff]">
@@ -333,26 +446,52 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
       )}
 
       {/* ── Score ── */}
-      <div className="flex items-center gap-3">
-        <div className="flex-1 text-center">
-          <p className="text-[10px] text-muted-foreground mb-1 truncate">
-            {game.home_club_name || game.home_player_name || "Home"}
-          </p>
-          <Input type="number" min={0} max={99} value={homeScore}
-            onChange={e => setHomeScore(e.target.value)}
-            readOnly={confirmMode && !correcting}
-            className="text-center text-lg font-bold bg-secondary border-border h-12" />
+      <div className="space-y-2">
+        <div className="flex items-center gap-3">
+          <div className="flex-1 text-center">
+            <p className="text-[10px] text-muted-foreground mb-0.5 truncate">
+              {game.home_club_name || game.home_player_name || "Home"}
+            </p>
+            <p className="text-[9px] font-bold uppercase tracking-wider text-cyan-300/80 mb-1">Home goals</p>
+            <Input type="number" min={0} max={99} value={homeScore}
+              onChange={e => setHomeScore(e.target.value)}
+              readOnly={confirmMode && !correcting}
+              aria-label="Home goals"
+              className={cn(
+                "text-center text-lg font-bold bg-secondary border-border h-12",
+                confirmMode && !correcting && "opacity-90 cursor-default",
+              )} />
+          </div>
+          <span className="text-lg font-bold text-muted-foreground pb-4">–</span>
+          <div className="flex-1 text-center">
+            <p className="text-[10px] text-muted-foreground mb-0.5 truncate">
+              {game.away_club_name || game.away_player_name || "Away"}
+            </p>
+            <p className="text-[9px] font-bold uppercase tracking-wider text-cyan-300/80 mb-1">Away goals</p>
+            <Input type="number" min={0} max={99} value={awayScore}
+              onChange={e => setAwayScore(e.target.value)}
+              readOnly={confirmMode && !correcting}
+              aria-label="Away goals"
+              className={cn(
+                "text-center text-lg font-bold bg-secondary border-border h-12",
+                confirmMode && !correcting && "opacity-90 cursor-default",
+              )} />
+          </div>
         </div>
-        <span className="text-lg font-bold text-muted-foreground pb-4">–</span>
-        <div className="flex-1 text-center">
-          <p className="text-[10px] text-muted-foreground mb-1 truncate">
-            {game.away_club_name || game.away_player_name || "Away"}
+        {confirmMode ? (
+          <p className="text-[10px] text-muted-foreground text-center">
+            Score is locked while confirming. Use <span className="text-foreground font-semibold">Result Is Incorrect</span> to change it.
+            Enter <span className="text-foreground font-semibold">{isHomeTeam ? "Home" : "Away"} Goals</span> scorer events below for your club.
           </p>
-          <Input type="number" min={0} max={99} value={awayScore}
-            onChange={e => setAwayScore(e.target.value)}
-            readOnly={confirmMode && !correcting}
-            className="text-center text-lg font-bold bg-secondary border-border h-12" />
-        </div>
+        ) : correcting ? (
+          <p className="text-[10px] text-muted-foreground text-center">
+            Edit <span className="text-foreground font-semibold">Home goals</span> and <span className="text-foreground font-semibold">Away goals</span>, then submit your correction.
+          </p>
+        ) : (
+          <p className="text-[10px] text-muted-foreground text-center">
+            Enter the full-time score: left = <span className="text-foreground font-semibold">Home goals</span>, right = <span className="text-foreground font-semibold">Away goals</span>.
+          </p>
+        )}
       </div>
 
       {allowPens && Number(homeScore) === Number(awayScore) && !confirmMode && (
@@ -367,32 +506,38 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
         </div>
       )}
 
-      {isClubMatch && seatedPlayers.length > 0 && (
+      {isClubMatch && (
         <div className="space-y-2">
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
             Players Who Played
           </p>
           <p className="text-[10px] text-muted-foreground">
-            Tick who actually played for your club. Pre-match lineups are only a suggestion.
+            Tick who actually played for your club ({isHomeTeam ? "Home" : "Away"}). Pre-match lineups are only a suggestion.
           </p>
-          {seatedPlayers.map((p) => (
-            <label key={p.id} className="flex items-center gap-2 text-xs">
-              <input
-                type="checkbox"
-                checked={playedIds.has(String(p.id))}
-                onChange={() => {
-                  setPlayedIds((prev) => {
-                    const next = new Set(prev);
-                    if (next.has(String(p.id))) next.delete(String(p.id));
-                    else next.add(String(p.id));
-                    return next;
-                  });
-                }}
-              />
-              {p.gamertag}
-              <span className="text-muted-foreground">· {p.position || "—"}</span>
-            </label>
-          ))}
+          {seatedPlayers.length === 0 ? (
+            <p className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-[11px] text-warning">
+              No squad players found for your club. Open Club → Squad and make sure players are signed, then refresh Game Day.
+            </p>
+          ) : (
+            seatedPlayers.map((p) => (
+              <label key={p.id} className="flex items-center gap-2 text-xs">
+                <input
+                  type="checkbox"
+                  checked={playedIds.has(String(p.id))}
+                  onChange={() => {
+                    setPlayedIds((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(String(p.id))) next.delete(String(p.id));
+                      else next.add(String(p.id));
+                      return next;
+                    });
+                  }}
+                />
+                {p.gamertag}
+                <span className="text-muted-foreground">· {p.position || "—"}</span>
+              </label>
+            ))
+          )}
         </div>
       )}
 
@@ -401,7 +546,7 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
-              {isHomeTeam ? "Home" : "Away"} Goals ({goalCount}/{myScore})
+              {isHomeTeam ? "Home" : "Away"} Goals — scorer events ({goalCount}/{myScore})
             </p>
             {goalsMismatch && (
               <span className="text-[9px] text-warning font-semibold">
@@ -409,6 +554,9 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
               </span>
             )}
           </div>
+          <p className="text-[10px] text-muted-foreground">
+            Add one event per goal your club scored ({myScore}). This is where you assign scorers and assists — not the score boxes above.
+          </p>
 
           {goalEvents.map((ev, idx) => (
             <div key={idx} className="bg-secondary/40 border border-border rounded-lg p-3 space-y-2">
@@ -567,7 +715,7 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
       )}
       {confirmMode && (
         <div className="grid gap-2 sm:grid-cols-2">
-          <Button type="button" onClick={() => submit("confirm_result")} disabled={submitting} className="w-full bg-success text-white gap-2">
+          <Button type="button" onClick={() => submit("confirm_result")} disabled={submitting || goalsIncomplete || noPlayersSelected} className="w-full bg-success text-white gap-2">
             Confirm Result
           </Button>
           <Button
@@ -586,10 +734,10 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
         </div>
       )}
       {!reviewMode && !confirmMode && (
-      <Button type="button" onClick={() => submit(correcting ? "propose_correction" : "submit_result")} disabled={submitting || uploadingProof || (needsEvidence && !proofUrl)} className="w-full bg-success text-white gap-2 disabled:opacity-50">
+      <Button type="button" onClick={() => submit(correcting ? "propose_correction" : amendMode ? "amend_result" : "submit_result")} disabled={submitting || uploadingProof || (needsEvidence && !proofUrl) || goalsIncomplete || noPlayersSelected} className="w-full bg-success text-white gap-2 disabled:opacity-50">
         {submitting
           ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-          : <><CheckCircle2 className="w-4 h-4" /> Submit Result</>
+          : <><CheckCircle2 className="w-4 h-4" /> {amendMode ? "Update Result" : "Submit Result"}</>
         }
       </Button>
       )}
@@ -600,9 +748,11 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
       <p className="text-[10px] text-muted-foreground text-center">
         {correcting
           ? "Enter the score you believe is correct. No screenshot is required at this step."
-          : isHomeTeam
-            ? `As the home ${isClubMatch ? "team" : "player"}, you submit the result first.`
-            : "Confirm the submitted score, or mark it incorrect and propose a correction."}
+          : amendMode
+            ? "Saving updates the claim Away must confirm. Previous confirmation wait restarts."
+            : isHomeTeam
+              ? `As the home ${isClubMatch ? "team" : "player"}, you submit the result first.`
+              : "Confirm the submitted score, or mark it incorrect and propose a correction."}
       </p>
       )}
     </div>

@@ -333,6 +333,79 @@ async function submitInitialResult(match, actor, args, proofOcr) {
   return { data: { status: 'waiting', result_state: RESULT_STATES.AWAITING_AWAY_CONFIRMATION } };
 }
 
+/**
+ * Submitting side (usually Home) may update score/stats/proof while Away
+ * still has not confirmed. Clears any partial away confirm sheet and
+ * restarts the confirmation window.
+ */
+async function amendSubmittedResult(match, actor, args, proofOcr) {
+  const state = match.result_state || (Number(match.result_home_submitted) ? RESULT_STATES.AWAITING_AWAY_CONFIRMATION : '');
+  if (state !== RESULT_STATES.AWAITING_AWAY_CONFIRMATION) {
+    throw httpError('You can only update a result while waiting for confirmation.', 409, 'NOT_AWAITING_CONFIRMATION');
+  }
+  const submitSide = currentSubmitSide(match);
+  if (actor.side !== submitSide) {
+    throw httpError('Only the side that submitted the result can update it.', 403, 'MATCH_SIDE_REQUIRED');
+  }
+  if (evidenceRequired(match) && !args.proof_url) {
+    const existing = parseSubmission(actor.side === 'home' ? match.home_submission : match.away_submission);
+    if (!existing?.proof_url) {
+      throw httpError('Screenshot proof is required before submitting a result.', 400, 'PROOF_REQUIRED');
+    }
+    args = { ...args, proof_url: existing.proof_url };
+  }
+
+  const scores = declaredFromArgs(args, actor.side);
+  const penalty = normalizePenaltySelection({
+    homeScore: scores.home_score,
+    awayScore: scores.away_score,
+    decidedOnPenalties: args.decided_on_penalties,
+    penaltyWinnerSide: args.penalty_winner_side,
+    allowed: penaltiesAllowed(match),
+  });
+  const stats = participatingStats(args.player_stats, args.participating_player_ids);
+  assertNoForeignPlayerStats(stats, match, actor.side);
+  const existing = parseSubmission(actor.side === 'home' ? match.home_submission : match.away_submission) || {};
+  const submission = buildSubmission({
+    args: {
+      ...args,
+      player_stats: stats,
+      proof_url: args.proof_url || existing.proof_url || null,
+    },
+    side: actor.side,
+    scores,
+    penalty,
+    proofOcr,
+  });
+
+  const column = actor.side === 'home' ? 'home_submission' : 'away_submission';
+  const flag = actor.side === 'home' ? 'result_home_submitted' : 'result_away_submitted';
+  const otherColumn = actor.side === 'home' ? 'away_submission' : 'home_submission';
+  const otherFlag = actor.side === 'home' ? 'result_away_submitted' : 'result_home_submitted';
+
+  await patchMatch(match.id, {
+    [column]: stringify(submission),
+    [flag]: 1,
+    // Away must re-confirm the updated claim — drop any partial confirm sheet.
+    [otherColumn]: null,
+    [otherFlag]: 0,
+    result_state: RESULT_STATES.AWAITING_AWAY_CONFIRMATION,
+    confirmation_due_at: hoursFromNow(CONFIRM_WINDOW_HOURS).toISOString(),
+    decided_on_penalties: penalty.decided_on_penalties,
+    penalty_winner_side: penalty.penalty_winner_side,
+    result_history: appendHistory(match, {
+      event: 'result_amended',
+      side: actor.side,
+      home_score: scores.home_score,
+      away_score: scores.away_score,
+    }),
+  });
+
+  const fresh = await loadMatch(match.id);
+  await notifySubmitted(fresh, scores);
+  return { data: { status: 'waiting', result_state: RESULT_STATES.AWAITING_AWAY_CONFIRMATION, amended: true } };
+}
+
 async function confirmResult(match, actor, args) {
   const state = match.result_state || (Number(match.result_home_submitted) ? RESULT_STATES.AWAITING_AWAY_CONFIRMATION : '');
   if (state !== RESULT_STATES.AWAITING_AWAY_CONFIRMATION) {
@@ -597,7 +670,11 @@ async function handleSubmitResult(match, actor, args, proofOcr) {
   if (state === RESULT_STATES.AWAITING_AWAY_CONFIRMATION) {
     const submitSide = currentSubmitSide(match);
     if (actor.side === submitSide) {
-      throw httpError('Waiting for the other side to confirm the result.', 409, 'AWAITING_CONFIRMATION');
+      throw httpError(
+        'Result already submitted. Use Update Result to change it, or wait for confirmation.',
+        409,
+        'AWAITING_CONFIRMATION'
+      );
     }
     const homeSub = parseSubmission(match.home_submission);
     const awaySub = parseSubmission(match.away_submission);
@@ -623,6 +700,7 @@ module.exports = {
   settleClubMatches,
   handleSubmitResult,
   submitInitialResult,
+  amendSubmittedResult,
   confirmResult,
   proposeCorrection,
   acceptCorrection,
