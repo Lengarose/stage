@@ -42,7 +42,6 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
   const proofInputId = useId();
 
   const alreadySubmitted = isHomeTeam ? game.result_home_submitted : game.result_away_submitted;
-  const myScore = isHomeTeam ? Number(homeScore) : Number(awayScore);
 
   // Submission ordering — the away side stays locked until the home side has
   // submitted their result. Server enforces the same rule (409 with
@@ -62,7 +61,16 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
   const awaySubmission = parseMatchSubmission(game.away_submission);
   const submittedScore = submitSide === "away" ? awaySubmission : homeSubmission;
   const submittedFixture = fixtureScoreFromSubmission(submittedScore, submitSide);
+  const submittedHomeScore = Number.isFinite(submittedFixture.home) ? submittedFixture.home : null;
+  const submittedAwayScore = Number.isFinite(submittedFixture.away) ? submittedFixture.away : null;
+  const myScore = isHomeTeam ? Number(homeScore) : Number(awayScore);
   const awayLockedWaiting   = !isHomeTeam && !homeHasSubmitted && !alreadySubmitted && submitSide === "home";
+
+  useEffect(() => {
+    if (!confirmMode) return;
+    if (submittedHomeScore !== null) setHomeScore(submittedHomeScore);
+    if (submittedAwayScore !== null) setAwayScore(submittedAwayScore);
+  }, [confirmMode, submittedHomeScore, submittedAwayScore]);
 
   // ── Load the club squad ────────────────────────────────────────────────────
   // Phase 2 — the dressing room no longer decides who can be reported. The
@@ -222,13 +230,13 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
         side:             isHomeTeam ? "home" : "away",
       }));
 
-      const isDraw = Number(homeScore) === Number(awayScore);
       const action = actionOverride
         || (reviewMode ? "accept_correction" : confirmMode ? "confirm_result" : "submit_result");
-      const confirmHome = Number.isFinite(submittedFixture.home) ? submittedFixture.home : Number(homeScore);
-      const confirmAway = Number.isFinite(submittedFixture.away) ? submittedFixture.away : Number(awayScore);
+      const confirmHome = submittedHomeScore !== null ? submittedHomeScore : Number(homeScore);
+      const confirmAway = submittedAwayScore !== null ? submittedAwayScore : Number(awayScore);
       const fixtureHome = confirmMode ? confirmHome : Number(homeScore);
       const fixtureAway = confirmMode ? confirmAway : Number(awayScore);
+      const fixtureIsDraw = fixtureHome === fixtureAway;
 
       const res = await stageClient.functions.invoke("matchKickoff", {
         match_id:     game.id,
@@ -242,13 +250,13 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
         participating_player_ids: participating,
         goal_events:  eventsToStore,
         proof_url:    proofUrl || null,
-        decided_on_penalties: isDraw && penaltyChoice !== "none",
+        decided_on_penalties: fixtureIsDraw && penaltyChoice !== "none",
         penalty_winner_side: penaltyChoice === "none" ? null : penaltyChoice,
         explanation: explanation || null,
       });
 
       const status = res?.data?.status || 'waiting';
-      if (onSubmitted) onSubmitted(status, Number(homeScore), Number(awayScore), goalEvents);
+      if (onSubmitted) onSubmitted(status, fixtureHome, fixtureAway, goalEvents);
     } catch (err) {
       // Server enforces the same lock with a 409 + code=AWAITING_HOME_SUBMISSION.
       // apiFetch surfaces the server payload as err.data, so look there first.
@@ -562,7 +570,17 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
           <Button type="button" onClick={() => submit("confirm_result")} disabled={submitting} className="w-full bg-success text-white gap-2">
             Confirm Result
           </Button>
-          <Button type="button" variant="outline" onClick={() => setCorrecting(true)} disabled={submitting} className="w-full">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              if (submittedHomeScore !== null) setHomeScore(submittedHomeScore);
+              if (submittedAwayScore !== null) setAwayScore(submittedAwayScore);
+              setCorrecting(true);
+            }}
+            disabled={submitting}
+            className="w-full"
+          >
             Result Is Incorrect
           </Button>
         </div>

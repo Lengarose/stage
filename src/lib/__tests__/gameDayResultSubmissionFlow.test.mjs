@@ -47,6 +47,27 @@ test("away confirm state opens confirm, not a second submit_result", () => {
   assert.equal(controls.showAwayWaitingForHome, false);
 });
 
+test("away confirm form hydrates score and keeps goal events available", () => {
+  const source = readRepoFile("src/components/gameday/GameDayMatchResult.jsx");
+
+  assert.match(
+    source,
+    /if \(!confirmMode\) return;[\s\S]{0,140}setHomeScore\(submittedHomeScore\)[\s\S]{0,140}setAwayScore\(submittedAwayScore\)/,
+    "Confirm mode should display the submitted Home-Away score instead of the official 0-0"
+  );
+  assert.match(source, /const myScore = isHomeTeam \? Number\(homeScore\) : Number\(awayScore\);/);
+  assert.match(
+    source,
+    /\{isClubMatch && myScore > 0 && \(/,
+    "The confirming side should still get the scorer/assist section when its submitted score is above zero"
+  );
+  assert.match(
+    source,
+    /goal_events:\s*eventsToStore/,
+    "Confirming the result should send the confirming side's goal events to the backend"
+  );
+});
+
 test("result actions stay visible during negotiation even if status left in_progress", () => {
   const controls = getResultSubmissionControls({
     game: {
