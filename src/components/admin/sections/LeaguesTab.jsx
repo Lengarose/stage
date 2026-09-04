@@ -13,9 +13,10 @@ import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useTranslation } from "@/hooks/useTranslation";
 import { getSeasonStatusLabel } from "@/lib/adminI18n";
-import { Shield, Check, X, Pencil, ChevronDown, AlertTriangle, Trash2, ImagePlus } from "lucide-react";
+import { Shield, Check, X, Pencil, ChevronDown, AlertTriangle, Trash2, ImagePlus, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { calculatePrizePool, formatStcCompact } from "@/lib/prizeDefaults";
 import { swalAlert, swalConfirm, swalPrompt } from "@/lib/swal";
 
@@ -33,6 +34,8 @@ function isFirstSeasonAdminSeedingOpen(league) {
   if (["in_progress", "active", "completed", "archived"].includes(status)) return false;
   return (Number(league?.season_number) || 1) === 1;
 }
+
+const SEED_CLUB_PAGE_SIZE = 12;
 
 export default function LeaguesTab({
   mode = "all",
@@ -112,6 +115,9 @@ export default function LeaguesTab({
   const [replacingCompetitionClub, setReplacingCompetitionClub] = useState(null);
   const [resettingLeagueScope, setResettingLeagueScope] = useState(null);
   const [adminClubByLeague, setAdminClubByLeague] = useState({});
+  const [seedClubModalLeagueId, setSeedClubModalLeagueId] = useState(null);
+  const [seedClubSearchByLeague, setSeedClubSearchByLeague] = useState({});
+  const [seedClubPageByLeague, setSeedClubPageByLeague] = useState({});
   const [registeringLeagueClub, setRegisteringLeagueClub] = useState(null);
   const [simulatingLeagueFixtures, setSimulatingLeagueFixtures] = useState(null);
   const activeStandingClubIds = useMemo(
@@ -131,6 +137,41 @@ export default function LeaguesTab({
     return (clubs || [])
       .filter(club => club?.id && !registeredIds.has(String(club.id)))
       .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
+  }
+
+  function getSelectedClubIdsForLeague(leagueId) {
+    const value = adminClubByLeague[leagueId];
+    if (Array.isArray(value)) return value.map(String);
+    return value ? [String(value)] : [];
+  }
+
+  function setSelectedClubIdsForLeague(leagueId, updater) {
+    setAdminClubByLeague(prev => {
+      const current = Array.isArray(prev[leagueId])
+        ? prev[leagueId].map(String)
+        : prev[leagueId]
+          ? [String(prev[leagueId])]
+          : [];
+      const next = typeof updater === "function" ? updater(current) : updater;
+      return { ...prev, [leagueId]: [...new Set((next || []).map(String))] };
+    });
+  }
+
+  function toggleSelectedClubForLeague(leagueId, clubId) {
+    setSelectedClubIdsForLeague(leagueId, current => (
+      current.includes(String(clubId))
+        ? current.filter(id => id !== String(clubId))
+        : [...current, String(clubId)]
+    ));
+  }
+
+  function setSeedClubSearch(leagueId, value) {
+    setSeedClubSearchByLeague(prev => ({ ...prev, [leagueId]: value }));
+    setSeedClubPageByLeague(prev => ({ ...prev, [leagueId]: 1 }));
+  }
+
+  function setSeedClubPage(leagueId, page) {
+    setSeedClubPageByLeague(prev => ({ ...prev, [leagueId]: page }));
   }
 
   async function uploadPublicMedia(entityName, row, fieldName, file) {
@@ -248,34 +289,56 @@ export default function LeaguesTab({
   }
 
   async function adminRegisterClubToRegionalLeague(league) {
-    const clubId = adminClubByLeague[league.id];
-    const club = clubs.find(item => String(item.id) === String(clubId));
-    if (!club) {
-      await swalAlert("Choose a club first.");
+    const selectedClubIds = getSelectedClubIdsForLeague(league.id);
+    const selectedClubs = selectedClubIds
+      .map(clubId => clubs.find(item => String(item.id) === String(clubId)))
+      .filter(Boolean);
+    if (!selectedClubs.length) {
+      await swalAlert("Choose at least one club first.");
       return;
     }
     const seedingOpen = isRegionalLeagueSetupSeedingOpen(league) || isFirstSeasonAdminSeedingOpen(league);
+    const capacityRemaining = Math.max(0, getRegionalLeagueMaxClubs(league) - Number(league.num_clubs || 0));
+    if (selectedClubs.length > capacityRemaining) {
+      await swalAlert(`This division only has ${capacityRemaining} open spot${capacityRemaining === 1 ? "" : "s"}. Untick ${selectedClubs.length - capacityRemaining} club${selectedClubs.length - capacityRemaining === 1 ? "" : "s"} first.`);
+      return;
+    }
+    const clubNames = selectedClubs.map(club => club.name).join(", ");
     const ok = await swalConfirm(
       seedingOpen
-        ? `Seed ${club.name} into ${league.name}? This is allowed during season setup. Once fixtures are generated, placement locks and promotion/relegation rules take over.`
-        : `Add ${club.name} to ${league.name}? This league is outside setup seeding, so normal placement rules should apply.`
+        ? `Seed ${selectedClubs.length} club${selectedClubs.length === 1 ? "" : "s"} into ${league.name}?\n\n${clubNames}\n\nThis is allowed during season setup. Once fixtures are generated, placement locks and promotion/relegation rules take over.`
+        : `Add ${selectedClubs.length} club${selectedClubs.length === 1 ? "" : "s"} to ${league.name}?\n\n${clubNames}\n\nThis league is outside setup seeding, so normal placement rules should apply.`
     );
     if (!ok) return;
 
     setRegisteringLeagueClub(league.id);
     try {
-      const response = await stageClient.functions.invoke("adminRegisterClubToRegionalLeague", {
-        league_id: league.id,
-        club_id: club.id,
-        admin_seeding: seedingOpen,
-        reason: seedingOpen
-          ? `Admin season setup seeding for ${club.name}`
-          : `Admin direct Regional League registration for ${club.name}`,
-      });
-      const data = response?.data || response || {};
-      setAdminClubByLeague(prev => ({ ...prev, [league.id]: "" }));
+      let added = 0;
+      const failed = [];
+      for (const club of selectedClubs) {
+        try {
+          const response = await stageClient.functions.invoke("adminRegisterClubToRegionalLeague", {
+            league_id: league.id,
+            club_id: club.id,
+            admin_seeding: seedingOpen,
+            reason: seedingOpen
+              ? `Admin season setup seeding for ${club.name}`
+              : `Admin direct Regional League registration for ${club.name}`,
+          });
+          const data = response?.data || response || {};
+          added += Number(data.added || 0);
+        } catch (err) {
+          failed.push(`${club.name}: ${err?.message || err?.error || "Unknown error"}`);
+        }
+      }
+      setAdminClubByLeague(prev => ({ ...prev, [league.id]: [] }));
       await loadAll?.();
-      await swalAlert(`${data.added || 0} club added to ${league.name}.`);
+      if (failed.length) {
+        await swalAlert(`${added} club${added === 1 ? "" : "s"} added to ${league.name}.\n\nCould not add:\n${failed.join("\n")}`);
+      } else {
+        setSeedClubModalLeagueId(null);
+        await swalAlert(`${added} club${added === 1 ? "" : "s"} added to ${league.name}.`);
+      }
     } catch (err) {
       await swalAlert(`Could not add club: ${err?.message || err?.error || "Unknown error"}`);
     } finally {
@@ -308,6 +371,32 @@ export default function LeaguesTab({
       setSimulatingLeagueFixtures(null);
     }
   }
+
+  const seedModalLeague = useMemo(
+    () => regionalLeagues.find(league => String(league.id) === String(seedClubModalLeagueId)) || null,
+    [regionalLeagues, seedClubModalLeagueId]
+  );
+  const seedModalAvailableClubs = seedModalLeague ? getAvailableClubsForLeague(seedModalLeague) : [];
+  const seedModalSearch = seedModalLeague ? (seedClubSearchByLeague[seedModalLeague.id] || "") : "";
+  const seedModalSelectedClubIds = seedModalLeague ? getSelectedClubIdsForLeague(seedModalLeague.id) : [];
+  const seedModalSelectedClubIdSet = new Set(seedModalSelectedClubIds);
+  const seedModalCapacityRemaining = seedModalLeague
+    ? Math.max(0, getRegionalLeagueMaxClubs(seedModalLeague) - Number(seedModalLeague.num_clubs || 0))
+    : 0;
+  const seedModalFilteredClubs = seedModalAvailableClubs.filter(club => {
+    const q = seedModalSearch.trim().toLowerCase();
+    if (!q) return true;
+    return `${club.name || ""} ${club.tag || ""}`.toLowerCase().includes(q);
+  });
+  const seedModalPageCount = Math.max(1, Math.ceil(seedModalFilteredClubs.length / SEED_CLUB_PAGE_SIZE));
+  const seedModalPage = Math.min(
+    seedModalPageCount,
+    Math.max(1, Number(seedClubPageByLeague[seedModalLeague?.id] || 1))
+  );
+  const seedModalPageClubs = seedModalFilteredClubs.slice(
+    (seedModalPage - 1) * SEED_CLUB_PAGE_SIZE,
+    seedModalPage * SEED_CLUB_PAGE_SIZE
+  );
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -965,6 +1054,8 @@ export default function LeaguesTab({
                 {[div1, div2].filter(Boolean).map(league => {
                   const isEditingL = editingLeague === league.id;
                   const availableClubs = getAvailableClubsForLeague(league);
+                  const selectedClubIds = getSelectedClubIdsForLeague(league.id);
+                  const capacityRemaining = Math.max(0, getRegionalLeagueMaxClubs(league) - Number(league.num_clubs || 0));
                   const canAdminAddClub = !["in_progress", "active", "completed", "archived"].includes(String(league.status || "").toLowerCase());
                   const seedingOpen = isRegionalLeagueSetupSeedingOpen(league) || isFirstSeasonAdminSeedingOpen(league);
                   const canSimulateFixtures = String(league.status || "").toLowerCase() === "in_progress";
@@ -1038,27 +1129,49 @@ export default function LeaguesTab({
                         )}
                       </div>
                       <div className="grid grid-cols-1 gap-2 border-t border-border/40 pt-2 sm:grid-cols-[minmax(0,1fr)_auto]">
-                        <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
-                          <select
-                            value={adminClubByLeague[league.id] || ""}
-                            onChange={event => setAdminClubByLeague(prev => ({ ...prev, [league.id]: event.target.value }))}
-                            disabled={!canAdminAddClub || registeringLeagueClub === league.id}
-                            className="h-8 min-w-0 flex-1 rounded border border-border bg-secondary px-2 text-[11px] text-foreground outline-none focus:border-primary/50 disabled:cursor-not-allowed disabled:opacity-50">
-                            <option value="">{canAdminAddClub ? (seedingOpen ? "Seed club into this division..." : "Add eligible club...") : "Fixtures already generated"}</option>
-                            {availableClubs.map(club => (
-                              <option key={club.id} value={club.id}>
-                                {club.name}{club.tag ? ` [${club.tag}]` : ""}
-                              </option>
-                            ))}
-                          </select>
+                        <div className="min-w-0 space-y-2">
+                          <div className="flex flex-col gap-2 rounded border border-border bg-secondary/25 p-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="min-w-0">
+                              <p className="text-[10px] font-bold uppercase tracking-wider text-foreground">
+                                {canAdminAddClub ? (seedingOpen ? "Seed clubs into this division" : "Add eligible clubs") : "Fixtures already generated"}
+                              </p>
+                              <p className="text-[10px] text-muted-foreground">
+                                {selectedClubIds.length} selected · {capacityRemaining} open spot{capacityRemaining === 1 ? "" : "s"} · {availableClubs.length} available
+                              </p>
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                disabled={!canAdminAddClub || registeringLeagueClub === league.id || availableClubs.length === 0 || capacityRemaining <= 0}
+                                onClick={() => setSeedClubModalLeagueId(league.id)}
+                                className="h-8 rounded border-border px-3 text-[11px] font-bold uppercase tracking-wider text-foreground hover:border-primary/40 hover:bg-primary/10">
+                                Choose clubs
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                disabled={registeringLeagueClub === league.id || selectedClubIds.length === 0}
+                                onClick={() => setSelectedClubIdsForLeague(league.id, [])}
+                                className="h-8 rounded border-border px-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground">
+                                Clear
+                              </Button>
+                            </div>
+                          </div>
                           <Button
                             type="button"
                             size="sm"
                             variant="outline"
-                            disabled={!canAdminAddClub || !adminClubByLeague[league.id] || registeringLeagueClub === league.id}
+                            disabled={!canAdminAddClub || selectedClubIds.length === 0 || registeringLeagueClub === league.id}
                             onClick={() => adminRegisterClubToRegionalLeague(league)}
                             className="h-8 rounded border-primary/30 px-3 text-[11px] font-bold uppercase tracking-wider text-primary hover:bg-primary/10">
-                            {registeringLeagueClub === league.id ? "Adding..." : seedingOpen ? "Seed club" : "Add club"}
+                            {registeringLeagueClub === league.id
+                              ? "Adding..."
+                              : seedingOpen
+                                ? `Seed ${selectedClubIds.length || ""} club${selectedClubIds.length === 1 ? "" : "s"}`
+                                : `Add ${selectedClubIds.length || ""} club${selectedClubIds.length === 1 ? "" : "s"}`}
                           </Button>
                         </div>
                         <Button
@@ -1165,6 +1278,168 @@ export default function LeaguesTab({
       </p>
     </div>
   </div>
+
+  <Dialog open={Boolean(seedModalLeague)} onOpenChange={(open) => { if (!open) setSeedClubModalLeagueId(null); }}>
+    <DialogContent className="max-h-[86vh] max-w-3xl overflow-hidden border-border bg-card p-0 text-foreground">
+      {seedModalLeague && (
+        <div className="flex max-h-[86vh] flex-col">
+          <DialogHeader className="border-b border-border px-5 py-4">
+            <DialogTitle className="font-heading text-base uppercase tracking-tight">
+              Seed clubs into {seedModalLeague.name}
+            </DialogTitle>
+            <p className="text-xs text-muted-foreground">
+              {seedModalSelectedClubIds.length}/{seedModalCapacityRemaining} selected · {seedModalFilteredClubs.length} matching club{seedModalFilteredClubs.length === 1 ? "" : "s"}
+            </p>
+          </DialogHeader>
+
+          <div className="border-b border-border bg-secondary/20 p-4">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={seedModalSearch}
+                onChange={event => setSeedClubSearch(seedModalLeague.id, event.target.value)}
+                placeholder="Search by club name or tag..."
+                className="h-10 rounded border-border bg-background pl-9 text-sm"
+              />
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={registeringLeagueClub === seedModalLeague.id || seedModalCapacityRemaining <= 0 || seedModalFilteredClubs.length === 0}
+                onClick={() => setSelectedClubIdsForLeague(seedModalLeague.id, seedModalFilteredClubs.slice(0, seedModalCapacityRemaining).map(club => club.id))}
+                className="h-8 rounded border-border px-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground">
+                Select available spots
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={registeringLeagueClub === seedModalLeague.id || seedModalPageClubs.length === 0}
+                onClick={() => {
+                  const room = seedModalCapacityRemaining - seedModalSelectedClubIds.length;
+                  if (room <= 0) return;
+                  const nextIds = seedModalPageClubs
+                    .filter(club => !seedModalSelectedClubIdSet.has(String(club.id)))
+                    .slice(0, room)
+                    .map(club => club.id);
+                  setSelectedClubIdsForLeague(seedModalLeague.id, [...seedModalSelectedClubIds, ...nextIds]);
+                }}
+                className="h-8 rounded border-border px-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground">
+                Select page
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={registeringLeagueClub === seedModalLeague.id || seedModalSelectedClubIds.length === 0}
+                onClick={() => setSelectedClubIdsForLeague(seedModalLeague.id, [])}
+                className="h-8 rounded border-border px-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground">
+                Clear
+              </Button>
+            </div>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto p-4">
+            {seedModalFilteredClubs.length === 0 ? (
+              <div className="rounded border border-border bg-secondary/20 px-4 py-8 text-center text-sm text-muted-foreground">
+                No clubs match your search.
+              </div>
+            ) : seedModalCapacityRemaining <= 0 ? (
+              <div className="rounded border border-border bg-secondary/20 px-4 py-8 text-center text-sm text-muted-foreground">
+                This division is already full.
+              </div>
+            ) : (
+              <div className="grid gap-2 sm:grid-cols-2">
+                {seedModalPageClubs.map(club => {
+                  const checked = seedModalSelectedClubIdSet.has(String(club.id));
+                  const disabled = registeringLeagueClub === seedModalLeague.id || (!checked && seedModalSelectedClubIds.length >= seedModalCapacityRemaining);
+                  return (
+                    <label
+                      key={club.id}
+                      className={cn(
+                        "flex cursor-pointer items-center gap-3 rounded border px-3 py-2 text-sm transition-colors",
+                        checked
+                          ? "border-primary/60 bg-primary/10 text-foreground"
+                          : "border-border/70 bg-secondary/20 text-muted-foreground hover:border-primary/40 hover:text-foreground",
+                        disabled && "cursor-not-allowed opacity-50"
+                      )}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={disabled}
+                        onChange={() => toggleSelectedClubForLeague(seedModalLeague.id, club.id)}
+                        className="h-4 w-4 accent-primary"
+                      />
+                      {club.logo_url || club.avatar_url ? (
+                        <img src={club.logo_url || club.avatar_url} alt="" className="h-8 w-8 shrink-0 rounded object-cover" />
+                      ) : (
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-border bg-background text-[10px] font-bold text-muted-foreground">
+                          {(club.tag || club.name || "?").slice(0, 2).toUpperCase()}
+                        </span>
+                      )}
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-semibold text-foreground">{club.name}</span>
+                        <span className="block truncate text-[11px] text-muted-foreground">{club.tag ? `[${club.tag}]` : "No tag"}</span>
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-3 border-t border-border bg-secondary/20 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center justify-between gap-2 sm:justify-start">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={seedModalPage <= 1}
+                onClick={() => setSeedClubPage(seedModalLeague.id, seedModalPage - 1)}
+                className="h-8 rounded border-border px-2 text-muted-foreground hover:text-foreground">
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                Page {seedModalPage} of {seedModalPageCount}
+              </span>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={seedModalPage >= seedModalPageCount}
+                onClick={() => setSeedClubPage(seedModalLeague.id, seedModalPage + 1)}
+                className="h-8 rounded border-border px-2 text-muted-foreground hover:text-foreground">
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => setSeedClubModalLeagueId(null)}
+                className="h-9 flex-1 rounded border-border px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground sm:flex-none">
+                Close
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={seedModalSelectedClubIds.length === 0 || registeringLeagueClub === seedModalLeague.id}
+                onClick={() => adminRegisterClubToRegionalLeague(seedModalLeague)}
+                className="h-9 flex-1 rounded border-primary/40 px-4 text-xs font-bold uppercase tracking-wider text-primary hover:bg-primary/10 sm:flex-none">
+                {registeringLeagueClub === seedModalLeague.id
+                  ? "Seeding..."
+                  : `Seed ${seedModalSelectedClubIds.length} club${seedModalSelectedClubIds.length === 1 ? "" : "s"}`}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </DialogContent>
+  </Dialog>
 
   {/* Scheduling — expired fixtures */}
   {showRegional && expiredFixtures.length > 0 && (
