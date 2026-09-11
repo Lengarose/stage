@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { getCompetitionMeta, sortStandings } from "@/lib/competitionUtils";
 import { isAppAdminUser } from "@/lib/adminAuth";
 import { createMatchFromFixture } from "@/lib/gameDayIntegration";
+import { swalAlert, swalConfirm } from "@/lib/swal";
 
 const PHASE_LABEL = {
   league: "League Phase",
@@ -31,6 +32,26 @@ const STATUS_LABEL = {
   completed: "Completed",
   archived: "Archived",
 };
+
+function standingActivityScore(row) {
+  return Number(row?.played || 0) * 1000
+    + Number(row?.points || 0) * 100
+    + Number(row?.wins || 0) * 10
+    + Number(row?.goal_difference || 0);
+}
+
+function dedupeCompetitionStandingsByClub(rows = []) {
+  const byClub = new Map();
+  for (const row of rows) {
+    if (!row?.club_id) continue;
+    const key = String(row.club_id);
+    const current = byClub.get(key);
+    if (!current || standingActivityScore(row) > standingActivityScore(current)) {
+      byClub.set(key, row);
+    }
+  }
+  return [...byClub.values()];
+}
 
 function FormBadge({ result }) {
   return (
@@ -484,6 +505,7 @@ export default function CompetitionDetail() {
   const [myGamertag, setMyGamertag] = useState("");
   const [seasonPickerOpen, setSeasonPickerOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
+  const [adminCompetitionBusy, setAdminCompetitionBusy] = useState("");
 
   useEffect(() => { loadComp(); }, [slug]);
   useEffect(() => { if (selectedSeason) loadSeasonData(selectedSeason); }, [selectedSeason?.id]);
@@ -534,13 +556,80 @@ export default function CompetitionDetail() {
     }
   }
 
+  async function handleAdminGenerateFixtures() {
+    if (!selectedSeason) return;
+    if (fixtures.length > 0 || selectedSeason.fixtures_generated) {
+      await swalAlert("Fixtures are already generated for this GOST season.");
+      return;
+    }
+    const fixtureStandings = dedupeCompetitionStandingsByClub(standings);
+    if (fixtureStandings.length < 4) {
+      await swalAlert("Add at least 4 clubs in Admin → GOST before generating fixtures.");
+      return;
+    }
+    const targetClubs = Number(selectedSeason.max_clubs || selectedSeason.target_clubs || selectedSeason.max_clubs_per_season || 36);
+    const warning = fixtureStandings.length < targetClubs
+      ? `\n\nThis season is not full (${fixtureStandings.length}/${targetClubs}). This is okay for admin testing.`
+      : "";
+    const ok = await swalConfirm(`Generate fixtures for ${selectedSeason.competition_name} ${selectedSeason.season_label || `S${selectedSeason.season_number}`}?${warning}`);
+    if (!ok) return;
+    setAdminCompetitionBusy("generate");
+    try {
+      const { generateLeaguePhaseFixtures } = await import("@/lib/competitionUtils");
+      await generateLeaguePhaseFixtures(selectedSeason, fixtureStandings);
+      await loadComp();
+      setActiveTab("fixtures");
+    } catch (err) {
+      await swalAlert(`Could not generate fixtures: ${err?.message || "Unknown error"}`);
+    } finally {
+      setAdminCompetitionBusy("");
+    }
+  }
+
+  async function handleAdminSimulateFixtures() {
+    if (!selectedSeason) return;
+    const unplayed = fixtures.filter(f => f.status !== "completed" && f.status !== "forfeit" && !f.stats_processed);
+    if (!unplayed.length) {
+      await swalAlert("No unplayed GOST fixtures to simulate.");
+      return;
+    }
+    const ok = await swalConfirm(`Simulate ${unplayed.length} unplayed GOST fixture${unplayed.length === 1 ? "" : "s"}? This will enter scores and update the table.`);
+    if (!ok) return;
+    setAdminCompetitionBusy("simulate");
+    try {
+      const response = await stageClient.functions.invoke("simulateCompetitionFixtures", {
+        season_id: selectedSeason.id,
+        reason: `Admin simulated GOST fixtures from public ${selectedSeason.competition_name} page`,
+      });
+      const data = response?.data || response || {};
+      await loadSeasonData(selectedSeason);
+      setActiveTab("table");
+      await swalAlert(`Simulated ${data.simulated || 0} fixture${Number(data.simulated || 0) === 1 ? "" : "s"}.`);
+    } catch (err) {
+      await swalAlert(`Could not simulate fixtures: ${err?.message || "Unknown error"}`);
+    } finally {
+      setAdminCompetitionBusy("");
+    }
+  }
+
   const completedFixtures = fixtures.filter(f => f.status === "completed" || f.status === "forfeit");
   const upcomingFixtures = fixtures.filter(f => f.status === "scheduled" || f.status === "awaiting_result" || f.status === "postponed");
-  const sortedRows = sortStandings(standings);
+  const uniqueStandings = dedupeCompetitionStandingsByClub(standings);
+  const sortedRows = sortStandings(uniqueStandings);
+  const selectedSeasonRegisteredCount = Array.isArray(selectedSeason?.registered_club_ids)
+    ? new Set(selectedSeason.registered_club_ids.map(String)).size
+    : 0;
+  const qualificationClubCount = new Set(qualEntries.map(entry => entry.club_id).filter(Boolean).map(String)).size;
+  const observedClubCount = Math.max(
+    selectedSeasonRegisteredCount,
+    uniqueStandings.length,
+    qualificationClubCount
+  );
+  const displayedClubCount = observedClubCount || Number(selectedSeason?.num_clubs) || 0;
   const historySeasons = allSeasons.filter(s => s.status === "completed" || s.status === "archived");
   const publicTabs = [
     { value: "overview", label: "Overview" },
-    { value: "clubs", label: `Clubs (${standings.length})` },
+    { value: "clubs", label: `Clubs (${uniqueStandings.length})` },
     { value: "fixtures", label: `Fixtures (${fixtures.length})` },
     { value: "table", label: "Table" },
     { value: "stats", label: "Stats" },
@@ -716,9 +805,32 @@ export default function CompetitionDetail() {
                   <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                     Official STAGE tournaments are qualification-only events. Clubs qualify through Regional League Division 1 positions and then play the STAGE tournament format.
                   </p>
+                  {isAdmin ? (
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        disabled={adminCompetitionBusy === "generate" || fixtures.length > 0 || selectedSeason?.fixtures_generated || standings.length < 4}
+                        onClick={handleAdminGenerateFixtures}
+                        className="inline-flex h-8 items-center border border-primary/35 bg-primary/10 px-3 text-[10px] font-black uppercase tracking-[0.14em] text-primary transition hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-45">
+                        {adminCompetitionBusy === "generate" ? "Generating..." : "Generate Fixtures"}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={adminCompetitionBusy === "simulate" || fixtures.length === 0}
+                        onClick={handleAdminSimulateFixtures}
+                        className="inline-flex h-8 items-center border border-warning/35 bg-warning/10 px-3 text-[10px] font-black uppercase tracking-[0.14em] text-warning transition hover:bg-warning/20 disabled:cursor-not-allowed disabled:opacity-45">
+                        {adminCompetitionBusy === "simulate" ? "Simulating..." : "Simulate"}
+                      </button>
+                      <Link
+                        to="/admin/gost"
+                        className="inline-flex h-8 items-center border border-white/10 bg-black/20 px-3 text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground transition hover:text-foreground">
+                        Admin GOST
+                      </Link>
+                    </div>
+                  ) : null}
                   <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
                     {[
-                      ["Clubs", selectedSeason?.num_clubs || standings.length || 0],
+                      ["Clubs", displayedClubCount],
                       ["Fixtures", fixtures.length],
                       ["Completed", completedFixtures.length],
                       ["Qualifiers", qualEntries.length],
@@ -752,10 +864,10 @@ export default function CompetitionDetail() {
 
             {activeTab === "table" && (
               <StandingsTable
-                standings={standings}
+                standings={uniqueStandings}
                 directSpots={8}
                 playoffSpots={16}
-                totalClubs={selectedSeason?.num_clubs || standings.length}
+                totalClubs={displayedClubCount || uniqueStandings.length}
               />
             )}
 

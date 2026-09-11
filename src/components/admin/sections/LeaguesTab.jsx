@@ -43,6 +43,44 @@ function isTruthyEntityFlag(value) {
 
 const SEED_CLUB_PAGE_SIZE = 12;
 
+function getCompetitionSeasonTargetClubs(season) {
+  return Number(season?.max_clubs || season?.target_clubs || season?.max_clubs_per_season || OFFICIAL_STAGE_TOURNAMENT_MAX_CLUBS);
+}
+
+function getCompetitionSeasonClubCount(season, standingsCount = 0, qualificationCount = 0) {
+  const registeredIds = Array.isArray(season?.registered_club_ids) ? season.registered_club_ids : [];
+  const targetClubs = getCompetitionSeasonTargetClubs(season);
+  const observedClubCount = Math.max(
+    new Set(registeredIds.map(String)).size,
+    Number(standingsCount) || 0,
+    Number(qualificationCount) || 0
+  );
+  return Math.min(
+    observedClubCount || Number(season?.num_clubs) || 0,
+    targetClubs
+  );
+}
+
+function standingActivityScore(row) {
+  return Number(row?.played || 0) * 1000
+    + Number(row?.points || 0) * 100
+    + Number(row?.wins || 0) * 10
+    + Number(row?.goal_difference || 0);
+}
+
+function dedupeStandingRowsByClub(rows = []) {
+  const byClub = new Map();
+  for (const row of rows || []) {
+    if (!row?.club_id) continue;
+    const key = String(row.club_id);
+    const current = byClub.get(key);
+    if (!current || standingActivityScore(row) > standingActivityScore(current)) {
+      byClub.set(key, row);
+    }
+  }
+  return [...byClub.values()];
+}
+
 export default function LeaguesTab({
   mode = "all",
   seedCompetitions,
@@ -61,6 +99,8 @@ export default function LeaguesTab({
   setNewSeasonForm,
   createCompetitionSeason,
   creatingLeagueSeason,
+  competitionStandingCountsBySeason = {},
+  competitionStandingClubIdsBySeason = {},
   regApplications,
   regAppFilter,
   setRegAppFilter,
@@ -121,11 +161,18 @@ export default function LeaguesTab({
   const [replacingCompetitionClub, setReplacingCompetitionClub] = useState(null);
   const [resettingLeagueScope, setResettingLeagueScope] = useState(null);
   const [adminClubByLeague, setAdminClubByLeague] = useState({});
+  const [adminClubBySeason, setAdminClubBySeason] = useState({});
   const [seedClubModalLeagueId, setSeedClubModalLeagueId] = useState(null);
+  const [seedCompetitionModalSeasonId, setSeedCompetitionModalSeasonId] = useState(null);
   const [seedClubSearchByLeague, setSeedClubSearchByLeague] = useState({});
+  const [seedClubSearchBySeason, setSeedClubSearchBySeason] = useState({});
   const [seedClubPageByLeague, setSeedClubPageByLeague] = useState({});
+  const [seedClubPageBySeason, setSeedClubPageBySeason] = useState({});
   const [registeringLeagueClub, setRegisteringLeagueClub] = useState(null);
+  const [registeringCompetitionClub, setRegisteringCompetitionClub] = useState(null);
   const [simulatingLeagueFixtures, setSimulatingLeagueFixtures] = useState(null);
+  const [simulatingCompetitionFixtures, setSimulatingCompetitionFixtures] = useState(null);
+  const [generatingCompetitionFixtures, setGeneratingCompetitionFixtures] = useState(null);
   const activeStandingClubIds = useMemo(
     () => new Set((standingsList || []).filter(row => !row.is_excluded).map(row => String(row.club_id))),
     [standingsList]
@@ -145,8 +192,35 @@ export default function LeaguesTab({
       .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
   }
 
+  function getSeasonRegisteredIds(season) {
+    const ids = Array.isArray(season?.registered_club_ids)
+      ? season.registered_club_ids
+      : [];
+    return new Set(ids.map(id => String(id)));
+  }
+
+  function getSeasonKnownClubIds(season) {
+    return new Set([
+      ...getSeasonRegisteredIds(season),
+      ...(competitionStandingClubIdsBySeason[season?.id] || []).map(String),
+    ]);
+  }
+
+  function getAvailableClubsForCompetitionSeason(season) {
+    const registeredIds = getSeasonKnownClubIds(season);
+    return (clubs || [])
+      .filter(club => club?.id && !registeredIds.has(String(club.id)))
+      .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
+  }
+
   function getSelectedClubIdsForLeague(leagueId) {
     const value = adminClubByLeague[leagueId];
+    if (Array.isArray(value)) return value.map(String);
+    return value ? [String(value)] : [];
+  }
+
+  function getSelectedClubIdsForSeason(seasonId) {
+    const value = adminClubBySeason[seasonId];
     if (Array.isArray(value)) return value.map(String);
     return value ? [String(value)] : [];
   }
@@ -163,8 +237,28 @@ export default function LeaguesTab({
     });
   }
 
+  function setSelectedClubIdsForSeason(seasonId, updater) {
+    setAdminClubBySeason(prev => {
+      const current = Array.isArray(prev[seasonId])
+        ? prev[seasonId].map(String)
+        : prev[seasonId]
+          ? [String(prev[seasonId])]
+          : [];
+      const next = typeof updater === "function" ? updater(current) : updater;
+      return { ...prev, [seasonId]: [...new Set((next || []).map(String))] };
+    });
+  }
+
   function toggleSelectedClubForLeague(leagueId, clubId) {
     setSelectedClubIdsForLeague(leagueId, current => (
+      current.includes(String(clubId))
+        ? current.filter(id => id !== String(clubId))
+        : [...current, String(clubId)]
+    ));
+  }
+
+  function toggleSelectedClubForSeason(seasonId, clubId) {
+    setSelectedClubIdsForSeason(seasonId, current => (
       current.includes(String(clubId))
         ? current.filter(id => id !== String(clubId))
         : [...current, String(clubId)]
@@ -176,8 +270,17 @@ export default function LeaguesTab({
     setSeedClubPageByLeague(prev => ({ ...prev, [leagueId]: 1 }));
   }
 
+  function setSeasonSeedClubSearch(seasonId, value) {
+    setSeedClubSearchBySeason(prev => ({ ...prev, [seasonId]: value }));
+    setSeedClubPageBySeason(prev => ({ ...prev, [seasonId]: 1 }));
+  }
+
   function setSeedClubPage(leagueId, page) {
     setSeedClubPageByLeague(prev => ({ ...prev, [leagueId]: page }));
+  }
+
+  function setSeasonSeedClubPage(seasonId, page) {
+    setSeedClubPageBySeason(prev => ({ ...prev, [seasonId]: page }));
   }
 
   async function uploadPublicMedia(entityName, row, fieldName, file) {
@@ -352,6 +455,142 @@ export default function LeaguesTab({
     }
   }
 
+  async function adminAddTestClubsToCompetitionSeason(season) {
+    const selectedClubIds = getSelectedClubIdsForSeason(season.id);
+    const selectedClubs = selectedClubIds
+      .map(clubId => clubs.find(item => String(item.id) === String(clubId)))
+      .filter(Boolean);
+    if (!selectedClubs.length) {
+      await swalAlert("Choose at least one club first.");
+      return;
+    }
+    const status = String(season.status || "").toLowerCase();
+    if (!["draft", "qualification", "registration"].includes(status) || isTruthyEntityFlag(season.fixtures_generated)) {
+      await swalAlert("Test clubs can only be added before GOST fixtures are generated.");
+      return;
+    }
+    const registeredIds = Array.isArray(season.registered_club_ids) ? season.registered_club_ids.map(String) : [];
+    const existingSet = getSeasonKnownClubIds(season);
+    const targetClubs = Number(season.max_clubs || season.target_clubs || season.max_clubs_per_season || OFFICIAL_STAGE_TOURNAMENT_MAX_CLUBS);
+    const newClubs = selectedClubs.filter(club => !existingSet.has(String(club.id)));
+    if (!newClubs.length) {
+      await swalAlert("Those clubs are already in this GOST season.");
+      return;
+    }
+    if (targetClubs > 0 && existingSet.size + newClubs.length > targetClubs) {
+      await swalAlert(`This GOST season only has ${Math.max(0, targetClubs - existingSet.size)} open spot${targetClubs - existingSet.size === 1 ? "" : "s"}.`);
+      return;
+    }
+    const ok = await swalConfirm(`Add ${newClubs.length} test club${newClubs.length === 1 ? "" : "s"} to ${season.competition_name} ${season.season_label || `S${season.season_number}`}?\n\nThis bypasses Regional League qualification and is meant for admin testing.`);
+    if (!ok) return;
+
+    setRegisteringCompetitionClub(season.id);
+    try {
+      const currentStandings = await (stageClient.entities.CompetitionStanding?.filter({ season_id: season.id }, null, 100) ?? Promise.resolve([])).catch(() => []);
+      const currentStandingClubIds = new Set(currentStandings.map(row => String(row.club_id)));
+      const nextRegisteredClubIds = [...new Set([...registeredIds, ...newClubs.map(club => String(club.id))])];
+      const nextKnownClubCount = new Set([...nextRegisteredClubIds, ...currentStandingClubIds]).size;
+      await stageClient.entities.CompetitionSeason.update(season.id, {
+        registered_club_ids: nextRegisteredClubIds,
+        num_clubs: nextKnownClubCount,
+        max_clubs: targetClubs,
+        target_clubs: targetClubs,
+        status: season.status || "qualification",
+      });
+      const rowsToCreate = newClubs.filter(club => !currentStandingClubIds.has(String(club.id)));
+      await Promise.all(rowsToCreate.map((club, index) => stageClient.entities.CompetitionStanding.create({
+        season_id: season.id,
+        competition_id: season.competition_id,
+        competition_name: season.competition_name,
+        competition_tier: season.competition_tier,
+        competition_slug: season.competition_slug,
+        season_number: season.season_number,
+        club_id: club.id,
+        club_name: club.name,
+        club_logo_url: club.logo_url || "",
+        club_tag: club.tag || "",
+        platform: club.platform || season.platform,
+        region: club.region || season.region,
+        position: currentStandings.length + index + 1,
+        played: 0,
+        wins: 0,
+        draws: 0,
+        losses: 0,
+        goals_for: 0,
+        goals_against: 0,
+        goal_difference: 0,
+        points: 0,
+        form: [],
+        admin_seeded: true,
+      })));
+      setAdminClubBySeason(prev => ({ ...prev, [season.id]: [] }));
+      setSeedCompetitionModalSeasonId(null);
+      await loadAll?.();
+      await swalAlert(`${newClubs.length} test club${newClubs.length === 1 ? "" : "s"} added to ${season.competition_name}.`);
+    } catch (err) {
+      await swalAlert(`Could not add GOST test clubs: ${err?.message || err?.error || "Unknown error"}`);
+    } finally {
+      setRegisteringCompetitionClub(null);
+    }
+  }
+
+  async function generateCompetitionFixturesForAdmin(season) {
+    if (!season?.id) return;
+    setGeneratingCompetitionFixtures(season.id);
+    try {
+      const standings = dedupeStandingRowsByClub(
+        await (stageClient.entities.CompetitionStanding?.filter({ season_id: season.id }, null, 100) ?? Promise.resolve([])).catch(() => [])
+      );
+      if (standings.length < 4) {
+        await swalAlert("Add at least 4 clubs before generating GOST fixtures.");
+        return;
+      }
+      const targetClubs = Number(season.max_clubs || season.target_clubs || season.max_clubs_per_season || OFFICIAL_STAGE_TOURNAMENT_MAX_CLUBS);
+      const warning = standings.length < targetClubs
+        ? `\n\nThis season is not full (${standings.length}/${targetClubs}). For testing, fixtures will be generated with the clubs currently added.`
+        : "";
+      const ok = await swalConfirm(`Generate GOST fixtures for ${season.competition_name} ${season.season_label || `S${season.season_number}`}?${warning}`);
+      if (!ok) return;
+      const { generateLeaguePhaseFixtures } = await import("@/lib/competitionUtils");
+      await generateLeaguePhaseFixtures({ ...season, num_league_matchdays: season.num_league_matchdays || season.league_matchday_total || 8 }, standings);
+      await loadAll?.();
+      if (fixturesPanel?.type === "competition" && fixturesPanel.id === season.id) {
+        await loadFixturesForPanel?.(fixturesPanel);
+      }
+      await swalAlert(`GOST fixtures generated for ${standings.length} clubs.`);
+    } catch (err) {
+      await swalAlert(`Could not generate GOST fixtures: ${err?.message || err?.error || "Unknown error"}`);
+    } finally {
+      setGeneratingCompetitionFixtures(null);
+    }
+  }
+
+  async function simulateCompetitionFixtures(season) {
+    const ok = await swalConfirm(`Simulate all unplayed fixtures for ${season.competition_name} ${season.season_label || `S${season.season_number}`}? This will enter scores and update the table.`);
+    if (!ok) return;
+
+    setSimulatingCompetitionFixtures(season.id);
+    try {
+      const response = await stageClient.functions.invoke("simulateCompetitionFixtures", {
+        season_id: season.id,
+        reason: `Admin simulated GOST fixtures for ${season.competition_name} ${season.season_label || `S${season.season_number}`}`,
+      });
+      const data = response?.data || response || {};
+      await loadAll?.();
+      if (fixturesPanel?.type === "competition" && fixturesPanel.id === season.id) {
+        await loadFixturesForPanel?.(fixturesPanel);
+      }
+      if (standingsPanel?.type === "competition" && standingsPanel.id === season.id) {
+        await loadStandingsForPanel?.(standingsPanel);
+      }
+      await swalAlert(`Simulated ${data.simulated || 0} GOST fixture${Number(data.simulated || 0) === 1 ? "" : "s"}.`);
+    } catch (err) {
+      await swalAlert(`Could not simulate GOST fixtures: ${err?.message || err?.error || "Unknown error"}`);
+    } finally {
+      setSimulatingCompetitionFixtures(null);
+    }
+  }
+
   async function simulateRegionalLeagueFixtures(league) {
     const ok = await swalConfirm(`Simulate all unplayed fixtures for ${league.name}? This will enter scores and update the table.`);
     if (!ok) return;
@@ -381,6 +620,34 @@ export default function LeaguesTab({
   const seedModalLeague = useMemo(
     () => regionalLeagues.find(league => String(league.id) === String(seedClubModalLeagueId)) || null,
     [regionalLeagues, seedClubModalLeagueId]
+  );
+  const competitionSeedModalSeason = useMemo(
+    () => compSeasons.find(season => String(season.id) === String(seedCompetitionModalSeasonId)) || null,
+    [compSeasons, seedCompetitionModalSeasonId]
+  );
+  const competitionSeedModalAvailableClubs = competitionSeedModalSeason ? getAvailableClubsForCompetitionSeason(competitionSeedModalSeason) : [];
+  const competitionSeedModalSearch = competitionSeedModalSeason ? (seedClubSearchBySeason[competitionSeedModalSeason.id] || "") : "";
+  const competitionSeedModalSelectedClubIds = competitionSeedModalSeason ? getSelectedClubIdsForSeason(competitionSeedModalSeason.id) : [];
+  const competitionSeedModalSelectedClubIdSet = new Set(competitionSeedModalSelectedClubIds);
+  const competitionSeedModalTarget = competitionSeedModalSeason
+    ? Number(competitionSeedModalSeason.max_clubs || competitionSeedModalSeason.target_clubs || competitionSeedModalSeason.max_clubs_per_season || OFFICIAL_STAGE_TOURNAMENT_MAX_CLUBS)
+    : OFFICIAL_STAGE_TOURNAMENT_MAX_CLUBS;
+  const competitionSeedModalCapacityRemaining = competitionSeedModalSeason
+    ? Math.max(0, competitionSeedModalTarget - getSeasonKnownClubIds(competitionSeedModalSeason).size)
+    : 0;
+  const competitionSeedModalFilteredClubs = competitionSeedModalAvailableClubs.filter(club => {
+    const q = competitionSeedModalSearch.trim().toLowerCase();
+    if (!q) return true;
+    return `${club.name || ""} ${club.tag || ""}`.toLowerCase().includes(q);
+  });
+  const competitionSeedModalPageCount = Math.max(1, Math.ceil(competitionSeedModalFilteredClubs.length / SEED_CLUB_PAGE_SIZE));
+  const competitionSeedModalPage = Math.min(
+    competitionSeedModalPageCount,
+    Math.max(1, Number(seedClubPageBySeason[competitionSeedModalSeason?.id] || 1))
+  );
+  const competitionSeedModalPageClubs = competitionSeedModalFilteredClubs.slice(
+    (competitionSeedModalPage - 1) * SEED_CLUB_PAGE_SIZE,
+    competitionSeedModalPage * SEED_CLUB_PAGE_SIZE
   );
   const seedModalAvailableClubs = seedModalLeague ? getAvailableClubsForLeague(seedModalLeague) : [];
   const seedModalSearch = seedModalLeague ? (seedClubSearchByLeague[seedModalLeague.id] || "") : "";
@@ -808,9 +1075,99 @@ export default function LeaguesTab({
     <div>
       <h3 className="font-heading text-base uppercase tracking-tight text-foreground mb-3">{t("admin.leagues.allSeasons")}</h3>
       <div className="space-y-2">
-        {compSeasons.map(s => (
-          <SeasonCard key={s.id} season={s} onRefresh={loadAll} />
-        ))}
+        {compSeasons.map(s => {
+          const status = String(s.status || "").toLowerCase();
+          const fixturesGenerated = isTruthyEntityFlag(s.fixtures_generated);
+          const registeredIds = getSeasonRegisteredIds(s);
+          const selectedClubIds = getSelectedClubIdsForSeason(s.id);
+          const availableClubs = getAvailableClubsForCompetitionSeason(s);
+          const standingsCount = Number(competitionStandingCountsBySeason[s.id] || 0);
+          const qualificationCount = qualEntries.filter(entry => String(entry.target_season_id || "") === String(s.id)).length;
+          const targetClubs = getCompetitionSeasonTargetClubs(s);
+          const displayedClubCount = getCompetitionSeasonClubCount(s, standingsCount, qualificationCount);
+          const canAddTestClubs = ["draft", "qualification", "registration"].includes(status) && !fixturesGenerated;
+          const canGenerateFixtures = !fixturesGenerated && displayedClubCount >= 4;
+          const canSimulateFixtures = fixturesGenerated || status === "league_phase";
+          return (
+            <div key={s.id} className="space-y-2">
+              <SeasonCard
+                season={s}
+                standingsCount={standingsCount}
+                qualificationCount={qualificationCount}
+                onRefresh={loadAll}
+              />
+              <div className="rounded border border-border bg-secondary/20 p-3">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-foreground">GOST admin test controls</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {displayedClubCount}/{targetClubs} clubs · {registeredIds.size} registered · {standingsCount} standings · {fixturesGenerated ? "fixtures generated" : "fixtures not generated"} · {availableClubs.length} clubs available for testing
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    <Link to={`/competitions/${s.competition_slug}`}>
+                      <Button size="sm" variant="outline" className="h-8 rounded border-border px-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground">
+                        View
+                      </Button>
+                    </Link>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={!canAddTestClubs || registeringCompetitionClub === s.id || availableClubs.length === 0}
+                      onClick={() => setSeedCompetitionModalSeasonId(s.id)}
+                      className="h-8 rounded border-border px-3 text-[11px] font-bold uppercase tracking-wider text-foreground hover:border-primary/40 hover:bg-primary/10">
+                      Add test clubs
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={selectedClubIds.length === 0 || registeringCompetitionClub === s.id}
+                      onClick={() => setSelectedClubIdsForSeason(s.id, [])}
+                      className="h-8 rounded border-border px-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground">
+                      Clear
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={!canGenerateFixtures || generatingCompetitionFixtures === s.id}
+                      onClick={() => generateCompetitionFixturesForAdmin(s)}
+                      className="h-8 rounded border-primary/30 px-3 text-[11px] font-bold uppercase tracking-wider text-primary hover:bg-primary/10">
+                      {generatingCompetitionFixtures === s.id ? "Generating..." : "Generate fixtures"}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={!canSimulateFixtures || simulatingCompetitionFixtures === s.id}
+                      onClick={() => simulateCompetitionFixtures(s)}
+                      className="h-8 rounded border-warning/40 px-3 text-[11px] font-bold uppercase tracking-wider text-warning hover:bg-warning/10 disabled:opacity-45">
+                      {simulatingCompetitionFixtures === s.id ? "Simulating..." : "Simulate"}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => loadFixturesForPanel({ type: "competition", id: s.id, name: `${s.competition_name} ${s.season_label || ""}` })}
+                      className="h-8 rounded border-border px-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground">
+                      Load fixtures
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => loadStandingsForPanel({ type: "competition", id: s.id, name: `${s.competition_name} ${s.season_label || ""}` })}
+                      className="h-8 rounded border-border px-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground">
+                      Load standings
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   )}
@@ -1292,6 +1649,159 @@ export default function LeaguesTab({
       </p>
     </div>
   </div>
+
+  <Dialog open={Boolean(competitionSeedModalSeason)} onOpenChange={(open) => { if (!open) setSeedCompetitionModalSeasonId(null); }}>
+    <DialogContent className="max-h-[86vh] max-w-3xl overflow-hidden border-border bg-card p-0 text-foreground">
+      {competitionSeedModalSeason && (
+        <div className="flex max-h-[86vh] flex-col">
+          <DialogHeader className="border-b border-border px-5 py-4">
+            <DialogTitle className="font-heading text-base uppercase tracking-tight">
+              Add test clubs to {competitionSeedModalSeason.competition_name}
+            </DialogTitle>
+            <p className="text-xs text-muted-foreground">
+              {competitionSeedModalSelectedClubIds.length}/{competitionSeedModalCapacityRemaining} selected · {competitionSeedModalFilteredClubs.length} matching club{competitionSeedModalFilteredClubs.length === 1 ? "" : "s"}
+            </p>
+          </DialogHeader>
+
+          <div className="border-b border-border bg-secondary/20 p-4">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={competitionSeedModalSearch}
+                onChange={event => setSeasonSeedClubSearch(competitionSeedModalSeason.id, event.target.value)}
+                placeholder="Search by club name or tag..."
+                className="h-10 rounded border-border bg-background pl-9 text-sm"
+              />
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={registeringCompetitionClub === competitionSeedModalSeason.id || competitionSeedModalCapacityRemaining <= 0 || competitionSeedModalFilteredClubs.length === 0}
+                onClick={() => setSelectedClubIdsForSeason(competitionSeedModalSeason.id, competitionSeedModalFilteredClubs.slice(0, competitionSeedModalCapacityRemaining).map(club => club.id))}
+                className="h-8 rounded border-border px-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground">
+                Select available spots
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={registeringCompetitionClub === competitionSeedModalSeason.id || competitionSeedModalPageClubs.length === 0}
+                onClick={() => {
+                  const room = competitionSeedModalCapacityRemaining - competitionSeedModalSelectedClubIds.length;
+                  if (room <= 0) return;
+                  const nextIds = competitionSeedModalPageClubs
+                    .filter(club => !competitionSeedModalSelectedClubIdSet.has(String(club.id)))
+                    .slice(0, room)
+                    .map(club => club.id);
+                  setSelectedClubIdsForSeason(competitionSeedModalSeason.id, [...competitionSeedModalSelectedClubIds, ...nextIds]);
+                }}
+                className="h-8 rounded border-border px-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground">
+                Select page
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={registeringCompetitionClub === competitionSeedModalSeason.id || competitionSeedModalSelectedClubIds.length === 0}
+                onClick={() => setSelectedClubIdsForSeason(competitionSeedModalSeason.id, [])}
+                className="h-8 rounded border-border px-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground">
+                Clear
+              </Button>
+            </div>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto p-4">
+            {competitionSeedModalFilteredClubs.length === 0 ? (
+              <div className="rounded border border-border bg-secondary/20 px-4 py-8 text-center text-sm text-muted-foreground">
+                No clubs match your search.
+              </div>
+            ) : competitionSeedModalCapacityRemaining <= 0 ? (
+              <div className="rounded border border-border bg-secondary/20 px-4 py-8 text-center text-sm text-muted-foreground">
+                This GOST season is already full.
+              </div>
+            ) : (
+              <div className="grid gap-2 sm:grid-cols-2">
+                {competitionSeedModalPageClubs.map(club => {
+                  const selected = competitionSeedModalSelectedClubIdSet.has(String(club.id));
+                  const disabled = !selected && competitionSeedModalSelectedClubIds.length >= competitionSeedModalCapacityRemaining;
+                  return (
+                    <button
+                      key={club.id}
+                      type="button"
+                      disabled={disabled || registeringCompetitionClub === competitionSeedModalSeason.id}
+                      onClick={() => toggleSelectedClubForSeason(competitionSeedModalSeason.id, club.id)}
+                      className={cn(
+                        "flex min-w-0 items-center gap-3 rounded border p-3 text-left transition",
+                        selected ? "border-primary/60 bg-primary/10" : "border-border bg-secondary/20 hover:border-primary/40",
+                        disabled && "cursor-not-allowed opacity-45"
+                      )}>
+                      {club.logo_url
+                        ? <img src={club.logo_url} alt="" className="h-9 w-9 shrink-0 object-contain" />
+                        : <Shield className="h-8 w-8 shrink-0 text-muted-foreground/35" />}
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-bold text-foreground">{club.name}</span>
+                        <span className="block truncate text-[10px] text-muted-foreground">{club.tag ? `[${club.tag}] · ` : ""}{club.region || "Global"} · {club.platform || "Cross-Platform"}</span>
+                      </span>
+                      <span className={cn("h-4 w-4 shrink-0 rounded border", selected ? "border-primary bg-primary" : "border-border")} />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="border-t border-border bg-secondary/20 p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={competitionSeedModalPage <= 1}
+                onClick={() => setSeasonSeedClubPage(competitionSeedModalSeason.id, competitionSeedModalPage - 1)}
+                className="h-8 rounded border-border px-2 text-muted-foreground hover:text-foreground">
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Page {competitionSeedModalPage} / {competitionSeedModalPageCount}
+              </span>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={competitionSeedModalPage >= competitionSeedModalPageCount}
+                onClick={() => setSeasonSeedClubPage(competitionSeedModalSeason.id, competitionSeedModalPage + 1)}
+                className="h-8 rounded border-border px-2 text-muted-foreground hover:text-foreground">
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => setSeedCompetitionModalSeasonId(null)}
+                className="h-9 flex-1 rounded border-border px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground sm:flex-none">
+                Close
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={competitionSeedModalSelectedClubIds.length === 0 || registeringCompetitionClub === competitionSeedModalSeason.id}
+                onClick={() => adminAddTestClubsToCompetitionSeason(competitionSeedModalSeason)}
+                className="h-9 flex-1 rounded border-primary/40 px-4 text-xs font-bold uppercase tracking-wider text-primary hover:bg-primary/10 sm:flex-none">
+                {registeringCompetitionClub === competitionSeedModalSeason.id
+                  ? "Adding..."
+                  : `Add ${competitionSeedModalSelectedClubIds.length} test club${competitionSeedModalSelectedClubIds.length === 1 ? "" : "s"}`}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </DialogContent>
+  </Dialog>
 
   <Dialog open={Boolean(seedModalLeague)} onOpenChange={(open) => { if (!open) setSeedClubModalLeagueId(null); }}>
     <DialogContent className="max-h-[86vh] max-w-3xl overflow-hidden border-border bg-card p-0 text-foreground">

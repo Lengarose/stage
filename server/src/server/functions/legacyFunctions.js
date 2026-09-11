@@ -6722,6 +6722,88 @@ const HANDLERS = {
     };
   },
 
+  async simulateCompetitionFixtures({
+    _auth_user_id,
+    season_id,
+    fixture_limit,
+    reason,
+  }) {
+    const admin = await requireAdminUser(_auth_user_id);
+    if (!season_id) throw new Error('season_id required');
+    const limit = Number(fixture_limit || 0);
+    const fixtureRows = await EXECUTESQL(
+      `SELECT *
+         FROM league_entities
+        WHERE entity_type = 'competition_fixture'
+          AND season_id = ?
+        ORDER BY COALESCE(JSON_UNQUOTE(JSON_EXTRACT(data_json, '$.phase')), 'league') ASC,
+                 COALESCE(CAST(JSON_UNQUOTE(JSON_EXTRACT(data_json, '$.matchday')) AS UNSIGNED), 999),
+                 created_date ASC`,
+      [season_id]
+    );
+    const fixtures = fixtureRows
+      .map(parseLeagueEntityRow)
+      .filter(fixture => !isLeagueFixturePlayed(fixture));
+    if (!fixtures.length) {
+      return { data: { success: true, simulated: 0, skipped: fixtureRows.length, message: 'No unplayed fixtures to simulate' } };
+    }
+
+    const selectedFixtures = limit > 0 ? fixtures.slice(0, limit) : fixtures;
+    const results = [];
+    for (const fixture of selectedFixtures) {
+      const { homeScore, awayScore } = simulateFootballScore();
+      const winnerId = homeScore > awayScore ? fixture.home_club_id : awayScore > homeScore ? fixture.away_club_id : null;
+      const winnerName = winnerId && String(winnerId) === String(fixture.home_club_id)
+        ? fixture.home_club_name
+        : winnerId && String(winnerId) === String(fixture.away_club_id)
+          ? fixture.away_club_name
+          : null;
+      const result = await HANDLERS.competitionFixtureResult({
+        _auth_user_id,
+        fixture_id: fixture.id,
+        home_score: homeScore,
+        away_score: awayScore,
+        winner_club_id: winnerId,
+        winner_club_name: winnerName,
+        reason: reason || 'Admin simulated GOST fixture',
+      });
+      results.push({
+        fixture_id: fixture.id,
+        home_club_name: fixture.home_club_name,
+        away_club_name: fixture.away_club_name,
+        home_score: homeScore,
+        away_score: awayScore,
+        processed: Boolean(result?.data?.success),
+      });
+    }
+
+    await createAuditLog({
+      adminUserId: admin.id,
+      adminEmail: admin.email,
+      action: 'simulate_competition_fixtures',
+      entityType: 'competition_season',
+      entityId: season_id,
+      entityName: fixtureRows[0] ? parseLeagueEntityRow(fixtureRows[0])?.competition_name : null,
+      oldValue: {
+        unplayed_before: fixtures.length,
+      },
+      newValue: {
+        simulated: results.length,
+        results,
+      },
+      reason: reason || 'Admin simulated GOST fixtures',
+    });
+
+    return {
+      data: {
+        success: true,
+        simulated: results.length,
+        remaining: Math.max(0, fixtures.length - results.length),
+        results,
+      },
+    };
+  },
+
   async adminResetLeagueCompetitionData({
     _auth_user_id,
     scope = 'all',

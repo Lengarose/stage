@@ -6,14 +6,21 @@ import { useTranslation } from "@/hooks/useTranslation";
 import { getSeasonStatusLabel } from "@/lib/adminI18n";
 import { swalAlert } from "@/lib/swal";
 
-export default function SeasonCard({ season: s, onRefresh }) {
+export default function SeasonCard({ season: s, standingsCount = 0, qualificationCount = 0, onRefresh }) {
   const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
   const targetClubs = Number(s.max_clubs || s.target_clubs || s.max_clubs_per_season || 36);
   const registeredIds = Array.isArray(s.registered_club_ids) ? s.registered_club_ids : [];
-  const registeredCount = Array.isArray(s.registered_club_ids)
-    ? registeredIds.length
-    : Math.min(Number(s.num_clubs) || 0, targetClubs);
+  const uniqueRegisteredCount = new Set(registeredIds.map(String)).size;
+  const observedClubCount = Math.max(
+    uniqueRegisteredCount,
+    Number(standingsCount) || 0,
+    Number(qualificationCount) || 0
+  );
+  const registeredCount = Math.min(
+    observedClubCount || Number(s.num_clubs) || 0,
+    targetClubs
+  );
   const isFilled = targetClubs > 0 && registeredCount >= targetClubs;
   const canGenerateLeaguePhase = ["draft", "qualification", "registration"].includes(s.status) && !s.fixtures_generated && isFilled;
 
@@ -67,7 +74,7 @@ export default function SeasonCard({ season: s, onRefresh }) {
       <div className="flex items-center gap-3">
         <div className="flex-1 min-w-0">
           <p className="text-sm font-bold text-foreground">{s.competition_name} — {s.season_label || t("admin.seasons.seasonNumber", { number: s.season_number })}</p>
-          <p className="text-[10px] text-muted-foreground">{t("admin.seasons.qualifiedClubs", { current: registeredCount, target: targetClubs })} · {s.platform} · {s.region}</p>
+          <p className="text-[10px] text-muted-foreground">{registeredCount}/{targetClubs} qualified clubs · {s.platform} · {s.region}</p>
         </div>
         <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider shrink-0", statusColor)}>
           {getSeasonStatusLabel(t, s.status)}
@@ -75,7 +82,7 @@ export default function SeasonCard({ season: s, onRefresh }) {
         <div className="flex gap-1.5 shrink-0 flex-wrap justify-end">
           {["draft", "qualification", "registration"].includes(s.status) && !s.fixtures_generated && !isFilled && (
             <span className="h-7 inline-flex items-center rounded border border-border px-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-              {t("admin.seasons.awaitingQualifiers", { current: registeredCount, target: targetClubs })}
+              Awaiting qualifiers {registeredCount}/{targetClubs}
             </span>
           )}
           {canGenerateLeaguePhase && (

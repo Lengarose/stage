@@ -675,20 +675,32 @@ export async function confirmQualificationEntry(entry, season, adminEmail) {
   if (!club) throw new Error("Club not found");
 
   const registeredClubIds = Array.isArray(season.registered_club_ids) ? season.registered_club_ids : [];
-  const alreadyIn = registeredClubIds.includes(entry.club_id);
+  const registeredClubIdSet = new Set(registeredClubIds.map(String));
+  const alreadyRegistered = registeredClubIdSet.has(String(entry.club_id));
+  const existingStandings = await stageClient.entities.CompetitionStanding
+    .filter({ season_id: season.id }, null, 100)
+    .catch(() => []);
+  const existingStanding = existingStandings.find(row => String(row.club_id || "") === String(entry.club_id));
+  const standingClubIdSet = new Set(existingStandings.map(row => row.club_id).filter(Boolean).map(String));
   const targetClubs = Number(season.max_clubs || season.target_clubs || season.max_clubs_per_season || 36);
-  const nextRegisteredClubIds = alreadyIn ? registeredClubIds : [...registeredClubIds, entry.club_id];
-  if (!alreadyIn && targetClubs > 0 && nextRegisteredClubIds.length > targetClubs) {
-    throw new Error(`This season is already full (${registeredClubIds.length}/${targetClubs} clubs).`);
+  const nextRegisteredClubIds = [...registeredClubIdSet];
+  if (!alreadyRegistered) nextRegisteredClubIds.push(entry.club_id);
+  const nextKnownClubIds = new Set([...nextRegisteredClubIds.map(String), ...standingClubIdSet]);
+  if (!existingStanding) nextKnownClubIds.add(String(entry.club_id));
+  if (!alreadyRegistered && !existingStanding && targetClubs > 0 && nextKnownClubIds.size > targetClubs) {
+    throw new Error(`This season is already full (${Math.max(registeredClubIdSet.size, standingClubIdSet.size)}/${targetClubs} clubs).`);
   }
 
-  if (!alreadyIn) {
+  if (!alreadyRegistered || Number(season.num_clubs || 0) !== nextKnownClubIds.size) {
     await stageClient.entities.CompetitionSeason.update(season.id, {
       registered_club_ids: nextRegisteredClubIds,
-      num_clubs: nextRegisteredClubIds.length,
+      num_clubs: nextKnownClubIds.size,
       max_clubs: targetClubs,
       target_clubs: targetClubs,
     });
+  }
+
+  if (!existingStanding) {
     await stageClient.entities.CompetitionStanding.create({
       season_id: season.id,
       competition_id: season.competition_id,
@@ -702,7 +714,7 @@ export async function confirmQualificationEntry(entry, season, adminEmail) {
       club_tag: club.tag || "",
       platform: club.platform || season.platform,
       region: club.region || season.region,
-      position: nextRegisteredClubIds.length,
+      position: nextKnownClubIds.size,
       played: 0, wins: 0, draws: 0, losses: 0,
       goals_for: 0, goals_against: 0, goal_difference: 0,
       points: 0, form: [],
@@ -741,11 +753,12 @@ export async function processCompetitionSeasonEnd(season, standings, competition
     if (pos > sorted.length) continue;
     const s = sorted[pos - 1];
 
-    // Deduplication: skip if an entry already exists for this club → target competition
+    // Deduplication: skip if an entry already exists for this club → target competition.
+    // The same club must not qualify twice through a different source flow.
     const existing = await stageClient.entities.QualificationEntry.filter(
-      { club_id: s.club_id, target_competition_id: targetComp.id, status: "pending" }, null, 1
+      { club_id: s.club_id, target_competition_id: targetComp.id }, null, 10
     ).catch(() => []);
-    if (existing.length > 0) continue;
+    if (existing.some(entry => ["pending", "confirmed"].includes(String(entry.status || "").toLowerCase()))) continue;
 
     ops.push(
       stageClient.entities.QualificationEntry.create({

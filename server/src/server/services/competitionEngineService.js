@@ -320,7 +320,7 @@ async function selectCompetitionBySlug(slug) {
   return rows.length ? parseLeagueEntityRow(rows[0]) : null;
 }
 
-async function qualificationEntryExists({ clubId, targetCompetitionId, sourceType }) {
+async function qualificationEntryExists({ clubId, targetCompetitionId }) {
   if (!clubId || !targetCompetitionId) return true;
   const rows = await EXECUTESQL(
     `SELECT * FROM league_entities
@@ -328,9 +328,8 @@ async function qualificationEntryExists({ clubId, targetCompetitionId, sourceTyp
         AND club_id = ?
         AND status IN ('pending', 'confirmed')
         AND JSON_UNQUOTE(JSON_EXTRACT(data_json, '$.target_competition_id')) = ?
-        AND JSON_UNQUOTE(JSON_EXTRACT(data_json, '$.source_type')) = ?
       LIMIT 1`,
-    [clubId, targetCompetitionId, sourceType],
+    [clubId, targetCompetitionId],
   ).catch(() => []);
   return rows.length > 0;
 }

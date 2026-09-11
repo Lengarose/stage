@@ -52,6 +52,7 @@ import { canResolveDisputeWithScore } from "@/lib/gameDayResultFlow";
 import { toMysqlDateTime } from "@/lib/momentDate";
 import { useTranslation } from "@/hooks/useTranslation";
 import { loadPlayerDirectoryPages } from "@/lib/playerDirectoryLoader";
+import { asObjectArray } from "@/lib/safeData";
 import {
   getEligibleRegionalLeaguesForRegistration,
   getOpenRegionalLeagueCandidates,
@@ -70,6 +71,26 @@ import {
 
 function getOfficialStageSpotsForCompetition(slug) {
   return STAGE_QUALIFICATION_RULES.find(rule => rule.competitionSlug === slug)?.positions.length || 6;
+}
+
+function standingActivityScore(row) {
+  return Number(row?.played || 0) * 1000
+    + Number(row?.points || 0) * 100
+    + Number(row?.wins || 0) * 10
+    + Number(row?.goal_difference || 0);
+}
+
+function dedupeStandingRowsByClub(rows = []) {
+  const byClub = new Map();
+  for (const row of asObjectArray(rows)) {
+    if (!row?.club_id) continue;
+    const key = String(row.club_id);
+    const current = byClub.get(key);
+    if (!current || standingActivityScore(row) > standingActivityScore(current)) {
+      byClub.set(key, row);
+    }
+  }
+  return [...byClub.values()];
 }
 
 /** @param {{ forcedSection?: string }} [props] */
@@ -155,6 +176,8 @@ export default function Admin(props) {
   // Competitions / Leagues tab
   const [competitions, setCompetitions] = useState([]);
   const [compSeasons, setCompSeasons] = useState([]);
+  const [competitionStandingCountsBySeason, setCompetitionStandingCountsBySeason] = useState({});
+  const [competitionStandingClubIdsBySeason, setCompetitionStandingClubIdsBySeason] = useState({});
   const [qualEntries, setQualEntries] = useState([]);
   const [seedingComps, setSeedingComps] = useState(false);
   const [newSeasonForm, setNewSeasonForm] = useState({ competition_id: "", platform: "Cross-Platform", region: "Global", prize_pool_stc: "", num_clubs: 36, num_league_matchdays: 8 });
@@ -272,7 +295,7 @@ export default function Admin(props) {
   async function loadAll() {
     setLoading(true);
     try {
-      const [disputedMatches, allPlayers, allTournaments, allClubs, allTrophies, allComps, allCompSeasons, allQual, allRegLeagues, expiredLeagueFixtures, expiredCompFixtures, allRegApps, allLifestyleItems, pendingIdentityClaims] = await Promise.all([
+      const [disputedMatches, allPlayers, allTournaments, allClubs, allTrophies, allComps, allCompSeasons, allCompetitionStandings, allQual, allRegLeagues, expiredLeagueFixtures, expiredCompFixtures, allRegApps, allLifestyleItems, pendingIdentityClaims] = await Promise.all([
         stageClient.entities.Match.filter({ status: "disputed" }, "-updated_date", 50).catch(() => []),
         loadPlayerDirectoryPages().catch(() => []),
         stageClient.entities.Tournament.list("-created_date", 200).catch(() => []),
@@ -280,6 +303,7 @@ export default function Admin(props) {
         stageClient.entities.TrophyItem.list("sort_order", 100).catch(() => []),
         stageClient.entities.Competition.list("tier", 10).catch(() => []),
         stageClient.entities.CompetitionSeason.list("-season_number", 30).catch(() => []),
+        (stageClient.entities.CompetitionStanding?.list("-updated_date", 500) ?? Promise.resolve([])).catch(() => []),
         stageClient.entities.QualificationEntry.filter({ status: "pending" }, null, 50).catch(() => []),
         stageClient.entities.RegionalLeague.list("-season_number", 50).catch(() => []),
         (stageClient.entities.RegionalLeagueFixture?.filter({ scheduling_status: "expired" }, null, 50) ?? Promise.resolve([])).catch(() => []),
@@ -298,6 +322,19 @@ export default function Admin(props) {
       setTrophyItems(allTrophies);
       setCompetitions(allComps);
       setCompSeasons(allCompSeasons);
+      const nextCompetitionStandingCounts = {};
+      const nextCompetitionStandingClubIds = {};
+      for (const row of asObjectArray(allCompetitionStandings)) {
+        if (!row?.season_id || row.is_excluded) continue;
+        if (!nextCompetitionStandingClubIds[row.season_id]) nextCompetitionStandingClubIds[row.season_id] = [];
+        if (row.club_id) nextCompetitionStandingClubIds[row.season_id].push(String(row.club_id));
+      }
+      for (const [seasonId, clubIds] of Object.entries(nextCompetitionStandingClubIds)) {
+        nextCompetitionStandingClubIds[seasonId] = [...new Set(clubIds)];
+        nextCompetitionStandingCounts[seasonId] = nextCompetitionStandingClubIds[seasonId].length;
+      }
+      setCompetitionStandingCountsBySeason(nextCompetitionStandingCounts);
+      setCompetitionStandingClubIdsBySeason(nextCompetitionStandingClubIds);
       setQualEntries(allQual);
       const canonicalRegionalLeagues = allRegLeagues.map(withCanonicalRegionalLeagueName);
       setRegionalLeagues(canonicalRegionalLeagues);
@@ -1137,6 +1174,7 @@ export default function Admin(props) {
       let list = [];
       if (panel.type === "competition") {
         list = await (stageClient.entities.CompetitionStanding?.filter({ season_id: panel.id }, null, 50) ?? Promise.resolve([])).catch(() => []);
+        list = dedupeStandingRowsByClub(list);
       } else {
         list = await (stageClient.entities.RegionalLeagueStanding?.filter({ league_id: panel.id }, null, 50) ?? Promise.resolve([])).catch(() => []);
       }
@@ -1622,6 +1660,8 @@ export default function Admin(props) {
               seedingComps={seedingComps}
               competitions={competitions}
               compSeasons={compSeasons}
+              competitionStandingCountsBySeason={competitionStandingCountsBySeason}
+              competitionStandingClubIdsBySeason={competitionStandingClubIdsBySeason}
               clubs={clubs}
               trophyItems={trophyItems}
               editingComp={editingComp}
