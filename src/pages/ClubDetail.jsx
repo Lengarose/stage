@@ -2382,6 +2382,7 @@ function ClubFixturesPanel({
   t,
 }) {
   const [activeFixtureSection, setActiveFixtureSection] = useState("gameday");
+  const [fixtureModalKey, setFixtureModalKey] = useState(null);
   const [activeFixtureFilters, setActiveFixtureFilters] = useState({});
   const [busyAvailability, setBusyAvailability] = useState(null);
   const [expandedResponses, setExpandedResponses] = useState({});
@@ -2401,9 +2402,9 @@ function ClubFixturesPanel({
     const existing = fixturesById.get(fixture.id) || {};
     fixturesById.set(fixture.id, { ...existing, ...fixture });
   }
-  const grouped = groupClubFixtures([...fixturesById.values()]);
+  const grouped = groupClubFixtures([...fixturesById.values()].filter(fixtureVisibleInClubProfile));
   const fixtureSections = buildFixtureSections(grouped);
-  const selectedSection = fixtureSections.find((section) => section.key === activeFixtureSection) || fixtureSections[0];
+  const selectedSection = fixtureSections.find((section) => section.key === (fixtureModalKey || activeFixtureSection)) || fixtureSections[0];
   const sectionOptions = buildFixtureSectionOptions(selectedSection, clubId);
   const activeFilterKey = activeFixtureFilters[selectedSection?.key] || sectionOptions[0]?.key || "";
   const selectedFilter = sectionOptions.find((option) => option.key === activeFilterKey) || sectionOptions[0] || null;
@@ -2495,62 +2496,76 @@ function ClubFixturesPanel({
           {availabilityError}
         </div>
       ) : null}
-      <FixtureSectionTabs
+      <FixtureCategoryCards
         sections={fixtureSections}
-        activeKey={selectedSection?.key}
-        onSelect={setActiveFixtureSection}
+        activeKey={fixtureModalKey}
+        onSelect={(key) => {
+          setFixtureModalKey(key);
+          setActiveFixtureSection(key);
+        }}
       />
-      {sectionOptions.length > 0 ? (
-        <FixtureEventSelector
-          section={selectedSection}
-          options={sectionOptions}
-          activeKey={selectedFilter?.key}
-          onSelect={(key) => setActiveFixtureFilters((prev) => ({ ...prev, [selectedSection.key]: key }))}
-        />
-      ) : null}
-      {eventAvailabilityFixture ? (
-        <FixtureEventAvailabilityCard
-          fixture={eventAvailabilityFixture}
-          group={selectedFilter?.group || selectedSection?.groups?.[0]}
-          clubPlayers={clubPlayers}
-          myPlayer={myPlayer}
-          currentUser={currentUser}
-          canSetAvailability={canSetAvailability}
-          canViewTeamAvailability={canViewTeamAvailability}
-          availabilityRows={[...exactEventRows, ...metadataEventRows]}
-          playerById={playerById}
-          responsesOpen={Boolean(expandedResponses[eventAvailabilityFixture.id])}
-          onToggleResponses={() => setExpandedResponses((prev) => ({ ...prev, [eventAvailabilityFixture.id]: !prev[eventAvailabilityFixture.id] }))}
-          busyAvailability={busyAvailability}
-          onSetAvailability={setMyFixtureAvailability}
-        />
-      ) : null}
-      {visibleGroups.length === 0 ? (
-        <section className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-8 text-center">
-          <p className="text-sm text-white/45">No {selectedSection?.emptyLabel || "fixtures"} found.</p>
-        </section>
-      ) : visibleGroups.map((group) => (
-          <FixtureGroup
-          key={group.key}
-          group={group}
-          clubId={clubId}
-          clubPlayers={clubPlayers}
-          myPlayer={myPlayer}
-          currentUser={currentUser}
-          canSetAvailability={canSetAvailability}
-          canViewTeamAvailability={canViewTeamAvailability}
-          allAvailabilityRows={availabilityRows}
-          availabilityByFixture={availabilityByFixture}
-          statsByFixture={statsByFixture}
-          playerById={playerById}
-          expandedResponses={expandedResponses}
-          onToggleResponses={(fixtureId) => setExpandedResponses((prev) => ({ ...prev, [fixtureId]: !prev[fixtureId] }))}
-          busyAvailability={busyAvailability}
-          onSetAvailability={setMyFixtureAvailability}
-          onFixturesRefresh={onFixturesRefresh}
-          t={t}
-        />
-      ))}
+      <Dialog open={Boolean(fixtureModalKey)} onOpenChange={(open) => { if (!open) setFixtureModalKey(null); }}>
+        <DialogContent className="max-h-[82vh] max-w-3xl overflow-hidden border-white/12 bg-[#050b14] p-0 text-white">
+          <DialogHeader className="border-b border-white/10 px-5 py-4">
+            <DialogTitle className="font-heading text-lg font-black uppercase tracking-[0.16em] text-white">
+              {selectedSection?.label || "Fixtures"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[70vh] space-y-4 overflow-y-auto px-5 pb-5 pt-4">
+            {sectionOptions.length > 0 ? (
+              <FixtureEventSelector
+                section={selectedSection}
+                options={sectionOptions}
+                activeKey={selectedFilter?.key}
+                onSelect={(key) => setActiveFixtureFilters((prev) => ({ ...prev, [selectedSection.key]: key }))}
+              />
+            ) : null}
+            {eventAvailabilityFixture ? (
+              <FixtureEventAvailabilityCard
+                fixture={eventAvailabilityFixture}
+                group={selectedFilter?.group || selectedSection?.groups?.[0]}
+                clubPlayers={clubPlayers}
+                myPlayer={myPlayer}
+                currentUser={currentUser}
+                canSetAvailability={canSetAvailability}
+                canViewTeamAvailability={canViewTeamAvailability}
+                availabilityRows={[...exactEventRows, ...metadataEventRows]}
+                playerById={playerById}
+                responsesOpen={Boolean(expandedResponses[eventAvailabilityFixture.id])}
+                onToggleResponses={() => setExpandedResponses((prev) => ({ ...prev, [eventAvailabilityFixture.id]: !prev[eventAvailabilityFixture.id] }))}
+                busyAvailability={busyAvailability}
+                onSetAvailability={setMyFixtureAvailability}
+              />
+            ) : null}
+            {visibleGroups.length === 0 ? (
+              <section className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-8 text-center">
+                <p className="text-sm text-white/45">No scheduled {selectedSection?.emptyLabel || "fixtures"} found.</p>
+              </section>
+            ) : visibleGroups.map((group) => (
+              <FixtureGroup
+                key={group.key}
+                group={group}
+                clubId={clubId}
+                clubPlayers={clubPlayers}
+                myPlayer={myPlayer}
+                currentUser={currentUser}
+                canSetAvailability={canSetAvailability}
+                canViewTeamAvailability={canViewTeamAvailability}
+                allAvailabilityRows={availabilityRows}
+                availabilityByFixture={availabilityByFixture}
+                statsByFixture={statsByFixture}
+                playerById={playerById}
+                expandedResponses={expandedResponses}
+                onToggleResponses={(fixtureId) => setExpandedResponses((prev) => ({ ...prev, [fixtureId]: !prev[fixtureId] }))}
+                busyAvailability={busyAvailability}
+                onSetAvailability={setMyFixtureAvailability}
+                onFixturesRefresh={onFixturesRefresh}
+                t={t}
+              />
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -2614,6 +2629,63 @@ const CLUB_FIXTURE_SECTIONS = [
     emptyLabel: "GOST fixtures",
   },
 ];
+
+const FIXTURE_SECTION_VISUALS = {
+  gameday: {
+    title: "Arrange Game",
+    tint: "from-cyan-400/24 via-sky-300/10 to-white/5",
+    border: "border-cyan-300/28",
+    glow: "shadow-[0_18px_55px_rgba(34,211,238,0.12)]",
+    text: "text-cyan-100",
+    count: "text-cyan-200",
+  },
+  tournaments: {
+    title: "Tournament",
+    tint: "from-fuchsia-400/22 via-rose-300/9 to-white/5",
+    border: "border-fuchsia-300/26",
+    glow: "shadow-[0_18px_55px_rgba(217,70,239,0.12)]",
+    text: "text-fuchsia-100",
+    count: "text-fuchsia-200",
+  },
+  regional: {
+    title: "Regional League",
+    tint: "from-emerald-400/22 via-teal-300/9 to-white/5",
+    border: "border-emerald-300/26",
+    glow: "shadow-[0_18px_55px_rgba(52,211,153,0.12)]",
+    text: "text-emerald-100",
+    count: "text-emerald-200",
+  },
+  gost: {
+    title: "GOST",
+    tint: "from-amber-300/24 via-yellow-200/10 to-white/5",
+    border: "border-amber-200/28",
+    glow: "shadow-[0_18px_55px_rgba(251,191,36,0.12)]",
+    text: "text-amber-100",
+    count: "text-amber-200",
+  },
+};
+
+function fixtureHasScheduledSlot(fixture) {
+  const status = String(fixture?.status || "").toLowerCase();
+  const schedulingStatus = String(fixture?.scheduling_status || "").toLowerCase();
+  return schedulingStatus === "confirmed"
+    || ["scheduled", "in_progress", "completed", "played", "forfeit", "forfeited"].includes(status)
+    || Boolean(fixture?.match_id && (fixture?.scheduled_date || fixture?.match_date || fixture?.confirmed_date));
+}
+
+function fixtureVisibleInClubProfile(fixture) {
+  if (isFixtureEventAvailabilityCard(fixture)) return true;
+  return fixtureHasScheduledSlot(fixture) || fixtureIsTerminal(fixture);
+}
+
+function getSectionFixtureStats(section) {
+  const fixtures = asObjectArray(section?.groups).flatMap((group) => asObjectArray(group.fixtures));
+  return {
+    scheduled: fixtures.filter((fixture) => !isFixtureEventAvailabilityCard(fixture) && !fixtureIsTerminal(fixture)).length,
+    history: fixtures.filter((fixture) => !isFixtureEventAvailabilityCard(fixture) && fixtureIsTerminal(fixture)).length,
+    availability: fixtures.filter(isFixtureEventAvailabilityCard).length,
+  };
+}
 
 function fixtureText(fixture) {
   return [
@@ -2854,68 +2926,83 @@ function filterFixtureSectionGroups(section, selectedFilter, clubId) {
     .filter((group) => group.fixtures.length > 0);
 }
 
-function FixtureEventSelector({ section, options, activeKey, onSelect }) {
-  if (!options.length) return null;
+function FixtureCategoryCards({ sections, activeKey, onSelect }) {
   return (
-    <div className="overflow-x-auto">
-      <div className="flex min-w-max items-center gap-2">
-        {options.map((option) => {
-          const active = option.key === activeKey;
-          return (
-            <button
-              key={option.key}
-              type="button"
-              onClick={() => onSelect(option.key)}
-              className={cn(
-                "relative flex shrink-0 items-center gap-2 px-1 pb-2 pt-1 font-heading text-[11px] font-black uppercase tracking-[0.14em] transition-colors",
-                active ? "text-white" : "text-white/42 hover:text-white/70"
-              )}
-            >
-              {option.label}
-              <span className={cn("text-[10px]", active ? "text-[#f5c542]" : "text-white/28")}>
-                {option.count}
-              </span>
-              {active ? (
-                <span className="absolute inset-x-0 bottom-0 h-[2px] bg-gradient-to-r from-[#f5c542] via-[#55d9ff] to-transparent" />
-              ) : null}
-            </button>
-          );
-        })}
-      </div>
-      {section?.key === "gameday" ? (
-        <p className="mt-2 text-[11px] text-white/35">Filter arranged games by status or home/away. These are single matches, not tournament events.</p>
-      ) : null}
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      {CLUB_FIXTURE_SECTIONS.map((baseSection) => {
+        const section = sections.find((item) => item.key === baseSection.key) || { ...baseSection, groups: [], count: 0 };
+        const stats = getSectionFixtureStats(section);
+        const visual = FIXTURE_SECTION_VISUALS[section.key] || FIXTURE_SECTION_VISUALS.gameday;
+        const active = activeKey === section.key;
+        return (
+          <button
+            key={section.key}
+            type="button"
+            onClick={() => onSelect(section.key)}
+            className={cn(
+              "group relative min-h-[150px] overflow-hidden border bg-[#050b14] p-4 text-left transition duration-200",
+              "hover:-translate-y-0.5 hover:border-white/30 focus:outline-none focus:ring-2 focus:ring-white/30",
+              visual.border,
+              visual.glow,
+              active && "ring-2 ring-white/25"
+            )}
+            style={{ clipPath: "polygon(8% 0, 100% 0, 92% 100%, 0 100%)" }}
+          >
+            <div aria-hidden className={cn("absolute inset-0 bg-gradient-to-br", visual.tint)} />
+            <div aria-hidden className="absolute inset-0 opacity-70 blur-xl [background:linear-gradient(115deg,transparent_0%,rgba(255,255,255,0.10)_24%,transparent_42%,rgba(255,255,255,0.08)_62%,transparent_82%)] transition duration-300 group-hover:opacity-95" />
+            <div aria-hidden className="absolute inset-x-4 bottom-0 h-16 opacity-50 blur-2xl [background:linear-gradient(90deg,transparent,rgba(255,255,255,0.20),transparent)]" />
+            <div className="relative z-[1] flex h-full min-h-[118px] flex-col justify-between">
+              <div className="flex items-center justify-between gap-2">
+                <span className={cn("text-[10px] font-black uppercase tracking-[0.16em]", visual.count)}>
+                  {stats.scheduled} live
+                </span>
+                {stats.availability > 0 ? (
+                  <span className="border border-white/18 bg-black/25 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-white/70">
+                    {stats.availability} prep
+                  </span>
+                ) : null}
+              </div>
+              <h3 className={cn("text-center font-heading text-2xl font-black uppercase leading-none tracking-[0.08em] sm:text-3xl", visual.text)}>
+                {visual.title}
+              </h3>
+              <div className="flex items-center justify-between gap-2 text-[10px] font-black uppercase tracking-[0.12em] text-white/40">
+                <span>{stats.history} history</span>
+                <span>Open</span>
+              </div>
+            </div>
+          </button>
+        );
+      })}
     </div>
   );
 }
 
-function FixtureSectionTabs({ sections, activeKey, onSelect }) {
+function FixtureEventSelector({ section, options, activeKey, onSelect }) {
+  if (!options.length) return null;
+  const activeOption = options.find((option) => option.key === activeKey) || options[0];
   return (
-    <div className="overflow-x-auto">
-      <div className="flex min-w-max items-center gap-6 border-b border-white/10">
-        {sections.map((section) => {
-          const active = section.key === activeKey;
-          return (
-            <button
-              key={section.key}
-              type="button"
-              onClick={() => onSelect(section.key)}
-              className={cn(
-                "relative flex shrink-0 items-center gap-2 pb-3 pt-1 font-heading text-xs font-black uppercase tracking-[0.16em] transition-colors",
-                active ? "text-[#f5c542]" : "text-white/45 hover:text-white/75"
-              )}
-            >
-              {section.label}
-              <span className={cn("text-[10px]", active ? "text-cyan-200" : "text-white/28")}>
-                {section.count}
-              </span>
-              {active ? (
-                <span className="absolute inset-x-0 -bottom-px h-[2px] bg-gradient-to-r from-[#f5c542] via-[#55d9ff] to-transparent" />
-              ) : null}
-            </button>
-          );
-        })}
+    <div className="space-y-2">
+      <label className="block text-[10px] font-black uppercase tracking-[0.16em] text-white/45" htmlFor={`fixture-event-${section?.key || "all"}`}>
+        {section?.key === "gameday" ? "View" : "Event"}
+      </label>
+      <div className="relative">
+        <select
+          id={`fixture-event-${section?.key || "all"}`}
+          value={activeOption?.key || ""}
+          onChange={(event) => onSelect(event.target.value)}
+          className="h-10 w-full appearance-none border border-white/12 bg-black/35 px-3 pr-10 font-heading text-xs font-black uppercase tracking-[0.12em] text-white outline-none transition focus:border-cyan-200/40"
+        >
+          {options.map((option) => (
+            <option key={option.key} value={option.key}>
+              {option.label} ({option.count})
+            </option>
+          ))}
+        </select>
+        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/45" />
       </div>
+      {section?.key === "gameday" ? (
+        <p className="mt-2 text-[11px] text-white/35">Filter arranged games by status or home/away. These are single matches, not tournament events.</p>
+      ) : null}
     </div>
   );
 }
@@ -3070,6 +3157,8 @@ function FixtureGroup({
   onFixturesRefresh,
   t,
 }) {
+  const activeFixtures = asObjectArray(group.fixtures).filter((fixture) => !fixtureIsTerminal(fixture));
+  const historyFixtures = asObjectArray(group.fixtures).filter(fixtureIsTerminal);
   return (
     <section
       className="relative overflow-hidden border border-cyan-300/18 bg-[#06111d] shadow-[0_22px_70px_rgba(0,0,0,0.28)]"
@@ -3085,11 +3174,87 @@ function FixtureGroup({
           <h3 className="break-words font-heading text-base font-black uppercase tracking-[0.18em] text-white">{group.title}</h3>
         </div>
         <span className="shrink-0 border border-[#f5c542]/30 bg-[#f5c542]/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-[#f5c542]">
-          {group.fixtures.length} {group.fixtures.length === 1 ? "fixture" : "fixtures"}
+          {activeFixtures.length} scheduled · {historyFixtures.length} history
         </span>
       </div>
       <div className="relative z-[1] space-y-3 py-4 pl-6 pr-4 sm:pl-8 lg:pl-10 lg:pr-8">
-        {group.fixtures.map((fixture) => {
+        {activeFixtures.length > 0 ? (
+          <FixtureRowsBlock
+            label="Scheduled"
+            fixtures={activeFixtures}
+            group={group}
+            clubId={clubId}
+            clubPlayers={clubPlayers}
+            myPlayer={myPlayer}
+            currentUser={currentUser}
+            canSetAvailability={canSetAvailability}
+            canViewTeamAvailability={canViewTeamAvailability}
+            allAvailabilityRows={allAvailabilityRows}
+            availabilityByFixture={availabilityByFixture}
+            statsByFixture={statsByFixture}
+            playerById={playerById}
+            expandedResponses={expandedResponses}
+            onToggleResponses={onToggleResponses}
+            busyAvailability={busyAvailability}
+            onSetAvailability={onSetAvailability}
+            onFixturesRefresh={onFixturesRefresh}
+            t={t}
+          />
+        ) : null}
+        {historyFixtures.length > 0 ? (
+          <FixtureRowsBlock
+            label="History"
+            fixtures={historyFixtures}
+            group={group}
+            clubId={clubId}
+            clubPlayers={clubPlayers}
+            myPlayer={myPlayer}
+            currentUser={currentUser}
+            canSetAvailability={canSetAvailability}
+            canViewTeamAvailability={canViewTeamAvailability}
+            allAvailabilityRows={allAvailabilityRows}
+            availabilityByFixture={availabilityByFixture}
+            statsByFixture={statsByFixture}
+            playerById={playerById}
+            expandedResponses={expandedResponses}
+            onToggleResponses={onToggleResponses}
+            busyAvailability={busyAvailability}
+            onSetAvailability={onSetAvailability}
+            onFixturesRefresh={onFixturesRefresh}
+            t={t}
+          />
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+function FixtureRowsBlock({
+  label,
+  fixtures,
+  group,
+  clubId,
+  clubPlayers,
+  myPlayer,
+  currentUser,
+  canSetAvailability,
+  canViewTeamAvailability,
+  allAvailabilityRows = [],
+  availabilityByFixture,
+  statsByFixture,
+  playerById,
+  expandedResponses,
+  onToggleResponses,
+  busyAvailability,
+  onSetAvailability,
+  onFixturesRefresh,
+  t,
+}) {
+  return (
+    <div className="space-y-2">
+      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/36">{label}</p>
+      <div className="space-y-3">
+        {fixtures.map((fixture) => {
           const eventAvailabilityId = fixtureEventAvailabilityFixtureId(fixture, clubId);
           const eventRef = fixtureEventAvailabilityRef(fixture);
           const exactEventRows = eventAvailabilityId ? (availabilityByFixture.get(String(eventAvailabilityId)) || []) : [];
@@ -3121,7 +3286,7 @@ function FixtureGroup({
           );
         })}
       </div>
-    </section>
+    </div>
   );
 }
 

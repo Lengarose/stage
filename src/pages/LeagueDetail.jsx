@@ -10,7 +10,7 @@ import {
 import TrophyHistorySection from "@/components/rewards/TrophyHistorySection";
 import { Button } from "@/components/ui/button";
 import FixtureSchedulerPanel from "@/components/schedule/FixtureSchedulerPanel";
-import { withCanonicalRegionalLeagueName } from "@/lib/qualificationConfig";
+import { STAGE_QUALIFICATION_RULES, withCanonicalRegionalLeagueName } from "@/lib/qualificationConfig";
 import { getRegionalLeagueMaxClubs } from "@/lib/regionalLeagueRules";
 import { generateRegionalLeagueFixtures } from "@/lib/competitionUtils";
 import { swalAlert, swalConfirm } from "@/lib/swal";
@@ -24,6 +24,32 @@ const SCHEDULING_BADGE = {
   expired:       { key: "ldStatusExpired",   cls: "text-destructive border-destructive/30"        },
   admin_review:  { key: "ldStatusReview",    cls: "text-warning border-warning/30"                },
 };
+
+const DIVISION_ONE_QUALIFICATION_ZONE_BY_SLUG = {
+  supreme: {
+    zone: "supreme",
+    badge: "SL",
+    rowClass: "bg-blue-400/8 border-l-2 border-l-blue-400",
+    badgeClass: "text-blue-300 bg-blue-400/10",
+  },
+  elite: {
+    zone: "elite",
+    badge: "EL",
+    rowClass: "bg-yellow-400/10 border-l-2 border-l-yellow-400",
+    badgeClass: "text-yellow-300 bg-yellow-400/10",
+  },
+  challenger: {
+    zone: "challenger",
+    badge: "CL",
+    rowClass: "bg-emerald-400/8 border-l-2 border-l-emerald-400",
+    badgeClass: "text-emerald-300 bg-emerald-400/10",
+  },
+};
+
+function getDivisionOneQualificationZone(position) {
+  const rule = STAGE_QUALIFICATION_RULES.find((entry) => entry.positions.includes(position));
+  return rule ? DIVISION_ONE_QUALIFICATION_ZONE_BY_SLUG[rule.competitionSlug] || null : null;
+}
 
 export default function LeagueDetail() {
   const { t } = useTranslation();
@@ -566,21 +592,14 @@ export default function LeagueDetail() {
                   {sortedStandings.map((s, idx) => {
                     const pos = idx + 1;
                     const div = league.division || 1;
-                    const zone = div === 1
-                      ? pos <= 2 ? "supreme"
-                      : pos <= 4 ? "elite"
-                      : pos <= 6 ? "challenger"
-                      : pos > sortedStandings.length - 2 ? "relegated"
-                      : ""
-                      : pos <= 2 ? "promoted" : pos > sortedStandings.length - 2 ? "relegated" : "";
+                    const qualificationZone = div === 1 ? getDivisionOneQualificationZone(pos) : null;
+                    const zone = qualificationZone?.zone
+                      || (div !== 1 && pos <= 2 ? "promoted" : pos > sortedStandings.length - 2 ? "relegated" : "");
 
-                    const zoneClass = {
-                      supreme:   "bg-yellow-400/10 border-l-2 border-l-yellow-400",
-                      elite:     "bg-primary/5 border-l-2 border-l-primary",
-                      challenger:"bg-purple-500/5 border-l-2 border-l-purple-500",
+                    const zoneClass = qualificationZone?.rowClass || ({
                       promoted:  "bg-success/5 border-l-2 border-l-success",
                       relegated: "bg-destructive/5 border-l-2 border-l-destructive",
-                    }[zone] || "";
+                    }[zone] || "");
 
                     const isMyClub = s.club_id === myClub?.id;
 
@@ -609,15 +628,11 @@ export default function LeagueDetail() {
                         <td className="text-center font-bold text-foreground px-2 py-2.5">{s.points || 0}</td>
                         <td className="text-center px-2 py-2.5">
                           {zone && (
-                            <span className={cn("text-[9px] font-bold uppercase tracking-wider px-1 py-0.5 rounded",
-                              zone === "supreme"   ? "text-yellow-400 bg-yellow-400/10"
-                              : zone === "elite"   ? "text-primary bg-primary/10"
-                              : zone === "challenger" ? "text-purple-400 bg-purple-500/10"
-                              : zone === "promoted"   ? "text-success bg-success/10"
-                              : "text-destructive bg-destructive/10"
+                            <span className={cn(
+                              "text-[9px] font-bold uppercase tracking-wider px-1 py-0.5 rounded",
+                              qualificationZone?.badgeClass || (zone === "promoted" ? "text-success bg-success/10" : "text-destructive bg-destructive/10")
                             )}>
-                              {zone === "supreme" ? "SL" : zone === "elite" ? "EL" : zone === "challenger" ? "CL"
-                              : zone === "promoted" ? "UP" : "↓"}
+                              {qualificationZone?.badge || (zone === "promoted" ? "UP" : "↓")}
                             </span>
                           )}
                         </td>
