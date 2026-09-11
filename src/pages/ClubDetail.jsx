@@ -8,7 +8,7 @@ import {
   Bell, BellOff,
   MoreHorizontal, Eye, BarChart3, FileText, UserCheck,
   UserMinus, BadgeX, Target, Footprints, Activity, History, Lock,
-  Image as ImageIcon, Upload, Sparkles, RotateCcw,
+  Image as ImageIcon, Upload, Sparkles, RotateCcw, ChevronDown,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
@@ -1220,6 +1220,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
               currentUser={currentUser}
               canSetAvailability={isMember}
               canViewTeamAvailability={isOwner || isCaptain || isPresident || isViceCaptain || isAdminTakeover}
+              canCustomizeFixtureCards={canOpenClubOffice && (isAdminTakeover || hasStagePlus(myPlayer))}
               availabilityRows={safeFixtureAvailabilityRows}
               matchPlayerStats={safeFixtureMatchStatRows}
               onAvailabilityRowsChange={setFixtureAvailabilityRows}
@@ -2367,6 +2368,7 @@ function ClubFixturesPanel({
   currentUser,
   canSetAvailability = false,
   canViewTeamAvailability = false,
+  canCustomizeFixtureCards = false,
   availabilityRows = [],
   matchPlayerStats = [],
   onAvailabilityRowsChange,
@@ -2383,9 +2385,12 @@ function ClubFixturesPanel({
 }) {
   const [activeFixtureSection, setActiveFixtureSection] = useState("gameday");
   const [fixtureModalKey, setFixtureModalKey] = useState(null);
+  const [fixtureModalView, setFixtureModalView] = useState("active");
   const [activeFixtureFilters, setActiveFixtureFilters] = useState({});
   const [busyAvailability, setBusyAvailability] = useState(null);
   const [expandedResponses, setExpandedResponses] = useState({});
+  const [expandedFixtureDetails, setExpandedFixtureDetails] = useState({});
+  const [fixtureCardBackgrounds, setFixtureCardBackgrounds] = useState(() => loadFixtureCardBackgrounds(clubId));
   const [availabilityError, setAvailabilityError] = useState(null);
   const fixturesById = new Map();
   for (const fixture of [
@@ -2405,10 +2410,16 @@ function ClubFixturesPanel({
   const grouped = groupClubFixtures([...fixturesById.values()].filter(fixtureVisibleInClubProfile));
   const fixtureSections = buildFixtureSections(grouped);
   const selectedSection = fixtureSections.find((section) => section.key === (fixtureModalKey || activeFixtureSection)) || fixtureSections[0];
+  const selectedSectionStats = getSectionFixtureStats(selectedSection);
   const sectionOptions = buildFixtureSectionOptions(selectedSection, clubId);
   const activeFilterKey = activeFixtureFilters[selectedSection?.key] || sectionOptions[0]?.key || "";
   const selectedFilter = sectionOptions.find((option) => option.key === activeFilterKey) || sectionOptions[0] || null;
   const visibleGroups = filterFixtureSectionGroups(selectedSection, selectedFilter, clubId);
+  const visibleFixtureCountForMode = visibleGroups.reduce((sum, group) => (
+    sum + asObjectArray(group.fixtures).filter((fixture) => (
+      fixtureModalView === "history" ? fixtureIsTerminal(fixture) : !fixtureIsTerminal(fixture)
+    )).length
+  ), 0);
   const availabilityByFixture = buildAvailabilityByFixture(availabilityRows);
   const statsByFixture = buildMatchStatsByFixture(matchPlayerStats);
   const playerById = new Map(asObjectArray(clubPlayers).filter((player) => player?.id).map((player) => [String(player.id), player]));
@@ -2419,6 +2430,18 @@ function ClubFixturesPanel({
   const metadataEventRows = eventAvailabilityRef
     ? asObjectArray(availabilityRows).filter((row) => rowMatchesEventAvailability(row, eventAvailabilityRef))
     : [];
+
+  useEffect(() => {
+    setFixtureCardBackgrounds(loadFixtureCardBackgrounds(clubId));
+    setExpandedFixtureDetails({});
+  }, [clubId]);
+
+  function setFixtureCardBackground(sectionKey, presetKey) {
+    const nextBackgrounds = { ...fixtureCardBackgrounds, [sectionKey]: presetKey };
+    if (!presetKey || presetKey === "default") delete nextBackgrounds[sectionKey];
+    setFixtureCardBackgrounds(nextBackgrounds);
+    saveFixtureCardBackgrounds(clubId, nextBackgrounds);
+  }
 
   async function setMyFixtureAvailability(fixture, status) {
     if (!myPlayer?.id || !fixtureCanSetAvailability(fixture)) return;
@@ -2499,10 +2522,14 @@ function ClubFixturesPanel({
       <FixtureCategoryCards
         sections={fixtureSections}
         activeKey={fixtureModalKey}
+        backgrounds={fixtureCardBackgrounds}
+        canCustomize={canCustomizeFixtureCards}
         onSelect={(key) => {
           setFixtureModalKey(key);
           setActiveFixtureSection(key);
+          setFixtureModalView("active");
         }}
+        onBackgroundChange={setFixtureCardBackground}
       />
       <Dialog open={Boolean(fixtureModalKey)} onOpenChange={(open) => { if (!open) setFixtureModalKey(null); }}>
         <DialogContent className="max-h-[82vh] max-w-3xl overflow-hidden border-white/12 bg-[#050b14] p-0 text-white">
@@ -2520,7 +2547,13 @@ function ClubFixturesPanel({
                 onSelect={(key) => setActiveFixtureFilters((prev) => ({ ...prev, [selectedSection.key]: key }))}
               />
             ) : null}
-            {eventAvailabilityFixture ? (
+            <FixtureModalViewTabs
+              activeView={fixtureModalView}
+              activeCount={selectedSectionStats.scheduled}
+              historyCount={selectedSectionStats.history}
+              onChange={setFixtureModalView}
+            />
+            {eventAvailabilityFixture && fixtureModalView === "active" ? (
               <FixtureEventAvailabilityCard
                 fixture={eventAvailabilityFixture}
                 group={selectedFilter?.group || selectedSection?.groups?.[0]}
@@ -2537,9 +2570,11 @@ function ClubFixturesPanel({
                 onSetAvailability={setMyFixtureAvailability}
               />
             ) : null}
-            {visibleGroups.length === 0 ? (
-              <section className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-8 text-center">
-                <p className="text-sm text-white/45">No scheduled {selectedSection?.emptyLabel || "fixtures"} found.</p>
+            {visibleFixtureCountForMode === 0 && !(eventAvailabilityFixture && fixtureModalView === "active") ? (
+              <section className="border border-dashed border-white/10 bg-white/[0.02] p-8 text-center">
+                <p className="text-sm text-white/45">
+                  No {fixtureModalView === "history" ? "history" : "scheduled"} {selectedSection?.emptyLabel || "fixtures"} found.
+                </p>
               </section>
             ) : visibleGroups.map((group) => (
               <FixtureGroup
@@ -2560,6 +2595,9 @@ function ClubFixturesPanel({
                 busyAvailability={busyAvailability}
                 onSetAvailability={setMyFixtureAvailability}
                 onFixturesRefresh={onFixturesRefresh}
+                mode={fixtureModalView}
+                expandedFixtureDetails={expandedFixtureDetails}
+                onToggleFixtureDetails={(fixtureId) => setExpandedFixtureDetails((prev) => ({ ...prev, [fixtureId]: !prev[fixtureId] }))}
                 t={t}
               />
             ))}
@@ -2664,6 +2702,47 @@ const FIXTURE_SECTION_VISUALS = {
     count: "text-amber-200",
   },
 };
+
+const FIXTURE_CARD_BACKGROUND_PRESETS = {
+  default: {
+    label: "Default smoke",
+    className: "",
+  },
+  midnight: {
+    label: "Midnight glass",
+    className: "bg-[#06101b]",
+    overlay: "bg-[linear-gradient(135deg,rgba(125,239,255,0.13),transparent_35%,rgba(255,255,255,0.08))]",
+  },
+  graphite: {
+    label: "Graphite smoke",
+    className: "bg-[#101216]",
+    overlay: "bg-[linear-gradient(135deg,rgba(255,255,255,0.12),transparent_42%,rgba(148,163,184,0.10))]",
+  },
+  crown: {
+    label: "Crown haze",
+    className: "bg-[#151102]",
+    overlay: "bg-[linear-gradient(135deg,rgba(245,197,66,0.18),transparent_38%,rgba(255,255,255,0.07))]",
+  },
+};
+
+function fixtureCardStorageKey(clubId) {
+  return `stage_club_fixture_card_backgrounds:${clubId || "unknown"}`;
+}
+
+function loadFixtureCardBackgrounds(clubId) {
+  if (typeof window === "undefined" || !clubId) return {};
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(fixtureCardStorageKey(clubId)) || "{}");
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveFixtureCardBackgrounds(clubId, backgrounds) {
+  if (typeof window === "undefined" || !clubId) return;
+  window.localStorage.setItem(fixtureCardStorageKey(clubId), JSON.stringify(backgrounds || {}));
+}
 
 function fixtureHasScheduledSlot(fixture) {
   const status = String(fixture?.status || "").toLowerCase();
@@ -2926,32 +3005,36 @@ function filterFixtureSectionGroups(section, selectedFilter, clubId) {
     .filter((group) => group.fixtures.length > 0);
 }
 
-function FixtureCategoryCards({ sections, activeKey, onSelect }) {
+function FixtureCategoryCards({ sections, activeKey, backgrounds = {}, canCustomize = false, onSelect, onBackgroundChange }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       {CLUB_FIXTURE_SECTIONS.map((baseSection) => {
         const section = sections.find((item) => item.key === baseSection.key) || { ...baseSection, groups: [], count: 0 };
         const stats = getSectionFixtureStats(section);
         const visual = FIXTURE_SECTION_VISUALS[section.key] || FIXTURE_SECTION_VISUALS.gameday;
+        const background = FIXTURE_CARD_BACKGROUND_PRESETS[backgrounds[section.key]] || FIXTURE_CARD_BACKGROUND_PRESETS.default;
         const active = activeKey === section.key;
         return (
-          <button
+          <div
             key={section.key}
-            type="button"
-            onClick={() => onSelect(section.key)}
             className={cn(
-              "group relative min-h-[150px] overflow-hidden border bg-[#050b14] p-4 text-left transition duration-200",
-              "hover:-translate-y-0.5 hover:border-white/30 focus:outline-none focus:ring-2 focus:ring-white/30",
+              "group relative min-h-[138px] overflow-hidden border bg-[#050b14] transition duration-200",
+              "hover:-translate-y-0.5 hover:border-white/30",
               visual.border,
               visual.glow,
+              background.className,
               active && "ring-2 ring-white/25"
             )}
-            style={{ clipPath: "polygon(8% 0, 100% 0, 92% 100%, 0 100%)" }}
           >
-            <div aria-hidden className={cn("absolute inset-0 bg-gradient-to-br", visual.tint)} />
-            <div aria-hidden className="absolute inset-0 opacity-70 blur-xl [background:linear-gradient(115deg,transparent_0%,rgba(255,255,255,0.10)_24%,transparent_42%,rgba(255,255,255,0.08)_62%,transparent_82%)] transition duration-300 group-hover:opacity-95" />
-            <div aria-hidden className="absolute inset-x-4 bottom-0 h-16 opacity-50 blur-2xl [background:linear-gradient(90deg,transparent,rgba(255,255,255,0.20),transparent)]" />
-            <div className="relative z-[1] flex h-full min-h-[118px] flex-col justify-between">
+            <button
+              type="button"
+              onClick={() => onSelect(section.key)}
+              className="relative z-[1] flex h-full min-h-[138px] w-full flex-col justify-between p-4 text-left focus:outline-none focus:ring-2 focus:ring-white/30"
+            >
+              <div aria-hidden className={cn("absolute inset-0 bg-gradient-to-br", visual.tint, background.overlay)} />
+              <div aria-hidden className="absolute inset-0 opacity-65 blur-xl [background:linear-gradient(115deg,transparent_0%,rgba(255,255,255,0.10)_24%,transparent_42%,rgba(255,255,255,0.08)_62%,transparent_82%)] transition duration-300 group-hover:opacity-95" />
+              <div aria-hidden className="absolute inset-x-4 bottom-0 h-14 opacity-50 blur-2xl [background:linear-gradient(90deg,transparent,rgba(255,255,255,0.20),transparent)]" />
+              <div className="relative z-[1] flex h-full min-h-[106px] flex-col justify-between">
               <div className="flex items-center justify-between gap-2">
                 <span className={cn("text-[10px] font-black uppercase tracking-[0.16em]", visual.count)}>
                   {stats.scheduled} live
@@ -2962,7 +3045,7 @@ function FixtureCategoryCards({ sections, activeKey, onSelect }) {
                   </span>
                 ) : null}
               </div>
-              <h3 className={cn("text-center font-heading text-2xl font-black uppercase leading-none tracking-[0.08em] sm:text-3xl", visual.text)}>
+              <h3 className={cn("px-6 text-center font-heading text-xl font-black uppercase leading-tight tracking-[0.08em] sm:text-2xl", visual.text)}>
                 {visual.title}
               </h3>
               <div className="flex items-center justify-between gap-2 text-[10px] font-black uppercase tracking-[0.12em] text-white/40">
@@ -2971,8 +3054,60 @@ function FixtureCategoryCards({ sections, activeKey, onSelect }) {
               </div>
             </div>
           </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  aria-label={`${visual.title} background settings`}
+                  className="absolute right-2 top-2 z-[2] inline-flex h-8 w-8 items-center justify-center border border-white/12 bg-black/35 text-white/58 transition hover:border-white/28 hover:text-white"
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="border-white/10 bg-[#07111d] text-white">
+                {!canCustomize ? (
+                  <DropdownMenuItem className="text-white/50" onSelect={(event) => event.preventDefault()}>
+                    <Lock className="mr-2 h-3.5 w-3.5" />
+                    STAGE Plus
+                  </DropdownMenuItem>
+                ) : (
+                  Object.entries(FIXTURE_CARD_BACKGROUND_PRESETS).map(([key, preset]) => (
+                    <DropdownMenuItem key={key} onSelect={() => onBackgroundChange?.(section.key, key)}>
+                      <Sparkles className="mr-2 h-3.5 w-3.5" />
+                      {preset.label}
+                    </DropdownMenuItem>
+                  ))
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         );
       })}
+    </div>
+  );
+}
+
+function FixtureModalViewTabs({ activeView, activeCount, historyCount, onChange }) {
+  return (
+    <div className="grid grid-cols-2 border border-white/10 bg-black/25 p-1">
+      {[
+        { key: "active", label: "Active", count: activeCount },
+        { key: "history", label: "History", count: historyCount },
+      ].map((item) => (
+        <button
+          key={item.key}
+          type="button"
+          onClick={() => onChange(item.key)}
+          className={cn(
+            "h-9 px-3 text-[10px] font-black uppercase tracking-[0.14em] transition",
+            activeView === item.key
+              ? "bg-white text-black"
+              : "text-white/45 hover:bg-white/[0.05] hover:text-white/78"
+          )}
+        >
+          {item.label} ({item.count})
+        </button>
+      ))}
     </div>
   );
 }
@@ -3155,75 +3290,56 @@ function FixtureGroup({
   busyAvailability,
   onSetAvailability,
   onFixturesRefresh,
+  mode = "active",
+  expandedFixtureDetails = {},
+  onToggleFixtureDetails,
   t,
 }) {
-  const activeFixtures = asObjectArray(group.fixtures).filter((fixture) => !fixtureIsTerminal(fixture));
-  const historyFixtures = asObjectArray(group.fixtures).filter(fixtureIsTerminal);
+  const visibleFixtures = asObjectArray(group.fixtures).filter((fixture) => (
+    mode === "history" ? fixtureIsTerminal(fixture) : !fixtureIsTerminal(fixture)
+  ));
+  if (visibleFixtures.length === 0) return null;
+
   return (
-    <section
-      className="relative overflow-hidden border border-cyan-300/18 bg-[#06111d] shadow-[0_22px_70px_rgba(0,0,0,0.28)]"
-      style={{ clipPath: "polygon(1.5% 0, 100% 0, 98.5% 100%, 0 100%)" }}
-    >
-      <div aria-hidden className="absolute inset-0 bg-[radial-gradient(circle_at_8%_0%,rgba(0,229,255,0.16),transparent_28%),linear-gradient(135deg,rgba(0,229,255,0.08),transparent_36%,rgba(245,197,66,0.06))]" />
+    <section className="relative overflow-hidden border border-cyan-300/18 bg-[#06111d] shadow-[0_18px_46px_rgba(0,0,0,0.22)]">
+      <div aria-hidden className="absolute inset-0 bg-[linear-gradient(135deg,rgba(0,229,255,0.08),transparent_36%,rgba(245,197,66,0.06))]" />
       <div aria-hidden className="absolute inset-x-10 top-0 h-px bg-cyan-200/45" />
-      <div className="relative z-[1] flex flex-wrap items-center justify-between gap-3 border-b border-cyan-300/15 py-4 pl-8 pr-5 sm:pl-10 lg:pl-14 lg:pr-8">
+      <div className="relative z-[1] flex flex-wrap items-center justify-between gap-3 border-b border-cyan-300/15 px-4 py-3">
         <div className="min-w-0">
           {group.parent ? (
             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#00e5ff]/65">{group.parent}</p>
           ) : null}
-          <h3 className="break-words font-heading text-base font-black uppercase tracking-[0.18em] text-white">{group.title}</h3>
+          <h3 className="break-words font-heading text-sm font-black uppercase tracking-[0.16em] text-white">{group.title}</h3>
         </div>
-        <span className="shrink-0 border border-[#f5c542]/30 bg-[#f5c542]/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-[#f5c542]">
-          {activeFixtures.length} scheduled · {historyFixtures.length} history
+        <span className="shrink-0 border border-[#f5c542]/30 bg-[#f5c542]/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#f5c542]">
+          {visibleFixtures.length} {mode === "history" ? "history" : "active"}
         </span>
       </div>
-      <div className="relative z-[1] space-y-3 py-4 pl-6 pr-4 sm:pl-8 lg:pl-10 lg:pr-8">
-        {activeFixtures.length > 0 ? (
-          <FixtureRowsBlock
-            label="Scheduled"
-            fixtures={activeFixtures}
-            group={group}
-            clubId={clubId}
-            clubPlayers={clubPlayers}
-            myPlayer={myPlayer}
-            currentUser={currentUser}
-            canSetAvailability={canSetAvailability}
-            canViewTeamAvailability={canViewTeamAvailability}
-            allAvailabilityRows={allAvailabilityRows}
-            availabilityByFixture={availabilityByFixture}
-            statsByFixture={statsByFixture}
-            playerById={playerById}
-            expandedResponses={expandedResponses}
-            onToggleResponses={onToggleResponses}
-            busyAvailability={busyAvailability}
-            onSetAvailability={onSetAvailability}
-            onFixturesRefresh={onFixturesRefresh}
-            t={t}
-          />
-        ) : null}
-        {historyFixtures.length > 0 ? (
-          <FixtureRowsBlock
-            label="History"
-            fixtures={historyFixtures}
-            group={group}
-            clubId={clubId}
-            clubPlayers={clubPlayers}
-            myPlayer={myPlayer}
-            currentUser={currentUser}
-            canSetAvailability={canSetAvailability}
-            canViewTeamAvailability={canViewTeamAvailability}
-            allAvailabilityRows={allAvailabilityRows}
-            availabilityByFixture={availabilityByFixture}
-            statsByFixture={statsByFixture}
-            playerById={playerById}
-            expandedResponses={expandedResponses}
-            onToggleResponses={onToggleResponses}
-            busyAvailability={busyAvailability}
-            onSetAvailability={onSetAvailability}
-            onFixturesRefresh={onFixturesRefresh}
-            t={t}
-          />
-        ) : null}
+      <div className="relative z-[1] px-3 py-3">
+        <FixtureRowsBlock
+          label={mode === "history" ? "History" : "Active matches"}
+          fixtures={visibleFixtures}
+          group={group}
+          clubId={clubId}
+          clubPlayers={clubPlayers}
+          myPlayer={myPlayer}
+          currentUser={currentUser}
+          canSetAvailability={canSetAvailability}
+          canViewTeamAvailability={canViewTeamAvailability}
+          allAvailabilityRows={allAvailabilityRows}
+          availabilityByFixture={availabilityByFixture}
+          statsByFixture={statsByFixture}
+          playerById={playerById}
+          expandedResponses={expandedResponses}
+          onToggleResponses={onToggleResponses}
+          busyAvailability={busyAvailability}
+          onSetAvailability={onSetAvailability}
+          onFixturesRefresh={onFixturesRefresh}
+          mode={mode}
+          expandedFixtureDetails={expandedFixtureDetails}
+          onToggleFixtureDetails={onToggleFixtureDetails}
+          t={t}
+        />
       </div>
     </section>
   );
@@ -3248,6 +3364,9 @@ function FixtureRowsBlock({
   busyAvailability,
   onSetAvailability,
   onFixturesRefresh,
+  mode = "active",
+  expandedFixtureDetails = {},
+  onToggleFixtureDetails,
   t,
 }) {
   return (
@@ -3262,7 +3381,7 @@ function FixtureRowsBlock({
             ? asObjectArray(allAvailabilityRows).filter((row) => rowMatchesEventAvailability(row, eventRef))
             : [];
           return (
-            <FixtureRow
+            <CompactFixtureRow
               key={fixture.id}
               fixture={fixture}
               group={group}
@@ -3281,12 +3400,113 @@ function FixtureRowsBlock({
               busyAvailability={busyAvailability}
               onSetAvailability={onSetAvailability}
               onFixturesRefresh={onFixturesRefresh}
+              mode={mode}
+              expanded={Boolean(expandedFixtureDetails[fixture.id])}
+              onToggleExpanded={() => onToggleFixtureDetails?.(fixture.id)}
               t={t}
             />
           );
         })}
       </div>
     </div>
+  );
+}
+
+function CompactFixtureRow({
+  fixture,
+  group,
+  clubId,
+  clubPlayers,
+  myPlayer,
+  currentUser,
+  canSetAvailability,
+  canViewTeamAvailability,
+  availabilityRows,
+  eventAvailabilityRows = [],
+  matchStats = [],
+  playerById,
+  responsesOpen,
+  onToggleResponses,
+  busyAvailability,
+  onSetAvailability,
+  onFixturesRefresh,
+  mode,
+  expanded,
+  onToggleExpanded,
+  t,
+}) {
+  const isHome = String(fixture.home_club_id || "") === String(clubId || "");
+  const clubName = isHome ? fixture.home_club_name : fixture.away_club_name;
+  const opponent = isHome ? fixture.away_club_name : fixture.home_club_name;
+  const mine = isHome ? fixture.home_score : fixture.away_score;
+  const theirs = isHome ? fixture.away_score : fixture.home_score;
+  const completed = fixtureIsCompleted(fixture);
+  const hasScore = completed && mine != null && theirs != null;
+  const statusLabel = completed ? "Completed" : (fixture.status || "Scheduled");
+
+  return (
+    <article className="overflow-hidden border border-white/10 bg-black/22">
+      <button
+        type="button"
+        onClick={onToggleExpanded}
+        className="grid w-full gap-2 px-3 py-2.5 text-left transition hover:bg-white/[0.04] sm:grid-cols-[minmax(0,1.3fr)_auto_minmax(0,1fr)_auto] sm:items-center"
+      >
+        <div className="min-w-0">
+          <p className="truncate text-[10px] font-black uppercase tracking-[0.14em] text-cyan-100/55">
+            {fixtureEventName(fixture, group)} · {isHome ? "Home" : "Away"}
+          </p>
+          <p className="mt-0.5 truncate font-heading text-sm font-black uppercase text-white">
+            {clubName || "Your club"}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 sm:justify-center">
+          <span className="border border-white/10 bg-white/[0.04] px-2 py-1 font-heading text-xs font-black uppercase text-white/75">
+            {hasScore ? `${mine} - ${theirs}` : "VS"}
+          </span>
+        </div>
+        <div className="min-w-0 sm:text-right">
+          <p className="truncate font-heading text-sm font-black uppercase text-white/82">
+            {opponent || t("commonPages.cdCompetition")}
+          </p>
+          <p className="mt-0.5 truncate text-[10px] uppercase tracking-[0.12em] text-white/36">{fixtureDateLabel(fixture)}</p>
+        </div>
+        <div className="flex items-center justify-between gap-2 sm:justify-end">
+          <span className={cn(
+            "border px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em]",
+            mode === "history"
+              ? "border-white/14 bg-white/[0.04] text-white/54"
+              : "border-cyan-300/22 bg-cyan-300/8 text-cyan-100/70"
+          )}>
+            {statusLabel}
+          </span>
+          <ChevronDown className={cn("h-4 w-4 text-white/45 transition", expanded && "rotate-180 text-white/80")} />
+        </div>
+      </button>
+      {expanded ? (
+        <div className="border-t border-white/10 bg-[#050b14] p-3">
+          <FixtureRow
+            fixture={fixture}
+            group={group}
+            clubId={clubId}
+            clubPlayers={clubPlayers}
+            myPlayer={myPlayer}
+            currentUser={currentUser}
+            canSetAvailability={canSetAvailability}
+            canViewTeamAvailability={canViewTeamAvailability}
+            availabilityRows={availabilityRows}
+            eventAvailabilityRows={eventAvailabilityRows}
+            matchStats={matchStats}
+            playerById={playerById}
+            responsesOpen={responsesOpen}
+            onToggleResponses={onToggleResponses}
+            busyAvailability={busyAvailability}
+            onSetAvailability={onSetAvailability}
+            onFixturesRefresh={onFixturesRefresh}
+            t={t}
+          />
+        </div>
+      ) : null}
+    </article>
   );
 }
 
@@ -3326,11 +3546,8 @@ function FixtureEventAvailabilityCard({
   const showTeamSummary = canViewTeamAvailability && canManageAvailability;
 
   return (
-    <section
-      className="relative overflow-hidden border border-[#f5c542]/20 bg-[#07111d] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.28)] sm:p-5"
-      style={{ clipPath: "polygon(1% 0, 100% 0, 99% 100%, 0 100%)" }}
-    >
-      <div aria-hidden className="absolute inset-0 bg-[radial-gradient(circle_at_10%_0%,rgba(245,197,66,0.16),transparent_30%),linear-gradient(135deg,rgba(0,229,255,0.08),transparent_42%,rgba(245,197,66,0.08))]" />
+    <section className="relative overflow-hidden border border-[#f5c542]/20 bg-[#07111d] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.28)] sm:p-5">
+      <div aria-hidden className="absolute inset-0 bg-[linear-gradient(135deg,rgba(0,229,255,0.08),transparent_42%,rgba(245,197,66,0.08))]" />
       <div className="relative z-[1] grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
         <div className="min-w-0">
           <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#f5c542]">{kindLabel} availability</p>
