@@ -2197,17 +2197,10 @@ function competitionSeasonKey(record) {
   return String(record?.season_id || record?.target_season_id || record?.competition_season_id || record?.id || "").trim();
 }
 
-function buildClubTournamentRegistrationFixtures(tournaments, clubId, tournamentMatches = []) {
-  const realTournamentIds = new Set(
-    asObjectArray(tournamentMatches)
-      .filter((match) => String(match.home_club_id || "") === String(clubId) || String(match.away_club_id || "") === String(clubId))
-      .map((match) => String(match.tournament_id || ""))
-      .filter(Boolean)
-  );
-
+function buildClubTournamentRegistrationFixtures(tournaments, clubId) {
   return asObjectArray(tournaments)
     .filter((tournament) => {
-      if (!tournament?.id || realTournamentIds.has(String(tournament.id))) return false;
+      if (!tournament?.id) return false;
       const registered = parseFixtureJsonList(tournament.registered_clubs);
       return registered.includes(String(clubId));
     })
@@ -2279,23 +2272,7 @@ function buildClubOfficialStageFixtures(fixtures, clubId) {
     .sort((a, b) => fixtureDateValue(a) - fixtureDateValue(b));
 }
 
-function buildClubOfficialStageRegistrationFixtures(seasons, standings, qualificationEntries, clubId, fixtures = []) {
-  const fixtureSeasonKeys = new Set(
-    asObjectArray(fixtures)
-      .filter((fixture) =>
-        String(fixture.home_club_id || "") === String(clubId) ||
-        String(fixture.away_club_id || "") === String(clubId)
-      )
-      .flatMap((fixture) => [
-        fixture.season_id,
-        fixture.competition_season_id,
-        fixture.competition_id,
-        fixture.competition_slug,
-      ])
-      .map((value) => String(value || "").trim())
-      .filter(Boolean)
-  );
-
+function buildClubOfficialStageRegistrationFixtures(seasons, standings, qualificationEntries, clubId) {
   const standingSeasonKeys = new Set(
     asObjectArray(standings)
       .filter((standing) => String(standing.club_id || "") === String(clubId))
@@ -2317,10 +2294,6 @@ function buildClubOfficialStageRegistrationFixtures(seasons, standings, qualific
       const status = String(season.status || "").toLowerCase();
       if (["archived", "completed", "cancelled", "canceled"].includes(status)) return false;
       const seasonKey = String(season.id);
-      const eventKeys = [seasonKey, season.competition_slug]
-        .map((value) => String(value || "").trim())
-        .filter(Boolean);
-      if (eventKeys.some((key) => fixtureSeasonKeys.has(key))) return false;
       const seasonClubIds = competitionClubIds(season);
       // Bind to THIS season — do not attach via competition_id alone.
       const clubQualified = seasonClubIds.includes(String(clubId))
@@ -2355,25 +2328,14 @@ function buildClubOfficialStageRegistrationFixtures(seasons, standings, qualific
     });
 }
 
-function buildClubRegionalLeagueRegistrationFixtures(leagues, clubId, fixtures = []) {
-  const realFixtureCountsByLeagueId = new Map();
-  for (const fixture of asObjectArray(fixtures)) {
-    if (
-      String(fixture.home_club_id || "") !== String(clubId) &&
-      String(fixture.away_club_id || "") !== String(clubId)
-    ) continue;
-    const leagueId = String(fixture.league_id || fixture.regional_league_id || "");
-    if (!leagueId) continue;
-    realFixtureCountsByLeagueId.set(leagueId, (realFixtureCountsByLeagueId.get(leagueId) || 0) + 1);
-  }
-
+function buildClubRegionalLeagueRegistrationFixtures(leagues, clubId) {
   return asObjectArray(leagues)
     .filter((league) => {
       if (!league?.id) return false;
       const status = String(league.status || "").toLowerCase();
       if (["archived", "completed", "cancelled", "canceled"].includes(status)) return false;
       const registered = parseFixtureJsonList(league.registered_club_ids);
-      return registered.includes(String(clubId)) && !realFixtureCountsByLeagueId.has(String(league.id));
+      return registered.includes(String(clubId));
     })
     .map((league) => withCanonicalRegionalLeagueName(league))
     .map((league) => ({
@@ -2758,6 +2720,8 @@ function rowMatchesEventAvailability(row, ref) {
 }
 
 function fixtureAvailabilityDeadlineValue(fixture) {
+  const type = String(fixture?._fixtureType || fixture?.fixture_type || "").toLowerCase();
+  if (type === "regional_league_registration") return 0;
   const raw = fixture?.availability_deadline
     || fixture?.registration_deadline
     || fixture?.window_end
@@ -3184,7 +3148,8 @@ function FixtureEventAvailabilityCard({
   const prepLabel = isGost ? "Official tournament preparation" : isRegional ? "League preparation" : "Tournament preparation";
   const waitingLabel = isGost ? "GOST fixtures" : isRegional ? "Regional league fixtures" : "Tournament fixtures";
   const cost = Number(fixture.tournament_entry_credits ?? fixture.registration_entry_credits ?? 50);
-  const submitterExempt = String(fixture.registration_submitted_by_user_id || "") === String(currentUser?.id || "");
+  const submitterExempt = String(fixture.registration_submitted_by_user_id || "") === String(currentUser?.id || "")
+    || (isRegional && getPrimaryClubRole(myPlayer) === "president");
   const canManageAvailability = fixtureCanSetAvailability(fixture);
   const availabilityLocked = canManageAvailability && fixtureAvailabilityLocked(fixture);
   const myAvailability = availabilityRows.find((row) => String(row.player_id) === String(myPlayer?.id));
@@ -3313,15 +3278,16 @@ function FixtureRow({
   const hasScore = completed && mine != null && theirs != null;
   const canManageAvailability = fixtureCanSetAvailability(fixture);
   const availabilityLocked = canManageAvailability && fixtureAvailabilityLocked(fixture);
-  const myAvailability = availabilityRows.find((row) => String(row.player_id) === String(myPlayer?.id));
+  const requiresEventAvailability = fixtureRequiresEventAvailability(fixture);
+  const effectiveAvailabilityRows = requiresEventAvailability ? eventAvailabilityRows : availabilityRows;
+  const myAvailability = effectiveAvailabilityRows.find((row) => String(row.player_id) === String(myPlayer?.id));
   const rawMyStatus = String(myAvailability?.status || "no_response").toLowerCase();
   const myStatus = rawMyStatus === "available" ? "available" : "no_response";
-  const requiresEventAvailability = fixtureRequiresEventAvailability(fixture);
   const myEventAvailability = eventAvailabilityRows.find((row) => String(row.player_id) === String(myPlayer?.id));
   const eventAvailabilityConfirmed = !requiresEventAvailability || String(myEventAvailability?.status || "").toLowerCase() === "available";
-  const counts = getFixtureAvailabilityCounts(availabilityRows, clubPlayers);
-  const responseRows = buildFixtureResponseRows(availabilityRows, clubPlayers, playerById);
-  const showMemberControls = canSetAvailability && myPlayer?.id && canManageAvailability;
+  const counts = getFixtureAvailabilityCounts(effectiveAvailabilityRows, clubPlayers);
+  const responseRows = buildFixtureResponseRows(effectiveAvailabilityRows, clubPlayers, playerById);
+  const showMemberControls = canSetAvailability && myPlayer?.id && canManageAvailability && !requiresEventAvailability;
   const showTeamSummary = canViewTeamAvailability && canManageAvailability;
   const eventName = fixtureEventName(fixture, group);
   const statusLabel = fixture.status || "scheduled";
@@ -3349,7 +3315,8 @@ function FixtureRow({
     : isRegionalLeagueRegistrationFixture
       ? "Waiting for league fixtures"
       : "Waiting for admin draw";
-  const registrationSubmitterExempt = String(fixture.registration_submitted_by_user_id || "") === String(currentUser?.id || "");
+  const registrationSubmitterExempt = String(fixture.registration_submitted_by_user_id || "") === String(currentUser?.id || "")
+    || (isRegionalLeagueRegistrationFixture && getPrimaryClubRole(myPlayer) === "president");
 
   return (
     <article className="relative overflow-hidden border border-white/10 bg-black/24 p-3 sm:p-4">
@@ -3470,11 +3437,6 @@ function FixtureRow({
                 {availabilityLocked ? (
                   <span className="text-[10px] font-black uppercase tracking-[0.12em] text-white/35">
                     Availability deadline passed
-                  </span>
-                ) : null}
-                {!availabilityLocked && !eventAvailabilityConfirmed ? (
-                  <span className="text-[10px] font-black uppercase tracking-[0.12em] text-[#f5c542]/75">
-                    Confirm event availability first
                   </span>
                 ) : null}
               </div>

@@ -778,18 +778,16 @@ export async function processCompetitionSeasonEnd(season, standings, competition
 /**
  * Generate home-and-away round-robin fixtures for a regional league.
  * Uses the circle method: n clubs → n-1 rounds per leg → 2*(n-1) matchdays total.
- * Each matchday window opens immediately (window_days = 4 by default).
+ * Fixtures are created unscheduled. Home clubs propose a kickoff time from the
+ * fixture; Game Day is created only after the away club accepts.
  */
-export async function generateRegionalLeagueFixtures(league, clubs, windowDays = 4) {
+export async function generateRegionalLeagueFixtures(league, clubs) {
   if (!stageClient.entities.RegionalLeagueFixture) {
     throw new Error("RegionalLeagueFixture schema not published yet. Publish it on app.stageClient.com to enable fixture generation.");
   }
   if (clubs.length < 2) throw new Error("Need at least 2 clubs to generate fixtures.");
   const evenClubs = clubs.length % 2 === 0 ? clubs : [...clubs, { id: "__bye__", name: "BYE" }];
   const allRounds = circleMethod(evenClubs);
-
-  const now = new Date();
-  const windowEnd = new Date(now.getTime() + windowDays * 24 * 60 * 60 * 1000).toISOString();
 
   const leagueBase = {
     league_id:     league.id,
@@ -802,9 +800,9 @@ export async function generateRegionalLeagueFixtures(league, clubs, windowDays =
     home_score: null,
     away_score: null,
     scheduling_status: "open",
-    window_start: now.toISOString(),
-    window_end:   windowEnd,
-    window_days:  windowDays,
+    window_start: null,
+    window_end:   null,
+    window_days:  null,
     proposal_count: 0,
   };
 
@@ -835,10 +833,11 @@ export async function generateRegionalLeagueFixtures(league, clubs, windowDays =
 
   await Promise.all(ops);
   await stageClient.entities.RegionalLeague.update(league.id, {
-    status: "in_progress",
+    status: league.status || "in_progress",
     num_clubs: clubs.length,
+    fixtures_generated: true,
     seeding_mode: false,
     placement_locked: true,
-    launch_seeding_closed_at: new Date().toISOString(),
+    launch_seeding_closed_at: league.launch_seeding_closed_at || new Date().toISOString(),
   });
 }

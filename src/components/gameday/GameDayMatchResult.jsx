@@ -14,6 +14,37 @@ import {
   parseMatchSubmission,
 } from "@/lib/gameDayResultFlow";
 
+function compactEventAvailabilityId(prefix, eventId, clubId, eventLength, clubLength) {
+  const eventPart = String(eventId || "").replace(/[^a-zA-Z0-9]/g, "").slice(0, eventLength);
+  const clubPart = String(clubId || "").replace(/[^a-zA-Z0-9]/g, "").slice(0, clubLength);
+  return `${prefix}:${eventPart}:${clubPart}`.slice(0, 36);
+}
+
+async function getOfficialEventAvailabilityFixtureId(game, clubId) {
+  const sourceType = String(game?.source_fixture_type || "").toLowerCase();
+  const sourceFixtureId = game?.source_fixture_id || game?.fixture_id || game?.related_fixture_id;
+  const tournamentId = String(game?.tournament_id || "").trim();
+  if (tournamentId && tournamentId.toLowerCase() !== "ranked" && clubId) {
+    return compactEventAvailabilityId("t", tournamentId, clubId, 16, 16);
+  }
+  if (!sourceFixtureId || !clubId) return "";
+  if (sourceType === "regional_league" || sourceType === "regional_league_fixture") {
+    const fixture = stageClient.entities.RegionalLeagueFixture
+      ? await stageClient.entities.RegionalLeagueFixture.get(sourceFixtureId).catch(() => null)
+      : null;
+    const leagueId = fixture?.regional_league_id || fixture?.league_id;
+    return leagueId ? compactEventAvailabilityId("rl", leagueId, clubId, 15, 15) : "";
+  }
+  if (sourceType === "competition" || sourceType === "competition_engine" || sourceType === "competition_fixture") {
+    const fixture = stageClient.entities.CompetitionFixture
+      ? await stageClient.entities.CompetitionFixture.get(sourceFixtureId).catch(() => null)
+      : null;
+    const eventId = fixture?.season_id || fixture?.competition_season_id || fixture?.competition_id || fixture?.competition_slug;
+    return eventId ? compactEventAvailabilityId("gost", eventId, clubId, 14, 14) : "";
+  }
+  return "";
+}
+
 /**
  * GameDayMatchResult — both teams submit independently.
  * If scores match → completed. If not → disputed.
@@ -134,11 +165,24 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
     let cancelled = false;
     async function loadSquad() {
       if (!myClub) { setLoadingPlayers(false); return; }
-      const squad = await stageClient.entities.Player
-        .filter({ club_id: myClub.id })
-        .catch(() => []);
+      const [squad, eventAvailabilityFixtureId] = await Promise.all([
+        stageClient.entities.Player
+          .filter({ club_id: myClub.id })
+          .catch(() => []),
+        getOfficialEventAvailabilityFixtureId(game, myClub.id),
+      ]);
       if (cancelled) return;
-      const roster = squad || [];
+      let roster = squad || [];
+      if (eventAvailabilityFixtureId) {
+        const availabilityRows = await stageClient.entities.ClubFixtureAvailability
+          .filter({ club_id: myClub.id, fixture_id: eventAvailabilityFixtureId }, "-updated_date", 200)
+          .catch(() => []);
+        if (cancelled) return;
+        const availablePlayerIds = new Set((availabilityRows || [])
+          .filter((row) => String(row.status || "").toLowerCase() === "available")
+          .map((row) => String(row.player_id)));
+        roster = roster.filter((player) => availablePlayerIds.has(String(player.id)));
+      }
       setSeatedPlayers(roster);
       const initRatings = {};
       roster.forEach(p => { initRatings[p.id] = 6; });

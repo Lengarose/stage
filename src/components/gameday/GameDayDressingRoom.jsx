@@ -15,6 +15,37 @@ function getAvailabilityFixtureIds(game) {
     .filter((id, index, ids) => ids.indexOf(id) === index);
 }
 
+function compactEventAvailabilityId(prefix, eventId, clubId, eventLength, clubLength) {
+  const eventPart = String(eventId || "").replace(/[^a-zA-Z0-9]/g, "").slice(0, eventLength);
+  const clubPart = String(clubId || "").replace(/[^a-zA-Z0-9]/g, "").slice(0, clubLength);
+  return `${prefix}:${eventPart}:${clubPart}`.slice(0, 36);
+}
+
+async function getEventAvailabilityFixtureId(game, clubId) {
+  const sourceType = String(game?.source_fixture_type || "").toLowerCase();
+  const sourceFixtureId = game?.source_fixture_id || game?.fixture_id || game?.related_fixture_id;
+  const tournamentId = String(game?.tournament_id || "").trim();
+  if (tournamentId && tournamentId.toLowerCase() !== "ranked" && clubId) {
+    return compactEventAvailabilityId("t", tournamentId, clubId, 16, 16);
+  }
+  if (!sourceFixtureId || !clubId) return "";
+  if (sourceType === "regional_league" || sourceType === "regional_league_fixture") {
+    const fixture = stageClient.entities.RegionalLeagueFixture
+      ? await stageClient.entities.RegionalLeagueFixture.get(sourceFixtureId).catch(() => null)
+      : null;
+    const leagueId = fixture?.regional_league_id || fixture?.league_id;
+    return leagueId ? compactEventAvailabilityId("rl", leagueId, clubId, 15, 15) : "";
+  }
+  if (sourceType === "competition" || sourceType === "competition_engine" || sourceType === "competition_fixture") {
+    const fixture = stageClient.entities.CompetitionFixture
+      ? await stageClient.entities.CompetitionFixture.get(sourceFixtureId).catch(() => null)
+      : null;
+    const eventId = fixture?.season_id || fixture?.competition_season_id || fixture?.competition_id || fixture?.competition_slug;
+    return eventId ? compactEventAvailabilityId("gost", eventId, clubId, 14, 14) : "";
+  }
+  return "";
+}
+
 function getInitials(name) {
   return String(name || "?")
     .trim()
@@ -54,7 +85,11 @@ export default function GameDayDressingRoom({ game, myClub, myPlayer, user, onSe
     async function load() {
       if (!myClub) { setLoading(false); return; }
 
-      const availabilityFixtureIds = getAvailabilityFixtureIds(game);
+      const eventAvailabilityFixtureId = await getEventAvailabilityFixtureId(game, myClub.id);
+      const availabilityFixtureIds = [
+        eventAvailabilityFixtureId,
+        ...getAvailabilityFixtureIds(game),
+      ].filter(Boolean);
       const [players, dressing, availabilityChunks] = await Promise.all([
         stageClient.entities.Player.filter({ club_id: myClub.id }),
         stageClient.entities.DressingRoom.filter({ match_id: game.id, club_id: myClub.id }),
@@ -160,7 +195,7 @@ export default function GameDayDressingRoom({ game, myClub, myPlayer, user, onSe
             <div>
               <p className="font-heading text-sm font-black uppercase tracking-[0.22em] text-white">Locker Room</p>
               <p className={cn("mt-1 max-w-xl text-xs", hasCustomBackground ? "text-white/90" : "text-white/65")}>
-                Only players who confirmed availability can take a seat before kickoff.
+                Only players who confirmed event availability can take a seat before kickoff.
               </p>
             </div>
           </div>
@@ -184,7 +219,7 @@ export default function GameDayDressingRoom({ game, myClub, myPlayer, user, onSe
         <div className="flex items-center gap-2 border border-[#f8fbff]/30 bg-black/60 px-3 py-2">
           <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-[#f8fbff]" />
           <p className="text-[11px] text-white">
-            Mark yourself available for this fixture first. Only available seated players receive ratings and stats.
+            Mark yourself available for this event first. Only available seated players receive ratings and stats.
           </p>
         </div>
       )}
@@ -213,7 +248,7 @@ export default function GameDayDressingRoom({ game, myClub, myPlayer, user, onSe
           {iAmSeated ? (
             <><CheckCircle2 className="h-4 w-4" /> Leave My Seat</>
           ) : !iAmAvailable ? (
-            <><Lock className="h-4 w-4" /> Mark Available First</>
+            <><Lock className="h-4 w-4" /> Mark Event Available First</>
           ) : (
             <><Users className="h-4 w-4" /> Take My Seat ({myPlayer.gamertag})</>
           )}

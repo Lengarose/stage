@@ -122,6 +122,19 @@ export async function openLeagueRegistration(league) {
   });
 }
 
+export async function startLeague(league) {
+  const now = new Date().toISOString();
+  await stageClient.entities.RegionalLeague.update(league.id, {
+    status: "in_progress",
+    start_date: now,
+    started_at: now,
+    registration_closed_at: now,
+    seeding_mode: false,
+    placement_locked: true,
+    launch_seeding_closed_at: league.launch_seeding_closed_at || now,
+  });
+}
+
 export async function archiveLeague(league) {
   const standings = await (stageClient.entities.RegionalLeagueStanding?.filter(
     { league_id: league.id }, null, 50

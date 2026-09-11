@@ -12464,7 +12464,7 @@ const HANDLERS = {
       );
       const league = parseLeagueEntityRow(leagueRows[0]);
       if (!league) throw new Error('Regional League not found');
-      if (isWallClockPast(league.start_date || league.scheduled_date)) {
+      if (['completed', 'archived', 'cancelled', 'canceled'].includes(String(league.status || '').toLowerCase())) {
         throw new Error('Availability is locked for this regional league.');
       }
 
@@ -12496,6 +12496,8 @@ const HANDLERS = {
       const player = players[0];
       if (!player) throw new Error('Only club members can set regional league availability');
 
+      const clubRows = await query('SELECT id, owner_email, user_id, president_user_id FROM clubs WHERE id = ? LIMIT 1', [club_id]);
+      const presidentUser = clubRows[0] ? await getClubPresidentUser(query, clubRows[0]) : null;
       const fixtureId = regionalLeagueAvailabilityFixtureId(league_id, club_id);
       const existingRows = await query(
         `SELECT * FROM club_fixture_availability
@@ -12507,10 +12509,11 @@ const HANDLERS = {
       const note = parseMaybeJson(existing?.note, {});
       const storeSettings = await getActiveStoreSettings();
       const entryCost = Number(league.entry_credits ?? storeSettings.regional_league_entry_credits ?? storeSettings.tournament_entry_credits ?? TOURNAMENT_ENTRY_CREDITS);
+      const submitterExempt = presidentUser?.id && String(presidentUser.id) === String(_auth_user_id);
       let creditsSpent = Number(note.regional_league_availability_credits_spent || 0);
       let creditsAfter = await getUserCredits(_auth_user_id, query);
 
-      if (requestedStatus === 'available' && creditsSpent <= 0 && entryCost > 0) {
+      if (requestedStatus === 'available' && !submitterExempt && creditsSpent <= 0 && entryCost > 0) {
         const spent = await spendUserCredits(_auth_user_id, entryCost, query);
         creditsSpent = spent.credits_spent;
         creditsAfter = spent.credits_after;
@@ -12521,6 +12524,7 @@ const HANDLERS = {
         regional_league_id: league_id,
         regional_league_name: league.name,
         regional_league_availability: true,
+        registration_submitter_exempt: Boolean(submitterExempt),
         regional_league_availability_credits_spent: creditsSpent,
         updated_by_user_id: _auth_user_id,
       };
@@ -12554,6 +12558,7 @@ const HANDLERS = {
         row: savedRows[0],
         credits_spent: requestedStatus === 'available' ? creditsSpent : 0,
         credits_after: creditsAfter,
+        registration_submitter_exempt: Boolean(submitterExempt),
       };
     });
 

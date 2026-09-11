@@ -55,7 +55,7 @@ test("away confirm form hydrates score and keeps goal events available", () => {
     /if \(!confirmMode\) return;[\s\S]{0,140}setHomeScore\(submittedHomeScore\)[\s\S]{0,140}setAwayScore\(submittedAwayScore\)/,
     "Confirm mode should display the submitted Home-Away score instead of the official 0-0"
   );
-  assert.match(source, /const myScore = isHomeTeam \? Number\(homeScore\) : Number\(awayScore\);/);
+  assert.match(source, /const myScore = isHomeTeam \? fixtureHomeScore : fixtureAwayScore;/);
   assert.match(
     source,
     /\{isClubMatch && myScore > 0 && \(/,

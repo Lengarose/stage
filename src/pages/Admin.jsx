@@ -992,7 +992,7 @@ export default function Admin(props) {
         tag: s.club_tag || "",
       }));
       const { generateRegionalLeagueFixtures } = await import("@/lib/competitionUtils");
-      await generateRegionalLeagueFixtures(league, clubsForFixtures);
+      await generateRegionalLeagueFixtures({ ...league, status: "in_progress" }, clubsForFixtures);
       await loadAll();
       await swalAlert(t("admin.alerts.fixturesGenerated", { name: league.name }));
     } catch (err) {
@@ -1007,6 +1007,15 @@ export default function Admin(props) {
       if (action === "open_registration") {
         const { openLeagueRegistration } = await import("@/lib/seasonLifecycle");
         await openLeagueRegistration(league);
+        await loadAll();
+      } else if (action === "start") {
+        const standings = await stageClient.entities.RegionalLeagueStanding.filter({ league_id: league.id }, null, 100).catch(() => []);
+        if (standings.length < 2) {
+          await swalAlert(t("admin.alerts.needTwoClubs"));
+          return;
+        }
+        const { startLeague } = await import("@/lib/seasonLifecycle");
+        await startLeague(league);
         await loadAll();
       } else if (action === "archive") {
         if (!(await swalConfirm(t("admin.alerts.archiveSeasonConfirm", { name: league.name, number: league.season_number })))) return;

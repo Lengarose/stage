@@ -35,6 +35,12 @@ function isFirstSeasonAdminSeedingOpen(league) {
   return (Number(league?.season_number) || 1) === 1;
 }
 
+function isTruthyEntityFlag(value) {
+  if (value == null || value === false || value === 0) return false;
+  const normalized = String(value).trim().toLowerCase();
+  return !["", "0", "false", "null", "undefined", "no"].includes(normalized);
+}
+
 const SEED_CLUB_PAGE_SIZE = 12;
 
 export default function LeaguesTab({
@@ -1059,6 +1065,7 @@ export default function LeaguesTab({
                   const canAdminAddClub = !["in_progress", "active", "completed", "archived"].includes(String(league.status || "").toLowerCase());
                   const seedingOpen = isRegionalLeagueSetupSeedingOpen(league) || isFirstSeasonAdminSeedingOpen(league);
                   const canSimulateFixtures = String(league.status || "").toLowerCase() === "in_progress";
+                  const fixturesGenerated = isTruthyEntityFlag(league.fixtures_generated);
                   return (
                     <div key={league.id} className="border border-border rounded p-3 space-y-2">
                       <div className="flex items-center gap-2">
@@ -1097,9 +1104,16 @@ export default function LeaguesTab({
                         )}
                         {league.status === "registration" && (
                           <Button size="sm" disabled={generatingRegionalFixtures === league.id}
-                            onClick={() => generateRegionalFixturesForAdmin(league)}
+                            onClick={() => leagueLifecycleAction(league, "start")}
                             className="h-7 text-xs rounded bg-success/20 text-success hover:bg-success/30 border-0 shrink-0">
                             {generatingRegionalFixtures === league.id ? t("admin.leagues.starting") : t("admin.leagues.startLeague")}
+                          </Button>
+                        )}
+                        {league.status === "in_progress" && !fixturesGenerated && (
+                          <Button size="sm" disabled={generatingRegionalFixtures === league.id}
+                            onClick={() => generateRegionalFixturesForAdmin(league)}
+                            className="h-7 text-xs rounded bg-primary/20 text-primary hover:bg-primary/30 border-0 shrink-0">
+                            {generatingRegionalFixtures === league.id ? "Generating..." : t("admin.leagues.generateFixtures")}
                           </Button>
                         )}
                         {league.status === "in_progress" && (

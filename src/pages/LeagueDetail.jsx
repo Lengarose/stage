@@ -13,7 +13,6 @@ import FixtureSchedulerPanel from "@/components/schedule/FixtureSchedulerPanel";
 import { withCanonicalRegionalLeagueName } from "@/lib/qualificationConfig";
 import { getRegionalLeagueMaxClubs } from "@/lib/regionalLeagueRules";
 import { generateRegionalLeagueFixtures } from "@/lib/competitionUtils";
-import { openMatchdayWindows } from "@/lib/scheduleEngine";
 import { swalAlert, swalConfirm } from "@/lib/swal";
 import { useTranslation } from "@/hooks/useTranslation";
 
@@ -42,7 +41,6 @@ export default function LeagueDetail() {
   const [tab,      setTab]      = useState("overview");
   const [openMd,   setOpenMd]   = useState(null);
   const [generating, setGenerating] = useState(false);
-  const [openingWindows, setOpeningWindows] = useState(null);
   const [fixtureEntityMissing, setFixtureEntityMissing] = useState(false);
   const [prevSeasons, setPrevSeasons]   = useState([]);
   const [prevOpen,    setPrevOpen]      = useState(false);
@@ -122,6 +120,10 @@ export default function LeagueDetail() {
 
   async function handleGenerateFixtures() {
     if (!league) return;
+    if (String(league.status || "").toLowerCase() !== "in_progress") {
+      await swalAlert("Start the league before generating fixtures.");
+      return;
+    }
     if (!standings.length) { await swalAlert("Add clubs to the league before generating fixtures."); return; }
     if (!(await swalConfirm(`Generate home-and-away fixtures for all ${standings.length} clubs? This cannot be undone.`))) return;
     setGenerating(true);
@@ -140,18 +142,6 @@ export default function LeagueDetail() {
         await swalAlert(`Error: ${msg}`);
       }
     } finally { setGenerating(false); }
-  }
-
-  async function handleOpenMatchdayWindows(matchday) {
-    const mdFixtures = fixtures.filter(f => f.matchday === matchday);
-    if (!mdFixtures.length) return;
-    setOpeningWindows(matchday);
-    try {
-      await openMatchdayWindows(mdFixtures, "regional_league");
-      await load();
-    } catch (err) {
-      await swalAlert(`Could not open windows: ${err?.message || "Unknown error"}`);
-    } finally { setOpeningWindows(null); }
   }
 
   async function openGameDayForFixture(fixture) {
@@ -277,7 +267,7 @@ export default function LeagueDetail() {
           <div className="border border-cyan-300/15 bg-cyan-300/[0.035] p-4" style={{ clipPath: "polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%)" }}>
             <p className="font-heading text-xs font-black uppercase tracking-[0.18em] text-cyan-200">Club preparation</p>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              Check fixtures, confirm availability with your squad and use Game Day when a match window opens.
+              Check fixtures, confirm availability with your squad and use Game Day once a match time is accepted.
             </p>
           </div>
         </section>
@@ -435,14 +425,6 @@ export default function LeagueDetail() {
                         )}
                       </div>
                       <div className="flex items-center gap-2">
-                        {isAdmin && !allConfirmed && (
-                          <Button size="sm" variant="outline"
-                            onClick={e => { e.stopPropagation(); handleOpenMatchdayWindows(md); }}
-                            disabled={openingWindows === md}
-                            className="h-6 text-[10px] border-border text-muted-foreground hover:text-foreground px-2">
-                            {openingWindows === md ? "Opening…" : "Open Windows"}
-                          </Button>
-                        )}
                         {isOpen ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
                       </div>
                     </button>

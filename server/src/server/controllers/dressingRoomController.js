@@ -21,18 +21,89 @@ function parsePlayerIds(value) {
   }
 }
 
+function compactEventAvailabilityId(prefix, eventId, clubId, eventLength, clubLength) {
+  const eventPart = String(eventId || '').replace(/[^a-zA-Z0-9]/g, '').slice(0, eventLength);
+  const clubPart = String(clubId || '').replace(/[^a-zA-Z0-9]/g, '').slice(0, clubLength);
+  return `${prefix}:${eventPart}:${clubPart}`.slice(0, 36);
+}
+
+function parseJsonObject(value) {
+  if (!value) return {};
+  if (typeof value === 'object' && !Array.isArray(value)) return value;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+async function getEventAvailabilityFixtureIds({ matchId, clubId }) {
+  if (!matchId || !clubId) return [];
+  const matches = await EXECUTESQL(
+    `SELECT id, tournament_id, source_fixture_id, source_fixture_type
+       FROM matches
+      WHERE id = ?
+      LIMIT 1`,
+    [matchId],
+  ).catch(() => []);
+  const match = matches[0] || null;
+  if (!match) return [];
+  const ids = [];
+  const tournamentId = String(match.tournament_id || '').trim();
+  if (tournamentId && tournamentId.toLowerCase() !== 'ranked') {
+    ids.push(compactEventAvailabilityId('t', tournamentId, clubId, 16, 16));
+  }
+
+  const sourceFixtureId = match.source_fixture_id;
+  const sourceType = String(match.source_fixture_type || '').toLowerCase();
+  const entityType = sourceType === 'regional_league' || sourceType === 'regional_league_fixture'
+    ? 'regional_league_fixture'
+    : ['competition', 'competition_engine', 'competition_fixture'].includes(sourceType)
+      ? 'competition_fixture'
+      : '';
+  if (!sourceFixtureId || !entityType) return ids;
+
+  const fixtures = await EXECUTESQL(
+    `SELECT data_json
+       FROM league_entities
+      WHERE id = ? AND entity_type = ?
+      LIMIT 1`,
+    [sourceFixtureId, entityType],
+  ).catch(() => []);
+  const data = parseJsonObject(fixtures[0]?.data_json);
+  if (entityType === 'regional_league_fixture') {
+    const leagueId = data.regional_league_id || data.league_id;
+    if (leagueId) ids.push(compactEventAvailabilityId('rl', leagueId, clubId, 15, 15));
+  } else if (entityType === 'competition_fixture') {
+    const eventId = data.season_id || data.competition_season_id || data.competition_id || data.competition_slug;
+    if (eventId) ids.push(compactEventAvailabilityId('gost', eventId, clubId, 14, 14));
+  }
+  return [...new Set(ids.filter(Boolean))];
+}
+
 async function assertPlayersAvailable({ matchId, clubId, seatedPlayers }) {
   const ids = [...new Set(parsePlayerIds(seatedPlayers))];
   if (!ids.length) return;
-  const placeholders = ids.map(() => '?').join(',');
+  const availabilityFixtureIds = [
+    matchId,
+    ...await getEventAvailabilityFixtureIds({ matchId, clubId }),
+  ].filter(Boolean);
+  if (!availabilityFixtureIds.length) {
+    const err = new Error('Match id is required before taking a dressing room seat.');
+    err.status = 400;
+    throw err;
+  }
+  const fixturePlaceholders = availabilityFixtureIds.map(() => '?').join(',');
+  const playerPlaceholders = ids.map(() => '?').join(',');
   const rows = await EXECUTESQL(
     `SELECT player_id
      FROM club_fixture_availability
      WHERE club_id = ?
-       AND fixture_id = ?
+       AND fixture_id IN (${fixturePlaceholders})
        AND status = 'available'
-       AND player_id IN (${placeholders})`,
-    [clubId, matchId, ...ids]
+       AND player_id IN (${playerPlaceholders})`,
+    [clubId, ...availabilityFixtureIds, ...ids]
   );
   const available = new Set((rows || []).map((row) => String(row.player_id)));
   const missing = ids.filter((id) => !available.has(id));
