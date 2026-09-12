@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 import SeasonCard from "@/components/admin/seasons/SeasonCard";
-import ExpiredFixtureRow from "@/components/admin/disputes/ExpiredFixtureRow";
 import { stageClient } from "@/api/stageClient";
 import {
   OFFICIAL_STAGE_TOURNAMENT_MAX_CLUBS,
@@ -150,9 +149,6 @@ export default function LeaguesTab({
   generatingRegionalFixtures,
   processingLeagueEnd,
   processLeagueEnd,
-  expiredFixtures,
-  schedulingAdminBusy,
-  setSchedulingAdminBusy,
 }) {
   const { t } = useTranslation();
   const showGost = mode !== "regional";
@@ -1964,26 +1960,6 @@ export default function LeaguesTab({
       )}
     </DialogContent>
   </Dialog>
-
-  {/* Scheduling — expired fixtures */}
-  {showRegional && expiredFixtures.length > 0 && (
-    <div className="bg-card border border-destructive/30 rounded p-5 space-y-3">
-      <div className="flex items-center gap-2">
-        <AlertTriangle className="w-4 h-4 text-destructive" />
-        <h3 className="font-heading text-base uppercase tracking-tight text-foreground">
-          {t("admin.leagues.schedulingDisputes", { count: expiredFixtures.length })}
-        </h3>
-      </div>
-      <p className="text-xs text-muted-foreground">
-        {t("admin.leagues.schedulingDisputesDesc")}
-      </p>
-      <div className="space-y-2">
-        {expiredFixtures.map(f => (
-          <ExpiredFixtureRow key={f.id} fixture={f} onResolved={loadAll} busy={schedulingAdminBusy} setBusy={setSchedulingAdminBusy} />
-        ))}
-      </div>
-    </div>
-  )}
 
 </div>
   );

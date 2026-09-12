@@ -7,15 +7,19 @@ import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/hooks/useTranslation";
 import { AlertTriangle, Download, Gavel, Image as ImageIcon, X } from "lucide-react";
 
-export default function DisputesTab({ disputes, setResolveDialog, setSelectedWinner }) {
+export default function DisputesTab({ disputes, setResolveDialog, setSelectedWinner, showEconomyPanels = true }) {
   const { t } = useTranslation();
   const [previewProof, setPreviewProof] = useState(null);
 
   return (
     <>
-      <AdminEconomyTestPanel />
-      <AdminEconomyPanel />
-      <AdminWagersPanel />
+      {showEconomyPanels && (
+        <>
+          <AdminEconomyTestPanel />
+          <AdminEconomyPanel />
+          <AdminWagersPanel />
+        </>
+      )}
       {disputes.length === 0 ? (
         <EmptyState icon={AlertTriangle} text={t("admin.disputes.noDisputedMatches")} />
       ) : (

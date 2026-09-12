@@ -8,8 +8,8 @@ import {
   ArrowLeftRight,
   BarChart3,
   BookOpen,
+  CalendarDays,
   Flag,
-  Gavel,
   Shield,
   ShieldAlert,
   Trophy,
@@ -24,12 +24,11 @@ import { AppGuideVisual, CHART_LINE_META, UsageChart } from "@/components/admin/
 const CHART_LINE_KEYS = ["users", "players", "clubs", "tournaments", "matches", "contracts"];
 
 const QUICK_ACTIONS = [
-  { path: "/admin/disputes", section: "disputes", icon: AlertTriangle, accent: "rose" },
-  { path: "/admin/forfeits", section: "forfeits", icon: Flag, accent: "gold" },
+  { path: "/admin/gameday", section: "gameday", icon: CalendarDays, accent: "rose" },
   { path: "/admin/players", section: "players", icon: UsersRound, accent: "cyan" },
   { path: "/admin/clubs", section: "clubs", icon: Shield, accent: "green" },
   { path: "/admin/tournaments", section: "tournaments", icon: Trophy, accent: "gold" },
-  { path: "/admin/leagues", section: "leagues", icon: Gavel, accent: "violet" },
+  { path: "/admin/leagues", section: "leagues", icon: Activity, accent: "violet" },
   { path: "/admin/transfers", section: "transfers", icon: ArrowLeftRight, accent: "cyan" },
   { path: "/admin/analytics", section: "analytics", icon: BarChart3, accent: "violet" },
 ];
@@ -104,8 +103,7 @@ export default function AdminDashboardPanel({
   }
 
   const actionCounts = {
-    "/admin/disputes": disputes.length,
-    "/admin/forfeits": forfeits.length,
+    "/admin/gameday": disputes.length + forfeits.length + expiredFixtures.length,
     "/admin/players": players.length,
     "/admin/clubs": clubs.length,
     "/admin/tournaments": activeTournaments.length,

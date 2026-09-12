@@ -4,7 +4,7 @@ import {
   Search, Rss, ShoppingBag, Video, UsersRound, Handshake, Crown,
   Palette, ChevronDown, Newspaper, ShieldAlert, Settings,
   Inbox, CalendarDays, Zap, Coins, Sun, Moon, LogOut, Star, Bell,
-  AlertTriangle, Flag, MessagesSquare, Globe2, Activity, HelpCircle,
+  MessagesSquare, Globe2, Activity, HelpCircle,
   X, LayoutDashboard, UserCog, Binoculars, Archive, Mail,
 } from "lucide-react";
 import LogoImg from '@/assets/Stadium Logo.png';
@@ -238,8 +238,7 @@ function getAdminGroups(t) {
       label: t("admin.nav.admin"),
       items: [
         { path: "/admin", icon: ShieldAlert, label: t("admin.nav.dashboard") },
-        { path: "/admin/disputes", icon: AlertTriangle, label: t("admin.nav.disputes") },
-        { path: "/admin/forfeits", icon: Flag, label: t("admin.nav.forfeits") },
+        { path: "/admin/gameday", icon: CalendarDays, label: t("admin.nav.gameDay") },
         { path: "/admin/players", icon: UsersRound, label: t("admin.nav.players") },
         { path: "/admin/identity-claims", icon: User, label: t("admin.nav.identityClaims") },
         { path: "/admin/clubs", icon: Shield, label: t("admin.nav.clubs") },
@@ -1445,7 +1444,7 @@ function MobileBottomBar({ pathname, myPlayer: _myPlayer, myClub, accountMode, n
 const ADMIN_MOBILE_PRIMARY = [
   { path: "/admin", icon: ShieldAlert, label: "Dash" },
   { path: "/admin/tournaments", icon: Trophy, label: "Tournois" },
-  { path: "/admin/disputes", icon: AlertTriangle, label: "Matchs" },
+  { path: "/admin/gameday", icon: CalendarDays, label: "GameDay" },
   { path: "/admin/players", icon: UsersRound, label: "Players" },
 ];
 
@@ -1453,7 +1452,6 @@ const ADMIN_MOBILE_MORE_GROUPS = [
   {
     label: "Operations",
     items: [
-      { path: "/admin/forfeits", icon: Flag, label: "Forfeits" },
       { path: "/admin/clubs", icon: Shield, label: "Clubs" },
       { path: "/admin/transfers", icon: ArrowLeftRight, label: "Transfers" },
     ],

@@ -83,6 +83,7 @@ const TournamentSettingsPage = React.lazy(() => import('./pages/tournament-entra
 const AdminDashboardPage = React.lazy(() => import('./pages/admin/AdminDashboardPage'));
 const AdminDisputesPage = React.lazy(() => import('./pages/admin/AdminDisputesPage'));
 const AdminForfeitsPage = React.lazy(() => import('./pages/admin/AdminForfeitsPage'));
+const AdminGameDayPage = React.lazy(() => import('./pages/admin/AdminGameDayPage'));
 const AdminPlayersPage = React.lazy(() => import('./pages/admin/AdminPlayersPage'));
 const AdminClubsPage = React.lazy(() => import('./pages/admin/AdminClubsPage'));
 const AdminRankingsPage = React.lazy(() => import('./pages/admin/AdminRankingsPage'));
@@ -422,6 +423,8 @@ const AuthenticatedApp = () => {
             <Route path="/admin" element={<AdminDashboardPage />} />
             <Route path="/admin/disputes" element={<AdminDisputesPage />} />
             <Route path="/admin/forfeits" element={<AdminForfeitsPage />} />
+            <Route path="/admin/gameday" element={<AdminGameDayPage />} />
+            <Route path="/admin/game-day" element={<AdminGameDayPage />} />
             <Route path="/admin/players" element={<AdminPlayersPage />} />
             <Route path="/admin/clubs" element={<AdminClubsPage />} />
             <Route path="/admin/rankings" element={<AdminRankingsPage />} />

@@ -1,8 +1,7 @@
 // @ts-nocheck — shadcn/ui primitives are untyped forwardRefs under checkJs; substantive admin logic stays typed elsewhere.
 import { useState, useEffect, useRef, useMemo } from "react";
 // Admin sub-components (separation of concerns — moved out of this file)
-import DisputesTab from "@/components/admin/sections/DisputesTab";
-import ForfeitsTab from "@/components/admin/sections/ForfeitsTab";
+import GameDayTab from "@/components/admin/sections/GameDayTab";
 import PlayersTab from "@/components/admin/sections/PlayersTab";
 import ClubsTab from "@/components/admin/sections/ClubsTab";
 import RankingsTab from "@/components/admin/sections/RankingsTab";
@@ -313,8 +312,13 @@ export default function Admin(props) {
         stageClient.identityClaims.list({ status: "pending" }, "-created_date", 100).catch(() => []),
       ]);
       const forfeitMatches = await stageClient.entities.Match.filter({ forfeit_status: "pending" }, "-updated_date", 50).catch(() => []);
+      const activeForfeitMatches = (forfeitMatches || []).filter(match =>
+        match?.forfeit_status === "pending" &&
+        Boolean(match?.forfeit_claimed_by) &&
+        !["completed", "confirmed", "played", "forfeit", "cancelled", "canceled"].includes(String(match?.status || "").toLowerCase())
+      );
       setDisputes(disputedMatches.map(m => ({ ...m, _source: "tournament" })));
-      setForfeits(forfeitMatches);
+      setForfeits(activeForfeitMatches);
       setPlayers(allPlayers);
       setIdentityClaims(pendingIdentityClaims);
       setClubs(allClubs);
@@ -1593,12 +1597,18 @@ export default function Admin(props) {
 
   const sectionContent = (
     <>
-          {adminTab === "disputes" && (
-            <DisputesTab disputes={disputes} setResolveDialog={setResolveDialog} setSelectedWinner={setSelectedWinner} />
-          )}
-
-          {adminTab === "forfeits" && (
-            <ForfeitsTab forfeits={forfeits} resolveForfeit={resolveForfeit} />
+          {adminTab === "gameday" && (
+            <GameDayTab
+              disputes={disputes}
+              forfeits={forfeits}
+              expiredFixtures={expiredFixtures}
+              setResolveDialog={setResolveDialog}
+              setSelectedWinner={setSelectedWinner}
+              resolveForfeit={resolveForfeit}
+              loadAll={loadAll}
+              schedulingAdminBusy={schedulingAdminBusy}
+              setSchedulingAdminBusy={setSchedulingAdminBusy}
+            />
           )}
 
           {adminTab === "players" && (

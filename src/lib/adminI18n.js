@@ -2,6 +2,8 @@
 const SECTION_SLUG_TO_KEY = {
   disputes: "disputes",
   forfeits: "forfeits",
+  gameday: "gameDay",
+  "game-day": "gameDay",
   players: "players",
   clubs: "clubs",
   rankings: "rankings",

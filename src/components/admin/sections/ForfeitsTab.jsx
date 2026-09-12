@@ -36,7 +36,9 @@ export default function ForfeitsTab({ forfeits, resolveForfeit }) {
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">{t("admin.forfeits.claimedBy")} <strong className="text-foreground">{claimerName}</strong></p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {t("admin.forfeits.claimedBy", { name: claimerName })}
+                  </p>
                   {isStale && (
                     <p className="text-[11px] text-destructive/85 mt-1">
                       {t("admin.forfeits.staleClaimHint")}

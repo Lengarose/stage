@@ -502,6 +502,7 @@ router.get('/', async (req, res) => {
       mode,
       round,
       type,
+      forfeit_status,
       source_fixture_id,
       source_fixture_type,
     } = req.query;
@@ -517,7 +518,7 @@ router.get('/', async (req, res) => {
     const filters = {
       id, home_club_id, away_club_id, home_player_id, away_player_id,
       tournament_id, status, mode, round, type,
-      source_fixture_id, source_fixture_type,
+      forfeit_status, source_fixture_id, source_fixture_type,
     };
     const clean = Object.entries(filters).filter(([, v]) => v !== undefined && v !== null && v !== '');
     if (!isAdmin) {

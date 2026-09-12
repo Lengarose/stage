@@ -102,6 +102,64 @@ test('GET / includes away matches for a club the user owns even when their playe
   assert.equal(response.body[0].id, match.id);
 });
 
+test('GET / supports forfeit_status filter for admin forfeit queues', async () => {
+  let seenMatchQuery = null;
+  const pendingClaim = {
+    id: 'match-forfeit-pending',
+    home_club_id: 'club-home',
+    away_club_id: 'club-away',
+    forfeit_claimed_by: 'club-away',
+    forfeit_status: 'pending',
+    status: 'disputed',
+    scheduled_date: '2026-05-25 18:00:00',
+  };
+
+  const executesql = async (sql, params = []) => {
+    if (/FROM users WHERE id = \?/.test(sql)) {
+      return [{ id: params[0], email: 'admin@example.test', role_id: 0 }];
+    }
+    if (/FROM players/.test(sql)) return [];
+    if (/FROM clubs\s+WHERE user_id/.test(sql)) return [];
+    if (/SELECT \* FROM matches WHERE/.test(sql)) {
+      seenMatchQuery = { sql, params };
+      return params.includes('pending') ? [pendingClaim] : [];
+    }
+    if (/SELECT id, name, owner_email FROM clubs WHERE id IN/.test(sql)) {
+      return [
+        { id: 'club-home', name: 'Home Club', owner_email: 'home@example.test' },
+        { id: 'club-away', name: 'Away Club', owner_email: 'away@example.test' },
+      ];
+    }
+    if (/SELECT id, gamertag, email FROM players WHERE id IN/.test(sql)) return [];
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+
+  const router = loadMatchRouterWithDbMock(executesql);
+  const handle = getMatchesHandler(router);
+  const response = {
+    statusCode: 200,
+    body: null,
+    status(code) {
+      this.statusCode = code;
+      return this;
+    },
+    json(body) {
+      this.body = body;
+    },
+  };
+
+  await handle(
+    { query: { forfeit_status: 'pending' }, user: { id: 'admin-user' } },
+    response,
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.match(seenMatchQuery.sql, /forfeit_status = \?/);
+  assert.deepEqual(seenMatchQuery.params, ['pending']);
+  assert.equal(response.body.length, 1);
+  assert.equal(response.body[0].id, pendingClaim.id);
+});
+
 test('GET /profile exposes read-only profile matches without participant scope', async () => {
   const publicMatch = {
     id: 'profile-match-1',

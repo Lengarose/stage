@@ -59,6 +59,7 @@ const adminTranslationsEn = {
   sections: {
     disputes: "Disputes",
     forfeits: "Forfeits",
+    gameDay: "GameDay",
     players: "Players",
     clubs: "Clubs",
     rankings: "Rankings",
@@ -82,6 +83,7 @@ const adminTranslationsEn = {
     dashboard: "Dashboard",
     disputes: "Disputes",
     forfeits: "Forfeits",
+    gameDay: "GameDay",
     players: "Players",
     identityClaims: "Identity Claims",
     clubs: "Clubs",
@@ -1090,6 +1092,7 @@ const adminTranslationsFr = {
   sections: {
     disputes: "Litiges",
     forfeits: "Forfaits",
+    gameDay: "GameDay",
     players: "Joueurs",
     clubs: "Clubs",
     rankings: "Classements",
@@ -1112,6 +1115,7 @@ const adminTranslationsFr = {
     dashboard: "Tableau de bord",
     disputes: "Litiges",
     forfeits: "Forfaits",
+    gameDay: "GameDay",
     players: "Joueurs",
     identityClaims: "Demandes d'identité",
     clubs: "Clubs",

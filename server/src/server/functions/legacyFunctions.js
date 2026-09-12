@@ -5567,9 +5567,15 @@ const HANDLERS = {
             [patch.status, patch.forfeit_status, patch.winner_club_id, patch.winner_club_name, match_id]
           );
         } else {
-          patch = { forfeit_status: 'rejected' };
+          patch = {
+            forfeit_status: 'rejected',
+            forfeit_claimed_by: null,
+            forfeit_proof_url: null,
+          };
           await query(
-            `UPDATE matches SET forfeit_status = ?, updated_date = NOW() WHERE id = ?`,
+            `UPDATE matches
+             SET forfeit_status = ?, forfeit_claimed_by = NULL, forfeit_proof_url = NULL, updated_date = NOW()
+             WHERE id = ?`,
             [patch.forfeit_status, match_id]
           );
         }
