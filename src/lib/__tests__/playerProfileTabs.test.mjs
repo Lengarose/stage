@@ -42,7 +42,7 @@ test("tournament-limited profiles hide only lifestyle while preserving tab meani
 
   assert.deepEqual(
     publicTournament.map((tab) => tab.id),
-    ["posts", "showcase", "career", "trophies"],
+    ["overview", "showcase", "career", "trophies"],
   );
   assert.equal(getPlayerProfileTabContract("career").domain, "stageleagues_cv");
   assert.equal(getPlayerProfileTabContract("stats"), null);
@@ -97,6 +97,7 @@ test("profile pages use canonical helpers and do not keep EAFC-only career or st
   assert.doesNotMatch(ownerSource, /stageClient\.entities\.Club\.create/);
   assert.doesNotMatch(ownerSource, /PresidentContractDialog/);
   assert.doesNotMatch(publicSource, /activeTab === "matches"[\s\S]*homeUpcoming/);
+  assert.doesNotMatch(publicSource, /activeTab === "posts"/);
   assert.match(clubSource, /GamerClubTabNav/);
   assert.doesNotMatch(clubSource, /id: "stats"/);
   assert.doesNotMatch(clubSource, /id: "matches"/);

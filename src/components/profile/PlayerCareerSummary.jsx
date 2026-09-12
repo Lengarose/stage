@@ -220,7 +220,6 @@ function TileMenu({ tileKey, title, canCustomize, canUseBackgrounds, onChangeBac
         <button
           type="button"
           className="flex h-8 w-8 items-center justify-center border border-cyan-300/20 bg-black/35 text-cyan-100/65 transition hover:border-cyan-200/50 hover:text-cyan-50"
-          style={{ clipPath: "polygon(18% 0, 100% 0, 82% 100%, 0 100%)" }}
           aria-label={`${title || TILE_LABELS[tileKey]} actions`}
         >
           <MoreHorizontal className="h-4 w-4" />
@@ -241,7 +240,6 @@ export function CareerTile({ tileKey, title, eyebrow, player, canCustomize, canU
   return (
     <section
       className={cn("relative min-w-0 overflow-hidden border border-cyan-300/20 bg-[#06111d] shadow-[0_20px_60px_rgba(0,0,0,0.26)]", className)}
-      style={{ clipPath: "polygon(2.5% 0, 100% 0, 97.5% 100%, 0 100%)" }}
     >
       {bg ? <div aria-hidden className="absolute inset-0 bg-no-repeat opacity-40" style={bg} /> : null}
       <div aria-hidden className="absolute inset-0 bg-gradient-to-br from-cyan-400/12 via-black/78 to-blue-950/78" />
@@ -500,7 +498,7 @@ export function CareerTileBackgroundDialog({ player, tileKey, open, onOpenChange
           </DialogTitle>
         </DialogHeader>
         {!canUseBackgrounds ? (
-          <div className="rounded-lg border border-[#f5c542]/25 bg-[#f5c542]/10 p-4">
+          <div className="border border-[#f5c542]/25 bg-[#f5c542]/10 p-4">
             <div className="mb-3 flex items-start gap-3">
               <Lock className="mt-0.5 h-5 w-5 shrink-0 text-[#f5c542]" />
               <div>
@@ -531,7 +529,7 @@ export function CareerTileBackgroundDialog({ player, tileKey, open, onOpenChange
             <div>
               <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-white/45">Official Stage+ designs</p>
               {loading ? (
-                <div className="flex items-center justify-center rounded-lg border border-white/10 py-8"><Loader2 className="h-5 w-5 animate-spin text-[#f5c542]" /></div>
+                <div className="flex items-center justify-center border border-white/10 py-8"><Loader2 className="h-5 w-5 animate-spin text-[#f5c542]" /></div>
               ) : backgrounds.length ? (
                 <div className="grid max-h-52 grid-cols-2 gap-2 overflow-y-auto pr-1 sm:grid-cols-3">
                   {backgrounds.map((bg) => {
@@ -548,14 +546,14 @@ export function CareerTileBackgroundDialog({ player, tileKey, open, onOpenChange
                   })}
                 </div>
               ) : (
-                <div className="rounded-lg border border-dashed border-white/10 py-8 text-center text-sm text-white/40">No official backgrounds are available yet.</div>
+                <div className="border border-dashed border-white/10 py-8 text-center text-sm text-white/40">No official backgrounds are available yet.</div>
               )}
             </div>
-            <div className="rounded-lg border border-white/10 bg-black/20 p-3">
+            <div className="border border-white/10 bg-black/20 p-3">
               <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-white/45">Upload your own</p>
               {preview ? (
                 <div className="mb-3 grid gap-3 sm:grid-cols-[180px_1fr]">
-                  <div className="relative h-[116px] overflow-hidden border border-cyan-300/35 bg-black" style={{ clipPath: "polygon(7% 0, 100% 0, 93% 100%, 0 100%)" }}>
+                    <div className="relative h-[116px] overflow-hidden border border-cyan-300/35 bg-black">
                     <div aria-hidden className="absolute inset-0 bg-no-repeat" style={{ backgroundImage: `url(${preview})`, backgroundPosition: `${x}% ${y}%`, backgroundSize: `${zoom}%` }} />
                     <div aria-hidden className="absolute inset-0 bg-gradient-to-br from-cyan-400/12 via-black/58 to-blue-950/80" />
                     <div className="relative z-[1] flex h-full flex-col justify-between p-3">
@@ -608,7 +606,7 @@ export default function PlayerCareerSummary({
 
   if (loading) {
     return (
-      <div className="relative overflow-hidden border border-cyan-300/20 bg-[#06111d] p-10 text-center text-sm text-white/40" style={{ clipPath: "polygon(2% 0, 100% 0, 98% 100%, 0 100%)" }}>
+      <div className="relative overflow-hidden border border-cyan-300/20 bg-[#06111d] p-10 text-center text-sm text-white/40">
         <Loader2 className="mx-auto mb-3 h-5 w-5 animate-spin text-[#f5c542]" />
         {text(t, "ppCareerLoading")}
       </div>
@@ -617,7 +615,7 @@ export default function PlayerCareerSummary({
 
   return (
     <>
-      <div className="relative overflow-hidden border border-red-300/25 bg-[#17050a] shadow-[0_26px_80px_rgba(0,0,0,0.35)]" style={{ clipPath: "polygon(2% 0, 100% 0, 98% 100%, 0 100%)" }}>
+      <div className="relative overflow-hidden border border-red-300/25 bg-[#17050a] shadow-[0_26px_80px_rgba(0,0,0,0.35)]">
         <CareerBackgroundArt player={player} />
         <div className="relative z-[1] min-h-[220px] p-5 sm:min-h-[250px] sm:p-7">
           <div className="min-w-0 space-y-3 sm:max-w-3xl">

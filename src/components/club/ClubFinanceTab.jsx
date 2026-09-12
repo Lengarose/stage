@@ -71,7 +71,7 @@ function buildCategoryFilters(t) {
 // ── Sub-components ─────────────────────────────────────────────────────────
 function StatCard({ icon: Icon, label, value, color, sub }) {
   return (
-    <div className="bg-card border border-border rounded-xl p-3 flex flex-col gap-1">
+    <div className="border border-white/10 bg-[linear-gradient(135deg,rgba(255,255,255,0.045),rgba(0,0,0,0.20))] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.18)] flex flex-col gap-1">
       <div className="flex items-center gap-1.5">
         <Icon className={cn("w-3.5 h-3.5", color)} />
         <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{label}</p>
@@ -89,14 +89,14 @@ function TxRow({ tx, isAdmin, onDelete }) {
   const Icon = meta.icon;
   const isPos = tx.amount >= 0;
   return (
-    <div className={cn("border rounded-xl px-4 py-2.5 flex items-center gap-3", meta.bg, meta.border)}>
-      <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border", meta.border)}>
+    <div className={cn("border px-4 py-2.5 flex items-center gap-3 shadow-[0_12px_34px_rgba(0,0,0,0.16)]", meta.bg, meta.border)}>
+      <div className={cn("w-7 h-7 flex items-center justify-center shrink-0 border bg-black/20", meta.border)}>
         <Icon className={cn("w-3.5 h-3.5", meta.color)} />
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-xs font-medium text-foreground truncate">{tx.description || meta.label}</p>
         <div className="flex items-center gap-2 mt-0.5">
-          <span className={cn("text-[10px] px-1.5 py-0.5 rounded-md border font-medium", meta.bg, meta.border, meta.color)}>{meta.label}</span>
+          <span className={cn("text-[10px] px-1.5 py-0.5 border font-medium", meta.bg, meta.border, meta.color)}>{meta.label}</span>
           <span className="text-[10px] text-muted-foreground">
             {new Date(tx.created_date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" })}
           </span>
@@ -232,7 +232,7 @@ export default function ClubFinanceTab({ club, isAdmin = false }) {
       </div>
 
       {/* Wage Usage Bar */}
-      <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+      <div className="border border-white/10 bg-[#071018]/82 p-4 space-y-3 shadow-[0_18px_50px_rgba(0,0,0,0.22)]">
         <div className="flex items-center justify-between">
           <p className="text-sm font-bold text-foreground flex items-center gap-2">
             <Users className="w-4 h-4 text-muted-foreground" /> {t("commonPages.cfinWeeklyWageBill")}
@@ -241,9 +241,9 @@ export default function ClubFinanceTab({ club, isAdmin = false }) {
             {formatSTC(committed_weekly_wages)} / {formatSTC(wage_budget)}
           </p>
         </div>
-        <div className="w-full h-2 bg-secondary rounded-full overflow-hidden">
+        <div className="w-full h-2 bg-secondary overflow-hidden">
           <div
-            className={cn("h-full rounded-full transition-all", wageUsedPct > 90 ? "bg-destructive" : wageUsedPct > 70 ? "bg-warning" : "bg-success")}
+            className={cn("h-full transition-all", wageUsedPct > 90 ? "bg-destructive" : wageUsedPct > 70 ? "bg-warning" : "bg-success")}
             style={{ width: `${wageUsedPct}%` }}
           />
         </div>
@@ -272,7 +272,7 @@ export default function ClubFinanceTab({ club, isAdmin = false }) {
       </div>
 
       {/* Transfer room */}
-      <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+      <div className="border border-white/10 bg-[#071018]/82 p-4 space-y-3 shadow-[0_18px_50px_rgba(0,0,0,0.22)]">
         <div className="flex items-center justify-between">
           <p className="text-sm font-bold text-foreground flex items-center gap-2">
             <ArrowLeftRight className="w-4 h-4 text-muted-foreground" /> Transfer Budget
@@ -281,8 +281,8 @@ export default function ClubFinanceTab({ club, isAdmin = false }) {
             {formatSTC(transfer_remaining)} remaining
           </p>
         </div>
-        <div className="w-full h-2 bg-secondary rounded-full overflow-hidden">
-          <div className="h-full rounded-full transition-all bg-warning" style={{ width: `${transferUsedPct}%` }} />
+        <div className="w-full h-2 bg-secondary overflow-hidden">
+          <div className="h-full transition-all bg-warning" style={{ width: `${transferUsedPct}%` }} />
         </div>
         <div className="grid grid-cols-3 gap-2 text-[10px] text-muted-foreground">
           <span>Cap: <b className="text-foreground">{formatSTC(transfer_budget)}</b></span>
@@ -293,17 +293,17 @@ export default function ClubFinanceTab({ club, isAdmin = false }) {
 
       {/* 30-Day Summary */}
       <div className="grid grid-cols-3 gap-2.5">
-        <div className="bg-success/10 border border-success/20 rounded-xl p-3 text-center">
+        <div className="bg-success/10 border border-success/20 p-3 text-center shadow-[0_18px_50px_rgba(0,0,0,0.18)]">
           <TrendingUp className="w-4 h-4 text-success mx-auto mb-1" />
           <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">{t("commonPages.cfinIncome30d")}</p>
           <p className="font-light text-success text-lg tracking-tight">{formatSTC(income_30d)}</p>
         </div>
-        <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-3 text-center">
+        <div className="bg-destructive/10 border border-destructive/20 p-3 text-center shadow-[0_18px_50px_rgba(0,0,0,0.18)]">
           <TrendingDown className="w-4 h-4 text-destructive mx-auto mb-1" />
           <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">{t("commonPages.cfinExpenses30d")}</p>
           <p className="font-light text-destructive text-lg tracking-tight">{formatSTC(expenses_30d)}</p>
         </div>
-        <div className={cn("border rounded-xl p-3 text-center", net30 >= 0 ? "bg-success/10 border-success/20" : "bg-destructive/10 border-destructive/20")}>
+        <div className={cn("border p-3 text-center shadow-[0_18px_50px_rgba(0,0,0,0.18)]", net30 >= 0 ? "bg-success/10 border-success/20" : "bg-destructive/10 border-destructive/20")}>
           <DollarSign className={cn("w-4 h-4 mx-auto mb-1", net30 >= 0 ? "text-success" : "text-destructive")} />
           <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">{t("commonPages.cfinNet30d")}</p>
           <p className={cn("font-light text-lg tracking-tight", net30 >= 0 ? "text-success" : "text-destructive")}>
@@ -332,7 +332,7 @@ export default function ClubFinanceTab({ club, isAdmin = false }) {
               key={f.key}
               onClick={() => { setCatFilter(f.key); setPage(1); }}
               className={cn(
-                "px-2.5 py-1 rounded-full text-[10px] font-medium border transition-colors",
+                "px-2.5 py-1 text-[10px] font-medium border transition-colors",
                 catFilter === f.key
                   ? "bg-primary/20 text-primary border-primary/40"
                   : "bg-secondary text-muted-foreground border-transparent hover:border-border"
@@ -360,7 +360,7 @@ export default function ClubFinanceTab({ club, isAdmin = false }) {
               type="button"
               onClick={() => { setPage(p => Math.max(1, p - 1)); }}
               disabled={page === 1 || loading}
-              className="p-1.5 rounded-lg bg-secondary hover:bg-muted disabled:opacity-40 transition-colors"
+              className="p-1.5 bg-secondary hover:bg-muted disabled:opacity-40 transition-colors"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -369,7 +369,7 @@ export default function ClubFinanceTab({ club, isAdmin = false }) {
               type="button"
               onClick={() => { setPage(p => Math.min(totalPages, p + 1)); }}
               disabled={page === totalPages || loading}
-              className="p-1.5 rounded-lg bg-secondary hover:bg-muted disabled:opacity-40 transition-colors"
+              className="p-1.5 bg-secondary hover:bg-muted disabled:opacity-40 transition-colors"
             >
               <ChevronRight className="w-4 h-4" />
             </button>

@@ -42,16 +42,16 @@ export default function ContractCard({ contract: rawContract, player, canManage,
   const canRenegotiateFounder = canRenegotiateFounderPlayerContract(contract, { isMyContract, canManage });
 
   return (
-    <div className={cn("rounded-xl border p-4 transition-all", meta.bg, meta.border)}>
+    <div className={cn("border p-4 transition-all shadow-[0_18px_50px_rgba(0,0,0,0.22)]", meta.bg, meta.border)}>
       {/* Pending window banner */}
       {isPendingWindow && (
-        <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-semibold">
+        <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-semibold">
           <Clock className="w-3.5 h-3.5 shrink-0" />
           <span>Accepted — awaiting transfer window to execute</span>
         </div>
       )}
       {isNegotiating && (
-        <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs font-semibold">
+        <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs font-semibold">
           <MessageSquare className="w-3.5 h-3.5 shrink-0" />
           <span>Negotiating — Round {contract.negotiation_round || 1} · Waiting for response</span>
         </div>
@@ -59,7 +59,7 @@ export default function ContractCard({ contract: rawContract, player, canManage,
 
       {/* Warning banner */}
       {isNearEnd && (
-        <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-warning/10 border border-warning/30 text-warning text-xs font-semibold">
+        <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-warning/10 border border-warning/30 text-warning text-xs font-semibold">
           <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
           <span>
             Contract expiring soon —{" "}
@@ -72,7 +72,7 @@ export default function ContractCard({ contract: rawContract, player, canManage,
 
       <div className="flex items-start gap-3">
         {/* Player avatar */}
-        <div className="w-10 h-10 rounded-full bg-secondary border border-border flex items-center justify-center shrink-0 overflow-hidden">
+        <div className="w-10 h-10 bg-secondary border border-border flex items-center justify-center shrink-0 overflow-hidden">
           {player?.avatar_url
             ? <img src={player.avatar_url} alt={player.gamertag} className="w-full h-full object-cover" />
             : <span className="text-xs font-bold text-primary">{(player?.gamertag || "?")[0].toUpperCase()}</span>}
@@ -83,19 +83,19 @@ export default function ContractCard({ contract: rawContract, player, canManage,
             <Link to={`/players/${player?.id}`} className="font-bold text-foreground hover:text-primary transition-colors truncate">
               {player?.gamertag || "Unknown Player"}
             </Link>
-            <span className={cn("text-[10px] px-2 py-0.5 rounded-full border font-semibold uppercase tracking-wider", meta.badge)}>
+            <span className={cn("text-[10px] px-2 py-0.5 border font-semibold uppercase tracking-wider", meta.badge)}>
               {isOwnershipContract ? <span className="flex items-center gap-1"><Building2 className="w-2.5 h-2.5" /> President</span> : meta.label}
             </span>
-            <span className={cn("text-[10px] px-2 py-0.5 rounded-full border font-semibold uppercase tracking-wider", STATUS_STYLES[contract.status] || STATUS_STYLES.pending)}>
+            <span className={cn("text-[10px] px-2 py-0.5 border font-semibold uppercase tracking-wider", STATUS_STYLES[contract.status] || STATUS_STYLES.pending)}>
               {contract.status}
             </span>
             {dualContract && (
-              <span className="text-[10px] px-2 py-0.5 rounded-full border font-semibold bg-purple-500/15 text-purple-400 border-purple-500/30 flex items-center gap-1">
+              <span className="text-[10px] px-2 py-0.5 border font-semibold bg-purple-500/15 text-purple-400 border-purple-500/30 flex items-center gap-1">
                 <Building2 className="w-2.5 h-2.5" /> Dual Contract
               </span>
             )}
             {loan ? (
-              <span className="text-[10px] px-2 py-0.5 rounded-full border font-semibold bg-amber-500/15 text-amber-300 border-amber-500/30 uppercase tracking-wider">
+              <span className="text-[10px] px-2 py-0.5 border font-semibold bg-amber-500/15 text-amber-300 border-amber-500/30 uppercase tracking-wider">
                 Loan
               </span>
             ) : null}
@@ -119,17 +119,17 @@ export default function ContractCard({ contract: rawContract, player, canManage,
           {(contract.weekly_salary_stc > 0 || contract.signing_bonus_stc > 0) && (
             <div className="flex flex-wrap gap-2 mt-2">
               {contract.weekly_salary_stc > 0 && (
-                <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-success/10 border border-success/20 text-success font-medium">
+                <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 bg-success/10 border border-success/20 text-success font-medium">
                   <Coins className="w-2.5 h-2.5" /> {contract.weekly_salary_stc.toLocaleString()} STC/wk
                 </span>
               )}
               {contract.signing_bonus_stc > 0 && (
-                <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-warning/10 border border-warning/20 text-warning font-medium">
+                <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 bg-warning/10 border border-warning/20 text-warning font-medium">
                   <Coins className="w-2.5 h-2.5" /> +{contract.signing_bonus_stc.toLocaleString()} bonus
                 </span>
               )}
               {isEnabled(contract.captaincy_offered) && (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-warning/10 border border-warning/20 text-warning font-medium">
+                <span className="text-[10px] px-2 py-0.5 bg-warning/10 border border-warning/20 text-warning font-medium">
                   ⭐ Captaincy
                 </span>
               )}
@@ -188,7 +188,7 @@ export default function ContractCard({ contract: rawContract, player, canManage,
         {/* Actions */}
         <div className="flex flex-col gap-1.5 shrink-0">
           {lifecycleOwned && (
-            <span className="text-[10px] px-2 py-1 rounded-full border border-white/15 text-white/40 uppercase tracking-wider text-center">
+            <span className="text-[10px] px-2 py-1 border border-white/15 text-white/40 uppercase tracking-wider text-center">
               Protected
             </span>
           )}

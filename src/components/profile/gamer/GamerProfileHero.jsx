@@ -27,24 +27,26 @@ export default function GamerProfileHero({
     : bannerStyle;
   return (
     <div className="relative">
-      <div className="relative h-52 sm:h-64 md:h-72 w-full overflow-hidden">
+      <div className="relative h-60 sm:h-72 md:h-[22rem] w-full overflow-hidden">
         <div className="absolute inset-0 scale-[1.03]" style={heroBannerStyle} />
-        <div className="absolute inset-0 bg-gradient-to-b from-[#060912]/18 via-[#060912]/18 via-55% to-[#060912]" />
-        <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[#060912] via-[#060912]/72 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 via-transparent to-amber-500/10" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#04070d]/20 via-[#04070d]/28 via-55% to-[#060912]" />
+        <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-[#060912] via-[#060912]/78 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/14 via-transparent to-amber-500/12" />
+        <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-[#060912] via-[#060912]/55 to-transparent" />
         {topLeftActions ? <div className="absolute top-4 left-4 z-20 flex items-center gap-2">{topLeftActions}</div> : null}
         {topActions ? <div className="absolute top-4 right-4 z-20 flex items-center gap-2">{topActions}</div> : null}
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 -mt-28 sm:-mt-32 relative z-10">
+      <div className="max-w-6xl mx-auto px-4 -mt-32 sm:-mt-36 relative z-10">
         <div className="flex flex-col lg:flex-row gap-5 lg:gap-8 items-start">
           <GamerPlayerCard player={player} onAvatarClick={onAvatarClick} />
 
-          <div className="flex-1 min-w-0 space-y-3 pt-2 lg:pt-6">
+          <div className="flex-1 min-w-0 space-y-3 pt-2 lg:pt-10">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0 space-y-2">
+                <p className="font-heading text-[10px] font-black uppercase tracking-[0.34em] text-cyan-200/55">Player Profile</p>
                 <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="font-heading text-3xl sm:text-4xl md:text-5xl font-black uppercase tracking-tight leading-none">
+                  <h1 className="font-heading text-4xl sm:text-5xl md:text-6xl font-black uppercase tracking-tight leading-none drop-shadow-[0_8px_28px_rgba(0,0,0,0.85)]">
                     {player?.gamertag || user?.full_name || "Player"}
                   </h1>
                   {Number(player?.is_verified) === 1 ? (

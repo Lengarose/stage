@@ -54,7 +54,7 @@ export default function StadiumUpgrade({ club, canEdit, onUpdate }) {
   return (
     <div className="space-y-5">
       {notification && (
-        <div className={cn("px-4 py-3 rounded-xl text-sm font-medium border",
+        <div className={cn("px-4 py-3 text-sm font-medium border shadow-[0_18px_50px_rgba(0,0,0,0.18)]",
           notification.type === "success"
             ? "bg-success/15 border-success/30 text-success"
             : "bg-destructive/15 border-destructive/30 text-destructive"
@@ -64,7 +64,7 @@ export default function StadiumUpgrade({ club, canEdit, onUpdate }) {
       )}
 
       {/* Current Stadium */}
-      <div className={cn("border rounded-2xl p-5", current.bg)}>
+      <div className={cn("border p-5 shadow-[0_22px_70px_rgba(0,0,0,0.24)]", current.bg)}>
         <div className="flex items-center gap-3 mb-3">
           <span className="text-3xl">{current.emoji}</span>
           <div className="flex-1">
@@ -104,7 +104,7 @@ export default function StadiumUpgrade({ club, canEdit, onUpdate }) {
         {/* Ticket Revenue */}
         <div className="mt-3 pt-3 border-t border-border/30 space-y-2">
           <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">{t('commonPages.stadTicketRevenue')}</p>
-          <div className="bg-success/10 border border-success/20 rounded-xl px-4 py-3 flex items-center justify-between">
+          <div className="bg-success/10 border border-success/20 px-4 py-3 flex items-center justify-between shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
             <div>
               <p className="text-xs text-muted-foreground">{t('commonPages.stadRevenueFormula')}</p>
               <p className="text-sm font-semibold text-success">{t('commonPages.stadCapacityFormula', { capacity: current.capacity.toLocaleString(), price: current.ticket_price_stc })}</p>
@@ -119,7 +119,7 @@ export default function StadiumUpgrade({ club, canEdit, onUpdate }) {
 
       {/* Upgrade section */}
       {next ? (
-        <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
+        <div className="bg-[#071018]/82 border border-white/10 p-5 space-y-4 shadow-[0_22px_70px_rgba(0,0,0,0.24)]">
           <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
             <ArrowUp className="w-3.5 h-3.5 text-primary" /> {t('commonPages.stadNextUpgrade')}
           </p>
@@ -145,7 +145,7 @@ export default function StadiumUpgrade({ club, canEdit, onUpdate }) {
               { label: 'Transfer cap', from: formatSTC(current.max_transfer_budget_stc), to: formatSTC(next.max_transfer_budget_stc), color: 'text-primary' },
               { label: 'Maintenance', from: `${formatSTC(current.monthly_maintenance_stc)}/mo`, to: `${formatSTC(next.monthly_maintenance_stc)}/mo`, color: 'text-destructive' },
             ].map(item => (
-              <div key={item.label} className="rounded-xl bg-secondary/50 border border-border px-3 py-2">
+              <div key={item.label} className="bg-secondary/50 border border-border px-3 py-2">
                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{item.label}</p>
                 <p className="text-muted-foreground">{item.from}</p>
                 <p className={cn("font-bold", item.color)}>→ {item.to}</p>
@@ -153,7 +153,7 @@ export default function StadiumUpgrade({ club, canEdit, onUpdate }) {
             ))}
           </div>
 
-          <div className="flex items-center justify-between bg-secondary/60 rounded-xl px-4 py-3">
+          <div className="flex items-center justify-between bg-secondary/60 border border-white/10 px-4 py-3">
             <div>
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{t('commonPages.stadUpgradeCost')}</p>
               <p className={cn("font-light text-xl tracking-tight", canAfford ? "text-warning" : "text-destructive")}>
@@ -186,7 +186,7 @@ export default function StadiumUpgrade({ club, canEdit, onUpdate }) {
           )}
         </div>
       ) : (
-        <div className="text-center py-6 bg-yellow-500/10 border border-yellow-500/20 rounded-2xl">
+        <div className="text-center py-6 bg-yellow-500/10 border border-yellow-500/20 shadow-[0_18px_50px_rgba(0,0,0,0.18)]">
           <span className="text-3xl">👑</span>
           <p className="font-bold text-yellow-400 mt-2">{t('commonPages.stadMaxLevel')}</p>
           <p className="text-xs text-muted-foreground mt-1">{t('commonPages.stadMaxHint')}</p>
@@ -199,7 +199,7 @@ export default function StadiumUpgrade({ club, canEdit, onUpdate }) {
         <div className="space-y-2">
           {STADIUM_LEVELS.map((lvl, i) => (
             <div key={i} className={cn(
-              "flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all",
+              "flex items-center gap-3 px-3 py-2.5 border transition-all shadow-[0_10px_30px_rgba(0,0,0,0.14)]",
               i === currentLevel
                 ? cn(lvl.bg, "opacity-100")
                 : i < currentLevel

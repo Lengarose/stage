@@ -87,7 +87,7 @@ export default function ImagePositionEditor({
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose?.(); }}>
       <DialogContent
-        className="bg-[#06091a]/95 backdrop-blur-xl border border-white/20 text-white rounded-2xl max-w-sm p-0 shadow-2xl"
+        className="bg-[#06091a]/95 backdrop-blur-xl border border-white/20 text-white max-w-sm p-0 shadow-2xl"
         onPointerDownOutside={e => e.preventDefault()}
         onInteractOutside={e => e.preventDefault()}
       >
@@ -136,7 +136,7 @@ export default function ImagePositionEditor({
               <p className="text-white/25 text-[10px] uppercase tracking-widest">Profile card preview</p>
 
               {/* Small previews */}
-              <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-3 w-full">
+              <div className="flex items-center gap-3 bg-white/5 border border-white/10 px-4 py-3 w-full">
                 <GamerPlayerPhotoFrame
                   player={previewFramePlayer}
                   imageUrl={imageUrl}
@@ -147,7 +147,7 @@ export default function ImagePositionEditor({
                   shirtNumber={previewFramePlayer.shirt_number ?? 6}
                   className="w-12 shadow-none"
                 />
-                <div className="w-20 h-12 shrink-0 border border-white/20 [clip-path:polygon(10%_0,100%_0,90%_100%,0_100%)]" style={previewStyle} />
+                <div className="w-20 h-12 shrink-0 border border-white/20" style={previewStyle} />
                 <p className="text-white/30 text-[10px] uppercase tracking-wider">Profile frame · wide crop</p>
               </div>
             </div>
@@ -170,7 +170,7 @@ export default function ImagePositionEditor({
               />
               <p className="text-white/25 text-[10px] uppercase tracking-widest">Club card preview</p>
 
-              <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-3 w-full">
+              <div className="flex items-center gap-3 bg-white/5 border border-white/10 px-4 py-3 w-full">
                 <GamerClubPhotoFrame
                   club={previewFrameClub}
                   imageUrl={imageUrl}
@@ -179,14 +179,14 @@ export default function ImagePositionEditor({
                   winRate={previewFrameClub.win_rate || 50}
                   className="w-12 shadow-none"
                 />
-                <div className="w-20 h-12 shrink-0 border border-white/20 [clip-path:polygon(10%_0,100%_0,90%_100%,0_100%)]" style={previewStyle} />
+                <div className="w-20 h-12 shrink-0 border border-white/20" style={previewStyle} />
                 <p className="text-white/30 text-[10px] uppercase tracking-wider">Club frame · wide crop</p>
               </div>
             </div>
           ) : isSquare ? (
             <div className="flex flex-col items-center gap-4">
               <div
-                className="w-52 h-52 rounded-xl cursor-grab active:cursor-grabbing select-none border border-white/20 shadow-xl"
+                className="w-52 h-52 cursor-grab active:cursor-grabbing select-none border border-white/20 shadow-xl"
                 style={previewStyle}
                 {...dragHandlers}
               />
@@ -195,21 +195,21 @@ export default function ImagePositionEditor({
           ) : isAvatar ? (
             <div className="flex flex-col items-center gap-4">
               <div
-                className="w-36 aspect-[3/4] cursor-grab active:cursor-grabbing select-none border-2 border-white/20 shadow-xl [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)]"
+                className="w-36 aspect-[3/4] cursor-grab active:cursor-grabbing select-none border-2 border-white/20 shadow-xl"
                 style={previewStyle}
                 {...dragHandlers}
               />
               <p className="text-white/25 text-[10px] uppercase tracking-widest">Preview</p>
 
-              <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-3 w-full">
-                <div className="w-9 aspect-[3/4] shrink-0 border border-white/20 [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)]" style={previewStyle} />
-                <div className="w-16 h-9 shrink-0 border border-white/20 [clip-path:polygon(10%_0,100%_0,90%_100%,0_100%)]" style={previewStyle} />
+              <div className="flex items-center gap-3 bg-white/5 border border-white/10 px-4 py-3 w-full">
+                <div className="w-9 aspect-[3/4] shrink-0 border border-white/20" style={previewStyle} />
+                <div className="w-16 h-9 shrink-0 border border-white/20" style={previewStyle} />
                 <p className="text-white/30 text-[10px] uppercase tracking-wider">Avatar · Card</p>
               </div>
             </div>
           ) : (
             <div
-              className="w-full h-28 rounded-xl cursor-grab active:cursor-grabbing select-none border border-white/20"
+              className="w-full h-28 cursor-grab active:cursor-grabbing select-none border border-white/20"
               style={previewStyle}
               {...dragHandlers}
             />
@@ -229,14 +229,14 @@ export default function ImagePositionEditor({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 bg-white/10 border border-white/20 text-white/70 hover:text-white hover:border-white/35 font-bold uppercase tracking-widest text-xs py-3 rounded-xl transition-all"
+              className="flex-1 bg-white/10 border border-white/20 text-white/70 hover:text-white hover:border-white/35 font-bold uppercase tracking-widest text-xs py-3 transition-all"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={() => onConfirm(imageUrl, position, Number(zoom))}
-              className="flex-1 bg-white text-[#0d2461] font-black uppercase tracking-widest text-xs py-3 rounded-xl hover:bg-gray-100 transition-all shadow-lg"
+              className="flex-1 bg-white text-[#0d2461] font-black uppercase tracking-widest text-xs py-3 hover:bg-gray-100 transition-all shadow-lg"
             >
               Save
             </button>

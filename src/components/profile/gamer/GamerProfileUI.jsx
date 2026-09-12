@@ -33,16 +33,18 @@ export function GamerProfileShell({ children, className }) {
   return (
     <div className={cn("min-h-screen bg-[#060912] text-white relative overflow-x-hidden", className)}>
       <div
-        className="pointer-events-none fixed inset-0 opacity-[0.35]"
+        className="pointer-events-none fixed inset-0 opacity-[0.42]"
         style={{
           backgroundImage:
-            "radial-gradient(circle at 20% 0%, rgba(0,229,255,0.12), transparent 40%), radial-gradient(circle at 80% 10%, rgba(255,184,0,0.08), transparent 35%), linear-gradient(180deg, #060912 0%, #0a101c 100%)",
+            "radial-gradient(circle at 18% 0%, rgba(0,229,255,0.14), transparent 38%), radial-gradient(circle at 82% 8%, rgba(255,184,0,0.08), transparent 34%), linear-gradient(180deg, #04070d 0%, #09101c 48%, #05070c 100%)",
         }}
       />
       <div
-        className="pointer-events-none fixed inset-0 opacity-[0.04]"
+        className="pointer-events-none fixed inset-0 opacity-[0.055]"
         style={{
-          backgroundSize: "48px 48px",
+          backgroundImage:
+            "linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px)",
+          backgroundSize: "56px 56px",
         }}
       />
       <div className="relative z-[1]">{children}</div>
@@ -172,12 +174,12 @@ export function GamerHeroAction({ children, className, style, as: Component = "b
   return (
     <Component
       className={cn(
-        "inline-flex max-w-[240px] items-center justify-center gap-2 border border-cyan-200/25 bg-black/24 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-cyan-50/95 backdrop-blur-md transition-all",
-        "hover:border-cyan-200/55 hover:bg-cyan-300/10 hover:text-white hover:shadow-[0_0_24px_-10px_rgba(0,229,255,0.9)]",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/50",
+        "inline-flex max-w-[240px] items-center justify-center gap-2 px-1 py-2 text-xs font-black uppercase tracking-[0.14em] text-cyan-50/90 drop-shadow-[0_0_14px_rgba(0,229,255,0.28)] transition-all",
+        "hover:text-white hover:drop-shadow-[0_0_18px_rgba(0,229,255,0.55)]",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/40",
         className
       )}
-      style={{ clipPath: "polygon(10% 0, 100% 0, 90% 100%, 0 100%)", ...style }}
+      style={style}
       {...buttonProps}
       {...props}
     >
@@ -188,7 +190,7 @@ export function GamerHeroAction({ children, className, style, as: Component = "b
 
 export function GamerTabNav({ tabs, active, onChange, className }) {
   return (
-    <div className={cn("flex gap-2 overflow-x-auto pb-1 scrollbar-none", className)}>
+    <div className={cn("flex gap-2 overflow-x-auto border-b border-white/10 pb-0 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden", className)}>
       {tabs.map((tab) => {
         const isActive = active === tab.id;
         return (
@@ -197,13 +199,13 @@ export function GamerTabNav({ tabs, active, onChange, className }) {
             type="button"
             onClick={() => onChange(tab.id)}
             className={cn(
-              "shrink-0 border px-5 py-2.5 text-[10px] font-black uppercase tracking-[0.18em] transition-all sm:text-xs",
+              "relative shrink-0 border-x border-t px-5 py-3 text-[10px] font-black uppercase tracking-[0.18em] transition-all sm:text-xs",
               isActive
-                ? "border-cyan-200/55 bg-gradient-to-r from-sky-500/35 via-cyan-400/20 to-blue-600/30 text-cyan-50 shadow-[0_0_24px_-8px_rgba(0,229,255,0.95)]"
-                : "border-cyan-300/15 bg-[#06111d]/80 text-cyan-100/45 hover:border-cyan-300/35 hover:bg-cyan-300/10 hover:text-cyan-50"
+                ? "border-cyan-200/45 bg-[#071524] text-cyan-50 shadow-[0_-10px_35px_-22px_rgba(0,229,255,0.95)]"
+                : "border-white/10 bg-[#060a12]/82 text-white/42 hover:border-cyan-300/25 hover:bg-cyan-300/8 hover:text-cyan-50"
             )}
-            style={{ clipPath: "polygon(10% 0, 100% 0, 90% 100%, 0 100%)" }}
           >
+            {isActive ? <span className="absolute inset-x-0 -bottom-px h-px bg-cyan-300 shadow-[0_0_18px_rgba(0,229,255,0.95)]" /> : null}
             {tab.label}
             {tab.badge ? (
               <span
@@ -274,7 +276,7 @@ export function GamerSectionCard({ title, action, children, className, shape = "
       className={cn(
         "overflow-hidden border backdrop-blur-md",
         rounded
-          ? "rounded-2xl border-white/10 bg-[#070b14]/82"
+          ? "rounded-none border-white/10 bg-[#070b14]/88 shadow-[0_24px_70px_rgba(0,0,0,0.24)]"
           : "border-cyan-300/15 bg-[#070b14]/82",
         className,
       )}

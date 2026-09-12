@@ -12,7 +12,7 @@ test("club nav exposes the simplified public tabs", () => {
   const groups = buildClubTabGroups({ t });
   assert.deepEqual(
     groups.map((group) => group.tabs[0]),
-    ["posts", "squad", "stats", "fixtures", "trophies"],
+    ["overview", "squad", "stats", "fixtures", "trophies"],
   );
 });
 

@@ -4,7 +4,7 @@ export function buildClubTabGroups({
   showChat = false,
 } = {}) {
   const groups = [
-    { label: t("commonPages.profTab_posts"), tabs: ["posts"] },
+    { label: "Overview", tabs: ["overview"] },
     { label: t("nav.squad"), tabs: ["squad"] },
     { label: "Stats", tabs: ["stats"] },
     { label: "Fixtures", tabs: ["fixtures"] },
@@ -27,7 +27,7 @@ export function buildClubTabGroups({
 
 export function clubTabLabels(t) {
   return {
-    posts: t("commonPages.profTab_posts"),
+    overview: "Overview",
     squad: t("nav.squad"),
     stats: "Stats",
     fixtures: "Fixtures",

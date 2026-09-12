@@ -326,7 +326,7 @@ export default function ClubOperations({
       {hasOperationalPower ? (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           {overviewStats.map(([labelKey, value]) => (
-            <div key={labelKey} className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+            <div key={labelKey} className="border border-white/10 bg-gradient-to-br from-white/[0.055] via-white/[0.025] to-black/25 p-4 shadow-[0_18px_46px_rgba(0,0,0,0.18)]">
               <p className="text-2xl font-heading font-black text-white">{value}</p>
               <p className="text-xs uppercase tracking-wider text-white/45">{t(`commonPages.${labelKey}`)}</p>
             </div>
@@ -353,7 +353,7 @@ export default function ClubOperations({
       {activeSection === "applicants" && (
         <div className="space-y-3">
           {applicants.length === 0 ? <Empty label={t("commonPages.coopNoApplicants")} /> : applicants.map((applicant) => (
-            <div key={applicant.id} className="rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-3">
+            <div key={applicant.id} className="border border-white/10 bg-gradient-to-br from-[#081522] via-white/[0.025] to-black/35 p-4 shadow-[0_18px_46px_rgba(0,0,0,0.18)] space-y-3">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="flex items-center gap-2">
@@ -383,12 +383,12 @@ export default function ClubOperations({
 
       {activeSection === "staff" && (
         <div className="space-y-3">
-          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 grid md:grid-cols-[1fr_220px_auto] gap-2">
-            <select value={selectedStaffPlayer} onChange={(e) => setSelectedStaffPlayer(e.target.value)} className="rounded border border-white/10 bg-[#0d1225] px-3 py-2 text-sm text-white">
+          <div className="border border-white/10 bg-gradient-to-br from-white/[0.055] via-white/[0.025] to-black/35 p-4 grid md:grid-cols-[1fr_220px_auto] gap-2">
+            <select value={selectedStaffPlayer} onChange={(e) => setSelectedStaffPlayer(e.target.value)} className="border border-white/10 bg-[#0d1225] px-3 py-2 text-sm text-white">
               <option value="">{t("commonPages.coopSelectClubMember")}</option>
               {players.map((player) => <option key={player.id} value={player.id}>{player.gamertag}</option>)}
             </select>
-            <select value={selectedStaffRole} onChange={(e) => setSelectedStaffRole(e.target.value)} className="rounded border border-white/10 bg-[#0d1225] px-3 py-2 text-sm text-white">
+            <select value={selectedStaffRole} onChange={(e) => setSelectedStaffRole(e.target.value)} className="border border-white/10 bg-[#0d1225] px-3 py-2 text-sm text-white">
               {STAFF_ROLES.map((role) => <option key={role.id} value={role.id}>{t(role.labelKey)}</option>)}
             </select>
             <Button type="button" onClick={assignStaffRole} disabled={busy === "staff" || !selectedStaffPlayer}>{busy === "staff" ? <Loader2 className="w-4 h-4 animate-spin" /> : t("commonPages.coopAssign")}</Button>
@@ -396,7 +396,7 @@ export default function ClubOperations({
           {staffRoles.map((role) => {
             const permissions = normalizeList(role.permissions);
             return (
-              <div key={role.id} className="rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-3">
+              <div key={role.id} className="border border-white/10 bg-gradient-to-br from-[#081522] via-white/[0.025] to-black/35 p-4 shadow-[0_18px_46px_rgba(0,0,0,0.18)] space-y-3">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="font-bold text-white">{role.player_gamertag || role.player_email}</p>
@@ -406,7 +406,7 @@ export default function ClubOperations({
                 </div>
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
                   {PERMISSIONS.map((permission) => (
-                    <label key={permission} className="flex items-center gap-2 rounded border border-white/10 px-2 py-2 text-xs text-white/60">
+                    <label key={permission} className="flex items-center gap-2 border border-white/10 bg-black/20 px-2 py-2 text-xs text-white/60">
                       <input
                         type="checkbox"
                         checked={permissions.includes(permission)}
@@ -433,10 +433,10 @@ export default function ClubOperations({
           {upcomingFixtures.length === 0 ? <Empty label={t("commonPages.coopNoLineupFixtures")} /> : (
             <>
               <div className="grid md:grid-cols-2 gap-2">
-                <select value={lineupFixtureId} onChange={(e) => setLineupFixtureId(e.target.value)} className="rounded border border-white/10 bg-[#0d1225] px-3 py-2 text-sm text-white">
+                <select value={lineupFixtureId} onChange={(e) => setLineupFixtureId(e.target.value)} className="border border-white/10 bg-[#0d1225] px-3 py-2 text-sm text-white">
                   {upcomingFixtures.map((fixture) => <option key={fixture.id} value={fixture.id}>{fixtureLabel(fixture, club.id, t)}</option>)}
                 </select>
-                <select value={lineupForm.formation} onChange={(e) => setLineupForm((prev) => ({ ...prev, formation: e.target.value }))} className="rounded border border-white/10 bg-[#0d1225] px-3 py-2 text-sm text-white">
+                <select value={lineupForm.formation} onChange={(e) => setLineupForm((prev) => ({ ...prev, formation: e.target.value }))} className="border border-white/10 bg-[#0d1225] px-3 py-2 text-sm text-white">
                   {FORMATIONS.map((formation) => <option key={formation} value={formation}>{formation}</option>)}
                 </select>
               </div>
@@ -444,7 +444,7 @@ export default function ClubOperations({
                 <LineupPickList title={t("commonPages.coopStartingXi")} players={lineupPlayers} selected={lineupForm.starting_players} onToggle={(id) => toggleLineupPlayer("starting_players", id)} />
                 <LineupPickList title={t("commonPages.coopBench")} players={lineupPlayers} selected={lineupForm.bench_players} onToggle={(id) => toggleLineupPlayer("bench_players", id)} />
               </div>
-              <select value={lineupForm.captain_player_id} onChange={(e) => setLineupForm((prev) => ({ ...prev, captain_player_id: e.target.value }))} className="w-full rounded border border-white/10 bg-[#0d1225] px-3 py-2 text-sm text-white">
+              <select value={lineupForm.captain_player_id} onChange={(e) => setLineupForm((prev) => ({ ...prev, captain_player_id: e.target.value }))} className="w-full border border-white/10 bg-[#0d1225] px-3 py-2 text-sm text-white">
                 <option value="">{t("commonPages.coopSelectCaptain")}</option>
                 {lineupPlayers.map((player) => <option key={player.id} value={player.id}>{player.gamertag}</option>)}
               </select>
@@ -484,7 +484,7 @@ export default function ClubOperations({
 
 function Empty({ label }) {
   return (
-    <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-8 text-center">
+    <div className="border border-dashed border-white/10 bg-white/[0.02] p-8 text-center">
       <p className="text-sm text-white/45">{label}</p>
     </div>
   );
@@ -492,11 +492,11 @@ function Empty({ label }) {
 
 function LineupPickList({ title, players, selected, onToggle }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+    <div className="border border-white/10 bg-gradient-to-br from-white/[0.045] via-white/[0.02] to-black/30 p-3">
       <p className="text-xs uppercase tracking-wider text-white/45 mb-2">{title}</p>
       <div className="space-y-1 max-h-72 overflow-y-auto">
         {players.map((player) => (
-          <label key={player.id} className="flex items-center gap-2 rounded border border-white/10 px-2 py-2 text-xs text-white/70">
+          <label key={player.id} className="flex items-center gap-2 border border-white/10 bg-black/18 px-2 py-2 text-xs text-white/70">
             <input type="checkbox" checked={selected.includes(player.id)} onChange={() => onToggle(player.id)} />
             <span className="font-semibold text-white">{player.gamertag}</span>
             <span className="text-white/40">{player.position}</span>

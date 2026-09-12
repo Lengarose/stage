@@ -119,7 +119,7 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="bg-card border-border max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto border-white/10 bg-[#071018] text-white">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
             <FileText className="w-5 h-5 text-primary" />
@@ -134,7 +134,7 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
           const conflictType = typeof conflict === "object" ? conflict?.contract_type : selectedType;
           const conflictStatus = typeof conflict === "object" ? conflict?.status : "live";
           return conflict ? (
-            <div className="px-4 py-3 rounded-xl bg-warning/10 border border-warning/30 text-sm text-warning">
+            <div className="border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
               {t("commonPages.ocdActiveContract", { type: conflictType, status: conflictStatus })}
               {conflictType === "ownership" && selectedType === "ownership"
                 ? ` ${t("commonPages.ocdStillOfferPlayer")}`
@@ -148,7 +148,7 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
         {(!blockingConflict || isNegotiation) && (
           <div className="space-y-5 mt-2">
             {/* Transfer window awareness */}
-            {!lockContractType && <div className={`text-xs px-3 py-2 rounded-lg border flex items-center gap-2 ${windowOpen === false ? "bg-blue-500/10 border-blue-500/20 text-blue-400" : "bg-success/10 border-success/20 text-success"}`}>
+            {!lockContractType && <div className={`text-xs px-3 py-2 border flex items-center gap-2 ${windowOpen === false ? "bg-blue-500/10 border-blue-500/20 text-blue-400" : "bg-success/10 border-success/20 text-success"}`}>
               <FileText className="w-3.5 h-3.5 shrink-0" />
               {windowOpen === false
                 ? t("commonPages.ocdWindowClosed")
@@ -166,7 +166,7 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
                     key={opt.value}
                     onClick={() => setSelectedType(opt.value)}
                     className={cn(
-                      "w-full rounded-xl border px-4 py-3 text-left transition-all flex items-center gap-3",
+                      "w-full border px-4 py-3 text-left transition-all flex items-center gap-3",
                       selectedType === opt.value
                         ? `${opt.bg} ${opt.border}`
                         : "bg-secondary border-border hover:border-primary/30"
@@ -192,7 +192,7 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
               {club && wageCap > 0 && (() => {
                 const pct = wageCap > 0 ? Math.round((projectedWeeklyWages / wageCap) * 100) : 0;
                 return weeklySalaryNumber > 0 ? (
-                  <div className={`mb-3 flex items-start gap-2 px-3 py-2.5 rounded-xl border ${wageCapExceeded ? "bg-destructive/10 border-destructive/30" : pct > 70 ? "bg-warning/10 border-warning/30" : "bg-success/10 border-success/20"}`}>
+                  <div className={`mb-3 flex items-start gap-2 border px-3 py-2.5 ${wageCapExceeded ? "bg-destructive/10 border-destructive/30" : pct > 70 ? "bg-warning/10 border-warning/30" : "bg-success/10 border-success/20"}`}>
                     <Coins className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${wageCapExceeded ? "text-destructive" : pct > 70 ? "text-warning" : "text-success"}`} />
                     <div>
                       <p className={`text-[10px] font-bold uppercase tracking-wider ${wageCapExceeded ? "text-destructive" : pct > 70 ? "text-warning" : "text-success"}`}>
@@ -212,7 +212,7 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
               {player && (() => {
                 const suggestion = suggestSalaryRange(selectedType, player.overall_rating);
                 return (
-                  <div className="mb-3 flex items-start gap-2 px-3 py-2.5 rounded-xl bg-primary/10 border border-primary/20">
+                  <div className="mb-3 flex items-start gap-2 border border-primary/20 bg-primary/10 px-3 py-2.5">
                     <Lightbulb className="w-3.5 h-3.5 text-primary mt-0.5 shrink-0" />
                     <div>
                       <p className="text-[10px] text-primary font-bold uppercase tracking-wider">{t("commonPages.cccSuggestedSalary")}</p>
@@ -237,7 +237,7 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
                     placeholder={lockContractType ? "e.g. 40000" : "e.g. 50000"}
                     min={lockContractType ? FOUNDER_PLAYER_WEEKLY_SALARY_MIN : 0}
                     max={lockContractType ? FOUNDER_PLAYER_WEEKLY_SALARY_MAX : undefined}
-                    className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-success"
+                    className="w-full border border-border bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-success"
                   />
                   <p className="text-[10px] text-muted-foreground mt-1">{t("commonPages.cccPaidMonthly")}</p>
                 </div>
@@ -251,7 +251,7 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
                     onChange={e => setSigningBonus(e.target.value)}
                     placeholder="e.g. 5000"
                     min="0"
-                    className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-warning"
+                    className="w-full border border-border bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-warning"
                   />
                   <p className="text-[10px] text-muted-foreground mt-1">{t("commonPages.cccPaidOnSigning")}</p>
                 </div>
@@ -260,7 +260,7 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
                   <button
                     type="button"
                     onClick={() => setCaptaincy(!captaincy)}
-                    className={cn("w-full px-3 py-2 rounded-lg border text-sm transition-all text-left",
+                    className={cn("w-full border px-3 py-2 text-left text-sm transition-all",
                       captaincy ? "bg-warning/10 border-warning/30 text-warning font-semibold" : "bg-secondary border-border text-muted-foreground"
                     )}
                   >
@@ -275,7 +275,7 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
               <button
                 type="button"
                 onClick={() => setShowTargets(!showTargets)}
-                className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-secondary border border-border hover:border-primary/30 transition-all text-sm"
+                className="flex w-full items-center justify-between border border-border bg-secondary px-4 py-3 text-sm transition-all hover:border-primary/30"
               >
                 <div className="flex items-center gap-2">
                   <Target className="w-4 h-4 text-primary" />
@@ -290,12 +290,12 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
               {showTargets && (
                 <div className="mt-3 space-y-3">
                   {targets.map((target, idx) => (
-                    <div key={idx} className="bg-secondary/50 border border-border rounded-xl p-3 space-y-2">
+                    <div key={idx} className="space-y-2 border border-border bg-secondary/50 p-3">
                       <div className="flex items-center gap-2">
                         <select
                           value={target.stat}
                           onChange={e => updateTarget(idx, "stat", e.target.value)}
-                          className="flex-1 px-2 py-1.5 rounded-lg bg-secondary border border-border text-xs text-foreground focus:outline-none"
+                          className="flex-1 border border-border bg-secondary px-2 py-1.5 text-xs text-foreground focus:outline-none"
                         >
                           {Object.entries(groupedStats).map(([category, options]) => (
                             <optgroup key={category} label={category}>
@@ -306,7 +306,7 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
                         <select
                           value={target.type}
                           onChange={e => updateTarget(idx, "type", e.target.value)}
-                          className="flex-1 px-2 py-1.5 rounded-lg bg-secondary border border-border text-xs text-foreground focus:outline-none"
+                          className="flex-1 border border-border bg-secondary px-2 py-1.5 text-xs text-foreground focus:outline-none"
                         >
                           {TARGET_TYPES.map(tt => <option key={tt.value} value={tt.value}>{tt.label}</option>)}
                         </select>
@@ -320,7 +320,7 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
                           value={target.value}
                           onChange={e => updateTarget(idx, "value", parseFloat(e.target.value) || 0)}
                           placeholder={target.type === "range" ? t("commonPages.cccMin") : t("commonPages.cccValue")}
-                          className="flex-1 px-2 py-1.5 rounded-lg bg-secondary border border-border text-xs text-foreground focus:outline-none"
+                          className="flex-1 border border-border bg-secondary px-2 py-1.5 text-xs text-foreground focus:outline-none"
                         />
                         {target.type === "range" && (
                           <>
@@ -330,7 +330,7 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
                               value={target.value_max || ""}
                               onChange={e => updateTarget(idx, "value_max", parseFloat(e.target.value) || 0)}
                               placeholder={t("commonPages.cccMax")}
-                              className="flex-1 px-2 py-1.5 rounded-lg bg-secondary border border-border text-xs text-foreground focus:outline-none"
+                              className="flex-1 border border-border bg-secondary px-2 py-1.5 text-xs text-foreground focus:outline-none"
                             />
                           </>
                         )}
@@ -340,7 +340,7 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
                   <button
                     type="button"
                     onClick={addTarget}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-dashed border-primary/30 text-primary text-xs hover:bg-primary/5 transition-all"
+                    className="flex w-full items-center justify-center gap-2 border border-dashed border-primary/30 px-4 py-2 text-xs text-primary transition-all hover:bg-primary/5"
                   >
                     <Plus className="w-3.5 h-3.5" /> {t("commonPages.cccAddTarget")}
                   </button>
@@ -363,7 +363,7 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
             </div>
 
             {submitError && (
-              <div className="px-4 py-3 rounded-xl bg-destructive/10 border border-destructive/30 text-sm text-destructive">
+              <div className="border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
                 {submitError}
               </div>
             )}

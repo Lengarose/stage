@@ -65,21 +65,23 @@ export default function ShirtSalesPanel({ club }) {
           </p>
         </div>
         <button
+          type="button"
           onClick={() => setRefreshKey(k => k + 1)}
-          className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/40 hover:text-white/70 transition-colors"
+          className="p-1.5 bg-white/5 hover:bg-white/10 text-white/40 hover:text-white/70 transition-colors"
         >
           <RefreshCw className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
         </button>
       </div>
 
       {/* Period filter */}
-      <div className="flex gap-1 p-1 bg-white/5 rounded-xl w-fit">
+      <div className="flex gap-1 border border-white/10 bg-white/5 p-1 w-fit">
         {PERIODS.map(p => (
           <button
+            type="button"
             key={p.key}
             onClick={() => setPeriod(p.key)}
             className={cn(
-              "px-3 py-1 rounded-lg text-xs font-semibold transition-all",
+              "px-3 py-1 text-xs font-semibold transition-all",
               period === p.key
                 ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
                 : "text-white/40 hover:text-white/60"
@@ -121,11 +123,11 @@ export default function ShirtSalesPanel({ club }) {
         {loading ? (
           <div className="space-y-2">
             {[0, 1, 2].map(i => (
-              <div key={i} className="h-16 bg-white/5 rounded-xl animate-pulse" />
+              <div key={i} className="h-16 bg-white/5 animate-pulse" />
             ))}
           </div>
         ) : leaderboard?.length === 0 ? (
-          <div className="bg-white/5 border border-white/10 rounded-xl p-10 text-center">
+          <div className="bg-white/5 border border-white/10 p-10 text-center shadow-[0_18px_50px_rgba(0,0,0,0.18)]">
             <ShoppingBag className="w-10 h-10 text-white/15 mx-auto mb-3" />
             <p className="text-sm text-white/40">No shirt sales yet.</p>
             <p className="text-xs text-white/20 mt-1">
@@ -142,13 +144,13 @@ export default function ShirtSalesPanel({ club }) {
                 <div
                   key={entry.player_id}
                   className={cn(
-                    "flex items-center gap-3 px-3.5 py-3 rounded-xl border transition-all",
+                    "flex items-center gap-3 px-3.5 py-3 border transition-all shadow-[0_12px_34px_rgba(0,0,0,0.16)]",
                     "bg-white/[0.03] border-white/10 hover:border-white/20 hover:bg-white/[0.05]"
                   )}
                 >
                   {/* Rank badge */}
                   <div className={cn(
-                    "w-9 h-9 rounded-full ring-1 flex items-center justify-center font-black text-sm shrink-0",
+                    "w-9 h-9 ring-1 flex items-center justify-center font-black text-sm shrink-0",
                     rank.ring, rank.bg, rank.text
                   )}>
                     {typeof rank.label === "string" && rank.label.startsWith("🥇") || rank.label.startsWith("🥈") || rank.label.startsWith("🥉")
@@ -158,7 +160,7 @@ export default function ShirtSalesPanel({ club }) {
                   </div>
 
                   {/* Avatar */}
-                  <div className="w-9 h-9 rounded-full bg-white/10 border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
+                  <div className="w-9 h-9 bg-white/10 border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
                     {entry.avatar_url
                       ? <img src={entry.avatar_url} alt={entry.gamertag} className="w-full h-full object-cover" />
                       : <span className="text-xs font-bold text-white/60">{(entry.gamertag || "?")[0]?.toUpperCase()}</span>
@@ -170,7 +172,7 @@ export default function ShirtSalesPanel({ club }) {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-bold text-white text-sm truncate">{entry.gamertag || "—"}</span>
                       {entry.shirt_number && (
-                        <span className="text-[10px] font-mono text-white/40 bg-white/5 border border-white/10 rounded px-1.5 py-0.5 shrink-0">
+                        <span className="text-[10px] font-mono text-white/40 bg-white/5 border border-white/10 px-1.5 py-0.5 shrink-0">
                           #{entry.shirt_number}
                         </span>
                       )}
@@ -197,7 +199,7 @@ export default function ShirtSalesPanel({ club }) {
 
       {/* Revenue info footer */}
       {totalRevenue > 0 && (
-        <div className="flex items-start gap-2.5 px-3 py-2.5 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
+        <div className="flex items-start gap-2.5 px-3 py-2.5 bg-emerald-500/5 border border-emerald-500/20 shadow-[0_18px_50px_rgba(0,0,0,0.18)]">
           <TrendingUp className="w-3.5 h-3.5 text-emerald-400 mt-0.5 shrink-0" />
           <p className="text-[11px] text-white/50 leading-relaxed">
             <span className="text-emerald-400 font-semibold">{formatSTC(totalRevenue)}</span> in fan revenue has been automatically credited to the club balance based on player performance.
@@ -210,7 +212,7 @@ export default function ShirtSalesPanel({ club }) {
 
 function SummaryCard({ label, value, icon, color }) {
   return (
-    <div className="bg-white/5 border border-white/10 rounded-xl p-3 text-center">
+    <div className="bg-white/5 border border-white/10 p-3 text-center shadow-[0_18px_50px_rgba(0,0,0,0.18)]">
       <div className={cn("flex items-center justify-center gap-1 mb-1", color)}>
         {icon}
       </div>

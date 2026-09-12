@@ -8,7 +8,7 @@ import {
   Bell, BellOff,
   MoreHorizontal, Eye, BarChart3, FileText, UserCheck,
   UserMinus, BadgeX, Target, Footprints, Activity, History, Lock,
-  Image as ImageIcon, Upload, Sparkles, RotateCcw, ChevronDown,
+  Image as ImageIcon, Upload, Sparkles, RotateCcw, ChevronDown, CalendarClock,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
@@ -50,7 +50,7 @@ import { swalConfirm, swalError, swalPrompt } from "@/lib/swal";
 import GamerClubProfileHero from "@/components/profile/gamer/GamerClubProfileHero";
 import { GamerClubPhotoFrame } from "@/components/profile/gamer/GamerClubCard";
 import GamerClubTabNav from "@/components/profile/gamer/GamerClubTabNav";
-import { GamerHeroAction, GamerProfileShell } from "@/components/profile/gamer/GamerProfileUI";
+import { GamerHeroAction, GamerProfileShell, GamerSectionCard, GamerStatTile } from "@/components/profile/gamer/GamerProfileUI";
 import ClubProfileEdit from "@/components/club/ClubProfileEdit";
 import FixtureSchedulerPanel from "@/components/schedule/FixtureSchedulerPanel";
 import { getPrimaryClubRole, mergeStaffRolesIntoPlayers, normalizeClubRole } from "@/lib/clubStaffRoles";
@@ -93,6 +93,103 @@ function getNextFixture(fixtures = []) {
     const time = new Date(fixture.scheduled_date || fixture.match_date || 0).getTime();
     return Number.isFinite(time) && time >= now;
   }) || scheduled[0] || null;
+}
+
+function formatClubFixtureLabel(fixture, clubId) {
+  if (!fixture) return "No scheduled fixture";
+  const isHome = String(fixture.home_club_id || "") === String(clubId || "");
+  const opponent = isHome ? fixture.away_club_name : fixture.home_club_name;
+  const date = fixture.scheduled_date || fixture.match_date;
+  const when = date ? new Date(date).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "Scheduled";
+  return `${when} vs ${opponent || "Opponent"}`;
+}
+
+function activeCompetitionCount(...collections) {
+  const ids = new Set();
+  for (const rows of collections) {
+    for (const row of asObjectArray(rows)) {
+      const key = row.tournament_id || row.competition_id || row.league_id || row.season_id || row.id;
+      if (key) ids.add(String(key));
+    }
+  }
+  return ids.size;
+}
+
+function ClubOverviewPanel({
+  club,
+  clubId,
+  players,
+  wins,
+  draws,
+  losses,
+  winRate,
+  nextFixture,
+  activeCompetitions,
+  currentUser,
+  myPlayer,
+  isMember,
+}) {
+  const totalGames = wins + draws + losses;
+  const leaders = asObjectArray(players)
+    .map((player) => ({
+      player,
+      rating: Number(player.overall_rating || player.rating || 0),
+    }))
+    .sort((a, b) => b.rating - a.rating)
+    .slice(0, 4);
+
+  return (
+    <div className="grid gap-4 xl:grid-cols-[1.12fr_0.88fr]">
+      <GamerSectionCard title="Club Command" className="border-amber-300/20">
+        <div className="grid gap-3 sm:grid-cols-4">
+          <GamerStatTile label="Squad" value={players.length} sub="Players" accent="cyan" tinted />
+          <GamerStatTile label="Record" value={`${wins}-${draws}-${losses}`} sub={`${totalGames} played`} accent="gold" tinted />
+          <GamerStatTile label="Win Rate" value={`${winRate}%`} sub="Completed matches" accent="green" tinted />
+          <GamerStatTile label="Events" value={activeCompetitions} sub="Active routes" accent="sky" tinted />
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <div className="border border-white/10 bg-white/[0.03] p-4">
+            <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-white/40"><CalendarClock className="h-3.5 w-3.5 text-cyan-300" /> Next Fixture</p>
+            <p className="mt-2 line-clamp-2 font-heading text-xl font-black uppercase text-white">{formatClubFixtureLabel(nextFixture, clubId)}</p>
+            <p className="mt-1 text-xs text-white/42">{nextFixture?.competition_context || nextFixture?.type || "GameDay schedule"}</p>
+          </div>
+          <div className="border border-white/10 bg-white/[0.03] p-4">
+            <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-white/40"><Shield className="h-3.5 w-3.5 text-amber-300" /> Identity</p>
+            <p className="mt-2 truncate font-heading text-xl font-black uppercase text-white">{club?.tag ? `[${club.tag}]` : club?.name || "Club"}</p>
+            <p className="mt-1 text-xs text-white/42">{club?.platform || "Platform"} · {club?.region || "Region"}</p>
+          </div>
+        </div>
+      </GamerSectionCard>
+
+      <GamerSectionCard title="Squad Signal" className="border-cyan-300/20">
+        {leaders.length ? (
+          <div className="space-y-2">
+            {leaders.map(({ player, rating }, index) => (
+              <Link
+                key={player.id || index}
+                to={player.id ? `/players/${player.id}` : "#"}
+                className="flex items-center justify-between gap-3 border border-white/10 bg-white/[0.03] px-3 py-2 hover:border-cyan-300/25 hover:bg-cyan-300/8"
+              >
+                <div className="min-w-0">
+                  <p className="truncate font-bold text-white">{player.gamertag || player.display_name || "Player"}</p>
+                  <p className="text-xs text-white/40">{player.position || "Squad"} {player.shirt_number ? `#${player.shirt_number}` : ""}</p>
+                </div>
+                <span className="font-heading text-xl font-black text-amber-200">{rating ? Math.round(rating) : "-"}</span>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <div className="border border-white/10 bg-white/[0.03] p-6 text-center text-sm text-white/42">No squad players yet.</div>
+        )}
+      </GamerSectionCard>
+
+      <div className="xl:col-span-2">
+        <GamerSectionCard title="Club Feed Preview">
+          <ClubFeed club={club} currentUser={currentUser} myPlayer={myPlayer} isMember={isMember} />
+        </GamerSectionCard>
+      </div>
+    </div>
+  );
 }
 
 function getPlayerContracts(contracts = [], playerId) {
@@ -174,12 +271,15 @@ function ClubPresidentChip({ club, president }) {
     >
       <span
         className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden border border-cyan-200/25 bg-[#101827]"
-        style={{ clipPath: "polygon(16% 0, 100% 0, 84% 100%, 0 100%)", ...(president?.avatar_url ? {
+        style={{
+          clipPath: "polygon(16% 0, 100% 0, 84% 100%, 0 100%)",
+          ...(president?.avatar_url ? {
           backgroundImage: `url(${president.avatar_url})`,
           backgroundSize: `${president.avatar_zoom || 150}%`,
           backgroundPosition: president.avatar_position || "50% 50%",
           backgroundRepeat: "no-repeat",
-        } : {}) }}
+          } : {}),
+        }}
         aria-hidden
       >
         {!president?.avatar_url ? <Shield className="w-3.5 h-3.5 text-amber-300/80" /> : null}
@@ -228,7 +328,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
   const [loading, setLoading] = useState(true);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [activeTab, setActiveTab] = useState("posts");
+  const [activeTab, setActiveTab] = useState("overview");
   const [editClubOpen, setEditClubOpen] = useState(false);
   const [clubChatMessages, setClubChatMessages] = useState([]);
   const [clubChatInput, setClubChatInput] = useState("");
@@ -266,7 +366,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
     if (activeTab !== "chat") return;
     const onSquad = (!!myPlayer?.club_id && myPlayer.club_id === id)
       || asObjectArray(players).some((player) => player.id && player.id === myPlayer?.id);
-    if (!onSquad) setActiveTab("posts");
+    if (!onSquad) setActiveTab("overview");
   }, [activeTab, myPlayer, players, id]);
 
   useEffect(() => {
@@ -874,6 +974,14 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
   }).length;
   const draws = totalGames - wins - losses;
   const winRate = totalGames > 0 ? Math.round((wins / totalGames) * 100) : 0;
+  const activeCompetitions = activeCompetitionCount(
+    safeTournamentMatches,
+    safeOfficialStageFixtures,
+    safeRegionalLeagueFixtures,
+    safeClubTournamentRegistrations,
+    safeClubOfficialStageRegistrations,
+    safeClubRegionalLeagueRegistrations,
+  );
   const tabLabels = {
     ...clubTabLabels(t),
     requests: `${t("commonPages.profJoinRequests")} (${safeJoinRequests.length})`,
@@ -1010,9 +1118,21 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
         />
 
         <Tabs value={activeTab} onValueChange={changeClubTab} className="w-full">
-          {/* Posts */}
-          <TabsContent value="posts" className="mt-0 px-4 pt-4">
-            <ClubFeed club={club} currentUser={currentUser} myPlayer={myPlayer} isMember={isMember} />
+          <TabsContent value="overview" className="mt-0 px-4 pt-4">
+            <ClubOverviewPanel
+              club={club}
+              clubId={id}
+              players={safePlayers}
+              wins={wins}
+              draws={draws}
+              losses={losses}
+              winRate={winRate}
+              nextFixture={nextFixture}
+              activeCompetitions={activeCompetitions}
+              currentUser={currentUser}
+              myPlayer={myPlayer}
+              isMember={isMember}
+            />
           </TabsContent>
 
           {canSeeClubChat ? <TabsContent value="chat" className="px-4 pt-4">
@@ -1419,7 +1539,7 @@ function ClubOfficePanel({ club, players, myPlayer, isOwner, onPlayerReleased, o
 
 function OfficeLockedSection({ title }) {
   return (
-    <section className="rounded-xl border border-white/10 bg-white/[0.02] p-8 text-center">
+    <section className="border border-white/10 bg-[#071018]/78 p-8 text-center shadow-[0_18px_50px_rgba(0,0,0,0.18)]">
       <Lock className="mx-auto h-8 w-8 text-white/25" />
       <h3 className="mt-3 font-heading text-sm font-black uppercase tracking-[0.18em] text-white">{title}</h3>
       <p className="mt-2 text-sm text-white/45">
@@ -1431,13 +1551,13 @@ function OfficeLockedSection({ title }) {
 
 function ClubOfficeAuditLog({ logs, loading, error, onRefresh, t }) {
   return (
-    <section className="rounded-xl border border-white/10 bg-white/[0.02]">
+    <section className="border border-white/10 bg-[linear-gradient(135deg,rgba(255,255,255,0.04),rgba(0,0,0,0.24))] shadow-[0_22px_70px_rgba(0,0,0,0.24)]">
       <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
               <div>
           <h3 className="font-heading text-sm font-black uppercase tracking-[0.18em] text-white">Audit Log</h3>
           <p className="mt-1 text-xs text-white/40">Recent office and club operation changes.</p>
               </div>
-        <Button type="button" size="sm" variant="outline" onClick={onRefresh} className="text-xs">
+        <Button type="button" size="sm" variant="outline" onClick={onRefresh} className="border-cyan-300/20 bg-black/20 text-xs text-cyan-100 hover:bg-cyan-300/10">
           {t("commonPages.coopRefreshAudit") || "Refresh"}
         </Button>
               </div>
@@ -1452,7 +1572,7 @@ function ClubOfficeAuditLog({ logs, loading, error, onRefresh, t }) {
       ) : (
         <div className="divide-y divide-white/5">
           {logs.map((log) => (
-            <div key={log.id} className="px-4 py-3">
+            <div key={log.id} className="px-4 py-3 transition-colors hover:bg-white/[0.025]">
               <p className="text-sm font-semibold capitalize text-white">{String(log.action || "update").replace(/_/g, " ")}</p>
               <p className="mt-1 text-xs text-white/45">
                 {log.actor_email || t("commonPages.coopSystem") || "System"} · {log.created_date ? new Date(log.created_date).toLocaleString() : ""}
@@ -1777,7 +1897,6 @@ function ClubLeaderboardTable({
   return (
     <section
       className="relative overflow-hidden border border-cyan-300/20 bg-[#06111d] shadow-[0_18px_50px_rgba(0,0,0,0.24)]"
-      style={{ clipPath: "polygon(3% 0, 100% 0, 97% 100%, 0 100%)" }}
     >
       {backgroundUrl ? (
         <div
@@ -1797,7 +1916,6 @@ function ClubLeaderboardTable({
         <div className="flex shrink-0 items-center gap-1.5">
           <span
             className="border border-[#f5c542]/35 bg-[#f5c542]/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-[#f5c542]"
-            style={{ clipPath: "polygon(14% 0, 100% 0, 86% 100%, 0 100%)" }}
           >
             {label}
           </span>
@@ -1807,7 +1925,6 @@ function ClubLeaderboardTable({
                 <button
                   type="button"
                   className="flex h-8 w-8 items-center justify-center border border-cyan-300/20 bg-black/35 text-cyan-100/65 transition hover:border-cyan-200/50 hover:text-cyan-50"
-                  style={{ clipPath: "polygon(18% 0, 100% 0, 82% 100%, 0 100%)" }}
                   aria-label={`${title} actions`}
                 >
                   <MoreHorizontal className="h-4 w-4" />
@@ -1843,7 +1960,6 @@ function ClubLeaderboardTable({
                     <div className="flex items-center gap-2">
                       <div
                         className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden border border-cyan-200/20 bg-black/35"
-                        style={{ clipPath: "polygon(14% 0, 100% 0, 86% 100%, 0 100%)" }}
                       >
                         {player.avatar_url ? (
                           <img src={player.avatar_url} alt={player.gamertag} className="h-full w-full object-cover" style={{ objectPosition: player.avatar_position || "50% 50%" }} />
@@ -1988,7 +2104,7 @@ function ClubStatsTileBackgroundDialog({
           </DialogTitle>
         </DialogHeader>
         {!canUseStatsTileBackgrounds ? (
-          <div className="rounded-lg border border-[#f5c542]/25 bg-[#f5c542]/10 p-4">
+          <div className="border border-[#f5c542]/25 bg-[#f5c542]/10 p-4">
             <div className="mb-3 flex items-start gap-3">
               <Lock className="mt-0.5 h-5 w-5 shrink-0 text-[#f5c542]" />
               <div>
@@ -2031,7 +2147,7 @@ function ClubStatsTileBackgroundDialog({
             <div>
               <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-white/45">Official Stage+ designs</p>
               {backgroundLoading ? (
-                <div className="flex items-center justify-center rounded-lg border border-white/10 py-8">
+                <div className="flex items-center justify-center border border-white/10 py-8">
                   <Loader2 className="h-5 w-5 animate-spin text-[#f5c542]" />
                 </div>
               ) : backgrounds.length ? (
@@ -2061,21 +2177,18 @@ function ClubStatsTileBackgroundDialog({
                   })}
                 </div>
               ) : (
-                <div className="rounded-lg border border-dashed border-white/10 py-8 text-center text-sm text-white/40">
+                <div className="border border-dashed border-white/10 py-8 text-center text-sm text-white/40">
                   No official backgrounds are available yet.
                 </div>
               )}
             </div>
 
-            <div className="rounded-lg border border-white/10 bg-black/20 p-3">
+            <div className="border border-white/10 bg-black/20 p-3">
               <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-white/45">Upload your own</p>
               <div className="flex flex-col gap-3">
                 {customBackgroundPreview ? (
                   <div className="grid gap-3 sm:grid-cols-[180px_1fr]">
-                    <div
-                      className="relative h-[116px] overflow-hidden border border-cyan-300/35 bg-black"
-                      style={{ clipPath: "polygon(7% 0, 100% 0, 93% 100%, 0 100%)" }}
-                    >
+                    <div className="relative h-[116px] overflow-hidden border border-cyan-300/35 bg-black">
                       <div
                         aria-hidden
                         className="absolute inset-0 bg-no-repeat"
@@ -4460,7 +4573,7 @@ function PlayerCard({
             </DialogTitle>
           </DialogHeader>
           {!canUseCardBackgrounds ? (
-            <div className="rounded-lg border border-[#f5c542]/25 bg-[#f5c542]/10 p-4">
+            <div className="border border-[#f5c542]/25 bg-[#f5c542]/10 p-4">
               <div className="mb-3 flex items-start gap-3">
                 <Lock className="mt-0.5 h-5 w-5 shrink-0 text-[#f5c542]" />
                 <div>
@@ -4503,7 +4616,7 @@ function PlayerCard({
               <div>
                 <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-white/45">Official Stage+ designs</p>
                 {backgroundLoading ? (
-                  <div className="flex items-center justify-center rounded-lg border border-white/10 py-8">
+                  <div className="flex items-center justify-center border border-white/10 py-8">
                     <Loader2 className="h-5 w-5 animate-spin text-[#f5c542]" />
                   </div>
                 ) : backgrounds.length ? (
@@ -4533,21 +4646,18 @@ function PlayerCard({
         })}
       </div>
                 ) : (
-                  <div className="rounded-lg border border-dashed border-white/10 py-8 text-center text-sm text-white/40">
+                  <div className="border border-dashed border-white/10 py-8 text-center text-sm text-white/40">
                     No official backgrounds are available yet.
                   </div>
                 )}
               </div>
 
-              <div className="rounded-lg border border-white/10 bg-black/20 p-3">
+              <div className="border border-white/10 bg-black/20 p-3">
                 <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-white/45">Upload your own</p>
                 <div className="flex flex-col gap-3">
                   {customBackgroundPreview ? (
                     <div className="grid gap-3 sm:grid-cols-[180px_1fr]">
-                      <div
-                        className="relative h-[116px] cursor-grab overflow-hidden border border-[#f5c542]/35 bg-black active:cursor-grabbing"
-                        style={{ clipPath: "polygon(7% 0, 100% 0, 93% 100%, 0 100%)" }}
-                      >
+                      <div className="relative h-[116px] cursor-grab overflow-hidden border border-[#f5c542]/35 bg-black active:cursor-grabbing">
                         <div
                           aria-hidden
                           className="absolute inset-0 bg-no-repeat"

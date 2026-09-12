@@ -6,7 +6,7 @@ export default function GamerClubTabNav({ groups, activeTab, tabLabels, onChange
 
   return (
     <div className="space-y-3">
-      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+      <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {groups.map((group) => {
           const isActive = group.tabs.includes(activeTab);
           const badge = group.tabs.map((id) => badgeForTab?.(id)).find(Boolean);
@@ -21,7 +21,6 @@ export default function GamerClubTabNav({ groups, activeTab, tabLabels, onChange
                   ? "border-cyan-200/55 bg-gradient-to-r from-sky-500/35 via-cyan-400/20 to-blue-600/30 text-cyan-50 shadow-[0_0_24px_-8px_rgba(0,229,255,0.95)]"
                   : "border-cyan-300/15 bg-[#06111d]/80 text-cyan-100/45 hover:border-cyan-300/35 hover:bg-cyan-300/10 hover:text-cyan-50"
               )}
-              style={{ clipPath: "polygon(10% 0, 100% 0, 90% 100%, 0 100%)" }}
             >
               {group.label}
               {badge ? (

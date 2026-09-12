@@ -1,5 +1,5 @@
 export const PLAYER_PROFILE_TAB_IDS = [
-  "posts",
+  "overview",
   "showcase",
   "career",
   "trophies",
@@ -8,10 +8,10 @@ export const PLAYER_PROFILE_TAB_IDS = [
 
 const TAB_CONTRACTS = [
   {
-    id: "posts",
-    labelKey: "commonPages.ppTab_posts",
-    domain: "social_feed",
-    meaning: "Social feed posts created by or attached to this Player identity.",
+    id: "overview",
+    labelKey: "commonPages.ppTab_overview",
+    domain: "profile_summary",
+    meaning: "Player command overview: identity, club, current contract, form and next match.",
     tournamentVisible: true,
   },
   {
@@ -53,7 +53,7 @@ export function getPlayerProfileTabs({ tournamentLimited = false, t = (key) => k
     .filter((tab) => !tournamentLimited || tab.tournamentVisible)
     .map((tab) => ({
       id: tab.id,
-      label: t(tab.labelKey),
+      label: t(tab.labelKey) === tab.labelKey && tab.id === "overview" ? "Overview" : t(tab.labelKey),
       domain: tab.domain,
       meaning: tab.meaning,
     }));

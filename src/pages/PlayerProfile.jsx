@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   Gamepad2, Settings,
   Coins, FileText, Clock,
+  CalendarClock, Shield, Star,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -18,7 +19,7 @@ import PlayerAchievementsSection from "@/components/rewards/PlayerAchievementsSe
 import PlayerLifestyleTab from "@/components/lifestyle/PlayerLifestyleTab";
 import PlayerShowcase from "@/components/scouting/PlayerShowcase";
 import GamerProfileHero from "@/components/profile/gamer/GamerProfileHero";
-import { GamerHeroAction, GamerPlayerPhotoFrame, GamerProfileShell, GamerSectionCard, GamerTabNav } from "@/components/profile/gamer/GamerProfileUI";
+import { GamerHeroAction, GamerPlayerPhotoFrame, GamerProfileShell, GamerSectionCard, GamerStatTile, GamerTabNav } from "@/components/profile/gamer/GamerProfileUI";
 import PlayerCareerSummary from "@/components/profile/PlayerCareerSummary";
 import PlayerTransferHistory from "@/components/profile/PlayerTransferHistory";
 import { CONTRACT_TYPES, getContractProgress } from "@/lib/contractTypes";
@@ -43,6 +44,78 @@ function formatPositions(player) {
   return [player?.position, player?.secondary_position].filter(Boolean).join(" / ");
 }
 
+function formatUpcomingMatch(match, club) {
+  if (!match) return "No scheduled fixture";
+  const isHome = String(match.home_club_id || "") === String(club?.id || "");
+  const opponent = isHome ? match.away_club_name : match.home_club_name;
+  const date = match.scheduled_date || match.match_date;
+  const when = date ? new Date(date).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "Scheduled";
+  return `${when} vs ${opponent || "Opponent"}`;
+}
+
+function PlayerProfileOverview({ player, club, activeContract, activeLoan, upcomingMatches, clubStats, career }) {
+  const nextMatch = asObjectArray(upcomingMatches)[0] || null;
+  const playerCareer = career?.player_career || {};
+  const clubCareer = career?.club_career || {};
+  const rating = Number(player?.overall_rating || 70);
+  const stats = [
+    { label: "OVR", value: Number.isFinite(rating) ? Math.round(rating) : 70, accent: "gold", sub: player?.position || "Position" },
+    { label: "Matches", value: clubStats?.matches ?? clubCareer.games ?? playerCareer.games ?? 0, accent: "cyan", sub: "Recorded" },
+    { label: "Goals", value: clubStats?.goals ?? clubCareer.goals ?? playerCareer.goals_for ?? 0, accent: "green", sub: "Career" },
+    { label: "Assists", value: clubStats?.assists ?? clubCareer.assists ?? 0, accent: "sky", sub: "Career" },
+  ];
+
+  return (
+    <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+      <GamerSectionCard title="Command Overview" className="border-cyan-300/20">
+        <div className="grid gap-3 sm:grid-cols-4">
+          {stats.map((stat) => (
+            <GamerStatTile key={stat.label} {...stat} shape="rounded" tinted />
+          ))}
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <div className="border border-white/10 bg-white/[0.03] p-4">
+            <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-white/40"><Shield className="h-3.5 w-3.5 text-cyan-300" /> Club</p>
+            <p className="mt-2 truncate font-heading text-xl font-black uppercase text-white">{club?.name || "Free Agent"}</p>
+            <p className="mt-1 text-xs text-white/42">{activeLoan ? "On loan assignment" : activeContract ? "Under contract" : "Available profile"}</p>
+          </div>
+          <div className="border border-white/10 bg-white/[0.03] p-4">
+            <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-white/40"><FileText className="h-3.5 w-3.5 text-amber-300" /> Contract</p>
+            <p className="mt-2 truncate font-heading text-xl font-black uppercase text-white">{activeContract ? getContractType(activeContract) : "Open"}</p>
+            <p className="mt-1 text-xs text-white/42">{activeContract?.weekly_salary_stc ? `${formatSTC(activeContract.weekly_salary_stc)}/wk` : "No weekly salary set"}</p>
+          </div>
+          <div className="border border-white/10 bg-white/[0.03] p-4">
+            <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-white/40"><CalendarClock className="h-3.5 w-3.5 text-emerald-300" /> Next Match</p>
+            <p className="mt-2 line-clamp-2 font-heading text-lg font-black uppercase text-white">{formatUpcomingMatch(nextMatch, club)}</p>
+            <p className="mt-1 text-xs text-white/42">{nextMatch?.competition_context || nextMatch?.type || "GameDay ready"}</p>
+          </div>
+        </div>
+      </GamerSectionCard>
+
+      <GamerSectionCard title="Player Signal" className="border-amber-300/20">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between border-b border-white/10 pb-3">
+            <span className="text-xs font-bold uppercase tracking-[0.18em] text-white/42">Profile</span>
+            <span className="font-heading text-lg font-black uppercase text-cyan-100">{player?.gamertag || "Player"}</span>
+          </div>
+          <div className="flex items-center justify-between border-b border-white/10 pb-3">
+            <span className="text-xs font-bold uppercase tracking-[0.18em] text-white/42">Platform</span>
+            <span className="font-heading text-lg font-black uppercase text-white">{player?.platform || "-"}</span>
+          </div>
+          <div className="flex items-center justify-between border-b border-white/10 pb-3">
+            <span className="text-xs font-bold uppercase tracking-[0.18em] text-white/42">Country</span>
+            <span className="font-heading text-lg font-black uppercase text-white">{player?.country || "-"}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-white/42"><Star className="h-3.5 w-3.5 text-amber-300" /> Stage Role</span>
+            <span className="font-heading text-lg font-black uppercase text-amber-200">{club ? "Squad Player" : "Scout Target"}</span>
+          </div>
+        </div>
+      </GamerSectionCard>
+    </div>
+  );
+}
+
 export default function PlayerProfile({ overridePlayerId, tournamentId = null, editMode: _editMode } = {}) {
   const { t } = useTranslation();
   const { user: authUser } = useAuth();
@@ -59,12 +132,12 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
   const [club, setClub] = useState(null);
   const [presidedClub, setPresidedClub] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
-  const [activeTab, setActiveTab] = useState("posts");
+  const [activeTab, setActiveTab] = useState("overview");
   const [loading, setLoading] = useState(true);
   const [myPlayer, setMyPlayer] = useState(null);
   const [upcomingMatches, setUpcomingMatches] = useState([]);
   const [, setPvpMatches] = useState([]);
-  const [, setClubStats] = useState(null);
+  const [clubStats, setClubStats] = useState(null);
   const [career, setCareer] = useState(null);
   const [careerLoading, setCareerLoading] = useState(false);
   const [avatarLightboxOpen, setAvatarLightboxOpen] = useState(false);
@@ -406,9 +479,20 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
       <div className="max-w-6xl mx-auto px-4 mt-6 space-y-5 pb-10">
         <GamerTabNav tabs={profileTabs} active={activeTab} onChange={setActiveTab} />
 
-        {activeTab === "posts" ? (
-          <div className="pt-2">
-            <PlayerFeed currentUser={currentUser} player={player} isOwner={isOwner} />
+        {activeTab === "overview" ? (
+          <div className="pt-2 space-y-4">
+            <PlayerProfileOverview
+              player={player}
+              club={club}
+              activeContract={activeContract}
+              activeLoan={activeLoan}
+              upcomingMatches={upcomingMatches}
+              clubStats={clubStats}
+              career={career}
+            />
+            <GamerSectionCard title="Latest From The Player">
+              <PlayerFeed currentUser={currentUser} player={player} isOwner={isOwner} />
+            </GamerSectionCard>
           </div>
         ) : null}
 

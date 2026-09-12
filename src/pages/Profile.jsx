@@ -19,10 +19,11 @@ import ProfileCompletionModal from "../components/ProfileCompletionModal";
 import PlayerFeed from "../components/PlayerFeed";
 import ImagePositionEditor from "../components/ImagePositionEditor";
 import PlayerTrophyCabinet from "../components/profile/PlayerTrophyCabinet";
+import PlayerLifestyleTab from "@/components/lifestyle/PlayerLifestyleTab";
 import PlayerCareerSummary from "@/components/profile/PlayerCareerSummary";
 import PlayerTransferHistory from "@/components/profile/PlayerTransferHistory";
 import GamerProfileHero from "@/components/profile/gamer/GamerProfileHero";
-import { GamerHeroAction, GamerProfileShell, GamerSectionCard, GamerTabNav } from "@/components/profile/gamer/GamerProfileUI";
+import { GamerHeroAction, GamerProfileShell, GamerSectionCard, GamerStatTile, GamerTabNav } from "@/components/profile/gamer/GamerProfileUI";
 import ProfileEditShell from "@/components/profile/ProfileEditShell";
 import ClubProfileEdit from "@/components/club/ClubProfileEdit";
 import { COUNTRIES } from "../lib/countries";
@@ -83,7 +84,7 @@ export default function Profile({
   const [career, setCareer] = useState(null);
   const [careerLoading, setCareerLoading] = useState(false);
   const [upcomingMatches, setUpcomingMatches] = useState([]);
-  const [profileTab, setProfileTab] = useState("posts");
+  const [profileTab, setProfileTab] = useState("overview");
   const [playerContracts, setPlayerContracts] = useState([]);
   const [clubMemberships, setClubMemberships] = useState([]);
 
@@ -468,9 +469,19 @@ export default function Profile({
             <>
               <GamerTabNav tabs={profileTabs} active={profileTab} onChange={setProfileTab} />
 
-              {profileTab === "posts" ? (
-                <div className="pt-2">
-                  <PlayerFeed currentUser={user} player={player} isOwner={true} />
+              {profileTab === "overview" ? (
+                <div className="pt-2 space-y-4">
+                  <GamerSectionCard title="Command Overview" className="border-cyan-300/20">
+                    <div className="grid gap-3 sm:grid-cols-4">
+                      <GamerStatTile label="OVR" value={Math.round(Number(player?.overall_rating || 70))} accent="gold" sub={player?.position || "Position"} shape="rounded" tinted />
+                      <GamerStatTile label="Club" value={signedClub?.tag || signedClub?.name || "Free"} accent="cyan" sub={signedClub ? "Signed" : "Agent"} shape="rounded" tinted />
+                      <GamerStatTile label="Career" value={career?.club_career?.games || career?.player_career?.games || 0} accent="green" sub="Matches" shape="rounded" tinted />
+                      <GamerStatTile label="Next" value={upcomingMatches.length || 0} accent="sky" sub="Fixtures" shape="rounded" tinted />
+                    </div>
+                  </GamerSectionCard>
+                  <GamerSectionCard title="Latest From The Player">
+                    <PlayerFeed currentUser={user} player={player} isOwner={true} />
+                  </GamerSectionCard>
                 </div>
               ) : null}
 
@@ -509,6 +520,12 @@ export default function Profile({
               {profileTab === "trophies" ? (
                 <div className="pt-2">
                   <PlayerTrophyCabinet player={player} />
+                </div>
+              ) : null}
+
+              {profileTab === "lifestyle" ? (
+                <div className="pt-2">
+                  <PlayerLifestyleTab player={player} />
                 </div>
               ) : null}
             </>

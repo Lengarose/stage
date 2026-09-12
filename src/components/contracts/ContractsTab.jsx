@@ -331,7 +331,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage, onPla
   return (
     <div className="space-y-5">
       {contractError && (
-        <div className="bg-destructive/10 border border-destructive/30 rounded-xl px-4 py-3 text-sm text-destructive flex items-center justify-between gap-3">
+        <div className="border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive flex items-center justify-between gap-3 shadow-[0_18px_50px_rgba(0,0,0,0.22)]">
           <span>{contractError}</span>
           <button onClick={() => setContractError(null)} className="text-destructive/60 hover:text-destructive text-xs font-bold">✕</button>
         </div>
@@ -352,7 +352,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage, onPla
               {eligiblePlayers.length} player{eligiblePlayers.length !== 1 ? "s" : ""} eligible
             </span>
             <Link to={`/contracts/create?club=${club.id}`}>
-              <Button size="sm" className="bg-primary text-primary-foreground gap-2">
+              <Button size="sm" className="gap-2 bg-cyan-400 font-semibold text-black hover:bg-cyan-300">
                 <Plus className="w-3.5 h-3.5" /> {t("commonPages.cccTitle")}
               </Button>
             </Link>
@@ -362,7 +362,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage, onPla
 
       {/* My pending contracts banner */}
       {myPendingContracts.length > 0 && (
-        <div className="bg-warning/10 border border-warning/30 rounded-xl p-4 space-y-3">
+        <div className="border border-warning/30 bg-warning/10 p-4 space-y-3 shadow-[0_18px_50px_rgba(0,0,0,0.22)]">
           <p className="text-sm font-bold text-warning">You have pending contract offers</p>
           {myPendingContracts.map(c => (
             <ContractCard
@@ -385,23 +385,23 @@ export default function ContractsTab({ club, players, myPlayer, canManage, onPla
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="bg-secondary border border-border">
+        <TabsList className="border border-white/10 bg-[#071018]/90 p-1">
           <TabsTrigger value="active" className="flex items-center gap-1.5 text-xs">
             Active
             {byStatus.active.length > 0 && (
-              <span className="px-1.5 py-0.5 rounded-full bg-success/20 text-success text-[10px] font-bold">{byStatus.active.length}</span>
+              <span className="px-1.5 py-0.5 bg-success/20 text-success text-[10px] font-bold">{byStatus.active.length}</span>
             )}
           </TabsTrigger>
           <TabsTrigger value="pending" className="flex items-center gap-1.5 text-xs">
             Pending
             {byStatus.pending.length > 0 && (
-              <span className="px-1.5 py-0.5 rounded-full bg-warning/20 text-warning text-[10px] font-bold">{byStatus.pending.length}</span>
+              <span className="px-1.5 py-0.5 bg-warning/20 text-warning text-[10px] font-bold">{byStatus.pending.length}</span>
             )}
           </TabsTrigger>
           <TabsTrigger value="history" className="flex items-center gap-1.5 text-xs">
             History
             {byStatus.history.length > 0 && (
-              <span className="px-1.5 py-0.5 rounded-full bg-muted/50 text-muted-foreground text-[10px] font-bold">{byStatus.history.length}</span>
+              <span className="px-1.5 py-0.5 bg-muted/50 text-muted-foreground text-[10px] font-bold">{byStatus.history.length}</span>
             )}
           </TabsTrigger>
         </TabsList>
@@ -423,7 +423,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage, onPla
             return (
               <>
                 {dualContracts.length > 0 && (
-                  <div className="rounded-xl border border-purple-500/30 bg-purple-500/5 p-3 space-y-2">
+                  <div className="border border-purple-500/30 bg-[linear-gradient(135deg,rgba(168,85,247,0.10),rgba(0,0,0,0.24))] p-3 space-y-2 shadow-[0_18px_50px_rgba(0,0,0,0.22)]">
                     <p className="text-[10px] font-bold uppercase tracking-widest text-purple-400 flex items-center gap-1.5">
                       <FileText className="w-3 h-3" /> Dual Contracts — President + Player role
                     </p>
@@ -514,16 +514,16 @@ export default function ContractsTab({ club, players, myPlayer, canManage, onPla
 
       {/* Player picker for multiple eligible */}
       {canManageContractOffers && eligiblePlayers.length > 1 && (
-        <div className="bg-card border border-border rounded-xl p-4">
+        <div className="border border-white/10 bg-[#071018]/80 p-4 shadow-[0_18px_50px_rgba(0,0,0,0.22)]">
           <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-3">Offer to specific player</p>
           <div className="flex flex-wrap gap-2">
             {eligiblePlayers.map(p => (
               <button
                 key={p.id}
                 onClick={() => setOfferDialog(p)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-secondary border border-border hover:border-primary/30 transition-all text-sm"
+                className="flex items-center gap-2 border border-white/10 bg-white/[0.03] px-3 py-1.5 text-sm transition-all hover:border-primary/30 hover:bg-primary/10"
               >
-                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden shrink-0">
+                <div className="w-6 h-6 bg-primary/10 flex items-center justify-center overflow-hidden shrink-0">
                   {p.avatar_url
                     ? <img src={p.avatar_url} alt={p.gamertag} className="w-full h-full object-cover" />
                     : <span className="text-[10px] font-bold text-primary">{(p.gamertag || "?")[0]}</span>}
@@ -572,7 +572,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage, onPla
 
 function EmptyContracts({ label }) {
   return (
-    <div className="bg-card border border-border rounded-xl p-8 text-center">
+    <div className="border border-white/10 bg-[#071018]/72 p-8 text-center shadow-[0_18px_50px_rgba(0,0,0,0.18)]">
       <FileText className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
       <p className="text-sm text-muted-foreground">{label}</p>
     </div>
