@@ -7346,6 +7346,7 @@ const HANDLERS = {
     body,
     message_type = 'general',
     action_type = 'none',
+    event_id,
     related_entity_id,
     related_entity_type,
     metadata,
@@ -7383,9 +7384,8 @@ const HANDLERS = {
     }
 
     const normalizedRecipient = String(recipient).trim().toLowerCase();
-    const idempotencyKey = related_entity_id
-      ? `${message_type}:${related_entity_type || 'entity'}:${related_entity_id}:${normalizedRecipient}`
-      : `manual_message:${uuidv4()}`;
+    const eventId = String(event_id || '').trim() || uuidv4();
+    const idempotencyKey = `${message_type}:${eventId}:${normalizedRecipient}`;
     return sendActionMessage({
       recipientEmail: normalizedRecipient,
       senderEmail: sender_email || null,
@@ -7419,7 +7419,22 @@ const HANDLERS = {
     const message = rows[0];
     if (!message) throw new Error('Message not found');
     if (String(message.recipient_email || '').toLowerCase() !== String(user.email || '').toLowerCase()) throw new Error('Forbidden');
-    await markInboxMessageResponded(message_id, action);
+    if (message.status && String(message.status) !== 'pending') {
+      throw new Error('This action is no longer valid');
+    }
+
+    const finishResponded = async (payload) => {
+      await markInboxMessageResponded(message_id, action);
+      return payload;
+    };
+
+    const notifySafely = async (work) => {
+      try {
+        await work();
+      } catch {
+        // Opponent notify must not fail the request after domain work succeeds.
+      }
+    };
 
     const meta = parseMaybeJson(message.metadata, {});
     const isMatchInvite = message.message_type === 'match_invite';
@@ -7435,6 +7450,17 @@ const HANDLERS = {
         : [];
       const match = matchRows[0];
       if (!match) throw new Error('Tournament fixture not found');
+
+      const liveStatus = String(match.scheduling_status || '');
+      if (liveStatus !== 'home_proposed' && liveStatus !== 'away_proposed') {
+        throw new Error('This action is no longer valid');
+      }
+      const liveProposalDate = liveStatus === 'home_proposed'
+        ? match.home_proposed_date
+        : match.away_proposed_date;
+      if (toMysqlDateTime(meta.proposed_date) !== toMysqlDateTime(liveProposalDate)) {
+        throw new Error('This action is no longer valid');
+      }
 
       const proposedDate = toMysqlDateTime(meta.proposed_date || meta.scheduled_date || match.home_proposed_date || match.scheduled_date);
       const tournamentId = meta.tournament_id || match.tournament_id || null;
@@ -7455,9 +7481,10 @@ const HANDLERS = {
           [proposedDate, proposedDate, match.id]
         );
         await broadcastMatchById(match.id);
-
+        const acceptedPayload = { success: true, message: { id: message_id, status: action }, match: { id: match.id, status: 'scheduled', scheduled_date: proposedDate } };
+        await finishResponded(acceptedPayload);
         if (message.sender_email) {
-          await sendActionMessage({
+          await notifySafely(() => sendActionMessage({
             recipientEmail: message.sender_email,
             senderEmail: user.email,
             subject: `Tournament schedule accepted: ${homeName} vs ${awayName}`,
@@ -7481,10 +7508,9 @@ const HANDLERS = {
               link: tournamentLink,
               relatedId: match.id,
             },
-          });
+          }));
         }
-
-        return { success: true, message: { id: message_id, status: action }, match: { id: match.id, status: 'scheduled', scheduled_date: proposedDate } };
+        return acceptedPayload;
       }
 
       await EXECUTESQL(
@@ -7498,9 +7524,10 @@ const HANDLERS = {
         [match.id]
       );
       await broadcastMatchById(match.id);
-
+      const declinedPayload = { success: true, message: { id: message_id, status: action }, match: { id: match.id, scheduling_status: 'open' } };
+      await finishResponded(declinedPayload);
       if (message.sender_email) {
-        await sendActionMessage({
+        await notifySafely(() => sendActionMessage({
           recipientEmail: message.sender_email,
           senderEmail: user.email,
           subject: `Tournament schedule declined: ${homeName} vs ${awayName}`,
@@ -7523,10 +7550,9 @@ const HANDLERS = {
             link: tournamentLink,
             relatedId: match.id,
           },
-        });
+        }));
       }
-
-      return { success: true, message: { id: message_id, status: action }, match: { id: match.id, scheduling_status: 'open' } };
+      return declinedPayload;
     }
 
     if (isMatchInvite && meta.cancel_request) {
@@ -7545,25 +7571,29 @@ const HANDLERS = {
           [patch.status, patch.cancel_status, patch.cancel_requested_by, match.id]
         );
         await broadcastMatchById(match.id);
+        const cancelAccepted = { success: true, message: { id: message_id, status: action }, match: { id: match.id, status: 'cancelled' } };
+        await finishResponded(cancelAccepted);
         if (message.sender_email) {
-          await createMatchInviteResponseMessage({
-            originalMessage: message,
-            meta,
-            senderEmail: user.email,
-            subject: `Match cancelled: ${meta.challenger_name || 'Home'} vs ${meta.opponent_name || 'Away'}`,
-            body: `${user.email} confirmed the cancel. The fixture has been deleted.`,
-            matchId: match.id,
-          });
-          await createNotificationIfEnabled({
-            recipientEmail: message.sender_email,
-            type: 'match_reminder',
-            title: 'Match cancelled',
-            body: 'Your opponent confirmed the cancel. The fixture was deleted.',
-            link: '/schedule',
-            relatedId: match.id,
+          await notifySafely(async () => {
+            await createMatchInviteResponseMessage({
+              originalMessage: message,
+              meta,
+              senderEmail: user.email,
+              subject: `Match cancelled: ${meta.challenger_name || 'Home'} vs ${meta.opponent_name || 'Away'}`,
+              body: `${user.email} confirmed the cancel. The fixture has been deleted.`,
+              matchId: match.id,
+            });
+            await createNotificationIfEnabled({
+              recipientEmail: message.sender_email,
+              type: 'match_reminder',
+              title: 'Match cancelled',
+              body: 'Your opponent confirmed the cancel. The fixture was deleted.',
+              link: '/schedule',
+              relatedId: match.id,
+            });
           });
         }
-        return { success: true, message: { id: message_id, status: action }, match: { id: match.id, status: 'cancelled' } };
+        return cancelAccepted;
       }
       if (action === 'declined' && match) {
         const patch = applyDeclinedCancelPatch();
@@ -7572,17 +7602,19 @@ const HANDLERS = {
           [patch.cancel_status, patch.cancel_requested_by, match.id]
         );
         await broadcastMatchById(match.id);
+        const cancelDeclined = { success: true, message: { id: message_id, status: action } };
+        await finishResponded(cancelDeclined);
         if (message.sender_email) {
-          await createMatchInviteResponseMessage({
+          await notifySafely(() => createMatchInviteResponseMessage({
             originalMessage: message,
             meta,
             senderEmail: user.email,
             subject: `Cancel declined: ${meta.challenger_name || 'Home'} vs ${meta.opponent_name || 'Away'}`,
             body: `${user.email} declined the cancel. The fixture stays scheduled.`,
             matchId: match.id,
-          });
+          }));
         }
-        return { success: true, message: { id: message_id, status: action } };
+        return cancelDeclined;
       }
     }
 
@@ -7594,31 +7626,35 @@ const HANDLERS = {
         await EXECUTESQL('UPDATE matches SET scheduled_date = ?, updated_date = NOW() WHERE id = ?', [nextDate, existingMatchId]);
         await broadcastMatchById(existingMatchId);
       }
+      const rescheduleAccepted = { success: true, message: { id: message_id, status: action } };
+      await finishResponded(rescheduleAccepted);
       if (message.sender_email) {
-        await createMatchInviteResponseMessage({
-          originalMessage: message,
-          meta,
-          senderEmail: user.email,
-          subject: `Match Accepted: ${meta.challenger_name || 'Challenger'} vs ${meta.opponent_name || 'Opponent'}`,
-          body: `${meta.opponent_name || user.email} accepted your reschedule request.\n\nMatch date: ${nextDate || 'TBD'}`,
-          matchId: existingMatchId || null,
-        });
-        await createNotificationIfEnabled({
-          recipientEmail: message.sender_email,
-          type: 'match_scheduled',
-          title: `${user.email} accepted the reschedule`,
-          body: nextDate ? `Match confirmed for ${nextDate}` : 'Reschedule accepted.',
-          link: '/schedule',
-          relatedId: existingMatchId || message_id,
+        await notifySafely(async () => {
+          await createMatchInviteResponseMessage({
+            originalMessage: message,
+            meta,
+            senderEmail: user.email,
+            subject: `Match Accepted: ${meta.challenger_name || 'Challenger'} vs ${meta.opponent_name || 'Opponent'}`,
+            body: `${meta.opponent_name || user.email} accepted your reschedule request.\n\nMatch date: ${nextDate || 'TBD'}`,
+            matchId: existingMatchId || null,
+          });
+          await createNotificationIfEnabled({
+            recipientEmail: message.sender_email,
+            type: 'match_scheduled',
+            title: `${user.email} accepted the reschedule`,
+            body: nextDate ? `Match confirmed for ${nextDate}` : 'Reschedule accepted.',
+            link: '/schedule',
+            relatedId: existingMatchId || message_id,
+          });
         });
       }
-      return { success: true, message: { id: message_id, status: action } };
+      return rescheduleAccepted;
     }
 
     if (action === 'accepted' && isMatchInvite) {
       // Prevent duplicate match creation if already linked.
       if (meta.created_match_id) {
-        return { success: true, message: { id: message_id, status: action }, match: { id: meta.created_match_id } };
+        return finishResponded({ success: true, message: { id: message_id, status: action }, match: { id: meta.created_match_id } });
       }
       const scheduledDate = toMysqlDateTime(meta.scheduled_date);
       const payload = await createRankedMatchFromInviteMetadata(meta, { homeSide: 'challenger', scheduledDate });
@@ -7629,63 +7665,29 @@ const HANDLERS = {
       if (Number(meta.wager_stc || 0) > 0) {
         await HANDLERS.wagerMatchActions({ action: 'accept_wager', match_id: payload.id }).catch(() => {});
       }
+      const inviteAccepted = { success: true, message: { id: message_id, status: action }, match: { id: payload.id } };
+      await finishResponded(inviteAccepted);
       if (message.sender_email) {
-        await createMatchInviteResponseMessage({
-          originalMessage: message,
-          meta,
-          senderEmail: user.email,
-          subject: `Match Accepted: ${meta.challenger_name || 'Challenger'} vs ${meta.opponent_name || 'Opponent'}`,
-          body: `${meta.opponent_name || user.email} accepted your match invitation.\n\nMatch date: ${scheduledDate || 'TBD'}`,
-          matchId: payload.id,
-        });
-        await createNotificationIfEnabled({
-          recipientEmail: message.sender_email,
-          type: 'match_scheduled',
-          title: `${user.email} accepted your invite`,
-          body: 'Match created and scheduled.',
-          link: '/schedule',
-          relatedId: payload.id,
+        await notifySafely(async () => {
+          await createMatchInviteResponseMessage({
+            originalMessage: message,
+            meta,
+            senderEmail: user.email,
+            subject: `Match Accepted: ${meta.challenger_name || 'Challenger'} vs ${meta.opponent_name || 'Opponent'}`,
+            body: `${meta.opponent_name || user.email} accepted your match invitation.\n\nMatch date: ${scheduledDate || 'TBD'}`,
+            matchId: payload.id,
+          });
+          await createNotificationIfEnabled({
+            recipientEmail: message.sender_email,
+            type: 'match_scheduled',
+            title: `${user.email} accepted your invite`,
+            body: 'Match created and scheduled.',
+            link: '/schedule',
+            relatedId: payload.id,
+          });
         });
       }
-      return { success: true, message: { id: message_id, status: action }, match: { id: payload.id } };
-    }
-
-    if (action === 'date_change_requested' && isMatchInvite && message.sender_email) {
-      const proposedMysql = (new_date && new_time) ? toMysqlDateTime(`${new_date} ${new_time.length === 5 ? `${new_time}:00` : new_time}`) : null;
-      const proposalBody = `${user.email} would like to reschedule.\nProposed: ${proposedMysql || 'Please discuss a new time.'}`;
-      await sendActionMessage({
-        recipientEmail: message.sender_email,
-        senderEmail: user.email,
-        subject: `Reschedule Proposal: ${message.subject || 'Match Invite'}`,
-        body: proposalBody,
-        messageType: 'match_invite',
-        actionType: 'accept_decline_date',
-        relatedEntityId: meta.created_match_id || message.related_entity_id || message_id,
-        relatedEntityType: meta.created_match_id || message.related_entity_id ? 'match' : 'inbox_message',
-        idempotencyKey: `match_reschedule:${message_id}:${new_date || 'open'}:${new_time || 'open'}`,
-        reuseByRelated: false,
-        metadata: {
-          ...meta,
-          scheduled_date: proposedMysql || meta.scheduled_date,
-          reschedule_request: true,
-          original_message_id: message_id,
-        },
-        notification: {
-          type: 'match_reminder',
-          title: `${user.email} wants to reschedule`,
-          body: proposedMysql ? `New proposed date: ${proposedMysql}` : 'A new date was requested.',
-        },
-      });
-    }
-
-    if (action === 'declined' && isMatchInvite && message.sender_email) {
-      await createMatchInviteResponseMessage({
-        originalMessage: message,
-        meta,
-        senderEmail: user.email,
-        subject: `Match Declined: ${meta.challenger_name || 'Challenger'} vs ${meta.opponent_name || 'Opponent'}`,
-        body: `${meta.opponent_name || user.email} declined your match invitation.`,
-      });
+      return inviteAccepted;
     }
 
     if (action === 'confirmed' && isMatchInvite) {
@@ -7699,13 +7701,58 @@ const HANDLERS = {
         await broadcastMatchById(existingMatchId);
       } else if (!existingMatchId) {
         // Confirming a date proposal before match exists -> create now.
-        const payload = await createRankedMatchFromInviteMetadata(meta, { homeSide: 'opponent', scheduledDate: targetDate });
+        const created = await createRankedMatchFromInviteMetadata(meta, { homeSide: 'opponent', scheduledDate: targetDate });
         await EXECUTESQL(
           'UPDATE inbox_messages SET related_entity_id = ?, related_entity_type = ?, metadata = ? WHERE id = ?',
-          [payload.id, 'match', JSON.stringify({ ...meta, created_match_id: payload.id }), message_id]
+          [created.id, 'match', JSON.stringify({ ...meta, created_match_id: created.id }), message_id]
         );
       }
-      if (message.sender_email) {
+    }
+
+    const finished = await finishResponded({ success: true, message: { id: message_id, status: action } });
+
+    await notifySafely(async () => {
+      if (action === 'date_change_requested' && isMatchInvite && message.sender_email) {
+        const proposedMysql = (new_date && new_time) ? toMysqlDateTime(`${new_date} ${new_time.length === 5 ? `${new_time}:00` : new_time}`) : null;
+        const proposalBody = `${user.email} would like to reschedule.\nProposed: ${proposedMysql || 'Please discuss a new time.'}`;
+        await sendActionMessage({
+          recipientEmail: message.sender_email,
+          senderEmail: user.email,
+          subject: `Reschedule Proposal: ${message.subject || 'Match Invite'}`,
+          body: proposalBody,
+          messageType: 'match_invite',
+          actionType: 'accept_decline_date',
+          relatedEntityId: meta.created_match_id || message.related_entity_id || message_id,
+          relatedEntityType: meta.created_match_id || message.related_entity_id ? 'match' : 'inbox_message',
+          idempotencyKey: `match_reschedule:${message_id}:${new_date || 'open'}:${new_time || 'open'}`,
+          reuseByRelated: false,
+          metadata: {
+            ...meta,
+            scheduled_date: proposedMysql || meta.scheduled_date,
+            reschedule_request: true,
+            original_message_id: message_id,
+          },
+          notification: {
+            type: 'match_reminder',
+            title: `${user.email} wants to reschedule`,
+            body: proposedMysql ? `New proposed date: ${proposedMysql}` : 'A new date was requested.',
+          },
+        });
+      }
+
+      if (action === 'declined' && isMatchInvite && message.sender_email) {
+        await createMatchInviteResponseMessage({
+          originalMessage: message,
+          meta,
+          senderEmail: user.email,
+          subject: `Match Declined: ${meta.challenger_name || 'Challenger'} vs ${meta.opponent_name || 'Opponent'}`,
+          body: `${meta.opponent_name || user.email} declined your match invitation.`,
+        });
+      }
+
+      if (action === 'confirmed' && isMatchInvite && message.sender_email) {
+        const existingMatchId = meta.created_match_id || message.related_entity_id;
+        const targetDate = toMysqlDateTime(meta.scheduled_date);
         await createNotificationIfEnabled({
           recipientEmail: message.sender_email,
           type: 'match_scheduled',
@@ -7715,20 +7762,20 @@ const HANDLERS = {
           relatedId: existingMatchId || message_id,
         });
       }
-    }
 
-    if (message.sender_email && ['declined', 'confirmed'].includes(action)) {
-      await createNotificationIfEnabled({
-        recipientEmail: message.sender_email,
-        type: 'message',
-        title: `${user.email} ${action} your message`,
-        body: `Regarding: "${message.subject || 'Inbox message'}"`,
-        link: '/inbox',
-        relatedId: message_id,
-      });
-    }
+      if (message.sender_email && ['declined', 'confirmed'].includes(action)) {
+        await createNotificationIfEnabled({
+          recipientEmail: message.sender_email,
+          type: 'message',
+          title: `${user.email} ${action} your message`,
+          body: `Regarding: "${message.subject || 'Inbox message'}"`,
+          link: '/inbox',
+          relatedId: message_id,
+        });
+      }
+    });
 
-    return { success: true, message: { id: message_id, status: action } };
+    return finished;
   },
   // ── EA Pro Clubs API proxy ────────────────────────────────────────────────
   async eafcApi({ endpoint, params }) {

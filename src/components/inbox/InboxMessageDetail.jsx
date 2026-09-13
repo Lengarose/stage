@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { format, isToday } from "@/lib/momentDate";
 import { Trash2, Check, X, Calendar, Shield, AlertTriangle, ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getEffectiveInboxActionType, isMatchCancelRequest } from "@/lib/inboxActionTypes";
+import { getEffectiveInboxActionType, inboxGameDayHref, isMatchCancelRequest } from "@/lib/inboxActionTypes";
 import InboxContractOffer from "@/components/inbox/InboxContractOffer";
 import InboxLoanProposal from "@/components/inbox/InboxLoanProposal";
 import InboxLoanRecalled from "@/components/inbox/InboxLoanRecalled";
@@ -81,17 +81,12 @@ export default function InboxMessageDetail({
     setLoading(action);
     setActionError("");
     try {
-      if (message.message_type === "match_invite") {
-        await stageClient.functions.invoke("respondInboxMessage", {
-          message_id: message.id,
-          action,
-          new_date: rescheduleDate || null,
-          new_time: rescheduleTime || null,
-        });
-      } else {
-        await stageClient.entities.InboxMessage.update(message.id, { status: action, is_read: true });
-      }
-
+      await stageClient.functions.invoke("respondInboxMessage", {
+        message_id: message.id,
+        action,
+        new_date: rescheduleDate || null,
+        new_time: rescheduleTime || null,
+      });
       onStatusChanged(message.id, action);
     } catch (err) {
       console.error("[InboxMessageDetail] action failed:", err);
@@ -116,14 +111,19 @@ export default function InboxMessageDetail({
     : (message.sender_gamertag || t("matchFlow.unknown"));
 
   const showGenericActions = hasAction
-    && message.message_type !== "contract_offer"
-    && message.message_type !== "loan_proposal"
-    && message.message_type !== "loan_purchase"
-    && message.message_type !== "loan_recalled"
-    && message.message_type !== "loan_early_end"
-    && message.message_type !== "loan_terminated_early"
-    && message.message_type !== "trial_request"
-    && message.message_type !== "league_schedule";
+    && (
+      effectiveActionType === "open_match"
+      || (
+        message.message_type !== "contract_offer"
+        && message.message_type !== "loan_proposal"
+        && message.message_type !== "loan_purchase"
+        && message.message_type !== "loan_recalled"
+        && message.message_type !== "loan_early_end"
+        && message.message_type !== "loan_terminated_early"
+        && message.message_type !== "trial_request"
+        && message.message_type !== "league_schedule"
+      )
+    );
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-[#0b1220]">
@@ -359,7 +359,16 @@ export default function InboxMessageDetail({
             {t("matchFlow.yourResponseRequired")}
           </p>
           <div className="flex flex-wrap gap-2">
-            {(effectiveActionType === "accept_decline" || effectiveActionType === "accept_decline_date") && (
+            {effectiveActionType === "open_match" && (
+              <Button size="sm" onClick={() => {
+                window.location.assign(inboxGameDayHref(message));
+              }}>
+                {t("nav.gameDay")}
+              </Button>
+            )}
+            {(effectiveActionType === "accept_decline" || effectiveActionType === "accept_decline_date")
+              && message.message_type !== "match_result"
+              && message.message_type !== "match_dispute" && (
               <>
                 <Button
                   size="sm"

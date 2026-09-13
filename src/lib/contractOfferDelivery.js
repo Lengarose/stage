@@ -1,6 +1,11 @@
 import { stageClient } from "@/api/stageClient";
 import { formatContractTypeForSentence } from "@/lib/contractTypeLabels";
 
+function contractOfferEventId(contractId, round) {
+  const base = `player_contract:${contractId}`;
+  return Number(round) > 0 ? `${base}:r${round}` : base;
+}
+
 function formatContractType(type) {
   return formatContractTypeForSentence(type);
 }
@@ -29,6 +34,7 @@ export async function ensureContractOfferInbox({
   signingBonus,
   offerNote,
   senderEmail,
+  round,
 }) {
   if (!contractId || !player?.id) return null;
 
@@ -61,6 +67,7 @@ export async function ensureContractOfferInbox({
     body,
     message_type: "contract_offer",
     action_type: "contract_negotiation",
+    event_id: contractOfferEventId(contractId, round),
     related_entity_id: contractId,
     related_entity_type: "player_contract",
     metadata,

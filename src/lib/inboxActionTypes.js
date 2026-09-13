@@ -9,6 +9,19 @@ export function parseInboxMetadata(message = {}) {
   }
 }
 
+export function inboxMessageBelongsToTournament(message = {}, tournamentId) {
+  if (!tournamentId) return false;
+  const meta = parseInboxMetadata(message);
+  return meta.tournament_id === tournamentId || meta.tournamentId === tournamentId;
+}
+
+export function inboxGameDayHref(message = {}) {
+  const meta = parseInboxMetadata(message);
+  if (meta.link) return meta.link;
+  if (message.related_entity_id) return `/game-day?match=${message.related_entity_id}`;
+  return "/game-day";
+}
+
 export function isMatchCancelRequest(message = {}) {
   return Boolean(parseInboxMetadata(message).cancel_request);
 }

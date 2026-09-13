@@ -9,6 +9,7 @@ import { getClubPresidentContactEmail } from "@/lib/clubPresidentAccess";
 import { combineDateTimeToMysql } from "@/lib/momentDate";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useAuth } from "@/lib/AuthContext";
+import { createInboxEventId } from "@/lib/inboxEventId";
 
 export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onSent }) {
   const { t } = useTranslation();
@@ -250,6 +251,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
         ? `\n\n💰 STC Wager: ${wagerAmount.toLocaleString()} STC each side (pot: ${(wagerAmount * 2).toLocaleString()} STC). Funds are locked from both balances when this invite is accepted.`
         : "";
 
+      const event_id = createInboxEventId();
       await stageClient.functions.invoke("sendInboxMessage", {
         recipient_email:      recipientEmail,
         sender_email:         senderIsClub ? (myClub?.owner_email || myPlayer?.email || "system@stage.com") : (myPlayer?.email || "system@stage.com"),
@@ -260,6 +262,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
         body:                 `You have received a match invitation from ${senderName}.\n\nProposed date: ${date} at ${time}${wagerLine}\n\nPlease accept, decline, or request a different date.`,
         message_type:         "match_invite",
         action_type:          "accept_decline_date",
+        event_id,
         related_entity_id:    selected.id,
         related_entity_type:  recipientIsClub ? "club" : "player",
         status:               "pending",
