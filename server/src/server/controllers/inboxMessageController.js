@@ -68,6 +68,13 @@ router.post('/', async (req, res) => {
       // Prevent sender spoofing from the client.
       payload.sender_email = currentUser.email;
     }
+    const subject = String(payload.subject || '').trim();
+    const body = String(payload.body || '').trim();
+    if (!payload.recipient_email || !subject || !body) {
+      return res.status(400).json({ error: 'Missing required fields: recipient_email, subject, body' });
+    }
+    payload.subject = subject;
+    payload.body = body;
     const inbox = new InboxMessage(payload);
     await inbox.create();
     const created = await inbox.selectOne(inbox.id);

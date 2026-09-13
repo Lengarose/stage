@@ -2,8 +2,8 @@ import { useState } from "react";
 import { stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { format } from "@/lib/momentDate";
-import { Trash2, Check, X, Calendar, Shield, AlertTriangle } from "lucide-react";
+import { format, isToday } from "@/lib/momentDate";
+import { Trash2, Check, X, Calendar, Shield, AlertTriangle, ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getEffectiveInboxActionType, isMatchCancelRequest } from "@/lib/inboxActionTypes";
 import InboxContractOffer from "@/components/inbox/InboxContractOffer";
@@ -21,11 +21,11 @@ import {
 import { useTranslation } from "@/hooks/useTranslation";
 
 const STATUS_COLORS = {
-  accepted:              "text-success bg-success/10 border-success/20",
-  confirmed:             "text-success bg-success/10 border-success/20",
-  declined:              "text-destructive bg-destructive/10 border-destructive/20",
-  date_change_requested: "text-warning bg-warning/10 border-warning/20",
-  pending:               "text-muted-foreground bg-muted border-border",
+  accepted:              "text-emerald-300 bg-emerald-500/15 border-emerald-400/25",
+  confirmed:             "text-emerald-300 bg-emerald-500/15 border-emerald-400/25",
+  declined:              "text-rose-300 bg-rose-500/15 border-rose-400/25",
+  date_change_requested: "text-amber-300 bg-amber-500/15 border-amber-400/25",
+  pending:               "text-white/50 bg-white/[0.06] border-white/10",
 };
 
 const STATUS_LABEL_KEYS = {
@@ -36,7 +36,28 @@ const STATUS_LABEL_KEYS = {
   pending: "pending",
 };
 
-export default function InboxMessageDetail({ message, onDeleted, onStatusChanged, myClub, myEmail, myGamertag }) {
+function bubbleTime(dateValue) {
+  const d = new Date(dateValue);
+  if (Number.isNaN(d.getTime())) return "";
+  return format(d, "HH:mm");
+}
+
+function dayLabel(dateValue, t) {
+  const d = new Date(dateValue);
+  if (Number.isNaN(d.getTime())) return "";
+  if (isToday(d)) return t("matchFlow.today", "Today");
+  return format(d, "d MMM yyyy");
+}
+
+export default function InboxMessageDetail({
+  message,
+  onDeleted,
+  onStatusChanged,
+  onBack,
+  myClub,
+  myEmail,
+  myGamertag,
+}) {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -46,7 +67,7 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
 
   if (!message || typeof message !== "object") {
     return (
-      <div className="flex h-full items-center justify-center p-6 text-sm text-muted-foreground">
+      <div className="flex h-full items-center justify-center p-6 text-sm text-white/45">
         {t("matchFlow.messageUnavailable", "Message unavailable.")}
       </div>
     );
@@ -90,205 +111,251 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
   const hasAction = effectiveActionType !== "none" && status === "pending";
   const isActioned = effectiveActionType !== "none" && status !== "pending";
   const isCancelRequest = isMatchCancelRequest(message);
+  const senderName = message.is_system
+    ? t("matchFlow.stageSystem")
+    : (message.sender_gamertag || t("matchFlow.unknown"));
+
+  const showGenericActions = hasAction
+    && message.message_type !== "contract_offer"
+    && message.message_type !== "loan_proposal"
+    && message.message_type !== "loan_purchase"
+    && message.message_type !== "loan_recalled"
+    && message.message_type !== "loan_early_end"
+    && message.message_type !== "loan_terminated_early"
+    && message.message_type !== "trial_request"
+    && message.message_type !== "league_schedule";
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="p-5 border-b border-border">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-3">
-            {/* Sender avatar */}
-            {message.is_system ? (
-              <div className="w-11 h-11 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-xl shrink-0">
-                ⚡
-              </div>
-            ) : message.sender_avatar_url ? (
-              <img
-                src={message.sender_avatar_url}
-                alt={message.sender_gamertag}
-                className="w-11 h-11 rounded-full object-cover border border-border shrink-0"
-              />
-            ) : (
-              <div className="w-11 h-11 rounded-full bg-secondary border border-border flex items-center justify-center text-base font-bold text-foreground shrink-0">
-                {(message.sender_gamertag || "?")[0].toUpperCase()}
-              </div>
-            )}
+    <div className="flex h-full min-h-0 flex-col bg-[#0b1220]">
+      {/* Chat header */}
+      <header className="flex shrink-0 items-center gap-3 border-b border-white/[0.07] bg-[#101826] px-3 py-2.5 lg:px-4">
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            className="rounded-full p-1.5 text-cyan-300 transition hover:bg-white/[0.06] lg:hidden"
+            aria-label={t("matchFlow.backToInbox")}
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+        )}
 
-            <div>
-              <p className="text-sm font-bold text-foreground">
-                {message.is_system ? t("matchFlow.stageSystem") : (message.sender_gamertag || t("matchFlow.unknown"))}
-              </p>
-              {message.sender_club_name && (
-                <div className="flex items-center gap-1 mt-0.5">
-                  <Shield className="w-3 h-3 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">{message.sender_club_name}</span>
-                </div>
-              )}
-              <p className="text-[11px] text-muted-foreground/60 mt-0.5">
-                {format(new Date(message.created_date), "d MMM yyyy • HH:mm")}
-              </p>
-            </div>
+        {message.is_system ? (
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500/30 to-teal-700/40 text-base ring-1 ring-cyan-400/20">
+            ⚡
           </div>
+        ) : message.sender_avatar_url ? (
+          <img
+            src={message.sender_avatar_url}
+            alt={senderName}
+            className="h-10 w-10 shrink-0 rounded-full object-cover ring-1 ring-white/10"
+          />
+        ) : (
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#1c2433] text-sm font-bold text-white/80 ring-1 ring-white/10">
+            {senderName[0].toUpperCase()}
+          </div>
+        )}
 
-          {/* Delete — with confirmation warning if action pending */}
-          {hasAction ? (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <button
-                  className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors shrink-0"
-                  title={t("matchFlow.deleteMessage")}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle className="flex items-center gap-2">
-                    <AlertTriangle className="w-5 h-5 text-warning" />
-                    {t("matchFlow.deleteWithoutResponding")}
-                  </AlertDialogTitle>
-                  <AlertDialogDescription>
-                    {t("matchFlow.deleteWarning")}
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>{t("matchFlow.keepMessage")}</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={handleDelete}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  >
-                    {t("matchFlow.deleteAnyway")}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[15px] font-semibold text-white">{senderName}</p>
+          {message.sender_club_name ? (
+            <p className="flex items-center gap-1 truncate text-[11px] text-white/40">
+              <Shield className="h-3 w-3 shrink-0" />
+              {message.sender_club_name}
+            </p>
           ) : (
-            <button
-              onClick={handleDelete}
-              className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors shrink-0"
-              title={t("matchFlow.deleteMessage")}
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
+            <p className="truncate text-[11px] text-white/40">{message.subject}</p>
           )}
         </div>
 
-        {/* Subject */}
-        <h2 className="mt-4 text-lg font-bold text-foreground leading-snug">{message.subject}</h2>
-
-        {/* Status badge if actioned */}
-        {isActioned && (
-          <span className={cn(
-            "inline-block mt-2 text-xs px-2 py-0.5 rounded border font-medium",
-            STATUS_COLORS[status] || STATUS_COLORS.pending
-          )}>
-            {STATUS_LABEL_KEYS[status] ? t(`matchFlow.${STATUS_LABEL_KEYS[status]}`) : status.replace(/_/g, " ")}
-          </span>
+        {hasAction ? (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <button
+                type="button"
+                className="rounded-full p-2 text-white/40 transition hover:bg-rose-500/10 hover:text-rose-300"
+                title={t("matchFlow.deleteMessage")}
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-warning" />
+                  {t("matchFlow.deleteWithoutResponding")}
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  {t("matchFlow.deleteWarning")}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>{t("matchFlow.keepMessage")}</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDelete}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  {t("matchFlow.deleteAnyway")}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        ) : (
+          <button
+            type="button"
+            onClick={handleDelete}
+            className="rounded-full p-2 text-white/40 transition hover:bg-rose-500/10 hover:text-rose-300"
+            title={t("matchFlow.deleteMessage")}
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
         )}
-      </div>
+      </header>
 
-      {/* Needs action banner */}
-      {hasAction && (
-        <div className="mx-5 mt-4 flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg bg-warning/10 border border-warning/30">
-          <AlertTriangle className="w-4 h-4 text-warning shrink-0" />
-          <p className="text-xs font-semibold text-warning">{t("matchFlow.responseRequiredNotice")}</p>
-        </div>
-      )}
-      {actionError && (
-        <div className="mx-5 mt-3 flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg bg-destructive/10 border border-destructive/30">
-          <AlertTriangle className="w-4 h-4 text-destructive shrink-0" />
-          <p className="text-xs font-semibold text-destructive">{actionError}</p>
-        </div>
-      )}
+      {/* Message thread */}
+      <div className="relative min-h-0 flex-1 overflow-y-auto">
+        <div
+          className="pointer-events-none absolute inset-0 opacity-[0.14]"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle at 1px 1px, rgba(0,229,255,0.4) 1px, transparent 0)",
+            backgroundSize: "26px 26px",
+          }}
+        />
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(180deg, rgba(6,9,18,0.15) 0%, rgba(11,18,32,0.55) 100%)",
+          }}
+        />
 
-      {/* Body */}
-      <div className="flex-1 overflow-y-auto p-5">
-        <p className="text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap">{message.body}</p>
-
-        {/* Related entity info — only show clean human-readable labels, never raw IDs */}
-        {message.related_entity_type === "match" && (
-          <div className="mt-4 p-3 rounded-lg bg-secondary border border-border text-xs text-muted-foreground flex items-center gap-1.5">
-            <span>⚽</span>
-            <span>
-              {t("matchFlow.linkedMatchNotice", { schedule: t("matchFlow.scheduleTitle") })}
+        <div className="relative z-10 flex flex-col gap-3 px-3 py-4 lg:px-8">
+          <div className="flex justify-center">
+            <span className="rounded-md bg-black/35 px-3 py-1 text-[11px] font-medium text-white/55 shadow-sm backdrop-blur-sm">
+              {dayLabel(message.created_date, t)}
             </span>
           </div>
-        )}
 
-        {/* Trial request — club president response UI */}
-        {message.message_type === "trial_request" && effectiveActionType === "trial_response" && (
-          <InboxTrialRequest
-            message={message}
-            onActioned={(action) => {
-              if (action === "offer" || action === "decline") {
-                onStatusChanged?.(message.id, action === "offer" ? "accepted" : "declined");
-              }
-            }}
-          />
-        )}
+          {actionError && (
+            <div className="flex items-center gap-2 rounded-lg border border-rose-400/30 bg-rose-500/10 px-3.5 py-2.5">
+              <AlertTriangle className="h-4 w-4 shrink-0 text-rose-300" />
+              <p className="text-xs font-semibold text-rose-200">{actionError}</p>
+            </div>
+          )}
 
-        {/* Contract offer — inline negotiation UI */}
-        {message.message_type === "contract_offer" && effectiveActionType === "contract_negotiation" && (
-          <InboxContractOffer
-            message={message}
-            onActioned={(action) => {
-              if (action === "accept" || action === "reject") {
-                onStatusChanged?.(message.id, action === "accept" ? "accepted" : "declined");
-              }
-            }}
-          />
-        )}
-        {message.message_type === "loan_proposal" && (effectiveActionType === "loan_parent_response" || effectiveActionType === "loan_player_response") && (
-          <InboxLoanProposal
-            message={message}
-            onActioned={(action) => {
-              if (action === "accept") onStatusChanged?.(message.id, "accepted");
-              if (action === "reject") onStatusChanged?.(message.id, "declined");
-            }}
-          />
-        )}
-        {message.message_type === "loan_purchase" && effectiveActionType === "loan_purchase_response" && (
-          <InboxLoanPurchaseOffer
-            message={message}
-            onActioned={(action) => {
-              if (action === "accept") onStatusChanged?.(message.id, "accepted");
-              if (action === "reject") onStatusChanged?.(message.id, "declined");
-            }}
-          />
-        )}
-        {message.message_type === "loan_recalled" && (
-          <InboxLoanRecalled message={message} />
-        )}
-        {message.message_type === "loan_early_end" && effectiveActionType === "loan_early_end_response" && (
-          <InboxLoanEarlyEnd
-            message={message}
-            onActioned={(action) => {
-              if (action === "accept") onStatusChanged?.(message.id, "accepted");
-              if (action === "reject") onStatusChanged?.(message.id, "declined");
-            }}
-          />
-        )}
-        {message.message_type === "loan_terminated_early" && (
-          <InboxLoanTerminatedEarly message={message} />
-        )}
+          {/* Incoming bubble — one record = one bubble */}
+          <div className="flex max-w-[min(100%,34rem)] flex-col items-start">
+            <div className="relative rounded-2xl rounded-tl-md bg-[#182233] px-3.5 py-2.5 shadow-lg ring-1 ring-white/[0.06]">
+              <p className="mb-1.5 text-[13px] font-semibold text-cyan-300/90">{message.subject}</p>
+              <p className="whitespace-pre-wrap text-[14px] leading-relaxed text-white/90">{message.body}</p>
 
-        {/* League / competition scheduling proposal */}
-        {message.message_type === "league_schedule" && (
-          <InboxScheduleProposal
-            message={message}
-            myClub={myClub}
-            myEmail={myEmail}
-            myGamertag={myGamertag}
-            onActioned={(status) => onStatusChanged?.(message.id, status)}
-          />
-        )}
+              {isActioned && (
+                <span className={cn(
+                  "mt-2 inline-block rounded border px-2 py-0.5 text-[10px] font-medium",
+                  STATUS_COLORS[status] || STATUS_COLORS.pending
+                )}>
+                  {STATUS_LABEL_KEYS[status] ? t(`matchFlow.${STATUS_LABEL_KEYS[status]}`) : status.replace(/_/g, " ")}
+                </span>
+              )}
+
+              <div className="mt-1.5 flex items-center justify-end gap-1">
+                <span className="text-[10px] tabular-nums text-white/35">
+                  {bubbleTime(message.created_date)}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {hasAction && (
+            <div className="flex max-w-[min(100%,34rem)] items-start">
+              <div className="flex items-center gap-2 rounded-xl border border-amber-400/25 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-200">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                {t("matchFlow.responseRequiredNotice")}
+              </div>
+            </div>
+          )}
+
+          {message.related_entity_type === "match" && (
+            <div className="max-w-[min(100%,34rem)] rounded-xl border border-white/10 bg-black/25 px-3 py-2 text-xs text-white/50">
+              ⚽ {t("matchFlow.linkedMatchNotice", { schedule: t("matchFlow.scheduleTitle") })}
+            </div>
+          )}
+
+          <div className="max-w-[min(100%,34rem)] space-y-3">
+            {message.message_type === "trial_request" && effectiveActionType === "trial_response" && (
+              <InboxTrialRequest
+                message={message}
+                onActioned={(action) => {
+                  if (action === "offer" || action === "decline") {
+                    onStatusChanged?.(message.id, action === "offer" ? "accepted" : "declined");
+                  }
+                }}
+              />
+            )}
+
+            {message.message_type === "contract_offer" && effectiveActionType === "contract_negotiation" && (
+              <InboxContractOffer
+                message={message}
+                onActioned={(action) => {
+                  if (action === "accept" || action === "reject") {
+                    onStatusChanged?.(message.id, action === "accept" ? "accepted" : "declined");
+                  }
+                }}
+              />
+            )}
+            {message.message_type === "loan_proposal" && (effectiveActionType === "loan_parent_response" || effectiveActionType === "loan_player_response") && (
+              <InboxLoanProposal
+                message={message}
+                onActioned={(action) => {
+                  if (action === "accept") onStatusChanged?.(message.id, "accepted");
+                  if (action === "reject") onStatusChanged?.(message.id, "declined");
+                }}
+              />
+            )}
+            {message.message_type === "loan_purchase" && effectiveActionType === "loan_purchase_response" && (
+              <InboxLoanPurchaseOffer
+                message={message}
+                onActioned={(action) => {
+                  if (action === "accept") onStatusChanged?.(message.id, "accepted");
+                  if (action === "reject") onStatusChanged?.(message.id, "declined");
+                }}
+              />
+            )}
+            {message.message_type === "loan_recalled" && (
+              <InboxLoanRecalled message={message} />
+            )}
+            {message.message_type === "loan_early_end" && effectiveActionType === "loan_early_end_response" && (
+              <InboxLoanEarlyEnd
+                message={message}
+                onActioned={(action) => {
+                  if (action === "accept") onStatusChanged?.(message.id, "accepted");
+                  if (action === "reject") onStatusChanged?.(message.id, "declined");
+                }}
+              />
+            )}
+            {message.message_type === "loan_terminated_early" && (
+              <InboxLoanTerminatedEarly message={message} />
+            )}
+
+            {message.message_type === "league_schedule" && (
+              <InboxScheduleProposal
+                message={message}
+                myClub={myClub}
+                myEmail={myEmail}
+                myGamertag={myGamertag}
+                onActioned={(status) => onStatusChanged?.(message.id, status)}
+              />
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* Action buttons — only for non-contract, non-trial, non-schedule messages */}
-      {hasAction && message.message_type !== "contract_offer" && message.message_type !== "loan_proposal" && message.message_type !== "loan_purchase" && message.message_type !== "loan_recalled" && message.message_type !== "loan_early_end" && message.message_type !== "loan_terminated_early" && message.message_type !== "trial_request" && message.message_type !== "league_schedule" && (
-        <div className="p-4 border-t border-warning/20 bg-warning/5">
-          <p className="text-xs text-warning mb-3 font-semibold uppercase tracking-wider flex items-center gap-1.5">
-            <AlertTriangle className="w-3.5 h-3.5" />
+      {/* Bottom action bar (composer-like) */}
+      {showGenericActions && (
+        <div className="shrink-0 border-t border-white/[0.07] bg-[#101826] px-3 py-3 lg:px-4">
+          <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-amber-300/90">
+            <AlertTriangle className="h-3.5 w-3.5" />
             {t("matchFlow.yourResponseRequired")}
           </p>
           <div className="flex flex-wrap gap-2">
@@ -298,9 +365,9 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
                   size="sm"
                   onClick={() => handleAction("accepted")}
                   disabled={!!loading}
-                  className="bg-success text-white hover:bg-success/90 gap-1.5"
+                  className="gap-1.5 bg-emerald-500 text-white hover:bg-emerald-400"
                 >
-                  <Check className="w-3.5 h-3.5" />
+                  <Check className="h-3.5 w-3.5" />
                   {loading === "accepted"
                     ? t("matchFlow.confirming")
                     : isCancelRequest
@@ -312,9 +379,9 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
                   variant="outline"
                   onClick={() => handleAction("declined")}
                   disabled={!!loading}
-                  className="border-destructive/40 text-destructive hover:bg-destructive/10 gap-1.5"
+                  className="gap-1.5 border-rose-400/40 text-rose-300 hover:bg-rose-500/10"
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <X className="h-3.5 w-3.5" />
                   {loading === "declined"
                     ? t("matchFlow.declining")
                     : isCancelRequest
@@ -328,30 +395,30 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
                 size="sm"
                 onClick={() => handleAction("confirmed")}
                 disabled={!!loading}
-                className="bg-success text-white hover:bg-success/90 gap-1.5"
+                className="gap-1.5 bg-emerald-500 text-white hover:bg-emerald-400"
               >
-                <Check className="w-3.5 h-3.5" />
+                <Check className="h-3.5 w-3.5" />
                 {loading === "confirmed" ? t("matchFlow.confirming") : t("matchFlow.confirm")}
               </Button>
             )}
             {effectiveActionType === "accept_decline_date" && (
               <>
                 {showDatePicker ? (
-                  <div className="flex flex-col gap-2 w-full">
-                    <p className="text-xs text-warning font-semibold">{t("matchFlow.proposeDateTime")}</p>
+                  <div className="flex w-full flex-col gap-2">
+                    <p className="text-xs font-semibold text-amber-300">{t("matchFlow.proposeDateTime")}</p>
                     <div className="flex gap-2">
                       <Input
                         type="date"
                         value={rescheduleDate}
                         onChange={e => setRescheduleDate(e.target.value)}
-                        className="bg-secondary border-border text-xs h-8"
+                        className="h-8 border-white/10 bg-[#182233] text-xs text-white"
                         min={new Date().toISOString().split("T")[0]}
                       />
                       <Input
                         type="time"
                         value={rescheduleTime}
                         onChange={e => setRescheduleTime(e.target.value)}
-                        className="bg-secondary border-border text-xs h-8 w-28"
+                        className="h-8 w-28 border-white/10 bg-[#182233] text-xs text-white"
                       />
                     </div>
                     <div className="flex gap-2">
@@ -359,13 +426,13 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
                         size="sm"
                         onClick={() => handleAction("date_change_requested")}
                         disabled={!!loading || !rescheduleDate || !rescheduleTime}
-                        className="gap-1.5 text-warning border-warning/40 hover:bg-warning/10"
+                        className="gap-1.5 border-amber-400/40 text-amber-300 hover:bg-amber-500/10"
                         variant="outline"
                       >
-                        <Calendar className="w-3.5 h-3.5" />
+                        <Calendar className="h-3.5 w-3.5" />
                         {loading === "date_change_requested" ? t("matchFlow.sending") : t("matchFlow.sendProposal")}
                       </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setShowDatePicker(false)} className="text-muted-foreground">
+                      <Button size="sm" variant="ghost" onClick={() => setShowDatePicker(false)} className="text-white/45">
                         {t("matchFlow.cancel")}
                       </Button>
                     </div>
@@ -376,9 +443,9 @@ export default function InboxMessageDetail({ message, onDeleted, onStatusChanged
                     variant="outline"
                     onClick={() => handleAction("date_change_requested")}
                     disabled={!!loading}
-                    className="gap-1.5 text-warning border-warning/40 hover:bg-warning/10"
+                    className="gap-1.5 border-amber-400/40 text-amber-300 hover:bg-amber-500/10"
                   >
-                    <Calendar className="w-3.5 h-3.5" />
+                    <Calendar className="h-3.5 w-3.5" />
                     {t("matchFlow.requestDifferentDate")}
                   </Button>
                 )}

@@ -909,7 +909,129 @@ test('sendActionMessage can skip related-entity reuse for distinct action propos
     reuseByRelated: false,
   });
 
-  assert.equal(queries.some(({ sql }) => /FROM inbox_messages\s+WHERE recipient_email = \?/.test(sql)), false);
+  assert.equal(queries.some(({ sql }) => /SELECT id FROM inbox_messages\s+WHERE recipient_email = \?/.test(sql)), false);
+  assert.equal(queries.some(({ sql }) => /INSERT INTO inbox_messages/.test(sql)), true);
+});
+
+test('sendActionMessage inserts a new row for a new event key even when related entity already has an inbox', async () => {
+  // Bug: reuseByRelated defaulted true, so match result_confirmed overwrote
+  // result_submitted instead of creating a new inbox record.
+  const queries = [];
+  const { service, inboxBroadcasts } = loadMessageDeliveryServiceWithDbMock(async (sql, params) => {
+    queries.push({ sql, params });
+    if (/FROM inbox_messages WHERE idempotency_key = \?/.test(sql)) return [];
+    if (/SELECT id FROM inbox_messages\s+WHERE recipient_email = \?/.test(sql)) {
+      return [{ id: 'inbox-old' }];
+    }
+    if (/DELETE FROM inbox_messages/.test(sql)) return { affectedRows: 0 };
+    if (/UPDATE inbox_messages/.test(sql)) return { affectedRows: 1 };
+    if (/INSERT INTO inbox_messages/.test(sql)) return { affectedRows: 1 };
+    if (/FROM inbox_messages WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{
+        id: params[0],
+        recipient_email: 'away@example.test',
+        subject: 'Result confirmed',
+        body: 'Home 2–1 Away',
+        message_type: 'match_result',
+        status: 'pending',
+        is_read: 0,
+      }];
+    }
+    if (/FROM players WHERE LOWER\(email\)=LOWER\(\?\)/.test(sql)) return [{ notification_settings: '{}' }];
+    if (/FROM notifications WHERE idempotency_key = \?/.test(sql)) return [];
+    if (/FROM notifications WHERE recipient_email = \? AND type = \? AND related_id = \?/.test(sql)) return [];
+    if (/INSERT INTO notifications/.test(sql)) return { affectedRows: 1 };
+    throw new Error(`Unexpected SQL: ${sql}`);
+  });
+
+  const result = await service.sendActionMessage({
+    recipientEmail: 'away@example.test',
+    subject: 'Result confirmed',
+    body: 'Home 2–1 Away',
+    messageType: 'match_result',
+    actionType: 'open_match',
+    relatedEntityId: 'match-1',
+    relatedEntityType: 'match',
+    idempotencyKey: 'match:match-1:result_confirmed:away@example.test',
+    isSystem: true,
+  });
+
+  assert.equal(result.message.reused, false);
+  assert.notEqual(result.message.id, 'inbox-old');
+  assert.equal(queries.some(({ sql }) => /INSERT INTO inbox_messages/.test(sql)), true);
+  assert.equal(queries.some(({ sql }) => /UPDATE inbox_messages/.test(sql)), false);
+  assert.equal(queries.some(({ sql }) => /SELECT id FROM inbox_messages\s+WHERE recipient_email = \?/.test(sql)), false);
+  const broadcast = inboxBroadcasts[0];
+  assert.ok(broadcast?.subject);
+  assert.ok(broadcast?.body);
+});
+
+test('sendActionMessage rejects blank subject/body so empty inbox rows are not created', async () => {
+  const { service } = loadMessageDeliveryServiceWithDbMock(async () => []);
+
+  await assert.rejects(
+    service.sendActionMessage({
+      recipientEmail: 'away@example.test',
+      subject: '   ',
+      body: 'Has body',
+      messageType: 'match_result',
+      relatedEntityId: 'match-1',
+      idempotencyKey: 'match:match-1:blank:away@example.test',
+    }),
+    /Missing required fields/
+  );
+
+  await assert.rejects(
+    service.sendActionMessage({
+      recipientEmail: 'away@example.test',
+      subject: 'Has subject',
+      body: '\n\t  ',
+      messageType: 'match_result',
+      relatedEntityId: 'match-1',
+      idempotencyKey: 'match:match-1:blank-body:away@example.test',
+    }),
+    /Missing required fields/
+  );
+});
+
+test('sendActionMessage deletes empty related stubs before inserting a real message', async () => {
+  const queries = [];
+  const { service } = loadMessageDeliveryServiceWithDbMock(async (sql, params) => {
+    queries.push({ sql, params });
+    if (/FROM inbox_messages WHERE idempotency_key = \?/.test(sql)) return [];
+    if (/DELETE FROM inbox_messages/.test(sql)) return { affectedRows: 1 };
+    if (/INSERT INTO inbox_messages/.test(sql)) return { affectedRows: 1 };
+    if (/FROM inbox_messages WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{
+        id: params[0],
+        recipient_email: 'away@example.test',
+        subject: 'Confirm match result',
+        body: 'Home submitted 1–0.',
+        message_type: 'match_result',
+      }];
+    }
+    if (/FROM players WHERE LOWER\(email\)=LOWER\(\?\)/.test(sql)) return [{ notification_settings: '{}' }];
+    if (/FROM notifications WHERE idempotency_key = \?/.test(sql)) return [];
+    if (/FROM notifications WHERE recipient_email = \? AND type = \? AND related_id = \?/.test(sql)) return [];
+    if (/INSERT INTO notifications/.test(sql)) return { affectedRows: 1 };
+    throw new Error(`Unexpected SQL: ${sql}`);
+  });
+
+  await service.sendActionMessage({
+    recipientEmail: 'away@example.test',
+    subject: 'Confirm match result',
+    body: 'Home submitted 1–0.',
+    messageType: 'match_result',
+    relatedEntityId: 'match-1',
+    relatedEntityType: 'match',
+    idempotencyKey: 'match:match-1:result_submitted:away@example.test',
+  });
+
+  const cleanup = queries.find(({ sql }) => /DELETE FROM inbox_messages/.test(sql));
+  assert.ok(cleanup, 'empty related stubs should be deleted before insert');
+  assert.equal(cleanup.params[0], 'away@example.test');
+  assert.equal(cleanup.params[1], 'match-1');
+  assert.equal(cleanup.params[2], 'match_result');
   assert.equal(queries.some(({ sql }) => /INSERT INTO inbox_messages/.test(sql)), true);
 });
 
