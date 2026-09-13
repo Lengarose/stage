@@ -7422,7 +7422,11 @@ const HANDLERS = {
     if (message.status && String(message.status) !== 'pending') {
       throw new Error('This action is no longer valid');
     }
-    await markInboxMessageResponded(message_id, action);
+
+    const finishResponded = async (payload) => {
+      await markInboxMessageResponded(message_id, action);
+      return payload;
+    };
 
     const meta = parseMaybeJson(message.metadata, {});
     const isMatchInvite = message.message_type === 'match_invite';
@@ -7487,7 +7491,7 @@ const HANDLERS = {
           });
         }
 
-        return { success: true, message: { id: message_id, status: action }, match: { id: match.id, status: 'scheduled', scheduled_date: proposedDate } };
+        return finishResponded({ success: true, message: { id: message_id, status: action }, match: { id: match.id, status: 'scheduled', scheduled_date: proposedDate } });
       }
 
       await EXECUTESQL(
@@ -7529,7 +7533,7 @@ const HANDLERS = {
         });
       }
 
-      return { success: true, message: { id: message_id, status: action }, match: { id: match.id, scheduling_status: 'open' } };
+      return finishResponded({ success: true, message: { id: message_id, status: action }, match: { id: match.id, scheduling_status: 'open' } });
     }
 
     if (isMatchInvite && meta.cancel_request) {
@@ -7566,7 +7570,7 @@ const HANDLERS = {
             relatedId: match.id,
           });
         }
-        return { success: true, message: { id: message_id, status: action }, match: { id: match.id, status: 'cancelled' } };
+        return finishResponded({ success: true, message: { id: message_id, status: action }, match: { id: match.id, status: 'cancelled' } });
       }
       if (action === 'declined' && match) {
         const patch = applyDeclinedCancelPatch();
@@ -7585,7 +7589,7 @@ const HANDLERS = {
             matchId: match.id,
           });
         }
-        return { success: true, message: { id: message_id, status: action } };
+        return finishResponded({ success: true, message: { id: message_id, status: action } });
       }
     }
 
@@ -7615,13 +7619,13 @@ const HANDLERS = {
           relatedId: existingMatchId || message_id,
         });
       }
-      return { success: true, message: { id: message_id, status: action } };
+      return finishResponded({ success: true, message: { id: message_id, status: action } });
     }
 
     if (action === 'accepted' && isMatchInvite) {
       // Prevent duplicate match creation if already linked.
       if (meta.created_match_id) {
-        return { success: true, message: { id: message_id, status: action }, match: { id: meta.created_match_id } };
+        return finishResponded({ success: true, message: { id: message_id, status: action }, match: { id: meta.created_match_id } });
       }
       const scheduledDate = toMysqlDateTime(meta.scheduled_date);
       const payload = await createRankedMatchFromInviteMetadata(meta, { homeSide: 'challenger', scheduledDate });
@@ -7650,7 +7654,7 @@ const HANDLERS = {
           relatedId: payload.id,
         });
       }
-      return { success: true, message: { id: message_id, status: action }, match: { id: payload.id } };
+      return finishResponded({ success: true, message: { id: message_id, status: action }, match: { id: payload.id } });
     }
 
     if (action === 'date_change_requested' && isMatchInvite && message.sender_email) {
@@ -7731,7 +7735,7 @@ const HANDLERS = {
       });
     }
 
-    return { success: true, message: { id: message_id, status: action } };
+    return finishResponded({ success: true, message: { id: message_id, status: action } });
   },
   // ── EA Pro Clubs API proxy ────────────────────────────────────────────────
   async eafcApi({ endpoint, params }) {

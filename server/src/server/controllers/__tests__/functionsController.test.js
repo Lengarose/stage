@@ -1104,6 +1104,84 @@ test('respondInboxMessage rejects a stale tournament action', async () => {
   assert.match(String(response.body?.error || ''), /no longer valid/i);
 });
 
+test('respondInboxMessage does not mark mail responded when tournament match or proposedDate is missing', async () => {
+  async function runCase({ message, matchRows, expectedError }) {
+    const inboxStatusUpdates = [];
+    const executesql = async (sql, params = []) => {
+      if (/FROM users WHERE id = \? LIMIT 1/.test(sql)) {
+        return [{ id: params[0], email: 'away@example.test', player_id: 'player-away', owner_id: null }];
+      }
+      if (/SELECT \* FROM players WHERE id = \? LIMIT 1/.test(sql)) {
+        return [{ id: 'player-away', email: 'away@example.test', gamertag: 'AwayTag', club_id: null }];
+      }
+      if (/SELECT \* FROM players WHERE user_id = \? LIMIT 1/.test(sql)) return [];
+      if (/SELECT \* FROM clubs WHERE/.test(sql)) return [];
+      if (/SELECT \* FROM inbox_messages WHERE id = \? LIMIT 1/.test(sql)) return [message];
+      if (/UPDATE inbox_messages SET status = \?/.test(sql)) {
+        inboxStatusUpdates.push({ sql, params });
+        return { affectedRows: 1 };
+      }
+      if (/SELECT \* FROM matches WHERE id = \? LIMIT 1/.test(sql)) return matchRows;
+      throw new Error(`Unexpected SQL: ${sql}`);
+    };
+    const router = loadFunctionsRouterWithDbMock(executesql, {
+      messageDeliveryServiceMock: {
+        messageTypeToNotificationType: () => 'message',
+        deliverContractOfferMessage: async () => {},
+        createNotificationIfEnabled: async () => {},
+        sendActionMessage: async () => ({ success: true, message: { id: 'unused' } }),
+      },
+    });
+    const handle = postFunctionHandler(router);
+    const response = makeJsonResponse();
+
+    await handle(
+      { params: { name: 'respondInboxMessage' }, body: { message_id: message.id, action: 'accepted' }, user: { id: 'user-away' } },
+      response,
+    );
+
+    assert.equal(response.statusCode, 500);
+    assert.match(String(response.body?.error || ''), expectedError);
+    assert.equal(inboxStatusUpdates.length, 0);
+  }
+
+  await runCase({
+    message: {
+      id: 'tournament-message-missing-match',
+      recipient_email: 'away@example.test',
+      sender_email: 'home@example.test',
+      message_type: 'tournament_schedule',
+      status: 'pending',
+      related_entity_id: 'match-missing',
+      metadata: JSON.stringify({ match_id: 'match-missing', proposed_date: '2026-06-15 20:00:00' }),
+    },
+    matchRows: [],
+    expectedError: /fixture not found/i,
+  });
+
+  await runCase({
+    message: {
+      id: 'tournament-message-missing-date',
+      recipient_email: 'away@example.test',
+      sender_email: 'home@example.test',
+      message_type: 'tournament_schedule',
+      status: 'pending',
+      related_entity_id: 'match-tournament-1',
+      metadata: JSON.stringify({ match_id: 'match-tournament-1' }),
+    },
+    matchRows: [{
+      id: 'match-tournament-1',
+      scheduling_status: 'home_proposed',
+      home_proposed_date: null,
+      scheduled_date: null,
+      confirmed_date: null,
+      status: 'unscheduled',
+      tournament_id: 'tournament-1',
+    }],
+    expectedError: /proposed schedule date is missing/i,
+  });
+});
+
 test('matchFixtureActions request_cancel asks the opponent instead of deleting the match', async () => {
   const matchUpdates = [];
   const deliveries = [];
