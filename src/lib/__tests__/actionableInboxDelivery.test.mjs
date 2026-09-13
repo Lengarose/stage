@@ -38,3 +38,22 @@ test("contract offer actions persist the inbox message response status", async (
     "InboxContractOffer should update the inbox message after accept/decline"
   );
 });
+
+const EVENT_ID_SOURCES = [
+  "components/schedule/ArrangeGameDialog.jsx",
+  "lib/scheduleEngine.js",
+  "pages/TournamentDetail.jsx",
+  "lib/contractOfferDelivery.js",
+];
+
+test("actionable inbox sends pass event_id so each click is a new mail", async () => {
+  for (const relativePath of EVENT_ID_SOURCES) {
+    const source = await readFile(path.join(srcRoot, relativePath), "utf8");
+    assert.match(source, /createInboxEventId/, `${relativePath} must generate event_id`);
+    assert.match(
+      source,
+      /event_id/,
+      `${relativePath} must send event_id to sendInboxMessage`
+    );
+  }
+});

@@ -1,4 +1,5 @@
 import { stageClient } from "@/api/stageClient";
+import { createInboxEventId } from "@/lib/inboxEventId";
 import { notify } from "./notify";
 import { addDays, format } from "@/lib/momentDate";
 
@@ -139,8 +140,9 @@ export async function proposeTime({ fixture, fixtureType, role, proposedDate, my
     ? format(new Date(fixture.window_end), "d MMM yyyy")
     : "TBD";
 
-  await Promise.all(recipientEmails.map((recipientEmail) =>
-    stageClient.functions.invoke("sendInboxMessage", {
+  await Promise.all(recipientEmails.map((recipientEmail) => {
+    const event_id = createInboxEventId();
+    return stageClient.functions.invoke("sendInboxMessage", {
       recipient_email:     recipientEmail,
       sender_email:        myEmail,
       sender_gamertag:     proposerName,
@@ -150,6 +152,7 @@ export async function proposeTime({ fixture, fixtureType, role, proposedDate, my
       body:                `${proposerName} has proposed a time for your upcoming match.\n\n${matchContext}\n${fixtureName}\n\nProposed: ${formattedDate}\n\nYou can accept this time or decline it. If declined, the fixture stays open so the home club can send a new proposal.\nScheduling deadline: ${deadline}.`,
       message_type:        "league_schedule",
       action_type:         "schedule_accept_propose",
+      event_id,
       related_entity_id:   fixture.id,
       related_entity_type: fixtureType === "regional_league" ? "league_fixture" : "competition_fixture",
       status:              "pending",
@@ -169,8 +172,8 @@ export async function proposeTime({ fixture, fixtureType, role, proposedDate, my
         window_end:           fixture.window_end,
       },
       send_notification:   true,
-    })
-  ));
+    });
+  }));
 }
 
 // ─── Accept a proposal ────────────────────────────────────────────────────────
@@ -204,8 +207,9 @@ export async function acceptProposal({ fixture, fixtureType, role, myClub, myEma
   }, fixtureType);
   await markMyPendingScheduleMessages({ fixtureId: fixture.id, myEmail, status: "confirmed" });
 
-  await Promise.all(proposerEmails.map((proposerEmail) =>
-    stageClient.functions.invoke("sendInboxMessage", {
+  await Promise.all(proposerEmails.map((proposerEmail) => {
+    const event_id = createInboxEventId();
+    return stageClient.functions.invoke("sendInboxMessage", {
       recipient_email: proposerEmail,
       sender_email:    myEmail,
       sender_gamertag: accepterName,
@@ -214,6 +218,8 @@ export async function acceptProposal({ fixture, fixtureType, role, myClub, myEma
       body:            `${accepterName} has accepted your proposed time.\n\nMatch: ${fixtureName}\nDate: ${formattedDate}\n\nThis match is now confirmed. Make sure you're available!`,
       message_type:    "league_schedule",
       action_type:     "none",
+      event_id,
+      related_entity_id: fixture.id,
       status:          "confirmed",
       is_read:         false,
       metadata: {
@@ -222,8 +228,8 @@ export async function acceptProposal({ fixture, fixtureType, role, myClub, myEma
         confirmed_date: confirmedDate,
       },
       send_notification: true,
-    })
-  ));
+    });
+  }));
 }
 
 export async function declineProposal({ fixture, fixtureType, role, myClub, myEmail }) {
@@ -245,8 +251,9 @@ export async function declineProposal({ fixture, fixtureType, role, myClub, myEm
   });
   await markMyPendingScheduleMessages({ fixtureId: fixture.id, myEmail, status: "declined" });
 
-  await Promise.all(proposerEmails.map((proposerEmail) =>
-    stageClient.functions.invoke("sendInboxMessage", {
+  await Promise.all(proposerEmails.map((proposerEmail) => {
+    const event_id = createInboxEventId();
+    return stageClient.functions.invoke("sendInboxMessage", {
       recipient_email: proposerEmail,
       sender_email: myEmail,
       sender_gamertag: declinerName,
@@ -256,6 +263,7 @@ export async function declineProposal({ fixture, fixtureType, role, myClub, myEm
       body: `${declinerName} declined your proposed match time.\n\nMatch: ${fixtureName}\n\nThe fixture is still open. Please send a new proposal from the fixture scheduling panel.`,
       message_type: "league_schedule",
       action_type: "none",
+      event_id,
       related_entity_id: fixture.id,
       related_entity_type: fixtureType === "regional_league" ? "league_fixture" : "competition_fixture",
       status: "declined",
@@ -266,8 +274,8 @@ export async function declineProposal({ fixture, fixtureType, role, myClub, myEm
         declined_by_role: role,
       },
       send_notification: true,
-    })
-  ));
+    });
+  }));
 }
 
 // ─── Check and expire overdue fixtures ────────────────────────────────────────

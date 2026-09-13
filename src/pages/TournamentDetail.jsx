@@ -37,6 +37,7 @@ import { isWallClockPast, toMysqlDateTime, toDatetimeLocalValue } from "@/lib/mo
 import { swalAlert, swalConfirm } from "@/lib/swal";
 import { getTournamentEntryCost } from "@/lib/subscriptionUtils";
 import { getClubManagerEmails } from "@/lib/scheduleEngine";
+import { createInboxEventId } from "@/lib/inboxEventId";
 import { canOpenTournamentGameDay, tournamentGameDayWebPath } from "@/lib/tournamentGameDay";
 import { useTranslation } from "@/hooks/useTranslation";
 
@@ -560,8 +561,9 @@ export default function TournamentDetail() {
       proposal_count: Number(scheduleMatch.proposal_count || 0) + 1,
     });
 
-    await Promise.all(awayEmails.map((email) =>
-      stageClient.functions.invoke("sendInboxMessage", {
+    await Promise.all(awayEmails.map((email) => {
+      const event_id = createInboxEventId();
+      return stageClient.functions.invoke("sendInboxMessage", {
         recipient_email: email,
         sender_email: user?.email || myPlayer?.email || null,
         sender_gamertag: myPlayer?.gamertag || myClub?.name || homeName,
@@ -571,6 +573,7 @@ export default function TournamentDetail() {
         body: `${homeName} proposed ${displayDate} for ${tournament?.name || "this tournament"}.\n\nAccept or decline this time from your inbox. If you decline, the fixture stays open and the home team can propose another time.`,
         message_type: "tournament_schedule",
         action_type: "accept_decline",
+        event_id,
         related_entity_id: scheduleMatch.id,
         related_entity_type: "tournament_match_schedule",
         metadata: {
@@ -585,8 +588,8 @@ export default function TournamentDetail() {
           away_club_name: awayName,
         },
         send_notification: true,
-      })
-    ));
+      });
+    }));
 
     const refreshed = await fetchTournamentMatches(id);
     setMatches(refreshed);
