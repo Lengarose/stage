@@ -468,8 +468,8 @@ const MOBILE_WALKTHROUGHS = [
   },
   {
     path: "/transfer-market",
-    label: "Transfers",
-    title: "Transfers",
+    label: "Transfer Room",
+    title: "Transfer Room",
     steps: [
       "Browse players and transfer opportunities across the market.",
       "Use filters to narrow by role, value, availability or club context.",
@@ -631,6 +631,7 @@ const NAV_LABEL_KEYS = {
   "Free Agents": "freeAgents",
   "Scouting": "scouting",
   "Transfers": "transfers",
+  "Transfer Room": "transfers",
   "Wallet": "wallet",
   "Feed": "feed",
   "Discord": "discord",
@@ -1020,7 +1021,7 @@ const MOBILE_MORE_GROUPS_PLAYER = [
       { path: "/presidents-list", icon: Crown,         label: "Presidents"    },
       { path: "/free-agents",     icon: UsersRound,    label: "Free Agents"   },
       { path: "/scouting",        icon: Binoculars,     label: "Scouting"    },
-      { path: "/transfer-market", icon: ArrowLeftRight, label: "Transfers"   },
+      { path: "/transfer-market", icon: ArrowLeftRight, label: "Transfer Room"   },
       { path: "/wallet",          icon: Zap,            label: "Wallet"      },
     ],
   },
@@ -1061,7 +1062,7 @@ function getMobileMoreGroupsPresident(clubPath) {
         { path: "/players-list",    icon: UsersRound,    label: "Squad"       },
         { path: "/presidents-list", icon: Crown,         label: "Presidents"  },
         { path: "/scouting",        icon: Binoculars,     label: "Scouting"    },
-        { path: "/transfer-market", icon: ArrowLeftRight, label: "Transfers"   },
+        { path: "/transfer-market", icon: ArrowLeftRight, label: "Transfer Room"   },
         { path: "/contracts/create", icon: Handshake,     label: "Contracts"   },
         { path: "/lifestyle",       icon: Coins,          label: "Lifestyle"   },
         { path: "/wallet",          icon: Zap,            label: "Wallet"      },
@@ -1453,7 +1454,7 @@ const ADMIN_MOBILE_MORE_GROUPS = [
     label: "Operations",
     items: [
       { path: "/admin/clubs", icon: Shield, label: "Clubs" },
-      { path: "/admin/transfers", icon: ArrowLeftRight, label: "Transfers" },
+      { path: "/admin/transfers", icon: ArrowLeftRight, label: "Transfer Room" },
     ],
   },
   {

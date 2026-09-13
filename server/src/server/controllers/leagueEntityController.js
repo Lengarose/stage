@@ -56,6 +56,7 @@ const ROUTE_TO_TYPE = {
   'ranking-configs':              'ranking_config',
   'season-registrations':         'season_registration',
   'game-day-configs':             'game_day_config',
+  'transfer-room-configs':        'transfer_room_config',
 };
 
 // Fields indexed as real columns (for WHERE filters); everything else in data JSON.
@@ -81,6 +82,7 @@ const AUDITED_ENTITY_TYPES = new Set([
   'regional_league_standing',
   'qualification_entry',
   'game_day_config',
+  'transfer_room_config',
 ]);
 
 function auditValue(value) {
@@ -210,7 +212,7 @@ function makeRouter(entityType) {
   router.post('/', async (req, res) => {
     try {
       const body = await stampFixtureTimezone(entityType, req.body || {}, req, { force: true });
-      if (entityType === 'game_day_config') {
+      if (entityType === 'game_day_config' || entityType === 'transfer_room_config') {
         const admin = await getAdminUser(req).catch(() => null);
         if (!admin) return res.status(403).json({ error: 'Admin access required.' });
       }
@@ -256,7 +258,7 @@ function makeRouter(entityType) {
   // PATCH /:id
   router.patch('/:id', async (req, res) => {
     try {
-      if (entityType === 'game_day_config') {
+      if (entityType === 'game_day_config' || entityType === 'transfer_room_config') {
         const admin = await getAdminUser(req).catch(() => null);
         if (!admin) return res.status(403).json({ error: 'Admin access required.' });
       }
@@ -300,7 +302,7 @@ function makeRouter(entityType) {
   // DELETE /:id
   router.delete('/:id', async (req, res) => {
     try {
-      if (entityType === 'game_day_config') {
+      if (entityType === 'game_day_config' || entityType === 'transfer_room_config') {
         const admin = await getAdminUser(req).catch(() => null);
         if (!admin) return res.status(403).json({ error: 'Admin access required.' });
       }

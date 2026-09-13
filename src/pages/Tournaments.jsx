@@ -226,8 +226,7 @@ export default function Tournaments() {
           <div className="flex items-center gap-3 flex-wrap">
             <Button
               variant="outline"
-              className="h-10 rounded-none border border-cyan-200/25 bg-black/24 px-7 font-heading text-xs font-black uppercase tracking-[0.12em] text-cyan-50/95 shadow-[0_0_24px_-16px_rgba(0,229,255,0.9)] backdrop-blur-md transition-all hover:border-cyan-200/55 hover:bg-cyan-300/10 hover:text-white hover:shadow-[0_0_24px_-10px_rgba(0,229,255,0.9)] focus-visible:ring-2 focus-visible:ring-cyan-300/50"
-              style={{ clipPath: "polygon(8% 0, 100% 0, 92% 100%, 0 100%)" }}
+              className="h-10 border-0 bg-transparent px-2 font-heading text-xs font-black uppercase tracking-[0.14em] text-cyan-50/90 shadow-none transition-all hover:bg-transparent hover:text-white hover:drop-shadow-[0_0_18px_rgba(0,229,255,0.55)] focus-visible:ring-2 focus-visible:ring-cyan-300/40"
               onClick={() => setRulesOpen(true)}
             >
               <BookOpen className="w-3.5 h-3.5 text-cyan-200/90" /> {t("competitionFlow.rules")}
@@ -235,8 +234,7 @@ export default function Tournaments() {
             {canCreate ? (
               <Button
                 onClick={() => setDialogOpen(true)}
-                className="h-10 rounded-none border border-cyan-200/25 bg-black/24 px-7 font-heading text-xs font-black uppercase tracking-[0.12em] text-cyan-50/95 shadow-[0_0_24px_-16px_rgba(0,229,255,0.9)] backdrop-blur-md transition-all hover:border-cyan-200/55 hover:bg-cyan-300/10 hover:text-white hover:shadow-[0_0_24px_-10px_rgba(0,229,255,0.9)] focus-visible:ring-2 focus-visible:ring-cyan-300/50"
-                style={{ clipPath: "polygon(8% 0, 100% 0, 92% 100%, 0 100%)" }}
+                className="h-10 border-0 bg-transparent px-2 font-heading text-xs font-black uppercase tracking-[0.14em] text-cyan-50/90 shadow-none transition-all hover:bg-transparent hover:text-white hover:drop-shadow-[0_0_18px_rgba(0,229,255,0.55)] focus-visible:ring-2 focus-visible:ring-cyan-300/40"
               >
                 <Plus className="w-3.5 h-3.5 text-cyan-200/90" /> {t("competitionFlow.createTournament")}
               </Button>

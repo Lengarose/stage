@@ -7,10 +7,10 @@ import TransferBadge from "./TransferBadge";
 import { stepCarouselIndex, visibleCarouselSlots } from "@/lib/transferCarousel";
 import { useTranslation } from "@/hooks/useTranslation";
 
-const SLOT_X = { "-2": -250, "-1": -150, 0: 0, 1: 150, 2: 250 };
-const SLOT_Z = { "-2": -150, "-1": -65, 0: 70, 1: -65, 2: -150 };
-const SLOT_ROT = { "-2": 38, "-1": 24, 0: 0, 1: -24, 2: -38 };
-const SLOT_SCALE = { "-2": 0.72, "-1": 0.86, 0: 1.06, 1: 0.86, 2: 0.72 };
+const SLOT_X = { "-2": -300, "-1": -176, 0: 0, 1: 176, 2: 300 };
+const SLOT_Z = { "-2": -170, "-1": -72, 0: 80, 1: -72, 2: -170 };
+const SLOT_ROT = { "-2": 32, "-1": 18, 0: 0, 1: -18, 2: -32 };
+const SLOT_SCALE = { "-2": 0.68, "-1": 0.84, 0: 1.04, 1: 0.84, 2: 0.68 };
 
 function slotAnimate(offset) {
   return {
@@ -85,7 +85,7 @@ export default function TransferPlayerCarousel({ entries = [], selectedId, onSel
 
   return (
     <div
-      className="relative flex h-full min-h-0 flex-col overflow-hidden bg-transparent"
+      className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[radial-gradient(ellipse_at_center,rgba(0,229,255,0.10),transparent_48%)]"
       onPointerDown={(event) => {
         pointer.current = { x: event.clientX, active: true };
       }}
@@ -100,13 +100,13 @@ export default function TransferPlayerCarousel({ entries = [], selectedId, onSel
     >
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-30"
+        className="pointer-events-none absolute inset-0 opacity-45"
         style={{
           background: [
-            "radial-gradient(ellipse 80% 50% at 50% -10%, rgba(245,197,66,0.55), transparent 55%)",
-            "radial-gradient(ellipse 40% 60% at 15% 50%, rgba(0,229,255,0.22), transparent 60%)",
-            "radial-gradient(ellipse 40% 60% at 85% 50%, rgba(0,229,255,0.22), transparent 60%)",
-            "repeating-linear-gradient(90deg, #08150f 0px, #08150f 56px, #0b1c13 56px, #0b1c13 112px)",
+            "radial-gradient(ellipse 58% 44% at 50% 28%, rgba(245,197,66,0.36), transparent 56%)",
+            "radial-gradient(ellipse 32% 58% at 15% 50%, rgba(0,229,255,0.18), transparent 62%)",
+            "radial-gradient(ellipse 32% 58% at 85% 50%, rgba(0,229,255,0.18), transparent 62%)",
+            "repeating-linear-gradient(90deg, rgba(8,21,15,0.88) 0px, rgba(8,21,15,0.88) 56px, rgba(11,28,19,0.74) 56px, rgba(11,28,19,0.74) 112px)",
           ].join(", "),
         }}
       />
@@ -169,7 +169,7 @@ export default function TransferPlayerCarousel({ entries = [], selectedId, onSel
               whileTap={reduceMotion ? undefined : { scale: slot.scale * 0.97 }}
             >
               <motion.div
-                className="relative"
+                className="relative pt-5"
                 animate={focused && !reduceMotion ? {
                   filter: [
                     "drop-shadow(0 0 0px rgba(245,197,66,0))",
@@ -182,16 +182,15 @@ export default function TransferPlayerCarousel({ entries = [], selectedId, onSel
                 <GamerPlayerPhotoFrame
                   player={player}
                   className={cn(
-                    "relative z-[2] w-[150px] sm:w-[180px] md:w-[200px]",
+                    "relative z-[2] w-[170px] sm:w-[210px] md:w-[236px]",
                     focused
                       ? "border-[#f5c542]/70 shadow-[0_0_48px_-6px_rgba(245,197,66,0.55)]"
                       : "border-cyan-400/20 shadow-none",
                   )}
-                >
-                  <div className="absolute left-2 top-2 z-[3]">
-                    <TransferBadge type={entry.badgeType} daysLeft={entry.days_left} />
-                  </div>
-                </GamerPlayerPhotoFrame>
+                />
+                <div className="absolute left-4 top-0 z-[5]">
+                  <TransferBadge type={entry.badgeType} daysLeft={entry.days_left} />
+                </div>
               </motion.div>
               <motion.p
                 className={cn(

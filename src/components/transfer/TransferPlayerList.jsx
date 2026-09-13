@@ -17,7 +17,7 @@ export default function TransferPlayerList({ players, selectedId, onSelect, canM
   }
 
   return (
-    <div className="space-y-1.5">
+    <div className="grid gap-3 xl:grid-cols-2">
       {players.map(({ player, badge, badgeType, contract, days_left }) => {
         const isSelected = selectedId === player.id;
         const blockReason = getOfferBlockReason?.(player, contract) || null;
@@ -29,21 +29,22 @@ export default function TransferPlayerList({ players, selectedId, onSelect, canM
             type="button"
             onClick={() => onSelect({ player, badge, badgeType, contract, days_left })}
             className={cn(
-              "group flex min-h-14 w-full items-center gap-3 border px-3 py-2 text-left transition-colors",
+              "group relative flex min-h-24 w-full items-center gap-4 overflow-hidden border px-4 py-3 text-left shadow-[0_18px_50px_rgba(0,0,0,0.18)] transition-all",
               isSelected
-                ? "border-[#f5c542]/50 bg-[#f5c542]/10"
-                : "border-white/10 bg-black/30 hover:border-[#f5c542]/30 hover:bg-black/50"
+                ? "border-[#f5c542]/50 bg-[linear-gradient(135deg,rgba(245,197,66,0.16),rgba(0,229,255,0.06),rgba(0,0,0,0.42))]"
+                : "border-white/10 bg-[linear-gradient(135deg,rgba(255,255,255,0.045),rgba(0,0,0,0.38))] hover:border-[#f5c542]/30 hover:bg-black/50"
             )}
           >
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-sm border border-white/10 bg-[#071018]">
+            <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/35 to-transparent" />
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden border border-white/10 bg-[#071018]">
               {player.avatar_url
                 ? <img src={player.avatar_url} alt={player.gamertag} className="h-full w-full object-cover" style={{ objectPosition: player.avatar_position || "50% 50%" }} />
                 : <span className="font-heading text-sm font-black text-[#f5c542]">{(player.gamertag || "?")[0].toUpperCase()}</span>}
             </div>
 
             <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className={cn("truncate font-heading text-sm font-black uppercase tracking-wide", isSelected ? "text-[#f5c542]" : "text-white")}>
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <span className={cn("min-w-0 truncate font-heading text-lg font-black uppercase tracking-wide", isSelected ? "text-[#f5c542]" : "text-white")}>
                   {player.gamertag}
                 </span>
                 <TransferBadge type={badgeType} daysLeft={days_left} />
@@ -69,14 +70,14 @@ export default function TransferPlayerList({ players, selectedId, onSelect, canM
 
             <div className="shrink-0" onClick={e => e.stopPropagation()}>
               {blockReason ? (
-                <span className="flex items-center gap-1 rounded-sm bg-white/5 px-2 py-1 text-[10px] uppercase tracking-wider text-white/45">
+                <span className="flex items-center gap-1 bg-white/5 px-2 py-1 text-[10px] uppercase tracking-wider text-white/45">
                   <FileText className="h-3 w-3" /> {blockReason === "signed" ? t("commonPages.underContract") : t("commonPages.sent")}
                 </span>
               ) : canOfferPlayer ? (
                 <Button
                   size="sm"
                   onClick={() => onOffer({ player, badgeType })}
-                  className="h-9 gap-1 rounded-sm bg-gradient-to-b from-[#ffe27a] to-[#c9a227] px-2.5 text-xs font-heading font-black uppercase tracking-[0.12em] text-black hover:from-[#fff0a8] hover:to-[#d4ad30]"
+                  className="h-9 gap-1 border border-[#f5c542]/45 bg-[#f5c542]/14 px-2.5 text-xs font-heading font-black uppercase tracking-[0.12em] text-[#f5c542] shadow-none hover:bg-[#f5c542]/20 hover:text-[#ffe27a]"
                 >
                   <FileText className="h-3 w-3" />
                   <span className="hidden sm:inline">{t("commonPages.offer")}</span>

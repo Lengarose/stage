@@ -1,12 +1,12 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { LayoutList, SlidersHorizontal, Images } from "lucide-react";
+import { LayoutGrid, LayoutList, SlidersHorizontal } from "lucide-react";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import OfferContractDialog from "@/components/contracts/OfferContractDialog";
 import RequestLoanDialog from "@/components/transfer/RequestLoanDialog";
 import TransferWindowBanner from "@/components/transfer/TransferWindowBanner";
 import TransferFilters from "@/components/transfer/TransferFilters";
-import TransferPlayerCarousel from "@/components/transfer/TransferPlayerCarousel";
 import TransferPlayerList from "@/components/transfer/TransferPlayerList";
+import TransferScoutBoard from "@/components/transfer/TransferScoutBoard";
 import TransferDetailPanel from "@/components/transfer/TransferDetailPanel";
 import { ensureContractOfferInbox } from "@/lib/contractOfferDelivery";
 import { CONTRACT_TYPES } from "@/lib/contractTypes";
@@ -28,10 +28,10 @@ export default function TransferMarket() {
   const [freeAgents, setFreeAgents] = useState([]);
   const [expiringPlayers, setExpiringPlayers] = useState([]);
   const [liveLoans, setLiveLoans] = useState([]);
-  const [myPlayer, setMyPlayer] = useState(null);
   const [myClub, setMyClub] = useState(null);
   const [myContracts, setMyContracts] = useState([]);
   const [canManage, setCanManage] = useState(false);
+  const [roomConfig, setRoomConfig] = useState(null);
 
   // UI state
   const [selected, setSelected] = useState(null); // { player, badgeType, contract, days_left }
@@ -41,7 +41,7 @@ export default function TransferMarket() {
   const [positionFilter, setPositionFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("all"); // "all" | "free_agent" | "expiring"
   const [platformFilter, setPlatformFilter] = useState("");
-  const [viewMode, setViewMode] = useState("carousel"); // "carousel" | "list"
+  const [viewMode, setViewMode] = useState("cards"); // "cards" | "list"
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
 
@@ -63,11 +63,14 @@ export default function TransferMarket() {
 
       const marketRes = await stageClient.functions.invoke("getTransferMarket", {}).catch(() => ({ data: {} }));
       const normalizedMarket = normalizeTransferMarketPlayers(marketRes?.data || {});
+      const configRows = await stageClient.entities.TransferRoomConfig
+        .filter({ key: "main" }, "-updated_date", 1)
+        .catch(() => []);
 
-      setMyPlayer(player);
       setFreeAgents(normalizedMarket.freeAgents);
       setExpiringPlayers(normalizedMarket.expiringPlayers);
       setLiveLoans(normalizedMarket.liveLoans);
+      setRoomConfig(configRows?.[0] || null);
 
       if (club) {
         const contractArr = await stageClient.entities.PlayerContract.filter({ team_id: club.id }).catch(() => []);
@@ -178,42 +181,53 @@ export default function TransferMarket() {
   const filterCount = [search, positionFilter, platformFilter].filter(Boolean).length
     + (statusFilter !== "all" ? 1 : 0);
 
-  const headerBtn = "h-9 gap-2 rounded-sm font-heading text-xs font-black uppercase tracking-[0.16em]";
+  const headerBtn = "h-9 gap-2 border-0 bg-transparent px-2 font-heading text-xs font-black uppercase tracking-[0.16em] shadow-none transition-all hover:bg-transparent hover:text-white hover:drop-shadow-[0_0_18px_rgba(0,229,255,0.55)] focus-visible:ring-2 focus-visible:ring-cyan-300/40";
+  const bannerStyle = roomConfig?.background_url
+    ? {
+      backgroundImage: `linear-gradient(90deg,rgba(2,7,12,0.18),rgba(2,7,12,0.02),rgba(2,7,12,0.24)), url(${roomConfig.background_url})`,
+      backgroundPosition: roomConfig.background_position || "50% 50%",
+      backgroundSize: roomConfig.background_zoom ? `${roomConfig.background_zoom}%` : "cover",
+      backgroundRepeat: "no-repeat",
+    }
+    : undefined;
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-transparent text-white">
-      <div className="shrink-0 border-b border-[#f5c542]/20 bg-[#071018]/80 px-4 py-3 sm:px-6 backdrop-blur-sm">
-        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.32em] text-[#00e5ff]">Transfer Hub</p>
-            <h1
-              className="font-heading text-4xl font-black uppercase leading-none text-white md:text-5xl"
-              style={{ letterSpacing: "0.04em" }}
-            >
-              {t("commonPages.transferTitle")}
-            </h1>
-            <p className="mt-1 text-xs text-white/45">
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-[radial-gradient(circle_at_18%_16%,rgba(0,229,255,0.10),transparent_32%),linear-gradient(120deg,#050b12,#02070c_58%,#05070d)] text-white">
+      <div className="shrink-0 border-b border-[#f5c542]/20 bg-[linear-gradient(120deg,rgba(7,16,24,0.72),rgba(1,7,12,0.52))] pb-3 backdrop-blur-sm">
+        <div
+          className="relative h-[200px] w-full overflow-hidden bg-[radial-gradient(circle_at_18%_20%,rgba(0,229,255,0.14),transparent_36%),linear-gradient(120deg,rgba(7,16,24,0.86),rgba(1,7,12,0.92))] shadow-[0_24px_90px_-62px_rgba(0,229,255,0.95)] sm:h-[260px] xl:h-[300px]"
+          style={bannerStyle}
+        >
+          <div aria-hidden className="absolute inset-0 bg-[linear-gradient(180deg,transparent,rgba(2,7,12,0.22))]" />
+          {!roomConfig?.background_url ? (
+            <div className="absolute inset-0 grid place-items-center">
+              <p className="font-heading text-sm font-black uppercase tracking-[0.3em] text-white/25">Transfer Room Banner</p>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="mt-3 flex flex-col gap-3 px-4 md:flex-row md:items-center md:justify-between sm:px-6">
+          <div className="text-xs text-white/45">
               {t("commonPages.playersFound", { count: filteredEntries.length, plural: filteredEntries.length !== 1 ? "s" : "" })}
               <span className="mx-2 text-white/20">·</span>
               <span className="text-[#7cff6b]">{t("commonPages.freeShort", { count: freeAgents.length })}</span>
               <span className="mx-2 text-white/20">·</span>
               <span className="text-[#f5c542]">{t("commonPages.expiringShort", { count: expiringPlayers.length })}</span>
-            </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 shrink-0">
             <Button
               type="button"
-              onClick={() => setViewMode("carousel")}
+              onClick={() => setViewMode("cards")}
               className={cn(
                 headerBtn,
-                viewMode === "carousel"
-                  ? "bg-gradient-to-b from-[#ffe27a] to-[#c9a227] text-black hover:from-[#fff0a8] hover:to-[#d4ad30]"
-                  : "border border-[#f5c542]/40 bg-black/40 text-[#f5c542] hover:bg-[#f5c542]/10"
+                viewMode === "cards"
+                  ? "text-[#f5c542]"
+                  : "text-cyan-100/65"
               )}
             >
-              <Images className="h-4 w-4" />
-              {t("commonPages.transferCarousel")}
+              <LayoutGrid className="h-4 w-4" />
+              Cards
             </Button>
             <Button
               type="button"
@@ -222,8 +236,8 @@ export default function TransferMarket() {
               className={cn(
                 headerBtn,
                 viewMode === "list"
-                  ? "border-transparent bg-gradient-to-b from-[#ffe27a] to-[#c9a227] text-black hover:from-[#fff0a8] hover:to-[#d4ad30]"
-                  : "border-[#00e5ff]/40 bg-black/40 text-[#00e5ff] hover:bg-[#00e5ff]/10"
+                  ? "text-[#f5c542]"
+                  : "text-cyan-100/65"
               )}
             >
               <LayoutList className="h-4 w-4" />
@@ -233,7 +247,7 @@ export default function TransferMarket() {
               type="button"
               variant="outline"
               onClick={() => setFiltersOpen(true)}
-              className={cn(headerBtn, "relative border-[#00e5ff]/40 bg-black/40 text-[#00e5ff] hover:bg-[#00e5ff]/10")}
+              className={cn(headerBtn, "relative text-cyan-100/75")}
             >
               <SlidersHorizontal className="h-4 w-4" />
               {t("commonPages.transferFilters")}
@@ -264,13 +278,18 @@ export default function TransferMarket() {
           />
         </div>
       ) : (
-        <div className="min-h-0 flex-1 overflow-hidden">
-          <TransferPlayerCarousel
+        <TransferScoutBoard
             entries={filteredEntries}
-            selectedId={selected?.player?.id}
+            selected={selected}
             onSelect={selectEntry}
+            canManage={canManage}
+            canOffer={canOfferPlayer}
+            canRequestLoan={selected ? canRequestLoanForPlayer(selected.player, selected.contract) : false}
+            getOfferBlockReason={getOfferBlockReason}
+            onOffer={setOfferTarget}
+            onRequestLoan={setLoanTarget}
+            windowOpen={windowOpen}
           />
-        </div>
       )}
 
       <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>

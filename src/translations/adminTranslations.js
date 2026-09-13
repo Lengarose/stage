@@ -69,7 +69,7 @@ const adminTranslationsEn = {
     internationalTournaments: "International",
     news: "News",
     lifestyles: "Lifestyles",
-    transfers: "Transfers",
+    transfers: "Transfer Room",
     trophies: "Trophies",
     rewards: "Rewards",
     landing: "Landing Page",
@@ -102,7 +102,7 @@ const adminTranslationsEn = {
     rewards: "Rewards",
     news: "News",
     lifestyles: "LifeStyles",
-    transfers: "Transfers",
+    transfers: "Transfer Room",
     homePage: "Home Page",
     landingPage: "Landing Page",
     community: "Community",
@@ -841,8 +841,9 @@ const adminTranslationsEn = {
     stcWeek: "STC/week",
   },
   transfers: {
-    title: "Transfer Window",
+    title: "Transfer Room",
     panelTitle: "Transfer Window Control",
+    windowTitle: "Transfer Window",
   },
   alerts: {
     unknownError: "Unknown error",

@@ -20,7 +20,7 @@ export default function TransferBadge({ type, daysLeft }) {
 
   return (
     <span className={cn(
-      "text-[10px] px-2 py-0.5 rounded-full border font-semibold shrink-0",
+      "inline-flex max-w-[112px] shrink-0 items-center justify-center whitespace-nowrap border px-2.5 py-1 text-[10px] font-black uppercase leading-none tracking-[0.08em] shadow-[0_0_18px_-10px_rgba(0,255,160,0.85)]",
       cfg.cls
     )}>
       {label}
