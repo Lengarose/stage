@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { format, isToday } from "@/lib/momentDate";
 import { Trash2, Check, X, Calendar, Shield, AlertTriangle, ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getEffectiveInboxActionType, isMatchCancelRequest, parseInboxMetadata } from "@/lib/inboxActionTypes";
+import { getEffectiveInboxActionType, inboxGameDayHref, isMatchCancelRequest } from "@/lib/inboxActionTypes";
 import InboxContractOffer from "@/components/inbox/InboxContractOffer";
 import InboxLoanProposal from "@/components/inbox/InboxLoanProposal";
 import InboxLoanRecalled from "@/components/inbox/InboxLoanRecalled";
@@ -361,11 +361,7 @@ export default function InboxMessageDetail({
           <div className="flex flex-wrap gap-2">
             {effectiveActionType === "open_match" && (
               <Button size="sm" onClick={() => {
-                const meta = parseInboxMetadata(message);
-                const href = meta.link || (message.related_entity_id
-                  ? `/game-day?match=${message.related_entity_id}`
-                  : "/game-day");
-                window.location.assign(href);
+                window.location.assign(inboxGameDayHref(message));
               }}>
                 {t("nav.gameDay")}
               </Button>

@@ -80,7 +80,13 @@ async function sendResultInbox(match, side, { subject, body, eventKey, messageTy
       idempotencyKey: `match:${match.id}:${eventKey}:${String(recipientEmail).toLowerCase()}`,
       isSystem: true,
       reuseByRelated: false,
-      metadata: { match_id: match.id, link: `/game-day?match=${match.id}` },
+      metadata: {
+        match_id: match.id,
+        link: `/game-day?match=${match.id}`,
+        ...(match.tournament_id || match.tournamentId
+          ? { tournament_id: match.tournament_id || match.tournamentId }
+          : {}),
+      },
     }).catch(() => {});
   }
 }

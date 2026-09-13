@@ -3,7 +3,7 @@ import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { CheckCheck, Inbox, Search } from "lucide-react";
 import InboxMessageList from "@/components/inbox/InboxMessageList";
 import InboxMessageDetail from "@/components/inbox/InboxMessageDetail";
-import { parseInboxMetadata } from "@/lib/inboxActionTypes";
+import { inboxMessageBelongsToTournament } from "@/lib/inboxActionTypes";
 import { useTranslation } from "@/hooks/useTranslation";
 
 function hasInboxContent(m) {
@@ -120,11 +120,7 @@ export default function InboxPage({ tournamentId: scopedTournamentId } = {}) {
 
   const mailboxMessages = useMemo(() => {
     if (!scopedTournamentId) return messages;
-    return messages.filter((m) => {
-      const meta = parseInboxMetadata(m);
-      return meta.tournament_id === scopedTournamentId
-        || (m.related_entity_type === "match" && meta.tournament_id === scopedTournamentId);
-    });
+    return messages.filter((m) => inboxMessageBelongsToTournament(m, scopedTournamentId));
   }, [messages, scopedTournamentId]);
 
   const unreadCount = mailboxMessages.filter(m => !m.is_read).length;
