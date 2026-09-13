@@ -79,6 +79,7 @@ async function sendResultInbox(match, side, { subject, body, eventKey, messageTy
       relatedEntityType: 'match',
       idempotencyKey: `match:${match.id}:${eventKey}:${String(recipientEmail).toLowerCase()}`,
       isSystem: true,
+      reuseByRelated: false,
       metadata: { match_id: match.id, link: `/game-day?match=${match.id}` },
     }).catch(() => {});
   }

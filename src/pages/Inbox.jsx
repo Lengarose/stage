@@ -1,10 +1,13 @@
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
-import { Inbox, RefreshCw, CheckCheck } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { CheckCheck, Inbox, Search } from "lucide-react";
 import InboxMessageList from "@/components/inbox/InboxMessageList";
 import InboxMessageDetail from "@/components/inbox/InboxMessageDetail";
 import { useTranslation } from "@/hooks/useTranslation";
+
+function hasInboxContent(m) {
+  return Boolean(String(m?.subject || "").trim() || String(m?.body || "").trim());
+}
 
 export default function InboxPage({ tournamentId: scopedTournamentId } = {}) {
   const { t } = useTranslation();
@@ -14,6 +17,7 @@ export default function InboxPage({ tournamentId: scopedTournamentId } = {}) {
   const [user, setUser] = useState(null);
   const [myPlayer, setMyPlayer] = useState(null);
   const [myClub, setMyClub] = useState(null);
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     let unsub = null;
@@ -30,9 +34,8 @@ export default function InboxPage({ tournamentId: scopedTournamentId } = {}) {
       setMyClub(club);
 
       const data = await stageClient.entities.InboxMessage.filter({ recipient_email: currentEmail }, "-created_date", 200);
-      setMessages(data || []);
+      setMessages((data || []).filter(hasInboxContent));
 
-      // Auto-open from URL param
       const params = new URLSearchParams(window.location.search);
       const targetId = params.get("id");
       if (targetId && data?.length) {
@@ -42,19 +45,6 @@ export default function InboxPage({ tournamentId: scopedTournamentId } = {}) {
 
       setLoading(false);
 
-      // Real-time subscription — set up AFTER we have the user's email.
-      //
-      // We treat every non-delete event as an "upsert" against the local list:
-      //  • if the id is already in the array → replace it (update),
-      //  • otherwise → prepend (new message).
-      //
-      // This is required because the stageClient subscribe dedupes by `knownIds`
-      // that ONLY contains messages it has seen via the socket — initial-fetch
-      // rows are unknown to it. So when an existing message gets updated on
-      // the server (e.g. status change after the recipient accepts) the event
-      // arrives with type="create" for an id the local array already holds.
-      // Without an id-check, the prior prepend logic produced visible dupes.
-      // (Same defense protects against any duplicate broadcast paths.)
       unsub = stageClient.entities.InboxMessage.subscribe((event) => {
         const recipientEmail = String(event.data?.recipient_email || "").trim().toLowerCase();
         if (event.type === "delete") {
@@ -63,6 +53,7 @@ export default function InboxPage({ tournamentId: scopedTournamentId } = {}) {
           return;
         }
         if (recipientEmail !== currentEmail) return;
+        if (!hasInboxContent(event.data)) return;
         setMessages(prev => {
           const idx = prev.findIndex(m => m.id === event.id);
           if (idx >= 0) {
@@ -75,13 +66,12 @@ export default function InboxPage({ tournamentId: scopedTournamentId } = {}) {
         setSelected(prev => prev?.id === event.id ? event.data : prev);
       });
 
-      // Fallback polling to keep inbox consistent when socket updates are missed.
       intervalId = window.setInterval(async () => {
         if (stopped) return;
         const latest = await stageClient.entities.InboxMessage
           .filter({ recipient_email: currentEmail }, "-created_date", 200)
           .catch(() => null);
-        if (latest) setMessages(latest);
+        if (latest) setMessages(latest.filter(hasInboxContent));
       }, 15000);
     }
 
@@ -127,95 +117,126 @@ export default function InboxPage({ tournamentId: scopedTournamentId } = {}) {
   }
 
   const unreadCount = messages.filter(m => !m.is_read).length;
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return messages;
+    return messages.filter((m) => {
+      const hay = [
+        m.subject,
+        m.body,
+        m.sender_gamertag,
+        m.sender_club_name,
+        m.message_type,
+      ].map((v) => String(v || "").toLowerCase()).join(" ");
+      return hay.includes(q);
+    });
+  }, [messages, query]);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <RefreshCw className="w-6 h-6 animate-spin text-primary" />
+      <div className="flex min-h-[60vh] items-center justify-center bg-[#060912]">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-400/20 border-t-cyan-400" />
       </div>
     );
   }
 
   return (
-    <div className="h-[calc(100vh-56px)] lg:h-screen flex flex-col">
-      {/* Top bar */}
-      <div className="flex items-center gap-3 px-5 py-4 border-b border-border bg-card shrink-0">
-        <Inbox className="w-5 h-5 text-primary" />
-        <h1
-          className="font-heading font-black text-3xl md:text-4xl text-foreground uppercase"
-          style={{ transform: "skewX(-8deg)", letterSpacing: "-0.02em", transformOrigin: "left center" }}
+    <div className="flex h-[calc(100vh-56px)] flex-col bg-[#060912] text-white lg:h-screen">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        {/* Discussions column */}
+        <aside
+          className={`
+            flex min-h-0 w-full flex-col border-r border-white/[0.07] bg-[#0a101c]
+            ${selected ? "hidden lg:flex lg:w-[380px] xl:w-[420px] shrink-0" : "flex"}
+          `}
         >
-          {t("matchFlow.inboxTitle")}
-        </h1>
-        {unreadCount > 0 && (
-          <span className="bg-primary text-primary-foreground text-xs font-bold px-2 py-0.5 rounded-full">
-            {unreadCount}
-          </span>
-        )}
-        {unreadCount > 0 && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={markAllAsRead}
-            className="ml-auto text-muted-foreground hover:text-foreground gap-1.5 text-xs"
-          >
-            <CheckCheck className="w-3.5 h-3.5" />
-            {t("matchFlow.markAllRead")}
-          </Button>
-        )}
-      </div>
-
-      {/* Split layout */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left: message list */}
-        <div className={`
-          flex flex-col border-r border-border bg-card overflow-y-auto
-          ${selected ? "hidden lg:flex lg:w-80 xl:w-96 shrink-0" : "flex w-full lg:w-80 xl:w-96 shrink-0"}
-        `}>
-          {messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center flex-1 p-8 text-center">
-              <Inbox className="w-12 h-12 text-muted-foreground/20 mb-3" />
-              <p className="text-sm text-muted-foreground">{t("matchFlow.inboxEmpty")}</p>
+          <div className="shrink-0 border-b border-white/[0.07] px-4 pb-3 pt-4">
+            <div className="mb-3 flex items-center gap-2">
+              <h1 className="font-heading text-2xl font-black uppercase tracking-tight text-white">
+                {t("matchFlow.inboxTitle")}
+              </h1>
+              {unreadCount > 0 && (
+                <span className="rounded-full bg-cyan-400 px-2 py-0.5 text-[11px] font-bold text-[#061018]">
+                  {unreadCount}
+                </span>
+              )}
+              {unreadCount > 0 && (
+                <button
+                  type="button"
+                  onClick={markAllAsRead}
+                  className="ml-auto inline-flex items-center gap-1.5 text-[11px] text-white/45 transition hover:text-cyan-300"
+                >
+                  <CheckCheck className="h-3.5 w-3.5" />
+                  {t("matchFlow.markAllRead")}
+                </button>
+              )}
             </div>
-          ) : (
-            <InboxMessageList
-              messages={messages}
-              selectedId={selected?.id}
-              onSelect={(msg) => openMessage(msg)}
-            />
-          )}
-        </div>
 
-        {/* Right: message detail */}
-        <div className={`
-          flex-1 overflow-y-auto bg-background
-          ${selected ? "flex flex-col" : "hidden lg:flex lg:flex-col"}
-        `}>
-          {selected ? (
-            <>
-              {/* Mobile back button */}
-              <button
-                className="lg:hidden flex items-center gap-2 px-4 py-3 text-sm text-primary border-b border-border"
-                onClick={() => setSelected(null)}
-              >
-                ← {t("matchFlow.backToInbox")}
-              </button>
-              <InboxMessageDetail
-                message={selected}
-                onDeleted={handleDeleted}
-                onStatusChanged={handleStatusChanged}
-                myClub={myClub}
-                myEmail={user?.email}
-                myGamertag={myPlayer?.gamertag}
+            <label className="relative block">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={t("matchFlow.inboxSearch", "Search")}
+                className="w-full rounded-lg border-0 bg-[#141b28] py-2.5 pl-10 pr-3 text-sm text-white placeholder:text-white/35 outline-none ring-1 ring-white/[0.06] focus:ring-cyan-400/40"
               />
-            </>
+            </label>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {filtered.length === 0 ? (
+              <div className="flex flex-col items-center justify-center px-8 py-16 text-center">
+                <Inbox className="mb-3 h-12 w-12 text-white/15" />
+                <p className="text-sm text-white/40">
+                  {messages.length === 0 ? t("matchFlow.inboxEmpty") : t("matchFlow.noMessages")}
+                </p>
+              </div>
+            ) : (
+              <InboxMessageList
+                messages={filtered}
+                selectedId={selected?.id}
+                onSelect={(msg) => openMessage(msg)}
+              />
+            )}
+          </div>
+        </aside>
+
+        {/* Conversation pane */}
+        <section
+          className={`
+            relative min-h-0 flex-1 flex-col
+            ${selected ? "flex" : "hidden lg:flex"}
+          `}
+        >
+          {selected ? (
+            <InboxMessageDetail
+              message={selected}
+              onDeleted={handleDeleted}
+              onStatusChanged={handleStatusChanged}
+              onBack={() => setSelected(null)}
+              myClub={myClub}
+              myEmail={user?.email}
+              myGamertag={myPlayer?.gamertag}
+            />
           ) : (
-            <div className="flex flex-col items-center justify-center h-full text-center p-8">
-              <Inbox className="w-16 h-16 text-muted-foreground/10 mb-4" />
-              <p className="text-sm text-muted-foreground">{t("matchFlow.selectMessage")}</p>
+            <div className="relative flex h-full flex-col items-center justify-center overflow-hidden">
+              <div
+                className="pointer-events-none absolute inset-0 opacity-[0.12]"
+                style={{
+                  backgroundImage:
+                    "radial-gradient(circle at 1px 1px, rgba(0,229,255,0.35) 1px, transparent 0)",
+                  backgroundSize: "28px 28px",
+                }}
+              />
+              <div className="relative z-10 flex flex-col items-center px-8 text-center">
+                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white/[0.04] ring-1 ring-white/10">
+                  <Inbox className="h-7 w-7 text-cyan-300/70" />
+                </div>
+                <p className="text-sm text-white/45">{t("matchFlow.selectMessage")}</p>
+              </div>
             </div>
           )}
-        </div>
+        </section>
       </div>
     </div>
   );

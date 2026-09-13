@@ -1,119 +1,147 @@
-import { formatDistanceToNow } from "@/lib/momentDate";
+import { format, isToday } from "@/lib/momentDate";
 import { cn } from "@/lib/utils";
 import { inboxMessageIsActioned, inboxMessageNeedsAction } from "@/lib/inboxActionTypes";
-import { AlertCircle } from "lucide-react";
 import { useTranslation } from "@/hooks/useTranslation";
 
-const TYPE_BADGE = {
-  match_invite:    { key: "matchInvite",     color: "bg-accent/10 text-accent border-accent/20" },
-  contract_offer:  { key: "contractBadge",   color: "bg-warning/10 text-warning border-warning/20" },
-  club_invite:     { key: "clubInvite",      color: "bg-primary/10 text-primary border-primary/20" },
-  challenge:       { key: "challenge",       color: "bg-destructive/10 text-destructive border-destructive/20" },
-  announcement:    { key: "announcement",    color: "bg-muted text-muted-foreground border-border" },
-  general:         { key: "message",         color: "bg-secondary text-secondary-foreground border-border" },
-};
+function isYesterdayLocal(dateValue) {
+  const d = new Date(dateValue);
+  if (Number.isNaN(d.getTime())) return false;
+  const y = new Date();
+  y.setDate(y.getDate() - 1);
+  return (
+    d.getFullYear() === y.getFullYear()
+    && d.getMonth() === y.getMonth()
+    && d.getDate() === y.getDate()
+  );
+}
 
-const STATUS_LABEL = {
-  accepted:              { key: "accepted",              color: "bg-success/10 text-success" },
-  confirmed:             { key: "confirmed",             color: "bg-success/10 text-success" },
-  declined:              { key: "declined",              color: "bg-destructive/10 text-destructive" },
-  date_change_requested: { key: "dateChangeRequested", color: "bg-warning/10 text-warning" },
-};
+function listTimestamp(dateValue, t) {
+  const d = new Date(dateValue);
+  if (Number.isNaN(d.getTime())) return "";
+  if (isToday(d)) return format(d, "HH:mm");
+  if (isYesterdayLocal(d)) return t("matchFlow.yesterday", "Yesterday");
+  return format(d, "dd/MM/yyyy");
+}
+
+function previewText(msg) {
+  const body = String(msg?.body || "").replace(/\s+/g, " ").trim();
+  if (body) return body;
+  return String(msg?.subject || "").trim();
+}
+
+function SenderAvatar({ msg, t }) {
+  if (msg.is_system) {
+    return (
+      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500/30 to-teal-700/40 text-lg ring-1 ring-cyan-400/20">
+        ⚡
+      </div>
+    );
+  }
+  if (msg.sender_avatar_url) {
+    return (
+      <img
+        src={msg.sender_avatar_url}
+        alt={msg.sender_gamertag || ""}
+        className="h-12 w-12 shrink-0 rounded-full object-cover ring-1 ring-white/10"
+      />
+    );
+  }
+  return (
+    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#1c2433] text-sm font-bold text-white/80 ring-1 ring-white/10">
+      {(msg.sender_gamertag || t("matchFlow.unknown") || "?")[0].toUpperCase()}
+    </div>
+  );
+}
 
 export default function InboxMessageList({ messages, selectedId, onSelect }) {
   const { t } = useTranslation();
+
   if (messages.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-48 text-center text-muted-foreground p-6">
+      <div className="flex h-48 flex-col items-center justify-center p-6 text-center text-white/40">
         <p className="text-sm">{t("matchFlow.noMessages")}</p>
       </div>
     );
   }
 
   return (
-    <div className="divide-y divide-border">
+    <div className="flex flex-col">
       {messages.map((msg) => {
-        const badge = TYPE_BADGE[msg.message_type] || TYPE_BADGE.general;
         const isSelected = msg.id === selectedId;
+        const unread = !msg.is_read;
         const needsAction = inboxMessageNeedsAction(msg);
         const isActioned = inboxMessageIsActioned(msg);
-        const statusInfo = isActioned ? STATUS_LABEL[msg.status] : null;
+        const name = msg.is_system
+          ? t("matchFlow.stageSystem")
+          : (msg.sender_gamertag || t("matchFlow.unknown"));
+        const preview = previewText(msg);
+        const time = listTimestamp(msg.created_date, t);
 
         return (
           <button
             key={msg.id}
+            type="button"
             onClick={() => onSelect(msg)}
             className={cn(
-              "w-full text-left px-4 py-3.5 transition-all hover:bg-secondary/50 flex items-start gap-3",
-              isSelected && "bg-primary/8 border-l-2 border-l-primary",
-              !msg.is_read && !isSelected && "bg-primary/[0.04]",
-              needsAction && !isSelected && "border-l-2 border-l-warning"
+              "flex w-full items-center gap-3 px-3 py-3 text-left transition-colors",
+              isSelected ? "bg-white/[0.08]" : "hover:bg-white/[0.04]",
+              unread && !isSelected && "bg-cyan-500/[0.04]"
             )}
           >
-            {/* Avatar */}
-            <div className="shrink-0 mt-0.5 relative">
-              {msg.is_system ? (
-                <div className="w-9 h-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-base">
-                  ⚡
-                </div>
-              ) : msg.sender_avatar_url ? (
-                <img
-                  src={msg.sender_avatar_url}
-                  alt={msg.sender_gamertag}
-                  className="w-9 h-9 rounded-full object-cover border border-border"
-                />
-              ) : (
-                <div className="w-9 h-9 rounded-full bg-secondary border border-border flex items-center justify-center text-sm font-bold text-foreground">
-                  {(msg.sender_gamertag || "?")[0].toUpperCase()}
-                </div>
-              )}
-              {/* Unread dot on avatar */}
-              {!msg.is_read && (
-                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-primary border-2 border-background" />
-              )}
-            </div>
+            <SenderAvatar msg={msg} t={t} />
 
-            {/* Content */}
-            <div className="flex-1 min-w-0">
-              {/* Row 1: sender + time */}
-              <div className="flex items-center justify-between gap-2 mb-0.5">
-                <span className={cn(
-                  "text-xs font-semibold truncate",
-                  !msg.is_read ? "text-foreground" : "text-muted-foreground"
-                )}>
-                  {msg.is_system ? t("matchFlow.stageSystem") : (msg.sender_gamertag || t("matchFlow.unknown"))}
+            <div className="min-w-0 flex-1 border-b border-white/[0.06] pb-3">
+              <div className="flex items-baseline justify-between gap-2">
+                <span
+                  className={cn(
+                    "truncate text-[15px] leading-tight",
+                    unread ? "font-semibold text-white" : "font-medium text-white/85"
+                  )}
+                >
+                  {name}
                 </span>
-                <span className="text-[10px] text-muted-foreground/50 shrink-0">
-                  {formatDistanceToNow(new Date(msg.created_date), { addSuffix: false })}
+                <span
+                  className={cn(
+                    "shrink-0 text-[11px] tabular-nums",
+                    unread ? "font-semibold text-cyan-300" : "text-white/35"
+                  )}
+                >
+                  {time}
                 </span>
               </div>
 
-              {/* Row 2: subject */}
-              <p className={cn(
-                "text-sm truncate leading-snug",
-                !msg.is_read ? "font-semibold text-foreground" : "text-muted-foreground"
-              )}>
-                {msg.subject}
-              </p>
+              <div className="mt-0.5 flex items-center gap-2">
+                <p
+                  className={cn(
+                    "min-w-0 flex-1 truncate text-[13px] leading-snug",
+                    unread ? "text-white/70" : "text-white/40"
+                  )}
+                >
+                  {msg.subject ? (
+                    <>
+                      <span className={unread ? "text-white/90" : "text-white/55"}>{msg.subject}</span>
+                      {preview && preview !== msg.subject ? (
+                        <span className="text-white/35"> — {preview}</span>
+                      ) : null}
+                    </>
+                  ) : (
+                    preview
+                  )}
+                </p>
 
-              {/* Row 3: badges */}
-              <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                <span className={cn("text-[10px] px-1.5 py-0.5 rounded border font-medium", badge.color)}>
-                  {t(`matchFlow.${badge.key}`)}
-                </span>
-
-                {needsAction && (
-                  <span className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded border font-semibold bg-warning/10 text-warning border-warning/30">
-                    <AlertCircle className="w-2.5 h-2.5" />
-                    {t("matchFlow.needsAction")}
-                  </span>
-                )}
-
-                {statusInfo && (
-                  <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-medium", statusInfo.color)}>
-                    {t(`matchFlow.${statusInfo.key}`)}
-                  </span>
-                )}
+                <div className="flex shrink-0 items-center gap-1.5">
+                  {needsAction && (
+                    <span className="h-2 w-2 rounded-full bg-amber-400" title={t("matchFlow.needsAction")} />
+                  )}
+                  {isActioned && (
+                    <span className="text-[10px] text-emerald-400/80">✓</span>
+                  )}
+                  {unread && (
+                    <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-cyan-400 px-1 text-[10px] font-bold text-[#061018]">
+                      1
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           </button>

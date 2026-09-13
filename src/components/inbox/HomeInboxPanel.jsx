@@ -25,8 +25,9 @@ export default function HomeInboxPanel() {
         "-created_date",
         6
       );
-      setMessages(data || []);
-      setUnreadCount((data || []).filter(m => !m.is_read).length);
+      const usable = (data || []).filter((m) => String(m?.subject || "").trim() || String(m?.body || "").trim());
+      setMessages(usable);
+      setUnreadCount(usable.filter(m => !m.is_read).length);
       setLoading(false);
     }
     load();
@@ -46,6 +47,7 @@ export default function HomeInboxPanel() {
       }
       const incoming = event.data;
       if (!incoming?.id) return;
+      if (!String(incoming.subject || "").trim() && !String(incoming.body || "").trim()) return;
       setMessages(prev => {
         const idx = prev.findIndex(m => m.id === incoming.id);
         if (idx >= 0) {

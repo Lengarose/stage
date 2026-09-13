@@ -400,10 +400,15 @@ async function sendActionMessage({
   isSystem = false,
   notify = true,
   notification = {},
-  reuseByRelated = true,
+  // Default false: each distinct event (new idempotency key) must INSERT a new
+  // inbox row. Related-entity reuse overwrote prior match-result / schedule
+  // messages. Opt in only for intentional single-thread repairs (e.g. contracts).
+  reuseByRelated = false,
 }) {
   const recipient = String(recipientEmail || '').trim().toLowerCase();
-  if (!recipient || !subject || !body) {
+  const trimmedSubject = String(subject || '').trim();
+  const trimmedBody = String(body || '').trim();
+  if (!recipient || !trimmedSubject || !trimmedBody) {
     throw new Error('Missing required fields: recipientEmail, subject, body');
   }
   const effectiveIdempotencyKey = idempotencyKey || buildActionMessageIdempotencyKey({
@@ -430,8 +435,8 @@ async function sendActionMessage({
   );
   const existingMessage = existingByKey[0] || existingByRelated[0] || null;
   if (existingMessage) {
-    // Keep retries and legacy rows actionable instead of preserving incomplete
-    // messages that were created before the central inbox delivery path existed.
+    // Same idempotency key (or explicit related reuse): repair/replace that row.
+    // Do not use this path for a new event — callers must pass a new key.
     await EXECUTESQL(
       `UPDATE inbox_messages
           SET recipient_email = ?,
@@ -458,8 +463,8 @@ async function sendActionMessage({
         senderGamertag || null,
         senderAvatarUrl || null,
         senderClubName || null,
-        subject,
-        body,
+        trimmedSubject,
+        trimmedBody,
         messageType,
         actionType,
         isSystem ? 1 : 0,
@@ -471,11 +476,21 @@ async function sendActionMessage({
       ]
     ).catch(() => {});
     const repairedRows = await EXECUTESQL('SELECT * FROM inbox_messages WHERE id = ? LIMIT 1', [existingMessage.id]).catch(() => []);
-    if (repairedRows[0]) broadcastInbox(repairedRows[0]);
+    const repaired = repairedRows[0] || {
+      id: existingMessage.id,
+      recipient_email: recipient,
+      subject: trimmedSubject,
+      body: trimmedBody,
+      message_type: messageType,
+      status: 'pending',
+      is_read: 0,
+      idempotency_key: effectiveIdempotencyKey,
+    };
+    broadcastInbox(repaired);
     const notificationResult = notify ? await notifyForActionMessage({
       recipient,
       messageId: existingMessage.id,
-      subject,
+      subject: trimmedSubject,
       messageType,
       idempotencyKey: effectiveIdempotencyKey,
       notification,
@@ -485,6 +500,22 @@ async function sendActionMessage({
       message: { id: existingMessage.id, reused: true },
       notification: notificationResult,
     };
+  }
+
+  // Drop zombie empty stubs for this recipient+related entity so a prior blank
+  // row does not sit beside the new real message (duplicate empty + full).
+  if (relatedEntityId) {
+    await EXECUTESQL(
+      `DELETE FROM inbox_messages
+        WHERE recipient_email = ?
+          AND related_entity_id = ?
+          AND message_type = ?
+          AND (
+            subject IS NULL OR TRIM(subject) = ''
+            OR body IS NULL OR TRIM(body) = ''
+          )`,
+      [recipient, relatedEntityId, messageType]
+    ).catch(() => {});
   }
 
   const messageId = uuidv4();
@@ -501,8 +532,8 @@ async function sendActionMessage({
       senderGamertag || null,
       senderAvatarUrl || null,
       senderClubName || null,
-      subject,
-      body,
+      trimmedSubject,
+      trimmedBody,
       messageType,
       actionType,
       isSystem ? 1 : 0,
@@ -514,15 +545,19 @@ async function sendActionMessage({
   );
 
   const createdRows = await EXECUTESQL('SELECT * FROM inbox_messages WHERE id = ? LIMIT 1', [messageId]).catch(() => []);
-  const createdMessage = createdRows[0] || {
+  const createdMessage = {
     id: messageId,
     recipient_email: recipient,
-    subject,
+    subject: trimmedSubject,
+    body: trimmedBody,
     message_type: messageType,
     status: 'pending',
     is_read: 0,
     idempotency_key: effectiveIdempotencyKey,
+    ...(createdRows[0] || {}),
   };
+  if (!String(createdMessage.subject || '').trim()) createdMessage.subject = trimmedSubject;
+  if (!String(createdMessage.body || '').trim()) createdMessage.body = trimmedBody;
   broadcastInbox(createdMessage);
 
   let notificationResult = null;
@@ -530,7 +565,7 @@ async function sendActionMessage({
     notificationResult = await notifyForActionMessage({
       recipient,
       messageId,
-      subject,
+      subject: trimmedSubject,
       messageType,
       idempotencyKey: effectiveIdempotencyKey,
       notification,
