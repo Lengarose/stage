@@ -7419,6 +7419,9 @@ const HANDLERS = {
     const message = rows[0];
     if (!message) throw new Error('Message not found');
     if (String(message.recipient_email || '').toLowerCase() !== String(user.email || '').toLowerCase()) throw new Error('Forbidden');
+    if (message.status && String(message.status) !== 'pending') {
+      throw new Error('This action is no longer valid');
+    }
     await markInboxMessageResponded(message_id, action);
 
     const meta = parseMaybeJson(message.metadata, {});

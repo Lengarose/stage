@@ -81,17 +81,12 @@ export default function InboxMessageDetail({
     setLoading(action);
     setActionError("");
     try {
-      if (message.message_type === "match_invite") {
-        await stageClient.functions.invoke("respondInboxMessage", {
-          message_id: message.id,
-          action,
-          new_date: rescheduleDate || null,
-          new_time: rescheduleTime || null,
-        });
-      } else {
-        await stageClient.entities.InboxMessage.update(message.id, { status: action, is_read: true });
-      }
-
+      await stageClient.functions.invoke("respondInboxMessage", {
+        message_id: message.id,
+        action,
+        new_date: rescheduleDate || null,
+        new_time: rescheduleTime || null,
+      });
       onStatusChanged(message.id, action);
     } catch (err) {
       console.error("[InboxMessageDetail] action failed:", err);
