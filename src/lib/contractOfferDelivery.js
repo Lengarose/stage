@@ -1,9 +1,7 @@
 import { stageClient } from "@/api/stageClient";
-import { createInboxEventId } from "@/lib/inboxEventId";
 import { formatContractTypeForSentence } from "@/lib/contractTypeLabels";
 
 function contractOfferEventId(contractId, round) {
-  if (!contractId) return createInboxEventId();
   return `contract:${contractId}:r${round || 0}`;
 }
 
