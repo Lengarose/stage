@@ -6,16 +6,12 @@ import TransferBadge from "./TransferBadge";
 import { calculatePlayerValue, formatSTC, getValueTier } from "@/lib/playerValue";
 import { useTranslation } from "@/hooks/useTranslation";
 
-const CONTRACT_TYPE_LABELS = {
-  trial:     { label: "Trial", desc: "Short-term evaluation" },
-  academy:   { label: "Academy", desc: "Development squad" },
-  squad:     { label: "Squad",  desc: "Regular squad member" },
-  important: { label: "Important", desc: "Key squad player" },
-  star:      { label: "Star",   desc: "Top team player" },
-};
-
 export default function TransferDetailPanel({ entry, canManage, canOffer, canRequestLoan, getOfferBlockReason, onOffer, onRequestLoan, windowOpen }) {
   const { t } = useTranslation();
+  const tx = (key, fallback) => {
+    const value = t(key);
+    return value && value !== key ? value : fallback;
+  };
   if (!entry) {
     return (
       <div className="border border-white/10 bg-[#071018] p-10 text-center flex flex-col items-center justify-center h-full min-h-[220px]">
@@ -165,7 +161,7 @@ export default function TransferDetailPanel({ entry, canManage, canOffer, canReq
               className="w-full gap-2 rounded-none border border-[#f5c542]/40 bg-transparent font-heading text-sm font-black uppercase tracking-[0.18em] text-[#f5c542] hover:bg-[#f5c542]/10"
             >
               <FileText className="w-4 h-4" />
-              {t("commonPages.requestLoan") || "Request Loan"}
+              {tx("commonPages.requestLoan", "Request Loan")}
             </Button>
           )}
           {blockReason && !canRequestLoan && (

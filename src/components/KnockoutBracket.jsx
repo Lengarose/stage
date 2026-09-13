@@ -131,7 +131,7 @@ function MatchCard({ match, myClubId, onSubmit, onSchedule, onViewStats, onAddSt
             )}
             {openGameDay && (
               <button type="button" onClick={() => onSubmit(match)}
-                className="text-xs uppercase tracking-wider font-semibold text-primary bg-primary/5 hover:bg-primary/10 py-2.5 transition-colors">Game Day</button>
+                className="text-xs uppercase tracking-wider font-semibold text-primary bg-primary/5 hover:bg-primary/10 py-2.5 transition-colors">GameDay</button>
             )}
           </div>
           {(onAddStream || onForfeit) && (

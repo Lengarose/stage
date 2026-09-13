@@ -5,14 +5,17 @@ import ExpiredFixtureRow from "@/components/admin/disputes/ExpiredFixtureRow";
 import GameDayBannerEditor from "@/components/admin/gameday/GameDayBannerEditor";
 import { AdminGamerSection } from "@/components/admin/AdminGamerUI";
 import { Button } from "@/components/ui/button";
+import { stageClient } from "@/api/stageClient";
 import { cn } from "@/lib/utils";
-import { CalendarClock, Flag, Gavel, Image, ListChecks, Settings2 } from "lucide-react";
+import { swalAlert, swalConfirm } from "@/lib/swal";
+import { AlertTriangle, CalendarClock, Flag, Gavel, Image, ListChecks, Settings2, Trash2 } from "lucide-react";
 
 const VIEWS = [
   { id: "needsAction", label: "Needs Action", icon: ListChecks },
   { id: "disputes", label: "Disputes", icon: Gavel },
   { id: "forfeits", label: "Forfeits", icon: Flag },
   { id: "scheduling", label: "Scheduling", icon: CalendarClock },
+  { id: "stuck", label: "Stuck", icon: AlertTriangle },
   { id: "banner", label: "Banner", icon: Image },
 ];
 
@@ -52,6 +55,7 @@ function EmptyGameDayState({ icon: Icon, title, text }) {
 export default function GameDayTab({
   disputes = [],
   forfeits = [],
+  staleGameDayMatches = [],
   expiredFixtures = [],
   setResolveDialog,
   setSelectedWinner,
@@ -61,8 +65,9 @@ export default function GameDayTab({
   setSchedulingAdminBusy,
 }) {
   const [view, setView] = useState("needsAction");
+  const [voidingMatch, setVoidingMatch] = useState(null);
 
-  const actionCount = disputes.length + forfeits.length + expiredFixtures.length;
+  const actionCount = disputes.length + forfeits.length + expiredFixtures.length + staleGameDayMatches.length;
   const queue = useMemo(() => [
     ...disputes.map(match => ({
       id: `dispute-${match.id}`,
@@ -80,6 +85,14 @@ export default function GameDayTab({
       detail: "Forfeit claim waiting for approve or reject.",
       onOpen: () => setView("forfeits"),
     })),
+    ...staleGameDayMatches.map(match => ({
+      id: `stuck-${match.id}`,
+      type: "Stuck",
+      tone: "danger",
+      title: `${match.home_club_name || match.home_player_name || "Home"} vs ${match.away_club_name || match.away_player_name || "Away"}`,
+      detail: `Still open after result flow: ${match.result_state || match.status || "unknown state"}.`,
+      onOpen: () => setView("stuck"),
+    })),
     ...expiredFixtures.map(fixture => ({
       id: `expired-${fixture.id}`,
       type: "Scheduling",
@@ -90,15 +103,37 @@ export default function GameDayTab({
         : fixture.competition_name || "GOST / Tournament fixture",
       onOpen: () => setView("scheduling"),
     })),
-  ], [disputes, expiredFixtures, forfeits]);
+  ], [disputes, expiredFixtures, forfeits, staleGameDayMatches]);
+
+  async function voidStuckMatch(match) {
+    if (!match?.id) return;
+    const title = `${match.home_club_name || match.home_player_name || "Home"} vs ${match.away_club_name || match.away_player_name || "Away"}`;
+    const ok = await swalConfirm(
+      `Remove this match from GameDay and club fixtures?\n\n${title}\n\nThis will hide it for users and keep an admin audit log.`,
+      { title: "Void stuck match?", confirmText: "Void Match" }
+    );
+    if (!ok) return;
+    setVoidingMatch(match.id);
+    try {
+      await stageClient.http.post(`/matches/${encodeURIComponent(match.id)}/admin-void`, {
+        reason: "Admin removed stale GameDay match from GameDay control",
+      });
+      await loadAll?.();
+    } catch (err) {
+      await swalAlert(`Could not void this match: ${err?.data?.error || err?.message || "Unknown error"}`);
+    } finally {
+      setVoidingMatch(null);
+    }
+  }
 
   return (
     <div className="space-y-5">
-      <div className="grid gap-3 md:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-5">
         <ActionCard label="Needs Action" value={actionCount} sub="Open GameDay admin items" icon={ListChecks} tone={actionCount ? "danger" : "neutral"} />
         <ActionCard label="Disputes" value={disputes.length} sub="Result conflicts" icon={Gavel} tone="danger" />
         <ActionCard label="Forfeits" value={forfeits.length} sub="Pending claims" icon={Flag} tone="warning" />
         <ActionCard label="Scheduling" value={expiredFixtures.length} sub="Expired official fixtures" icon={CalendarClock} tone="info" />
+        <ActionCard label="Stuck" value={staleGameDayMatches.length} sub="Old open matches" icon={AlertTriangle} tone="danger" />
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -193,8 +228,45 @@ export default function GameDayTab({
         </AdminGamerSection>
       )}
 
+      {view === "stuck" && (
+        <AdminGamerSection title="Stuck GameDay Matches" subtitle="Void matches that stayed open after the result or scheduling flow should have ended." icon={AlertTriangle}>
+          {staleGameDayMatches.length === 0 ? (
+            <EmptyGameDayState icon={AlertTriangle} title="No Stuck Matches" text="No old live, scheduled or confirmation-waiting matches need cleanup right now." />
+          ) : (
+            <div className="space-y-2">
+              {staleGameDayMatches.map(match => (
+                <div key={match.id} className="flex flex-col gap-3 border border-rose-400/20 bg-rose-950/10 p-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="truncate font-heading text-lg font-black uppercase text-white">
+                      {match.home_club_name || match.home_player_name || "Home"} vs {match.away_club_name || match.away_player_name || "Away"}
+                    </p>
+                    <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-white/45">
+                      <span>Status: {match.status || "-"}</span>
+                      <span>Result: {match.result_state || "-"}</span>
+                      <span>Updated: {match.updated_date ? new Date(match.updated_date).toLocaleString() : "-"}</span>
+                      {match.source_fixture_type && <span>Source: {match.source_fixture_type}</span>}
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => voidStuckMatch(match)}
+                    disabled={voidingMatch === match.id}
+                    className="shrink-0 border-rose-400/35 text-rose-200 hover:bg-rose-500/10"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    {voidingMatch === match.id ? "Voiding..." : "Void Match"}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </AdminGamerSection>
+      )}
+
       {view === "banner" && (
-        <AdminGamerSection title="GameDay Banner" subtitle="This controls the hero banner shown to players on the Game Day page." icon={Image}>
+        <AdminGamerSection title="GameDay Banner" subtitle="This controls the hero banner shown to players on the GameDay page." icon={Image}>
           <GameDayBannerEditor />
         </AdminGamerSection>
       )}

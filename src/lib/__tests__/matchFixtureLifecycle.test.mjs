@@ -20,7 +20,7 @@ const arranged = {
   away_player_email: "away@example.test",
 };
 
-test("web Game Day only lets a player request cancel, not delete the fixture alone", () => {
+test("web GameDay only lets a player request cancel, not delete the fixture alone", () => {
   const home = { email: "home@example.test", playerId: "p-home" };
   assert.equal(isPlayerManagedMatch(arranged), true);
   assert.equal(canRequestMatchCancel(arranged, home), true);

@@ -28,7 +28,7 @@ async function firstStreamUrlForPlayerIds(playerIds) {
 
 /**
  * Fallback stream source for club matches. The dressing room no longer gates
- * Game Day, so the seated list may legitimately be empty; fall back to any
+ * GameDay, so the seated list may legitimately be empty; fall back to any
  * player of the club who has linked a Twitch/Kick channel.
  */
 async function firstStreamUrlForClub(clubId) {

@@ -69,7 +69,7 @@ export async function createMatchFromFixture(fixture, fixtureType) {
     if (match?.id) return isActiveGameDayMatch(match) ? match : null;
   } catch (err) {
     // Older deployments may not have the server function yet. Fall back to the
-    // normal Match route so confirmed fixtures never disappear from Game Day.
+    // normal Match route so confirmed fixtures never disappear from GameDay.
     console.warn("[GameDay] server fixture conversion failed, using direct match fallback", err);
   }
 

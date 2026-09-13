@@ -219,7 +219,7 @@ test("club kickoff is not blocked by dressing-room seats", () => {
   assert.equal(controls.canPressKickoff, true);
 });
 
-test("Game Day and admin pages are wired to the result-flow helpers", () => {
+test("GameDay and admin pages are wired to the result-flow helpers", () => {
   const gameDaySource = readRepoFile("src/components/gameday/GameDayDetail.jsx");
   const source = readRepoFile("src/pages/Admin.jsx");
 

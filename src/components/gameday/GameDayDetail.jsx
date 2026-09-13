@@ -190,6 +190,9 @@ export default function GameDayDetail({
   const resultControls = getResultSubmissionControls({ game, isLive, showResultForm, amIHomeTeam });
 
   const { home, away } = getMatchSideNames(game, t("matchFlow.tbd"));
+  const updateResultLabel = t("matchFlow.updateResult") === "matchFlow.updateResult"
+    ? "Update Result"
+    : t("matchFlow.updateResult");
 
   // Phase 2 — seats no longer gate kickoff.
   const kickoffControls = getKickoffControls({
@@ -410,7 +413,7 @@ export default function GameDayDetail({
                     variant="outline"
                     className="h-11 w-full gap-2 rounded-sm border-[#f8fbff]/50 font-heading text-xs font-black uppercase tracking-[0.18em] text-[#dbe4ef] hover:text-white"
                   >
-                    <Flag className="h-4 w-4" /> {t("matchFlow.updateResult") || "Update Result"}
+                    <Flag className="h-4 w-4" /> {updateResultLabel}
                   </Button>
                 ) : null}
               </div>

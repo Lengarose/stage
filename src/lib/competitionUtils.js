@@ -792,7 +792,7 @@ export async function processCompetitionSeasonEnd(season, standings, competition
  * Generate home-and-away round-robin fixtures for a regional league.
  * Uses the circle method: n clubs → n-1 rounds per leg → 2*(n-1) matchdays total.
  * Fixtures are created unscheduled. Home clubs propose a kickoff time from the
- * fixture; Game Day is created only after the away club accepts.
+ * fixture; GameDay is created only after the away club accepts.
  */
 export async function generateRegionalLeagueFixtures(league, clubs) {
   if (!stageClient.entities.RegionalLeagueFixture) {

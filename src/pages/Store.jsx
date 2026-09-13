@@ -44,7 +44,7 @@ const DEFAULT_STORE_CONFIG = {
     "Upload your own club stats tile background",
     "Custom Career tab tile backgrounds",
     "Upload your own career tile background",
-    "Custom Game Day panel backgrounds",
+    "Custom GameDay panel backgrounds",
     "Personalize Match Screens and Dressing Room tiles",
   ],
 };

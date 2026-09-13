@@ -2,7 +2,7 @@
 'use strict';
 
 /**
- * Local Game Day result-negotiation smoke test.
+ * Local GameDay result-negotiation smoke test.
  * Requires the backend on :8080 and MySQL stage_league.
  *
  *   node server/scripts/gameday-result-smoke.js

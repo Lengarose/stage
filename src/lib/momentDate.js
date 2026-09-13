@@ -13,7 +13,7 @@ function convertDateFnsPattern(pattern = "") {
   // `EEEE` → `dddd` first, then the later `dd` → `DD` rule re-matched the
   // `dd` substring inside `dddd`, leaving `DDDD` (moment's day-of-year-3).
   // That's why "EEEE d MMMM" was rendering "148 28 MAY" instead of
-  // "Thursday 28 May" on Game Day cards.
+  // "Thursday 28 May" on GameDay cards.
   const tokenMap = {
     yyyy: "YYYY",
     yy:   "YY",

@@ -562,7 +562,7 @@ router.patch('/:id/career-tile-background', async (req, res) => {
   }
 });
 
-// PATCH /:id/game-day-tile-background — STAGE Plus Game Day tile personalization.
+// PATCH /:id/game-day-tile-background — STAGE Plus GameDay tile personalization.
 router.patch('/:id/game-day-tile-background', async (req, res) => {
   try {
     await ensureSecondaryPositionColumn();
@@ -572,10 +572,10 @@ router.patch('/:id/game-day-tile-background', async (req, res) => {
     const ownsPlayer = String(existing.user_id || '') === String(req.user?.id || '')
       || String(existing.email || '').toLowerCase() === String(req.user?.email || '').toLowerCase();
     if (!ownsPlayer && !isAdmin(req.user)) {
-      return res.status(403).json({ error: 'You can only change your own Game Day tile backgrounds' });
+      return res.status(403).json({ error: 'You can only change your own GameDay tile backgrounds' });
     }
     if (!isAdmin(req.user) && !hasStagePlus(existing)) {
-      return res.status(403).json({ error: 'STAGE Plus is required to customize Game Day tile backgrounds' });
+      return res.status(403).json({ error: 'STAGE Plus is required to customize GameDay tile backgrounds' });
     }
 
     const tileKey = readTileKey(req);
@@ -589,7 +589,7 @@ router.patch('/:id/game-day-tile-background', async (req, res) => {
     let backgroundPosition = '50% 50%';
     let backgroundZoom = 120;
     if (type === 'default') {
-      // Reset to standard Game Day tile style.
+      // Reset to standard GameDay tile style.
     } else if (type === 'official') {
       backgroundId = String(req.body?.background_id || '').trim();
       if (!backgroundId) return res.status(400).json({ error: 'background_id is required' });

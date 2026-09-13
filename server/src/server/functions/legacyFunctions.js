@@ -2701,7 +2701,7 @@ async function deliverAdminSelectedTournamentPresidentMessage({ tournament, club
       `Tournament credits charged: ${entryCost} credits per linked user account.`,
       `Charged accounts: ${chargedUsers.length}`,
       '',
-      'Your club members have been marked Available for tournament preparation. When fixtures are generated, registered club members will be seated automatically in Game Day so simulated matches can produce player stats.',
+      'Your club members have been marked Available for tournament preparation. When fixtures are generated, registered club members will be seated automatically in GameDay so simulated matches can produce player stats.',
     ].filter(Boolean).join('\n'),
     messageType: 'tournament_registration',
     actionType: 'none',
@@ -5704,7 +5704,7 @@ const HANDLERS = {
     if (!fixtureRows.length) throw new Error('Fixture not found');
     const fixture = parseLeagueEntityRow(fixtureRows[0]);
     if (String(fixture.scheduling_status || '').toLowerCase() !== 'confirmed') {
-      throw new Error('Fixture must be confirmed before creating a Game Day match');
+      throw new Error('Fixture must be confirmed before creating a GameDay match');
     }
     const scheduledDate = fixture.confirmed_date || fixture.scheduled_date || null;
     let matchTimezone = fixture.timezone || null;
@@ -9030,7 +9030,7 @@ const HANDLERS = {
     if (!match_id) throw new Error('match_id required');
 
     if (action === 'kickoff') {
-      // Phase 2 — the dressing room no longer gates Game Day. A correctly
+      // Phase 2 — the dressing room no longer gates GameDay. A correctly
       // scheduled match is startable on its own match state; who actually
       // played is declared during result submission instead. The dressing_rooms
       // table and its historical rows are deliberately left untouched.
@@ -10495,7 +10495,7 @@ const HANDLERS = {
 
       // ── VIP Experiences ───────────────────────────────────────────────────
       // F1 Paddock Club / VIP match hospitality: $6–15K per event
-      { name: 'VIP Match Day', category: 'vip_experiences', tier: 'standard', sort_order: 40,
+      { name: 'VIP GameDay', category: 'vip_experiences', tier: 'standard', sort_order: 40,
         price_stc: 12_000, rent_price_stc: 0, rent_duration_days: 0,
         invest_price_stc: 0, invest_return_rate: 0, invest_duration_days: 0,
         passive_income_stc: 0, passive_income_interval_days: 0,

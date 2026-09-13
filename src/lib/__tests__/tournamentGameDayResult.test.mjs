@@ -7,7 +7,7 @@ import { canOpenTournamentGameDay, tournamentGameDayWebPath } from "../tournamen
 const root = resolve(import.meta.dirname, "../../..");
 const read = (path) => readFileSync(resolve(root, path), "utf8");
 
-test("cup fixtures open Game Day after they are scheduled", () => {
+test("cup fixtures open GameDay after they are scheduled", () => {
   assert.equal(canOpenTournamentGameDay({ id: "m1", status: "scheduled" }), true);
   assert.equal(canOpenTournamentGameDay({ id: "m1", status: "in_progress" }), true);
   assert.equal(canOpenTournamentGameDay({ id: "m1", status: "awaiting_confirmation" }), true);
@@ -31,10 +31,10 @@ test("tournament page does not ship a second result engine", () => {
   assert.match(page, /openGameDay/);
   assert.match(page, /tournamentGameDayWebPath/);
   assert.match(page, /onSubmit=\{openGameDay\}/);
-  assert.match(page, /Game Day/);
+  assert.match(page, /GameDay/);
 
   assert.match(bracket, /canOpenTournamentGameDay/);
-  assert.match(bracket, />Game Day</);
+  assert.match(bracket, />GameDay</);
   assert.doesNotMatch(bracket, />Result</);
   assert.doesNotMatch(bracket, />Confirm</);
 

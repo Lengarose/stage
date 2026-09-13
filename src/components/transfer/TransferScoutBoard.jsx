@@ -109,6 +109,10 @@ export default function TransferScoutBoard({
   windowOpen,
 }) {
   const { t } = useTranslation();
+  const tx = (key, fallback) => {
+    const value = t(key);
+    return value && value !== key ? value : fallback;
+  };
   const [page, setPage] = useState(0);
   const pageCount = Math.max(1, Math.ceil(entries.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
@@ -309,7 +313,7 @@ export default function TransferScoutBoard({
                 className="h-9 flex-1 gap-2 rounded-none border border-cyan-300/35 bg-transparent font-heading text-[11px] font-black uppercase tracking-[0.14em] text-cyan-200 hover:bg-cyan-300/10"
               >
                 <BarChart3 className="h-4 w-4" />
-                {t("commonPages.requestLoan") || "Request Loan"}
+                {tx("commonPages.requestLoan", "Request Loan")}
               </Button>
             ) : null}
             <Link to={`/players/${player.id}`} className="sm:w-auto">

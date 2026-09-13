@@ -559,7 +559,7 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
           </p>
           {seatedPlayers.length === 0 ? (
             <p className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-[11px] text-warning">
-              No squad players found for your club. Open Club → Squad and make sure players are signed, then refresh Game Day.
+              No squad players found for your club. Open Club → Squad and make sure players are signed, then refresh GameDay.
             </p>
           ) : (
             seatedPlayers.map((p) => (

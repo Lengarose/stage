@@ -26,7 +26,7 @@ const DEFAULTS = {
   hero_image_url:    HeroImg,
   hero_cta_1_label:  "Competitions",
   hero_cta_1_url:    "/competitions",
-  hero_cta_2_label:  "Game Day",
+  hero_cta_2_label:  "GameDay",
   hero_cta_2_url:    "/game-day",
   hero_cta_3_label:  "Store",
   hero_cta_3_url:    "/lifestyle",

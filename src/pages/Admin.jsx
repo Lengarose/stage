@@ -68,6 +68,40 @@ import {
   normalizeTournamentMaxTeams,
 } from "@/lib/tournamentRules";
 
+const TERMINAL_MATCH_STATUSES = new Set(["completed", "confirmed", "played", "forfeit", "cancelled", "canceled", "deleted"]);
+const STALE_RESULT_STATES = new Set(["AWAITING_AWAY_CONFIRMATION", "AWAITING_HOME_REVIEW", "RESULT_OVERDUE", "DISPUTED", "ADMIN_REVIEW"]);
+const STALE_MATCH_STATUS_CANDIDATES = ["scheduled", "in_progress", "awaiting_confirmation", "disputed"];
+const STALE_MATCH_AGE_MS = 48 * 60 * 60 * 1000;
+
+function timeValue(value) {
+  const time = value ? new Date(value).getTime() : NaN;
+  return Number.isFinite(time) ? time : null;
+}
+
+function isStaleGameDayMatch(match) {
+  if (!match?.id) return false;
+  const status = String(match.status || "").toLowerCase();
+  if (TERMINAL_MATCH_STATUSES.has(status)) return false;
+
+  const resultState = String(match.result_state || "").toUpperCase();
+  const dueAt = timeValue(match.confirmation_due_at || match.review_due_at || match.result_due_at);
+  const lastActivityAt = timeValue(match.updated_date || match.scheduled_date || match.match_date || match.created_date);
+  const duePassed = dueAt !== null && Date.now() > dueAt;
+  const oldEnough = lastActivityAt !== null && Date.now() - lastActivityAt > STALE_MATCH_AGE_MS;
+
+  if (STALE_RESULT_STATES.has(resultState)) return duePassed || oldEnough;
+  return STALE_MATCH_STATUS_CANDIDATES.includes(status) && oldEnough;
+}
+
+function uniqueMatches(matches) {
+  const byId = new Map();
+  for (const match of asObjectArray(matches)) {
+    if (!match?.id) continue;
+    byId.set(String(match.id), { ...(byId.get(String(match.id)) || {}), ...match });
+  }
+  return [...byId.values()];
+}
+
 function getOfficialStageSpotsForCompetition(slug) {
   return STAGE_QUALIFICATION_RULES.find(rule => rule.competitionSlug === slug)?.positions.length || 6;
 }
@@ -108,6 +142,7 @@ export default function Admin(props) {
   const [allowed, setAllowed] = useState(null);
   const [disputes, setDisputes] = useState([]);
   const [forfeits, setForfeits] = useState([]);
+  const [staleGameDayMatches, setStaleGameDayMatches] = useState([]);
   const [players, setPlayers] = useState([]);
   const [identityClaims, setIdentityClaims] = useState([]);
   const [clubs, setClubs] = useState([]);
@@ -312,13 +347,20 @@ export default function Admin(props) {
         stageClient.identityClaims.list({ status: "pending" }, "-created_date", 100).catch(() => []),
       ]);
       const forfeitMatches = await stageClient.entities.Match.filter({ forfeit_status: "pending" }, "-updated_date", 50).catch(() => []);
+      const staleCandidateGroups = await Promise.all(
+        STALE_MATCH_STATUS_CANDIDATES.map(status =>
+          stageClient.entities.Match.filter({ status }, "-updated_date", 120).catch(() => [])
+        )
+      );
       const activeForfeitMatches = (forfeitMatches || []).filter(match =>
         match?.forfeit_status === "pending" &&
         Boolean(match?.forfeit_claimed_by) &&
-        !["completed", "confirmed", "played", "forfeit", "cancelled", "canceled"].includes(String(match?.status || "").toLowerCase())
+        !TERMINAL_MATCH_STATUSES.has(String(match?.status || "").toLowerCase())
       );
+      const staleMatches = uniqueMatches(staleCandidateGroups.flat()).filter(isStaleGameDayMatch);
       setDisputes(disputedMatches.map(m => ({ ...m, _source: "tournament" })));
       setForfeits(activeForfeitMatches);
+      setStaleGameDayMatches(staleMatches);
       setPlayers(allPlayers);
       setIdentityClaims(pendingIdentityClaims);
       setClubs(allClubs);
@@ -1601,6 +1643,7 @@ export default function Admin(props) {
             <GameDayTab
               disputes={disputes}
               forfeits={forfeits}
+              staleGameDayMatches={staleGameDayMatches}
               expiredFixtures={expiredFixtures}
               setResolveDialog={setResolveDialog}
               setSelectedWinner={setSelectedWinner}

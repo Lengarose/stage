@@ -99,7 +99,7 @@ function notifyMatchDay({ to, name, opponent, competition, kickoff, url } = {}) 
     row(`You have a match coming up${opponent ? ` against <strong>${opponent}</strong>` : ''}${competition ? ` in <strong>${competition}</strong>` : ''}.`) +
     row(`<strong>Kick-off:</strong> ${when}`) +
     row('Good luck!'),
-    { label: 'Go to Match Day', url: url || `${SITE_URL}/game-day` },
+    { label: 'Go to GameDay', url: url || `${SITE_URL}/game-day` },
   );
   sendIfEmailEnabled(to, 'match_reminders', () => {
     sendMailSafe({ to, subject: `Match day${opponent ? ` vs ${opponent}` : ''} — ${BRAND}`, html });

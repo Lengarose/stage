@@ -190,7 +190,7 @@ export function GamerHeroAction({ children, className, style, as: Component = "b
 
 export function GamerTabNav({ tabs, active, onChange, className }) {
   return (
-    <div className={cn("flex gap-2 overflow-x-auto border-b border-white/10 pb-0 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden", className)}>
+    <div className={cn("flex flex-wrap gap-x-7 gap-y-3 overflow-visible pb-0", className)}>
       {tabs.map((tab) => {
         const isActive = active === tab.id;
         return (
@@ -199,13 +199,12 @@ export function GamerTabNav({ tabs, active, onChange, className }) {
             type="button"
             onClick={() => onChange(tab.id)}
             className={cn(
-              "relative shrink-0 border-x border-t px-5 py-3 text-[10px] font-black uppercase tracking-[0.18em] transition-all sm:text-xs",
+              "relative shrink-0 border-0 bg-transparent px-0 py-2 text-[10px] font-black uppercase tracking-[0.18em] transition-all sm:text-xs",
               isActive
-                ? "border-cyan-200/45 bg-[#071524] text-cyan-50 shadow-[0_-10px_35px_-22px_rgba(0,229,255,0.95)]"
-                : "border-white/10 bg-[#060a12]/82 text-white/42 hover:border-cyan-300/25 hover:bg-cyan-300/8 hover:text-cyan-50"
+                ? "text-cyan-50 drop-shadow-[0_0_16px_rgba(0,229,255,0.70)]"
+                : "text-white/42 hover:text-cyan-50 hover:drop-shadow-[0_0_14px_rgba(0,229,255,0.45)]"
             )}
           >
-            {isActive ? <span className="absolute inset-x-0 -bottom-px h-px bg-cyan-300 shadow-[0_0_18px_rgba(0,229,255,0.95)]" /> : null}
             {tab.label}
             {tab.badge ? (
               <span

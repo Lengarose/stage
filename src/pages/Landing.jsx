@@ -88,7 +88,7 @@ const FEATURES = [
     ),
   },
   {
-    title: 'Game Day',
+    title: 'GameDay',
     desc: 'Schedule matches, submit scores, and track every result in real time. Your club\'s form, streaks, and standings update instantly.',
     accent: '#10b981',
     border: 'border-emerald-500/25',
@@ -148,14 +148,14 @@ const DEFAULT_STATS = [
 const STEPS = [
   { num: '01', title: 'Create Your Profile', desc: 'Sign up, pick your position and platform, upload your photo, and build your player identity in minutes.' },
   { num: '02', title: 'Join or Found a Club', desc: 'Browse existing clubs and request to join, or create your own — set the name, badge, region, and start recruiting.' },
-  { num: '03', title: 'Register & Compete', desc: 'Enter a regional league or competition, schedule your matches on Game Day, and chase the title every season.' },
+  { num: '03', title: 'Register & Compete', desc: 'Enter a regional league or competition, schedule your matches on GameDay, and chase the title every season.' },
 ];
 
 const DEFAULT_PICTURE_SECTIONS = [
   {
     tag: 'Compete',
     title: 'Structured Leagues & Competitions',
-    text: 'STAGE runs official regional leagues and knockout competitions throughout the year. Register your club, play your fixtures on Game Day, and climb the table. Seasons end with trophies, prize pools, and promotion — building a history your club can be proud of.',
+    text: 'STAGE runs official regional leagues and knockout competitions throughout the year. Register your club, play your fixtures on GameDay, and climb the table. Seasons end with trophies, prize pools, and promotion — building a history your club can be proud of.',
     flip: false,
     accent: '#f59e0b',
     imageUrl: TrophiesImg,

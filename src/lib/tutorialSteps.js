@@ -59,15 +59,15 @@ const PLAYER_STEPS = [
     ],
   },
   {
-    title: "Play Match Days",
+    title: "Play GameDays",
     icon: "⚽",
-    where: "Schedule · Game Day · Availability",
+    where: "Schedule · GameDay · Availability",
     description:
-      "Fixtures are planned on Schedule and played on Game Day. You show up, sit in the dressing room, play, and confirm the score.",
+      "Fixtures are planned on Schedule and played on GameDay. You show up, sit in the dressing room, play, and confirm the score.",
     detail:
       "The table only moves when a result is submitted and confirmed. Availability is how your president knows you can play.",
     tips: [
-      "Follow Schedule and Game Day",
+      "Follow Schedule and GameDay",
       "Set availability on your profile",
       "Confirm results on time",
     ],
@@ -75,7 +75,7 @@ const PLAYER_STEPS = [
       "Set Availability on Profile → More so your president can pick a window.",
       "Open Schedule (Apps) for the calendar. Tap a row for opponent and kickoff.",
       "If the time is wrong, propose a new one on the match or accept it in Inbox.",
-      "When the window is set, open Game Day (Matches tab).",
+      "When the window is set, open GameDay (Matches tab).",
       "Take a dressing-room seat. Kickoff stays blocked until both sides seat someone.",
       "Use match chat only for that fixture. Discord is not the official clock.",
       "After the game, submit or confirm the score. Keep a screenshot if it might be disputed.",
@@ -103,7 +103,7 @@ const PLAYER_STEPS = [
       "Match invite or time change: Accept, Decline, or send a new date.",
       "After a contract accept, go to Profile — your club crest should be there.",
       "After a loan accept, you play for the borrowing club until recall, return, or buy.",
-      "When Inbox is clear, go to Schedule or Game Day for the next job.",
+      "When Inbox is clear, go to Schedule or GameDay for the next job.",
     ],
   },
   {
@@ -120,7 +120,7 @@ const PLAYER_STEPS = [
       "Add showcase clips",
     ],
     points: [
-      "Play Game Day fixtures so the record on your profile moves.",
+      "Play GameDay fixtures so the record on your profile moves.",
       "Edit Profile: position, secondary position, platform, country, bio.",
       "Add Showcase clips under the Showcase tab.",
       "Claim your platform identity so presidents trust the account.",
@@ -137,7 +137,7 @@ const PLAYER_STEPS = [
     description:
       "The newspaper tells you what happened. It does not sign you, loan you, or play the match.",
     detail:
-      "Use a story’s club and player links to jump into the real path: profile, club page, Inbox, or Game Day.",
+      "Use a story’s club and player links to jump into the real path: profile, club page, Inbox, or GameDay.",
     tips: [
       "All is the front page",
       "Mercato is the market tape",
@@ -151,7 +151,7 @@ const PLAYER_STEPS = [
       "World News: tap a continent, then a country chip. GB / UK / ENG / SCO / WAL / NIR count as one desk.",
       "Club file and player links on a story open the live pages.",
       "A rumour is not a contract. Finish deals in Inbox.",
-      "Come back here after Game Day if you want to see the write-up.",
+      "Come back here after GameDay if you want to see the write-up.",
     ],
   },
   {
@@ -170,7 +170,7 @@ const PLAYER_STEPS = [
     points: [
       "Open Apps → Wallet for your personal balance and history.",
       "Collect weekly salary while the contract is active.",
-      "Match and cup prizes appear after Game Day confirms the score.",
+      "Match and cup prizes appear after GameDay confirms the score.",
       "Lifestyle (Apps) is optional assets. Read price and upkeep first.",
       "Store is STAGE Plus and unlocks — not club wages.",
       "A live loan may split your wage with the parent club. Read the Inbox card.",
@@ -274,7 +274,7 @@ const PRESIDENT_STEPS = [
       "The player answers in Inbox. Until they accept they are not on your squad.",
       "Loan path: you request → parent accepts → player accepts → they play for you.",
       "From Squad you can recall, request return, or exercise an option to buy.",
-      "Fill the roster before Competitions → Register. Empty clubs stall Game Day.",
+      "Fill the roster before Competitions → Register. Empty clubs stall GameDay.",
     ],
   },
   {
@@ -282,7 +282,7 @@ const PRESIDENT_STEPS = [
     icon: "🏆",
     where: "Register · Competitions · Tournaments · International",
     description:
-      "The club enters the competition. Then you schedule Game Days and submit results.",
+      "The club enters the competition. Then you schedule GameDays and submit results.",
     detail:
       "Leagues live under Competitions. Cups live under Tournaments. Country events live under International.",
     tips: [
@@ -295,16 +295,16 @@ const PRESIDENT_STEPS = [
       "When a window is open, go to Register and submit the club before the deadline.",
       "Tournaments is for brackets and one-off events. Open the event for Clubs / Players / Schedule.",
       "International is country-based. Eligibility usually follows club country.",
-      "After entry, fixtures land on Schedule. Play them on Game Day.",
+      "After entry, fixtures land on Schedule. Play them on GameDay.",
       "Put yourself in the lineup if you also play as Founder Player.",
       "THE STAGE TIMES → Competitions / Tournaments reports tables and champions.",
       "If registration fails, the page will say why — roster size, region, or a closed window.",
     ],
   },
   {
-    title: "Run Game Day As President",
+    title: "Run GameDay As President",
     icon: "⚽",
-    where: "Schedule · Game Day · Inbox",
+    where: "Schedule · GameDay · Inbox",
     description:
       "You pick the window, seat the squad, and own the result. The table waits on you.",
     detail:
@@ -317,7 +317,7 @@ const PRESIDENT_STEPS = [
     points: [
       "Read Availability on the club / player tools before you propose a time.",
       "Arrange the window from Schedule or the match card. The opponent accepts in Inbox.",
-      "On Game Day, make sure someone from your club takes a seat.",
+      "On GameDay, make sure someone from your club takes a seat.",
       "Use match chat for that fixture only.",
       "Submit the score promptly. Chase the opponent confirm if it stalls.",
       "Disputes need evidence. Open Apps → Disputes rather than only arguing in chat.",
@@ -427,20 +427,20 @@ const BOTH_STEPS = [
   {
     title: "Player Path",
     icon: "📝",
-    where: "Inbox · Game Day · Wallet",
+    where: "Inbox · GameDay · Wallet",
     description:
       "As a player you get signed, you show up, you get paid. Same rules as a player-only account.",
     detail:
       "Your founder wage is still a player contract paid by the club pot into your personal Wallet.",
     tips: [
       "Inbox for offers and loans",
-      "Game Day to play",
+      "GameDay to play",
       "Wallet for personal STC",
     ],
     points: [
       "Watch Inbox for contracts, loans, and time changes — including ones you sent as president.",
       "Set Availability so you do not double-book the fixture you also scheduled.",
-      "Play on Game Day: seat, kickoff, submit/confirm.",
+      "Play on GameDay: seat, kickoff, submit/confirm.",
       "Personal Wallet collects the founder wage and match prizes.",
       "Showcase and Rankings still matter if you ever move clubs.",
       "Leave Club on the player surface ends the founder player deal.",
@@ -466,7 +466,7 @@ const BOTH_STEPS = [
       "Finish every deal in Inbox. There is no Join button.",
       "Office → Contracts / Finance / Stadium / Shirts.",
       "Register / Competitions / Tournaments / International — always as the club.",
-      "Schedule the window, then play it as a player on Game Day if you are in the lineup.",
+      "Schedule the window, then play it as a player on GameDay if you are in the lineup.",
       "Release and loan actions sit on Squad gamecards.",
       "Do not pay yourself a star wage that empties the club you also have to run.",
       "THE STAGE TIMES Club / Mercato desks are your public reputation.",
@@ -479,7 +479,7 @@ const BOTH_STEPS = [
     description:
       "Personal matches move your rating. Club entries move the table. One calendar.",
     detail:
-      "Keep one Schedule so you do not book a Game Day you cannot play.",
+      "Keep one Schedule so you do not book a GameDay you cannot play.",
     tips: [
       "Enter leagues from the club",
       "Put yourself in the lineup",
@@ -490,7 +490,7 @@ const BOTH_STEPS = [
       "Put yourself in the lineup if you intend to play.",
       "Use Schedule as the single calendar for both jobs.",
       "Inbox time proposals may be ones you sent as president and must accept as player — or the reverse.",
-      "Submit the club result on Game Day even if you also care about your personal rating.",
+      "Submit the club result on GameDay even if you also care about your personal rating.",
       "Cups: Tournaments tab. Leagues: Competitions. Country: International.",
       "Disputes are club-level. Open them with evidence.",
       "After full time, check both Rankings (you) and the competition table (the club).",
@@ -540,7 +540,7 @@ const BOTH_STEPS = [
       "THE STAGE TIMES will file your signings and results if they happen on STAGE.",
       "A strong personal rating makes it easier to recruit.",
       "A strong club page makes it easier to be taken seriously in Register.",
-      "Feed posts help, but Game Day results do the real work.",
+      "Feed posts help, but GameDay results do the real work.",
       "Presidents directory is how others find your leader card.",
     ],
   },
@@ -588,8 +588,8 @@ const BOTH_STEPS = [
       "Search if you know a name. Directories if you do not.",
       "THE STAGE TIMES story links are shortcuts into club and player files.",
       "If a control is missing, switch Player / President / Club.",
-      "Contracts and loans always finish in Inbox. Matches always finish on Game Day.",
-      "When in doubt: Inbox first, then Schedule, then Game Day.",
+      "Contracts and loans always finish in Inbox. Matches always finish on GameDay.",
+      "When in doubt: Inbox first, then Schedule, then GameDay.",
     ],
   },
 ];

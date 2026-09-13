@@ -168,7 +168,7 @@ export default function GameDayTileBackgroundDialog({
       setPreview("");
       onOpenChange(false);
     } catch (err) {
-      setError(err?.message || "Could not update Game Day tile background.");
+      setError(err?.message || "Could not update GameDay tile background.");
     } finally {
       setSaving(null);
     }
@@ -191,7 +191,7 @@ export default function GameDayTileBackgroundDialog({
       }, "custom");
     } catch (err) {
       setSaving(null);
-      setError(err?.message || "Could not upload Game Day tile background.");
+      setError(err?.message || "Could not upload GameDay tile background.");
     }
   }
 
@@ -200,7 +200,7 @@ export default function GameDayTileBackgroundDialog({
       <DialogContent className="max-h-[82vh] max-w-lg overflow-y-auto border-white/10 bg-[#111827] p-4 text-white sm:p-5">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 font-heading text-xs font-black uppercase tracking-[0.18em] text-[#d8dee8]">
-            <ImageIcon className="h-3.5 w-3.5" /> {tileTitle || "Game Day"} background
+            <ImageIcon className="h-3.5 w-3.5" /> {tileTitle || "GameDay"} background
           </DialogTitle>
         </DialogHeader>
 
@@ -231,8 +231,8 @@ export default function GameDayTileBackgroundDialog({
 
             <div className="flex flex-wrap items-center justify-between gap-3 border border-white/10 bg-white/[0.04] p-2.5">
               <div>
-                <p className="font-heading text-xs font-black uppercase text-white">{tileTitle || "Game Day tile"}</p>
-                <p className="text-xs text-white/45">This background only changes this Game Day panel.</p>
+                <p className="font-heading text-xs font-black uppercase text-white">{tileTitle || "GameDay tile"}</p>
+                <p className="text-xs text-white/45">This background only changes this GameDay panel.</p>
               </div>
               <Button
                 type="button"
@@ -306,7 +306,7 @@ export default function GameDayTileBackgroundDialog({
                       />
                       <div aria-hidden className="absolute inset-0 bg-gradient-to-br from-white/10 via-black/45 to-[#202632]/85" />
                       <div className="relative z-[1] flex h-full flex-col justify-between p-3">
-                        <p className="font-heading text-sm font-black uppercase text-white">{tileTitle || "Game Day"}</p>
+                        <p className="font-heading text-sm font-black uppercase text-white">{tileTitle || "GameDay"}</p>
                         <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/55">Preview</p>
                       </div>
                     </div>

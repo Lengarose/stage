@@ -256,7 +256,7 @@ function FixtureRow({ fixture, isAdmin, onSubmitResult, legLabel, isFinalLeg, my
           onClick={openGameDay}
           className="inline-flex shrink-0 items-center gap-1 rounded border border-primary/30 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-primary hover:bg-primary/10"
         >
-          Game Day <ExternalLink className="w-3 h-3" />
+          GameDay <ExternalLink className="w-3 h-3" />
         </button>
       )}
 

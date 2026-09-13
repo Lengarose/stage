@@ -35,7 +35,7 @@ export function useGameDayMatchRealtime({
       refreshMatch(event);
     }, { id: matchId });
 
-    // Phase 2 — the dressing room is out of the Game Day flow, so no room
+    // Phase 2 — the dressing room is out of the GameDay flow, so no room
     // subscription is needed here any more.
 
     return () => {

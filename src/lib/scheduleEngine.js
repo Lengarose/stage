@@ -309,7 +309,7 @@ export async function forceSchedule({ fixture, fixtureType, date, adminNote = ""
     admin_note:   adminNote || null,
   });
 
-  // Auto-create a Match record so this fixture appears on Game Day.
+  // Auto-create a Match record so this fixture appears on GameDay.
   const { createMatchFromFixture } = await import("./gameDayIntegration");
   await createMatchFromFixture({
     ...fixture,

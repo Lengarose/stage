@@ -198,12 +198,17 @@ async function getAuthContext(req) {
   ]);
   return {
     userId,
+    email,
     // Use ?? so role_id 0 (admin) is not replaced by || 1.
     roleId: Number(user.role_id ?? 1),
     playerId: players[0]?.id || null,
     playerClubId: players[0]?.club_id || null,
     ownerClubId: clubs[0]?.id || null,
   };
+}
+
+function isAdminRole(ctx) {
+  return ctx && (ctx.roleId === 0 || ctx.roleId === 2);
 }
 
 function ownScopeWhere(ctx) {
@@ -215,6 +220,72 @@ function ownScopeWhere(ctx) {
     clause: `(home_player_id = ? OR away_player_id = ?${clubClause})`,
     values: [ctx.playerId, ctx.playerId, ...clubIds, ...clubIds],
   };
+}
+
+async function appendAdminAudit({ admin, action, entityId, before, after, reason }) {
+  await EXECUTESQL(
+    `INSERT INTO admin_audit_log
+      (id, admin_user_id, admin_email, action, entity_type, entity_id, old_value, new_value, reason, created_date)
+     VALUES (?, ?, ?, ?, 'match', ?, ?, ?, ?, NOW())`,
+    [
+      uuidv4(),
+      admin?.userId || null,
+      admin?.email || null,
+      action,
+      entityId,
+      JSON.stringify(before || null),
+      JSON.stringify(after || null),
+      reason || null,
+    ]
+  ).catch((err) => {
+    console.error('[matchController] admin audit failed:', err.message);
+  });
+}
+
+async function voidLinkedSourceFixture(match, reason) {
+  if (!match?.source_fixture_id || !match?.source_fixture_type) return null;
+  const sourceType = String(match.source_fixture_type || '').toLowerCase();
+  const entityType = sourceType === 'regional_league' || sourceType === 'regional_league_fixture'
+    ? 'regional_league_fixture'
+    : sourceType === 'competition' || sourceType === 'competition_fixture'
+      ? 'competition_fixture'
+      : null;
+  if (!entityType) return null;
+
+  const rows = await EXECUTESQL(
+    'SELECT * FROM league_entities WHERE id = ? AND entity_type = ? LIMIT 1',
+    [match.source_fixture_id, entityType]
+  ).catch(() => []);
+  const row = rows[0];
+  if (!row) return null;
+
+  let data = {};
+  try {
+    data = row.data_json
+      ? (typeof row.data_json === 'string' ? JSON.parse(row.data_json) : row.data_json)
+      : {};
+  } catch {
+    data = {};
+  }
+  const before = { ...data, status: row.status ?? data.status, scheduling_status: row.scheduling_status ?? data.scheduling_status };
+  const noteLine = `Admin voided linked GameDay match ${match.id}${reason ? `: ${reason}` : ''}`;
+  const after = {
+    ...data,
+    status: 'deleted',
+    scheduling_status: 'voided',
+    match_id: null,
+    admin_notes: [data.admin_notes, noteLine].filter(Boolean).join('\n'),
+  };
+  await EXECUTESQL(
+    `UPDATE league_entities
+        SET data_json = ?,
+            status = ?,
+            scheduling_status = ?,
+            updated_date = NOW()
+      WHERE id = ? AND entity_type = ?`,
+    [JSON.stringify(after), after.status, after.scheduling_status, match.source_fixture_id, entityType]
+  );
+  return { entity_type: entityType, id: match.source_fixture_id, before, after };
 }
 
 function hasOwnScope(ctx) {
@@ -713,6 +784,60 @@ router.patch('/:id', async (req, res) => {
     }
     broadcastMatch(record);
     res.json((await enrichMatchRows([record]))[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /:id/admin-void
+// Admin-only cleanup for stale GameDay records. The match is not hard-deleted:
+// users receive a delete event and normal GameDay/fixture filters hide it, while
+// audit/admin_notes keep the intervention traceable.
+router.post('/:id/admin-void', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const auth = await getAuthContext(req);
+    if (!isAdminRole(auth)) return res.status(403).json({ error: 'Forbidden' });
+
+    const existing = await new Match().selectOne(id);
+    if (!existing.length) return res.status(404).json({ error: 'Not found' });
+    const previous = existing[0];
+    const reason = String(req.body?.reason || '').trim() || 'Admin voided stale GameDay match';
+    const noteLine = `Admin voided GameDay match: ${reason}`;
+    const adminNotes = [previous.admin_notes, noteLine].filter(Boolean).join('\n');
+
+    await EXECUTESQL(
+      `UPDATE matches
+          SET status = 'deleted',
+              result_state = 'VOIDED',
+              forfeit_status = NULL,
+              forfeit_claimed_by = NULL,
+              cancel_status = NULL,
+              cancel_requested_by = NULL,
+              admin_notes = ?,
+              updated_date = NOW()
+        WHERE id = ?`,
+      [adminNotes, id]
+    );
+
+    const sourceCleanup = await voidLinkedSourceFixture(previous, reason).catch((err) => {
+      console.error('[matchController] linked source fixture void failed:', err.message);
+      return { error: err.message };
+    });
+
+    const updated = (await new Match().selectOne(id))[0] || { ...previous, status: 'deleted', result_state: 'VOIDED' };
+    await appendAdminAudit({
+      admin: auth,
+      action: 'match_admin_void',
+      entityId: id,
+      before: previous,
+      after: { match: updated, source_cleanup: sourceCleanup },
+      reason,
+    });
+
+    broadcastMatchDeleted(id);
+    res.json({ success: true, match: (await enrichMatchRows([updated]))[0], source_cleanup: sourceCleanup });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });

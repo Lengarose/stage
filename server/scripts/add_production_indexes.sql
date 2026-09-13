@@ -80,7 +80,7 @@ END$$
 
 DELIMITER ;
 
--- Match / Game Day / Schedule lookups.
+-- Match / GameDay / Schedule lookups.
 CALL add_index_if_missing('matches', 'idx_matches_status_scheduled', 'status, scheduled_date', 'status,scheduled_date');
 CALL add_index_if_missing('matches', 'idx_matches_home_club_status_date', 'home_club_id, status, scheduled_date', 'home_club_id,status,scheduled_date');
 CALL add_index_if_missing('matches', 'idx_matches_away_club_status_date', 'away_club_id, status, scheduled_date', 'away_club_id,status,scheduled_date');

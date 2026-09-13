@@ -46,7 +46,7 @@ test("kickoff countdown marks a kickoff that already started", () => {
   assert.equal(parts.hours, 0);
 });
 
-test("cancelled and forfeited matches leave Game Day", () => {
+test("cancelled and forfeited matches leave GameDay", () => {
   const now = new Date("2026-08-15T00:00:00.000Z").getTime();
   assert.equal(isActiveGameDayMatch({ id: "m1", status: "scheduled" }, now), true);
   assert.equal(isActiveGameDayMatch({ id: "m2", status: "in_progress" }, now), true);
@@ -64,7 +64,7 @@ test("cancelled and forfeited matches leave Game Day", () => {
   );
 });
 
-test("tournament fixtures only enter Game Day after accepted scheduling", () => {
+test("tournament fixtures only enter GameDay after accepted scheduling", () => {
   const now = new Date("2026-08-15T00:00:00.000Z").getTime();
   assert.equal(
     isActiveGameDayMatch({ id: "t1", tournament_id: "cup-1", status: "unscheduled", scheduling_status: "open" }, now),

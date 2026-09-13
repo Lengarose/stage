@@ -271,9 +271,9 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
 
   async function loadGames(playerId, clubIds) {
     const ids = [...new Set((Array.isArray(clubIds) ? clubIds : [clubIds]).filter(Boolean).map(String))];
-    for (const clubId of ids) {
-      stageClient.functions.invoke("matchKickoff", { action: "settle_club_matches", club_id: clubId }).catch(() => {});
-    }
+    await Promise.all(ids.map(clubId =>
+      stageClient.functions.invoke("matchKickoff", { action: "settle_club_matches", club_id: clubId }).catch(() => null)
+    ));
     // Fetch all scheduled/in_progress matches then filter in JS
     // Fetch from multiple angles to cover both club and player matches
     const fetchPromises = [];

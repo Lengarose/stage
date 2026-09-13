@@ -66,7 +66,7 @@ export default function HomePageEditor() {
       hero_image_zoom:    r.hero_image_zoom    ?? null,
       hero_cta_1_label:   r.hero_cta_1_label   ?? "Competitions",
       hero_cta_1_url:     r.hero_cta_1_url     ?? "/competitions",
-      hero_cta_2_label:   r.hero_cta_2_label   ?? "Game Day",
+      hero_cta_2_label:   r.hero_cta_2_label   ?? "GameDay",
       hero_cta_2_url:     r.hero_cta_2_url     ?? "/game-day",
       hero_cta_3_label:   r.hero_cta_3_label   ?? "Store",
       hero_cta_3_url:     r.hero_cta_3_url     ?? "/lifestyle",

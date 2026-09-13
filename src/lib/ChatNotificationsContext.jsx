@@ -215,7 +215,7 @@ export function ChatNotificationsProvider({ children }) {
   }, []);
 
   // Mark every channel with unread messages as read (used when the user
-  // opens the Game Day page — the badge should clear immediately).
+  // opens the GameDay page — the badge should clear immediately).
   const unreadCountsRef = useRef(unreadCounts);
   useEffect(() => { unreadCountsRef.current = unreadCounts; }, [unreadCounts]);
   const markAllRead = useCallback(async () => {

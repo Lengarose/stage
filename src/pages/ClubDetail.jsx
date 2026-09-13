@@ -2751,7 +2751,7 @@ const CLUB_FIXTURE_GROUPS = [
   { key: "elite", title: "Elite League", parent: "Competitions" },
   { key: "challenger", title: "Challenger League", parent: "Competitions" },
   { key: "tournament", title: "Tournaments" },
-  { key: "gameday", title: "Arrange Game / Game Day" },
+  { key: "gameday", title: "Arrange Game / GameDay" },
 ];
 
 const CLUB_FIXTURE_SECTIONS = [
@@ -2857,6 +2857,15 @@ function saveFixtureCardBackgrounds(clubId, backgrounds) {
   window.localStorage.setItem(fixtureCardStorageKey(clubId), JSON.stringify(backgrounds || {}));
 }
 
+function fixtureHiddenInClubProfile(fixture) {
+  const status = String(fixture?.status || "").toLowerCase();
+  const schedulingStatus = String(fixture?.scheduling_status || "").toLowerCase();
+  const resultState = String(fixture?.result_state || "").toUpperCase();
+  return ["deleted", "voided"].includes(status)
+    || ["deleted", "voided"].includes(schedulingStatus)
+    || resultState === "VOIDED";
+}
+
 function fixtureHasScheduledSlot(fixture) {
   const status = String(fixture?.status || "").toLowerCase();
   const schedulingStatus = String(fixture?.scheduling_status || "").toLowerCase();
@@ -2866,6 +2875,7 @@ function fixtureHasScheduledSlot(fixture) {
 }
 
 function fixtureVisibleInClubProfile(fixture) {
+  if (fixtureHiddenInClubProfile(fixture)) return false;
   if (isFixtureEventAvailabilityCard(fixture)) return true;
   return fixtureHasScheduledSlot(fixture) || fixtureIsTerminal(fixture);
 }

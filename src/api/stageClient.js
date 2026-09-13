@@ -436,7 +436,7 @@ const ENTITY_NAMES = [
   'RatingHistory', 'LiveMatchEvent', 'Challenge', 'LandingPageContent',
   // Post-login home page editor (separate from LandingPageContent)
   'HomePageContent',
-  // Admin-managed Game Day presentation settings.
+  // Admin-managed GameDay presentation settings.
   'GameDayConfig',
   // Admin-managed Transfer Room presentation settings.
   'TransferRoomConfig',

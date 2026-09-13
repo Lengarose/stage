@@ -217,7 +217,7 @@ async function applyTimeoutSettlement(match, decision) {
       await notifyMatchSide(fresh, 'away', 'result_requested', 'Your turn to submit the result', `${sideName(fresh, 'home')} missed the 48h window. Submit the result.`, 'home_window_passed').catch(() => {});
       await sendResultInbox(fresh, 'away', {
         subject: 'Your turn to submit the result',
-        body: `${sideName(fresh, 'home')} missed the submission window. Submit the result from Game Day.`,
+        body: `${sideName(fresh, 'home')} missed the submission window. Submit the result from GameDay.`,
         eventKey: 'home_window_passed',
       });
     }

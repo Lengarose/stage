@@ -146,7 +146,7 @@ Clubs can still earn from:
 - ✅ Weekly Lifestyle Maintenance
 - ✅ Pay Monthly Rent
 - ✅ Tournament Start Reminders
-- ✅ Match Day Reminders
+- ✅ GameDay Reminders
 - ✅ Sync Free Agent Status
 - ✅ Auto-Expire Contracts (Daily)
 

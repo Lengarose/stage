@@ -1,7 +1,7 @@
 const CLOSED_STATUSES = new Set(["completed", "forfeit", "cancelled", "canceled", "deleted"]);
 const DRAW_ONLY_STATUSES = new Set(["unscheduled"]);
 
-/** Cup fixtures finish on Game Day (`matchKickoff`), not a tournament-page score form. */
+/** Cup fixtures finish on GameDay (`matchKickoff`), not a tournament-page score form. */
 export function canOpenTournamentGameDay(match) {
   if (!match?.id) return false;
   const status = String(match.status || "").toLowerCase();

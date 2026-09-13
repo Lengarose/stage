@@ -177,7 +177,7 @@ export default function LeagueDetail() {
       await load();
       navigate(match?.id ? `/game-day?match=${match.id}` : "/game-day");
     } catch (err) {
-      await swalAlert(`Could not open Game Day: ${err?.message || "Unknown error"}`);
+      await swalAlert(`Could not open GameDay: ${err?.message || "Unknown error"}`);
     }
   }
 
@@ -293,7 +293,7 @@ export default function LeagueDetail() {
           <div className="border border-cyan-300/15 bg-cyan-300/[0.035] p-4" style={{ clipPath: "polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%)" }}>
             <p className="font-heading text-xs font-black uppercase tracking-[0.18em] text-cyan-200">Club preparation</p>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              Check fixtures, confirm availability with your squad and use Game Day once a match time is accepted.
+              Check fixtures, confirm availability with your squad and use GameDay once a match time is accepted.
             </p>
           </div>
         </section>
@@ -768,7 +768,7 @@ function FixtureRow({ fixture, myClub, myEmail, myGamertag, onUpdate, onOpenGame
             onClick={() => onOpenGameDay(fixture)}
             className="inline-flex items-center gap-1 rounded border border-primary/30 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-primary hover:bg-primary/10"
           >
-            Game Day <ExternalLink className="w-3 h-3" />
+            GameDay <ExternalLink className="w-3 h-3" />
           </button>
         )}
 

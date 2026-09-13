@@ -37,7 +37,7 @@ test("admin president transfer view link goes to the player profile", () => {
   assert.match(dialog, /stageClient\.presidents\.transfer/);
 });
 
-test("Game Day loads fixtures for signed club and presidentClub", () => {
+test("GameDay loads fixtures for signed club and presidentClub", () => {
   const gameDay = read("src/pages/GameDay.jsx");
   assert.match(gameDay, /presidentClub/);
   assert.match(gameDay, /const clubIds = \[club\?\.id, player\?\.club_id, presidentClub\?\.id\]/);

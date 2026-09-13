@@ -52,7 +52,7 @@ export default function GameDayBannerEditor() {
       setSaved(true);
       window.setTimeout(() => setSaved(false), 2200);
     } catch (err) {
-      window.alert(err?.message || "Could not save Game Day banner.");
+      window.alert(err?.message || "Could not save GameDay banner.");
     } finally {
       setSaving(false);
     }
@@ -66,10 +66,10 @@ export default function GameDayBannerEditor() {
     <div className="border border-cyan-400/20 bg-slate-950/80 p-5 shadow-[0_0_34px_-20px_rgba(34,211,238,0.8)]">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.28em] text-cyan-300">Game Day</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.28em] text-cyan-300">GameDay</p>
           <h3 className="font-heading text-lg font-black uppercase text-white">Panoramic Banner</h3>
           <p className="mt-1 max-w-xl text-xs text-slate-400">
-            Upload the image used at the top of the Game Day page. Put the text on the image itself if you want a custom matchday title.
+            Upload the image used at the top of the GameDay page. Put the text on the image itself if you want a custom matchday title.
           </p>
         </div>
         <Button
@@ -88,7 +88,7 @@ export default function GameDayBannerEditor() {
         <div className="py-8 text-center text-xs uppercase tracking-widest text-slate-500">Loading banner editor...</div>
       ) : (
         <PositionedImageUploadField
-          label="Game Day banner image"
+          label="GameDay banner image"
           value={form.banner_url}
           onChange={v => set("banner_url", v)}
           position={form.banner_position}
@@ -96,7 +96,7 @@ export default function GameDayBannerEditor() {
           zoom={form.banner_zoom}
           onZoomChange={v => set("banner_zoom", v)}
           preview="hero"
-          title="Game Day"
+          title="GameDay"
           subtitle="Panoramic matchday frame"
         />
       )}

@@ -371,7 +371,7 @@ const MOBILE_WALKTHROUGHS = [
     label: "Schedule",
     title: "Schedule",
     steps: [
-      "Check upcoming fixtures and deadlines here before going to Match Day.",
+      "Check upcoming fixtures and deadlines here before going to GameDay.",
       "Use filters or calendar views to find the match that needs attention.",
       "If a time needs to be arranged, use the match details or inbox proposal flow.",
     ],
@@ -609,7 +609,7 @@ const NAV_LABEL_KEYS = {
   "Dashboard": "dashboard",
   "Matchs": "matches",
   "Matches": "matches",
-  "Game Day": "gameDay",
+  "GameDay": "gameDay",
   "Compete": "compete",
   "Competitions": "compete",
   "GOST": "compete",
@@ -975,7 +975,7 @@ function getMobilePrimary(accountMode, clubPath, isTournamentLimited, tournament
   if (isTournamentLimited) {
     return [
       { path: `/tournaments/${tournamentId || ""}`, icon: Trophy,       label: "Tournament" },
-      { path: "/tournaments/game-day",              icon: Zap,          label: "Game Day"   },
+      { path: "/tournaments/game-day",              icon: Zap,          label: "GameDay"   },
       { path: "/tournaments/schedule",              icon: CalendarDays, label: "Schedule"   },
       { path: "/tournaments/inbox",                 icon: Inbox,        label: "Inbox"      },
     ];
@@ -1301,7 +1301,7 @@ function MobileBottomBar({ pathname, myPlayer: _myPlayer, myClub, accountMode, n
   const [moreOpen, setMoreOpen] = useState(false);
   const { totalUnread: chatUnreadTotal, markAllRead: markAllChatsRead } = useChatNotifications();
 
-  // Opening the Game Day page clears the unread-chat badge.
+  // Opening the GameDay page clears the unread-chat badge.
   const onGameDay = pathname === "/game-day" || pathname.startsWith("/game-day/");
   useEffect(() => {
     if (onGameDay && chatUnreadTotal > 0) markAllChatsRead();

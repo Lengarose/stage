@@ -1538,14 +1538,14 @@ export default function TournamentDetail() {
                             {match.status === "awaiting_confirmation" && (
                               <button type="button" onClick={() => openGameDay(match)}
                                 className="mt-2 text-xs text-warning flex items-center gap-1">
-                                <AlertTriangle className="w-3 h-3" /> Awaiting confirmation on Game Day
+                                <AlertTriangle className="w-3 h-3" /> Awaiting confirmation on GameDay
                               </button>
                             )}
                             {match.status === "disputed" && (
                               <div className="mt-2 flex items-center gap-2">
                                 <span className="text-xs text-destructive font-bold">⚠️ Score disputed</span>
                                 <Button size="sm" type="button" onClick={() => openGameDay(match)}
-                                  className="bg-primary/10 text-primary text-xs border border-primary/30 h-6 px-2">Game Day</Button>
+                                  className="bg-primary/10 text-primary text-xs border border-primary/30 h-6 px-2">GameDay</Button>
                                 {isAdmin && (
                                   <Button size="sm" type="button" onClick={() => { setActiveDispute(match); setDisputeDialogOpen(true); }}
                                     className="bg-destructive/10 text-destructive text-xs border border-destructive/30 h-6 px-2">{t("commonPages.tdResolve")}</Button>
@@ -1573,7 +1573,7 @@ export default function TournamentDetail() {
                                 {canOpenTournamentGameDay(match) && (
                                   <Button size="sm" type="button" onClick={() => openGameDay(match)}
                                     className="bg-primary/10 text-primary border border-primary/30 text-xs h-7">
-                                    Game Day
+                                    GameDay
                                   </Button>
                                 )}
                               </div>

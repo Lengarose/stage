@@ -149,7 +149,7 @@ test('player career excludes club-mode matches even when they carry player IDs',
   assert.deepEqual(summary.history.map((entry) => entry.match_id), ['solo-match']);
 });
 
-test('club career only counts submitted Game Day player stats, not availability alone', () => {
+test('club career only counts submitted GameDay player stats, not availability alone', () => {
   const { summarizeClubCareer } = loadPlayerCareerServiceWithDbMock(async () => []);
 
   const summary = summarizeClubCareer({
