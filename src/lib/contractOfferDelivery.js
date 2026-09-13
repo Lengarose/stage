@@ -2,7 +2,8 @@ import { stageClient } from "@/api/stageClient";
 import { formatContractTypeForSentence } from "@/lib/contractTypeLabels";
 
 function contractOfferEventId(contractId, round) {
-  return `contract:${contractId}:r${round || 0}`;
+  const base = `player_contract:${contractId}`;
+  return Number(round) > 0 ? `${base}:r${round}` : base;
 }
 
 function formatContractType(type) {

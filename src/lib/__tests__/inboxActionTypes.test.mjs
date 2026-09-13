@@ -69,6 +69,19 @@ test("Inbox page filters tournament mailbox when tournamentId is set", async () 
   assert.match(source, /inboxMessageBelongsToTournament/);
 });
 
+test("Inbox page ?id= lookup is gated by inboxMessageBelongsToTournament when scoped", async () => {
+  const source = await readFile(path.join(srcRoot, "pages/Inbox.jsx"), "utf8");
+  const idLookupStart = source.indexOf('params.get("id")');
+  assert.ok(idLookupStart >= 0, "expected ?id= lookup");
+  const lookupBlock = source.slice(idLookupStart, source.indexOf("setLoading", idLookupStart));
+  assert.match(lookupBlock, /inboxMessageBelongsToTournament/);
+  assert.match(lookupBlock, /scopedTournamentId/);
+  assert.doesNotMatch(
+    lookupBlock,
+    /if\s*\(\s*target\s*\)\s*openMessage\(\s*target\s*\)/,
+  );
+});
+
 test("inboxMessageBelongsToTournament includes mail with tournament_id", () => {
   assert.equal(inboxMessageBelongsToTournament({
     metadata: { tournament_id: "t1", match_id: "m1" },

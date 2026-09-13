@@ -274,5 +274,5 @@ test("ensureContractOfferInbox reuses contract:id:r0 for the same offer round", 
   await ensureContractOfferInbox(offer);
 
   const ids = inboxEventIds();
-  assert.deepEqual(ids, ["contract:c-99:r0", "contract:c-99:r0"]);
+  assert.deepEqual(ids, ["player_contract:c-99", "player_contract:c-99"]);
 });

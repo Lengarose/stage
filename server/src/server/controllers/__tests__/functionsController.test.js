@@ -1059,6 +1059,229 @@ test('respondInboxMessage confirms a tournament schedule instead of only patchin
   );
   assert.equal(inboxUpdates.length > 0, true);
   assert.equal(response.body.match?.status, 'scheduled');
+  assert.equal(responseMessages.length, 1);
+  assert.equal(responseMessages[0]?.recipientEmail, 'home@example.test');
+});
+
+test('respondInboxMessage rejects pending older tournament mail after the fixture is already confirmed', async () => {
+  async function runCase(action) {
+    const matchUpdates = [];
+    const inboxUpdates = [];
+    const message = {
+      id: `tournament-message-stale-live-${action}`,
+      recipient_email: 'away@example.test',
+      sender_email: 'home@example.test',
+      message_type: 'tournament_schedule',
+      status: 'pending',
+      subject: 'Tournament fixture time proposed',
+      related_entity_id: 'match-tournament-1',
+      metadata: JSON.stringify({
+        match_id: 'match-tournament-1',
+        proposed_date: '2026-06-15 20:00:00',
+      }),
+    };
+    const match = {
+      id: 'match-tournament-1',
+      scheduling_status: 'confirmed',
+      home_proposed_date: '2026-06-16 21:00:00',
+      confirmed_date: '2026-06-16 21:00:00',
+      scheduled_date: '2026-06-16 21:00:00',
+      status: 'scheduled',
+      tournament_id: 'tournament-1',
+    };
+    const executesql = async (sql, params = []) => {
+      if (/FROM users WHERE id = \? LIMIT 1/.test(sql)) {
+        return [{ id: params[0], email: 'away@example.test', player_id: 'player-away', owner_id: null }];
+      }
+      if (/SELECT \* FROM players WHERE id = \? LIMIT 1/.test(sql)) {
+        return [{ id: 'player-away', email: 'away@example.test', gamertag: 'AwayTag', club_id: null }];
+      }
+      if (/SELECT \* FROM players WHERE user_id = \? LIMIT 1/.test(sql)) return [];
+      if (/SELECT \* FROM clubs WHERE/.test(sql)) return [];
+      if (/SELECT \* FROM inbox_messages WHERE id = \? LIMIT 1/.test(sql)) return [message];
+      if (/UPDATE inbox_messages SET status = \?/.test(sql)) {
+        inboxUpdates.push({ sql, params });
+        return { affectedRows: 1 };
+      }
+      if (/SELECT \* FROM matches WHERE id = \? LIMIT 1/.test(sql)) return [match];
+      if (/UPDATE matches\s+SET/.test(sql)) {
+        matchUpdates.push({ sql, params });
+        return { affectedRows: 1 };
+      }
+      throw new Error(`Unexpected SQL: ${sql}`);
+    };
+    const router = loadFunctionsRouterWithDbMock(executesql, {
+      messageDeliveryServiceMock: {
+        messageTypeToNotificationType: () => 'message',
+        deliverContractOfferMessage: async () => {},
+        createNotificationIfEnabled: async () => {},
+        sendActionMessage: async () => ({ success: true, message: { id: 'unused' } }),
+      },
+    });
+    const handle = postFunctionHandler(router);
+    const response = makeJsonResponse();
+
+    await handle(
+      { params: { name: 'respondInboxMessage' }, body: { message_id: message.id, action }, user: { id: 'user-away' } },
+      response,
+    );
+
+    assert.equal(response.statusCode, 500);
+    assert.match(String(response.body?.error || ''), /no longer valid/i);
+    assert.equal(matchUpdates.length, 0);
+    assert.equal(inboxUpdates.length, 0);
+  }
+
+  await runCase('accepted');
+  await runCase('declined');
+});
+
+test('respondInboxMessage rejects pending older tournament mail when the live proposal date differs', async () => {
+  const matchUpdates = [];
+  const inboxUpdates = [];
+  const message = {
+    id: 'tournament-message-stale-date',
+    recipient_email: 'away@example.test',
+    sender_email: 'home@example.test',
+    message_type: 'tournament_schedule',
+    status: 'pending',
+    subject: 'Tournament fixture time proposed',
+    related_entity_id: 'match-tournament-1',
+    metadata: JSON.stringify({
+      match_id: 'match-tournament-1',
+      proposed_date: '2026-06-15 20:00:00',
+    }),
+  };
+  const match = {
+    id: 'match-tournament-1',
+    scheduling_status: 'home_proposed',
+    home_proposed_date: '2026-06-16 21:00:00',
+    scheduled_date: null,
+    confirmed_date: null,
+    status: 'unscheduled',
+    tournament_id: 'tournament-1',
+  };
+  const executesql = async (sql, params = []) => {
+    if (/FROM users WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: params[0], email: 'away@example.test', player_id: 'player-away', owner_id: null }];
+    }
+    if (/SELECT \* FROM players WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: 'player-away', email: 'away@example.test', gamertag: 'AwayTag', club_id: null }];
+    }
+    if (/SELECT \* FROM players WHERE user_id = \? LIMIT 1/.test(sql)) return [];
+    if (/SELECT \* FROM clubs WHERE/.test(sql)) return [];
+    if (/SELECT \* FROM inbox_messages WHERE id = \? LIMIT 1/.test(sql)) return [message];
+    if (/UPDATE inbox_messages SET status = \?/.test(sql)) {
+      inboxUpdates.push({ sql, params });
+      return { affectedRows: 1 };
+    }
+    if (/SELECT \* FROM matches WHERE id = \? LIMIT 1/.test(sql)) return [match];
+    if (/UPDATE matches\s+SET/.test(sql)) {
+      matchUpdates.push({ sql, params });
+      return { affectedRows: 1 };
+    }
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+  const router = loadFunctionsRouterWithDbMock(executesql, {
+    messageDeliveryServiceMock: {
+      messageTypeToNotificationType: () => 'message',
+      deliverContractOfferMessage: async () => {},
+      createNotificationIfEnabled: async () => {},
+      sendActionMessage: async () => ({ success: true, message: { id: 'unused' } }),
+    },
+  });
+  const handle = postFunctionHandler(router);
+  const response = makeJsonResponse();
+
+  await handle(
+    { params: { name: 'respondInboxMessage' }, body: { message_id: message.id, action: 'accepted' }, user: { id: 'user-away' } },
+    response,
+  );
+
+  assert.equal(response.statusCode, 500);
+  assert.match(String(response.body?.error || ''), /no longer valid/i);
+  assert.equal(matchUpdates.length, 0);
+  assert.equal(inboxUpdates.length, 0);
+});
+
+test('respondInboxMessage marks tournament accept responded even if opponent notify throws', async () => {
+  const matchUpdates = [];
+  const inboxUpdates = [];
+  const message = {
+    id: 'tournament-message-notify-fail',
+    recipient_email: 'away@example.test',
+    sender_email: 'home@example.test',
+    message_type: 'tournament_schedule',
+    status: 'pending',
+    subject: 'Tournament fixture time proposed',
+    related_entity_id: 'match-tournament-1',
+    related_entity_type: 'tournament_match_schedule',
+    metadata: JSON.stringify({
+      match_id: 'match-tournament-1',
+      tournament_id: 'tournament-1',
+      proposed_date: '2026-06-15 20:00:00',
+      home_club_name: 'Home FC',
+      away_club_name: 'Away FC',
+    }),
+  };
+  const match = {
+    id: 'match-tournament-1',
+    scheduling_status: 'home_proposed',
+    home_proposed_date: '2026-06-15 20:00:00',
+    scheduled_date: null,
+    confirmed_date: null,
+    status: 'unscheduled',
+    tournament_id: 'tournament-1',
+    home_club_name: 'Home FC',
+    away_club_name: 'Away FC',
+  };
+  const executesql = async (sql, params = []) => {
+    if (/FROM users WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: params[0], email: 'away@example.test', player_id: 'player-away', owner_id: null }];
+    }
+    if (/SELECT \* FROM players WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: 'player-away', email: 'away@example.test', gamertag: 'AwayTag', club_id: null }];
+    }
+    if (/SELECT \* FROM players WHERE user_id = \? LIMIT 1/.test(sql)) return [];
+    if (/SELECT \* FROM clubs WHERE/.test(sql)) return [];
+    if (/SELECT \* FROM inbox_messages WHERE id = \? LIMIT 1/.test(sql)) return [message];
+    if (/UPDATE inbox_messages SET status = \?/.test(sql)) {
+      inboxUpdates.push({ sql, params });
+      return { affectedRows: 1 };
+    }
+    if (/SELECT \* FROM matches WHERE id = \? LIMIT 1/.test(sql)) return [match];
+    if (/UPDATE matches\s+SET/.test(sql)) {
+      matchUpdates.push({ sql, params });
+      return { affectedRows: 1 };
+    }
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+  const router = loadFunctionsRouterWithDbMock(executesql, {
+    messageDeliveryServiceMock: {
+      messageTypeToNotificationType: () => 'message',
+      deliverContractOfferMessage: async () => {},
+      createNotificationIfEnabled: async () => {},
+      sendActionMessage: async () => {
+        throw new Error('notify failed');
+      },
+    },
+  });
+  const handle = postFunctionHandler(router);
+  const response = makeJsonResponse();
+
+  await handle(
+    { params: { name: 'respondInboxMessage' }, body: { message_id: message.id, action: 'accepted' }, user: { id: 'user-away' } },
+    response,
+  );
+
+  assert.equal(response.statusCode, 200, response.body?.error);
+  assert.equal(response.body.success, true);
+  assert.equal(
+    matchUpdates.some((update) => /scheduling_status = 'confirmed'/.test(update.sql) && update.params.includes('match-tournament-1')),
+    true,
+  );
+  assert.equal(inboxUpdates.length > 0, true);
+  assert.equal(inboxUpdates[0].params[0], 'accepted');
 });
 
 test('respondInboxMessage rejects a stale tournament action', async () => {

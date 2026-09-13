@@ -41,7 +41,9 @@ export default function InboxPage({ tournamentId: scopedTournamentId } = {}) {
       const targetId = params.get("id");
       if (targetId && data?.length) {
         const target = data.find(m => m.id === targetId);
-        if (target) openMessage(target);
+        if (target && (!scopedTournamentId || inboxMessageBelongsToTournament(target, scopedTournamentId))) {
+          openMessage(target);
+        }
       }
 
       setLoading(false);
@@ -83,7 +85,7 @@ export default function InboxPage({ tournamentId: scopedTournamentId } = {}) {
       if (intervalId) window.clearInterval(intervalId);
       if (unsub) unsub();
     };
-  }, []);
+  }, [scopedTournamentId]);
 
   async function openMessage(msg) {
     setSelected(msg);
