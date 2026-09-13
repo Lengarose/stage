@@ -1307,3 +1307,44 @@ test('notifyLiveChatIfEnabled can keep in-app on while skipping push', async () 
   assert.equal(broadcasts.length, 1);
   assert.equal(pushes.length, 0);
 });
+
+test('sendActionMessage inserts a second row when event keys differ but related entity is the same', async () => {
+  const queries = [];
+  const { service } = loadMessageDeliveryServiceWithDbMock(async (sql) => {
+    queries.push(sql);
+    if (/FROM inbox_messages WHERE idempotency_key = \?/.test(sql)) return [];
+    if (/DELETE FROM inbox_messages/.test(sql)) return { affectedRows: 0 };
+    if (/INSERT INTO inbox_messages/.test(sql)) return { affectedRows: 1 };
+    if (/FROM inbox_messages WHERE id = \? LIMIT 1/.test(sql)) return [];
+    if (/FROM players WHERE LOWER\(email\)=LOWER\(\?\)/.test(sql)) return [{ notification_settings: '{}' }];
+    if (/FROM notifications WHERE idempotency_key = \?/.test(sql)) return [];
+    if (/FROM notifications WHERE recipient_email = \? AND type = \? AND related_id = \?/.test(sql)) return [];
+    if (/INSERT INTO notifications/.test(sql)) return { affectedRows: 1 };
+    throw new Error(`Unexpected SQL: ${sql}`);
+  });
+
+  await service.sendActionMessage({
+    recipientEmail: 'away@example.test',
+    subject: 'Invite 1',
+    body: 'First match',
+    messageType: 'match_invite',
+    actionType: 'accept_decline_date',
+    relatedEntityId: 'club-opponent',
+    relatedEntityType: 'club',
+    idempotencyKey: 'match_invite:event-aaa:away@example.test',
+    reuseByRelated: false,
+  });
+  await service.sendActionMessage({
+    recipientEmail: 'away@example.test',
+    subject: 'Invite 2',
+    body: 'Second match',
+    messageType: 'match_invite',
+    actionType: 'accept_decline_date',
+    relatedEntityId: 'club-opponent',
+    relatedEntityType: 'club',
+    idempotencyKey: 'match_invite:event-bbb:away@example.test',
+    reuseByRelated: false,
+  });
+
+  assert.equal(queries.filter((sql) => /INSERT INTO inbox_messages/.test(sql)).length, 2);
+});

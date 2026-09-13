@@ -1120,7 +1120,10 @@ test('sendInboxMessage delegates actionable delivery to the central message serv
   assert.equal(deliveries[0].senderClubName, 'Sender FC');
   assert.equal(deliveries[0].messageType, 'contract_offer');
   assert.equal(deliveries[0].actionType, 'contract_negotiation');
-  assert.equal(deliveries[0].idempotencyKey, 'contract_offer:player_contract:contract-1:player@example.test');
+  assert.match(
+    deliveries[0].idempotencyKey,
+    /^contract_offer:[^:]+:player@example\.test$/,
+  );
 });
 
 test('sendInboxMessage preserves explicit sender display fields for club-sent actions', async () => {

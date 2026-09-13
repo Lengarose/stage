@@ -7346,6 +7346,7 @@ const HANDLERS = {
     body,
     message_type = 'general',
     action_type = 'none',
+    event_id,
     related_entity_id,
     related_entity_type,
     metadata,
@@ -7383,9 +7384,8 @@ const HANDLERS = {
     }
 
     const normalizedRecipient = String(recipient).trim().toLowerCase();
-    const idempotencyKey = related_entity_id
-      ? `${message_type}:${related_entity_type || 'entity'}:${related_entity_id}:${normalizedRecipient}`
-      : `manual_message:${uuidv4()}`;
+    const eventId = String(event_id || '').trim() || uuidv4();
+    const idempotencyKey = `${message_type}:${eventId}:${normalizedRecipient}`;
     return sendActionMessage({
       recipientEmail: normalizedRecipient,
       senderEmail: sender_email || null,
