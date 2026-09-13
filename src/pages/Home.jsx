@@ -582,7 +582,7 @@ function InboxPanel({ messages, user }) {
         ) : (
           <div className="rounded-2xl border border-border bg-card overflow-hidden divide-y divide-border">
             {messages.slice(0, 5).map((msg) => (
-              <Link key={msg.id} to="/inbox" className="flex items-center gap-4 px-5 py-4 hover:bg-secondary/40 transition-colors group">
+              <Link key={msg.id} to={`/inbox?id=${msg.id}`} className="flex items-center gap-4 px-5 py-4 hover:bg-secondary/40 transition-colors group">
                 {/* Avatar */}
                 <div className="w-9 h-9 rounded-full border border-border overflow-hidden bg-secondary shrink-0 flex items-center justify-center">
                   {msg.sender_avatar_url ? (
@@ -761,7 +761,7 @@ function MobileHomeDashboard({
           ) : (
             <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border">
               {messages.slice(0, 2).map((msg) => (
-                <Link key={msg.id} to="/inbox" className="flex items-center gap-3 px-4 py-3 active:bg-secondary/40 transition-colors">
+                <Link key={msg.id} to={`/inbox?id=${msg.id}`} className="flex items-center gap-3 px-4 py-3 active:bg-secondary/40 transition-colors">
                   <div className="flex-1 min-w-0">
                     <p className={cn("text-xs truncate", !msg.is_read ? "font-bold text-foreground" : "text-muted-foreground")}>
                       {msg.subject || msg.title || t("commonPages.homeStageSystem")}

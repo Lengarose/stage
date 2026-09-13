@@ -3,6 +3,7 @@ import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { CheckCheck, Inbox, Search } from "lucide-react";
 import InboxMessageList from "@/components/inbox/InboxMessageList";
 import InboxMessageDetail from "@/components/inbox/InboxMessageDetail";
+import { parseInboxMetadata } from "@/lib/inboxActionTypes";
 import { useTranslation } from "@/hooks/useTranslation";
 
 function hasInboxContent(m) {
@@ -99,11 +100,12 @@ export default function InboxPage({ tournamentId: scopedTournamentId } = {}) {
   }
 
   async function markAllAsRead() {
-    const unread = messages.filter(m => !m.is_read);
+    const unread = mailboxMessages.filter(m => !m.is_read);
     if (unread.length === 0) return;
+    const unreadIds = new Set(unread.map(m => m.id));
     await Promise.all(unread.map(m => stageClient.entities.InboxMessage.update(m.id, { is_read: true })));
-    setMessages(prev => prev.map(m => ({ ...m, is_read: true })));
-    if (selected) setSelected(prev => ({ ...prev, is_read: true }));
+    setMessages(prev => prev.map(m => unreadIds.has(m.id) ? { ...m, is_read: true } : m));
+    if (selected && unreadIds.has(selected.id)) setSelected(prev => ({ ...prev, is_read: true }));
   }
 
   function handleDeleted(id) {
@@ -116,11 +118,20 @@ export default function InboxPage({ tournamentId: scopedTournamentId } = {}) {
     setSelected(prev => prev?.id === id ? { ...prev, status: newStatus, is_read: true } : prev);
   }
 
-  const unreadCount = messages.filter(m => !m.is_read).length;
+  const mailboxMessages = useMemo(() => {
+    if (!scopedTournamentId) return messages;
+    return messages.filter((m) => {
+      const meta = parseInboxMetadata(m);
+      return meta.tournament_id === scopedTournamentId
+        || (m.related_entity_type === "match" && meta.tournament_id === scopedTournamentId);
+    });
+  }, [messages, scopedTournamentId]);
+
+  const unreadCount = mailboxMessages.filter(m => !m.is_read).length;
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return messages;
-    return messages.filter((m) => {
+    if (!q) return mailboxMessages;
+    return mailboxMessages.filter((m) => {
       const hay = [
         m.subject,
         m.body,
@@ -130,7 +141,7 @@ export default function InboxPage({ tournamentId: scopedTournamentId } = {}) {
       ].map((v) => String(v || "").toLowerCase()).join(" ");
       return hay.includes(q);
     });
-  }, [messages, query]);
+  }, [mailboxMessages, query]);
 
   if (loading) {
     return (
@@ -188,7 +199,7 @@ export default function InboxPage({ tournamentId: scopedTournamentId } = {}) {
               <div className="flex flex-col items-center justify-center px-8 py-16 text-center">
                 <Inbox className="mb-3 h-12 w-12 text-white/15" />
                 <p className="text-sm text-white/40">
-                  {messages.length === 0 ? t("matchFlow.inboxEmpty") : t("matchFlow.noMessages")}
+                  {mailboxMessages.length === 0 ? t("matchFlow.inboxEmpty") : t("matchFlow.noMessages")}
                 </p>
               </div>
             ) : (

@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import test from "node:test";
 import { getEffectiveInboxActionType, inboxMessageNeedsAction, isMatchCancelRequest } from "../inboxActionTypes.js";
+
+const srcRoot = path.resolve(import.meta.dirname, "../..");
 
 test("legacy actionable inbox messages recover their action type from message_type", () => {
   assert.equal(getEffectiveInboxActionType({ message_type: "match_invite" }), "accept_decline_date");
@@ -33,4 +37,28 @@ test("inboxMessageNeedsAction uses the recovered action type", () => {
   assert.equal(inboxMessageNeedsAction({ message_type: "loan_recalled", status: "pending" }), false);
   assert.equal(inboxMessageNeedsAction({ message_type: "loan_early_end", status: "pending" }), true);
   assert.equal(inboxMessageNeedsAction({ message_type: "loan_terminated_early", status: "pending" }), false);
+});
+
+test("open_match stays an actionable navigation type", () => {
+  assert.equal(getEffectiveInboxActionType({
+    message_type: "match_result",
+    action_type: "open_match",
+    status: "pending",
+  }), "open_match");
+  assert.equal(inboxMessageNeedsAction({
+    message_type: "match_result",
+    action_type: "open_match",
+    status: "pending",
+  }), true);
+});
+
+test("Home inbox rows deep-link to a message id", async () => {
+  const source = await readFile(path.join(srcRoot, "pages/Home.jsx"), "utf8");
+  assert.match(source, /\/inbox\?id=\$/);
+});
+
+test("Inbox page filters tournament mailbox when tournamentId is set", async () => {
+  const source = await readFile(path.join(srcRoot, "pages/Inbox.jsx"), "utf8");
+  assert.match(source, /scopedTournamentId/);
+  assert.match(source, /tournament_id/);
 });
