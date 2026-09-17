@@ -11,9 +11,9 @@ function leaf(key) {
 function enFromKey(key) {
   const l = leaf(key);
   const map = {
-    clubsOnPlatform: "{{count}} on platform",
+    clubsOnPlatform: "{count} on platform",
     deepAnalyticsLink: "Deep analytics & tournament tracking",
-    totalCount: "{{count}} total",
+    totalCount: "{count} total",
     autoExecuteHint: "Pending transfers execute automatically when the window closes, or run manually below.",
     awaitingWindow: "{{count}} transfer(s) awaiting an open window",
     closeConfirm: "Close the transfer window? Pending transfers will not execute until you open a new window or run Execute Now.",
