@@ -728,7 +728,8 @@ export default function Profile({
 
     if (!player) {
       return (
-        <div className="max-w-2xl mx-auto p-4 sm:p-6 space-y-6">
+        <div className="h-full min-h-0 overflow-y-auto overscroll-contain">
+          <div className="mx-auto max-w-2xl space-y-6 p-4 pb-10 sm:p-6">
           <div className="flex items-center gap-3">
             <h1 className="font-heading text-2xl font-black text-foreground uppercase">{t("commonPages.profCreateProfile")}</h1>
           </div>
@@ -738,6 +739,7 @@ export default function Profile({
             <Button onClick={savePlayer} disabled={saving || !playerForm.gamertag || !playerForm.country} className="bg-primary text-primary-foreground">
               <Save className="w-4 h-4 mr-2" /> {saving ? t("commonPages.profSaving") : t("commonPages.profCreateProfile")}
             </Button>
+          </div>
           </div>
         </div>
       );

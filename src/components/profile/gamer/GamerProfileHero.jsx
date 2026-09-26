@@ -43,7 +43,7 @@ function GamerProfileHero({
   );
 
   const body = (
-    <div className="max-w-6xl mx-auto px-4 -mt-32 sm:-mt-36 relative z-10">
+    <div className="max-w-6xl mx-auto px-4 -mt-32 sm:-mt-36 relative z-20">
       <div className="flex flex-col lg:flex-row gap-5 lg:gap-8 items-start">
         <GamerPlayerCard player={player} onAvatarClick={onAvatarClick} />
 
@@ -138,9 +138,14 @@ function GamerProfileHero({
         banner={banner}
         className="bg-transparent"
         dockClassName="bg-transparent"
+        dockScroll={false}
       >
-        {body}
-        {stickyDockChildren}
+        <div className="relative z-20">
+          {body}
+        </div>
+        <div className="relative z-[1] min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          {stickyDockChildren}
+        </div>
       </PageBannerShell>
     );
   }

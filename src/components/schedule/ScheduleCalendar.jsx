@@ -8,10 +8,16 @@ import {
 import {
   ChevronLeft, ChevronRight, ChevronDown, X,
 } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import MatchDetail from "./MatchDetail";
 import { COMPETITIONS } from "@/lib/competitionUtils";
 
 const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+const MONTH_LABELS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
 
 function parseDate(d) {
   if (!d) return null;
@@ -219,6 +225,18 @@ export default function ScheduleCalendar({ events, myPlayer, myClub, fullScreen 
   const [detailEvent, setDetailEvent] = useState(null);
   const [filter, setFilter] = useState("all");
   const [didAutoJump, setDidAutoJump] = useState(false);
+  const [monthPickerOpen, setMonthPickerOpen] = useState(false);
+  const [pickerYear, setPickerYear] = useState(() => new Date().getFullYear());
+
+  const openMonthPicker = (open) => {
+    if (open) setPickerYear(currentMonth.getFullYear());
+    setMonthPickerOpen(open);
+  };
+
+  const selectMonth = (monthIndex) => {
+    setCurrentMonth(new Date(pickerYear, monthIndex, 1));
+    setMonthPickerOpen(false);
+  };
 
   const filteredEvents = useMemo(() => {
     return (events || []).filter((ev) => {
@@ -296,13 +314,72 @@ export default function ScheduleCalendar({ events, myPlayer, myClub, fullScreen 
             ))}
           </div>
 
-          <button
-            type="button"
-            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary px-3 py-1.5 text-[11px] font-semibold text-foreground"
-          >
-            {format(currentMonth, "MMMM yyyy")}
-            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-          </button>
+          <Popover open={monthPickerOpen} onOpenChange={openMonthPicker}>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                aria-label="Select month"
+                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary px-3 py-1.5 text-[11px] font-semibold text-foreground hover:bg-secondary/80"
+              >
+                {format(currentMonth, "MMMM yyyy")}
+                <ChevronDown className={cn(
+                  "h-3.5 w-3.5 text-muted-foreground transition-transform",
+                  monthPickerOpen && "rotate-180"
+                )} />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent
+              align="start"
+              className="w-[240px] border-border bg-card p-3 shadow-xl"
+            >
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  aria-label="Previous year"
+                  onClick={() => setPickerYear((y) => y - 1)}
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-secondary text-muted-foreground hover:bg-secondary/80 hover:text-foreground"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                </button>
+                <p className="text-sm font-bold tabular-nums text-foreground">{pickerYear}</p>
+                <button
+                  type="button"
+                  aria-label="Next year"
+                  onClick={() => setPickerYear((y) => y + 1)}
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-secondary text-muted-foreground hover:bg-secondary/80 hover:text-foreground"
+                >
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5">
+                {MONTH_LABELS.map((label, monthIndex) => {
+                  const selected =
+                    currentMonth.getFullYear() === pickerYear
+                    && currentMonth.getMonth() === monthIndex;
+                  const isCurrent =
+                    new Date().getFullYear() === pickerYear
+                    && new Date().getMonth() === monthIndex;
+                  return (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => selectMonth(monthIndex)}
+                      className={cn(
+                        "rounded-md px-1.5 py-2 text-[11px] font-semibold transition",
+                        selected
+                          ? "bg-primary text-primary-foreground"
+                          : isCurrent
+                            ? "bg-secondary text-primary hover:bg-secondary/80"
+                            : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                      )}
+                    >
+                      {label.slice(0, 3)}
+                    </button>
+                  );
+                })}
+              </div>
+            </PopoverContent>
+          </Popover>
 
           <div className="flex items-center gap-1">
             <button

@@ -28,7 +28,7 @@ export default function PageBannerShell({
     >
       <div
         className={cn(
-          "relative w-full shrink-0 overflow-hidden",
+          "relative z-0 w-full shrink-0 overflow-hidden",
           PAGE_BANNER_HEIGHT_CLASS,
           bannerClassName
         )}
@@ -38,7 +38,7 @@ export default function PageBannerShell({
 
       <div
         className={cn(
-          "sticky top-0 z-10 flex h-full min-h-0 shrink-0 flex-col",
+          "sticky top-0 z-20 flex h-full min-h-0 shrink-0 flex-col",
           dockClassName
         )}
       >
