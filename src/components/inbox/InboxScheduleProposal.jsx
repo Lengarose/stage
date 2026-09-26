@@ -69,7 +69,7 @@ export default function InboxScheduleProposal({ message, myClub, myEmail, myGame
     setBusy("accept");
     setError("");
     try {
-      const role = myClub?.id === fixture.home_club_id ? "home" : "away";
+      const role = String(myClub?.id || "") === String(fixture.home_club_id || "") ? "home" : "away";
       await acceptProposal({ fixture, fixtureType: meta.fixture_type, role, myClub, myEmail });
       if (safeMessage.id) await stageClient.entities.InboxMessage.update(safeMessage.id, { status: "confirmed", is_read: true });
       onActioned("confirmed");
@@ -83,7 +83,7 @@ export default function InboxScheduleProposal({ message, myClub, myEmail, myGame
     setBusy("decline");
     setError("");
     try {
-      const role = myClub?.id === fixture.home_club_id ? "home" : "away";
+      const role = String(myClub?.id || "") === String(fixture.home_club_id || "") ? "home" : "away";
       await declineProposal({ fixture, fixtureType: meta.fixture_type, role, myClub, myEmail });
       if (safeMessage.id) await stageClient.entities.InboxMessage.update(safeMessage.id, { status: "declined", is_read: true });
       onActioned("declined");
@@ -91,8 +91,6 @@ export default function InboxScheduleProposal({ message, myClub, myEmail, myGame
       setError(err?.message || "Failed to decline proposal. Please try again.");
     } finally { setBusy(null); }
   }
-
-  const isAlreadyActioned = safeMessage.status !== "pending";
 
   if (loading) {
     return <div className="py-4 flex justify-center"><div className="w-5 h-5 border-2 border-primary/20 border-t-primary rounded-full animate-spin" /></div>;
@@ -104,6 +102,19 @@ export default function InboxScheduleProposal({ message, myClub, myEmail, myGame
 
   const proposedDate = meta.proposed_date ? new Date(meta.proposed_date) : null;
   const deadline     = fixture.window_end  ? new Date(fixture.window_end)  : null;
+  const fixtureConfirmed = String(fixture.scheduling_status || "").toLowerCase() === "confirmed"
+    || (String(fixture.status || "").toLowerCase() === "scheduled" && Boolean(fixture.scheduled_date || fixture.confirmed_date));
+  const isActionableProposal = safeMessage.action_type === "schedule_accept_propose";
+  const isHomeClub = String(myClub?.id || "") === String(fixture.home_club_id || "");
+  const hasOpenProposal = Boolean(
+    isHomeClub
+      ? fixture.away_proposed_date
+      : fixture.home_proposed_date
+  );
+  const canRespond = isActionableProposal
+    && safeMessage.status === "pending"
+    && !fixtureConfirmed
+    && hasOpenProposal;
 
   return (
     <div className="mt-4 space-y-3">
@@ -137,7 +148,7 @@ export default function InboxScheduleProposal({ message, myClub, myEmail, myGame
       )}
 
       {/* Actions */}
-      {!isAlreadyActioned ? (
+      {canRespond ? (
         <div className="flex gap-2 flex-wrap">
           <Button size="sm" onClick={handleAccept} disabled={!!busy}
             className="bg-success text-white hover:bg-success/90 gap-1.5 h-8 text-xs">
@@ -152,12 +163,15 @@ export default function InboxScheduleProposal({ message, myClub, myEmail, myGame
         </div>
       ) : (
         <div className={cn("text-xs px-3 py-2 rounded border font-medium",
-          safeMessage.status === "confirmed" ? "text-success bg-success/10 border-success/20"
+          fixtureConfirmed || safeMessage.status === "confirmed" ? "text-success bg-success/10 border-success/20"
           : safeMessage.status === "declined" ? "text-warning bg-warning/10 border-warning/20"
+          : isActionableProposal && !hasOpenProposal ? "text-warning bg-warning/10 border-warning/20"
           : "text-muted-foreground bg-secondary border-border"
         )}>
-          {safeMessage.status === "confirmed" ? "✅ You accepted this time — match confirmed."
+          {fixtureConfirmed || safeMessage.status === "confirmed" ? "✅ This match time is confirmed."
           : safeMessage.status === "declined" ? "Proposal declined. The home club can send a new time."
+          : isActionableProposal && !hasOpenProposal ? "No proposed time is currently waiting for your response."
+          : !isActionableProposal ? "No response is needed for this message."
           : `Responded: ${String(safeMessage.status || "pending").replace(/_/g, " ")}`}
         </div>
       )}

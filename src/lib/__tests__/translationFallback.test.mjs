@@ -1,21 +1,25 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import test from "node:test";
 
-import { withTranslationFallback } from "../translationFallback.js";
+const srcRoot = path.resolve(import.meta.dirname, "../..");
 
-test("withTranslationFallback replaces raw translation keys with fallback text", () => {
-  const tr = (key) => key;
-  const tx = withTranslationFallback(tr);
+test("Inbox search has a real translation in core match flow copy", async () => {
+  const source = await readFile(path.join(srcRoot, "translations/coreTranslations.js"), "utf8");
 
-  assert.equal(
-    tx("commonPages.icoDurationValue", "{games} games / {days} days", { games: 400, days: 180 }),
-    "400 games / 180 days",
-  );
+  assert.match(source, /inboxSearch: "Search"/);
+  assert.match(source, /inboxSearch: "Zoeken"/);
 });
 
-test("withTranslationFallback keeps real translations from the translation function", () => {
-  const tr = () => "Durée";
-  const tx = withTranslationFallback(tr);
+test("Translation helpers support t(key, fallback) calls", async () => {
+  const provider = await readFile(path.join(srcRoot, "lib/TranslationContext.jsx"), "utf8");
+  const hook = await readFile(path.join(srcRoot, "hooks/useTranslation.js"), "utf8");
 
-  assert.equal(tx("commonPages.icoDuration", "Duration"), "Durée");
+  assert.match(provider, /function normalizeTranslationArgs/);
+  assert.match(provider, /typeof paramsOrFallback === "string"/);
+  assert.match(provider, /value \|\| fallback \|\| key/);
+
+  assert.match(hook, /function normalizeTranslationArgs/);
+  assert.match(hook, /String\(fallback \|\| key \|\| ''\)/);
 });

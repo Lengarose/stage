@@ -2571,22 +2571,24 @@ function ClubFixturesPanel({
           club_id: clubId,
           status,
         });
-        if (!result?.data?.success) {
-          throw new Error(result?.data?.error || "Could not update tournament availability.");
+        const payload = result?.data || result;
+        if (!payload?.success) {
+          throw new Error(payload?.error || "Could not update tournament availability.");
         }
-        saved = result.data.row;
-        if (result.data.credits_after != null) onUserCreditsChange?.(result.data.credits_after);
+        saved = payload.row;
+        if (payload.credits_after != null) onUserCreditsChange?.(payload.credits_after);
       } else if (fixture._fixtureType === "regional_league_registration") {
         const result = await stageClient.functions.invoke("regionalLeagueClubAvailability", {
           league_id: fixture.regional_league_id || fixture.league_id,
           club_id: clubId,
           status,
         });
-        if (!result?.data?.success) {
-          throw new Error(result?.data?.error || "Could not update regional league availability.");
+        const payload = result?.data || result;
+        if (!payload?.success) {
+          throw new Error(payload?.error || "Could not update regional league availability.");
         }
-        saved = result.data.row;
-        if (result.data.credits_after != null) onUserCreditsChange?.(result.data.credits_after);
+        saved = payload.row;
+        if (payload.credits_after != null) onUserCreditsChange?.(payload.credits_after);
       } else if (fixture._fixtureType === "competition_registration") {
         const result = await stageClient.functions.invoke("officialStageClubAvailability", {
           season_id: fixture.season_id || fixture.competition_season_id,
@@ -2595,11 +2597,12 @@ function ClubFixturesPanel({
           club_id: clubId,
           status,
         });
-        if (!result?.data?.success) {
-          throw new Error(result?.data?.error || "Could not update GOST availability.");
+        const payload = result?.data || result;
+        if (!payload?.success) {
+          throw new Error(payload?.error || "Could not update GOST availability.");
         }
-        saved = result.data.row;
-        if (result.data.credits_after != null) onUserCreditsChange?.(result.data.credits_after);
+        saved = payload.row;
+        if (payload.credits_after != null) onUserCreditsChange?.(payload.credits_after);
       } else {
         const body = {
           club_id: clubId,
@@ -2617,6 +2620,8 @@ function ClubFixturesPanel({
           const rows = asObjectArray(prev).filter((row) => row.id !== saved.id);
           return [saved, ...rows];
         });
+      } else {
+        await onFixturesRefresh?.();
       }
     } catch (err) {
       setAvailabilityError(err?.message || "Could not update availability.");
@@ -2652,6 +2657,11 @@ function ClubFixturesPanel({
             </DialogTitle>
           </DialogHeader>
           <div className="max-h-[70vh] space-y-4 overflow-y-auto px-5 pb-5 pt-4">
+            {availabilityError ? (
+              <div className="border border-red-400/35 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+                {availabilityError}
+              </div>
+            ) : null}
             {sectionOptions.length > 0 ? (
               <FixtureEventSelector
                 section={selectedSection}

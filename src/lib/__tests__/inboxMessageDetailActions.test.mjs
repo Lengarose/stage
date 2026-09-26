@@ -17,3 +17,22 @@ test("InboxMessageDetail sends every actionable type through respondInboxMessage
     /InboxMessage\.update\(message\.id,\s*\{\s*status:\s*action/
   );
 });
+
+test("Inbox schedule proposals only show response buttons for open pending proposals", async () => {
+  const source = await readFile(path.join(srcRoot, "components/inbox/InboxScheduleProposal.jsx"), "utf8");
+
+  assert.match(source, /const canRespond = isActionableProposal/);
+  assert.match(source, /safeMessage\.action_type === "schedule_accept_propose"/);
+  assert.match(source, /safeMessage\.status === "pending"/);
+  assert.match(source, /!fixtureConfirmed/);
+  assert.match(source, /&& hasOpenProposal/);
+  assert.match(source, /canRespond \? \(/);
+});
+
+test("Inbox polling keeps the selected message in sync", async () => {
+  const source = await readFile(path.join(srcRoot, "pages/Inbox.jsx"), "utf8");
+
+  assert.match(source, /const nextMessages = latest\.filter\(hasInboxContent\)/);
+  assert.match(source, /setSelected\(prev => \{/);
+  assert.match(source, /return nextMessages\.find\(m => m\.id === prev\.id\) \|\| prev/);
+});

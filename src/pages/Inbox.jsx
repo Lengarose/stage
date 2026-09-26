@@ -74,7 +74,14 @@ export default function InboxPage({ tournamentId: scopedTournamentId } = {}) {
         const latest = await stageClient.entities.InboxMessage
           .filter({ recipient_email: currentEmail }, "-created_date", 200)
           .catch(() => null);
-        if (latest) setMessages(latest.filter(hasInboxContent));
+        if (latest) {
+          const nextMessages = latest.filter(hasInboxContent);
+          setMessages(nextMessages);
+          setSelected(prev => {
+            if (!prev?.id) return prev;
+            return nextMessages.find(m => m.id === prev.id) || prev;
+          });
+        }
       }, 15000);
     }
 

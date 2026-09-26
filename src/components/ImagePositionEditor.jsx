@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { Move } from "lucide-react";
+import { Move, X } from "lucide-react";
 import { GamerPlayerPhotoFrame } from "@/components/profile/gamer/GamerProfileUI";
 import { GamerClubPhotoFrame } from "@/components/profile/gamer/GamerClubCard";
 
@@ -87,7 +87,8 @@ export default function ImagePositionEditor({
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose?.(); }}>
       <DialogContent
-        className="bg-[#06091a]/95 backdrop-blur-xl border border-white/20 text-white max-w-sm p-0 shadow-2xl"
+        hideCloseButton
+        className="max-h-[92dvh] w-[calc(100vw-32px)] max-w-[520px] overflow-y-auto overflow-x-hidden border border-white/15 bg-[#06091a]/95 p-0 text-white shadow-2xl backdrop-blur-xl"
         onPointerDownOutside={e => e.preventDefault()}
         onInteractOutside={e => e.preventDefault()}
       >
@@ -97,13 +98,14 @@ export default function ImagePositionEditor({
         <DialogDescription className="sr-only">
           Drag to reposition the image and use sliders to adjust zoom and alignment.
         </DialogDescription>
-        <div className="p-6 space-y-5">
+        <div className="space-y-5 p-4 sm:p-6">
 
           {/* Header */}
-          <div>
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
             <h2
               style={{ fontFamily: "'Anton', sans-serif" }}
-              className="text-xl italic uppercase tracking-tight text-white"
+              className="text-xl uppercase tracking-tight text-white sm:text-2xl"
             >
               {dialogTitle}
             </h2>
@@ -111,6 +113,15 @@ export default function ImagePositionEditor({
               <Move className="w-3 h-3" />
               Drag to reposition · sliders for fine control
             </p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center border border-white/10 bg-white/[0.03] text-white/55 transition-colors hover:border-white/25 hover:text-white"
+              aria-label="Close"
+            >
+              <X className="h-5 w-5" />
+            </button>
           </div>
 
           {/* Preview */}
@@ -124,7 +135,7 @@ export default function ImagePositionEditor({
                 positionLabel={previewFramePlayer.position || "CDM"}
                 overallRating={previewFramePlayer.overall_rating || 70}
                 shirtNumber={previewFramePlayer.shirt_number ?? 6}
-                className="w-40 sm:w-44 cursor-grab active:cursor-grabbing select-none"
+                className="!w-36 cursor-grab select-none active:cursor-grabbing sm:!w-40"
                 onMouseDown={e => { e.preventDefault(); startDrag(e.clientX, e.clientY); }}
                 onMouseMove={e => { if (dragRef.current) moveDrag(e.clientX, e.clientY, e.currentTarget.getBoundingClientRect()); }}
                 onMouseUp={endDrag}
@@ -136,7 +147,7 @@ export default function ImagePositionEditor({
               <p className="text-white/25 text-[10px] uppercase tracking-widest">Profile card preview</p>
 
               {/* Small previews */}
-              <div className="flex items-center gap-3 bg-white/5 border border-white/10 px-4 py-3 w-full">
+              <div className="grid w-full grid-cols-[auto_auto_1fr] items-center gap-3 border border-white/10 bg-white/5 px-3 py-3">
                 <GamerPlayerPhotoFrame
                   player={previewFramePlayer}
                   imageUrl={imageUrl}
@@ -145,10 +156,10 @@ export default function ImagePositionEditor({
                   positionLabel={previewFramePlayer.position || "CDM"}
                   overallRating={previewFramePlayer.overall_rating || 70}
                   shirtNumber={previewFramePlayer.shirt_number ?? 6}
-                  className="w-12 shadow-none"
+                  className="!w-12 shadow-none sm:!w-12"
                 />
                 <div className="w-20 h-12 shrink-0 border border-white/20" style={previewStyle} />
-                <p className="text-white/30 text-[10px] uppercase tracking-wider">Profile frame · wide crop</p>
+                <p className="min-w-0 text-[10px] uppercase tracking-wider text-white/30">Profile frame · wide crop</p>
               </div>
             </div>
           ) : useClubProfileFrame ? (
@@ -159,7 +170,7 @@ export default function ImagePositionEditor({
                 imagePosition={position}
                 imageZoom={zoom}
                 winRate={previewFrameClub.win_rate || 50}
-                className="w-40 sm:w-44 cursor-grab active:cursor-grabbing select-none"
+                className="!w-36 cursor-grab select-none active:cursor-grabbing sm:!w-40"
                 onMouseDown={e => { e.preventDefault(); startDrag(e.clientX, e.clientY); }}
                 onMouseMove={e => { if (dragRef.current) moveDrag(e.clientX, e.clientY, e.currentTarget.getBoundingClientRect()); }}
                 onMouseUp={endDrag}
@@ -170,17 +181,17 @@ export default function ImagePositionEditor({
               />
               <p className="text-white/25 text-[10px] uppercase tracking-widest">Club card preview</p>
 
-              <div className="flex items-center gap-3 bg-white/5 border border-white/10 px-4 py-3 w-full">
+              <div className="grid w-full grid-cols-[auto_auto_1fr] items-center gap-3 border border-white/10 bg-white/5 px-3 py-3">
                 <GamerClubPhotoFrame
                   club={previewFrameClub}
                   imageUrl={imageUrl}
                   imagePosition={position}
                   imageZoom={zoom}
                   winRate={previewFrameClub.win_rate || 50}
-                  className="w-12 shadow-none"
+                  className="!w-12 shadow-none sm:!w-12"
                 />
                 <div className="w-20 h-12 shrink-0 border border-white/20" style={previewStyle} />
-                <p className="text-white/30 text-[10px] uppercase tracking-wider">Club frame · wide crop</p>
+                <p className="min-w-0 text-[10px] uppercase tracking-wider text-white/30">Club frame · wide crop</p>
               </div>
             </div>
           ) : isSquare ? (
@@ -201,10 +212,10 @@ export default function ImagePositionEditor({
               />
               <p className="text-white/25 text-[10px] uppercase tracking-widest">Preview</p>
 
-              <div className="flex items-center gap-3 bg-white/5 border border-white/10 px-4 py-3 w-full">
+              <div className="grid w-full grid-cols-[auto_auto_1fr] items-center gap-3 border border-white/10 bg-white/5 px-3 py-3">
                 <div className="w-9 aspect-[3/4] shrink-0 border border-white/20" style={previewStyle} />
                 <div className="w-16 h-9 shrink-0 border border-white/20" style={previewStyle} />
-                <p className="text-white/30 text-[10px] uppercase tracking-wider">Avatar · Card</p>
+                <p className="min-w-0 text-[10px] uppercase tracking-wider text-white/30">Avatar · Card</p>
               </div>
             </div>
           ) : (
@@ -216,27 +227,27 @@ export default function ImagePositionEditor({
           )}
 
           {/* Sliders */}
-          <div className="space-y-3">
+          <div className="space-y-4">
             <SliderRow label="Zoom" value={zoom} min={100} max={500} onChange={setZoom} />
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-4 sm:grid-cols-2">
               <SliderRow label="Horizontal" value={x} min={0} max={100} onChange={setX} />
               <SliderRow label="Vertical"   value={y} min={0} max={100} onChange={setY} />
             </div>
           </div>
 
           {/* Actions */}
-          <div className="flex gap-3 pt-1">
+          <div className="grid gap-3 pt-1 sm:grid-cols-2">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 bg-white/10 border border-white/20 text-white/70 hover:text-white hover:border-white/35 font-bold uppercase tracking-widest text-xs py-3 transition-all"
+              className="border border-white/20 bg-white/10 py-3 text-xs font-bold uppercase tracking-widest text-white/70 transition-all hover:border-white/35 hover:text-white"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={() => onConfirm(imageUrl, position, Number(zoom))}
-              className="flex-1 bg-white text-[#0d2461] font-black uppercase tracking-widest text-xs py-3 hover:bg-gray-100 transition-all shadow-lg"
+              className="bg-white py-3 text-xs font-black uppercase tracking-widest text-[#0d2461] shadow-lg transition-all hover:bg-gray-100"
             >
               Save
             </button>

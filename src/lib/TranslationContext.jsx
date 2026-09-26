@@ -48,6 +48,13 @@ const translations = Object.fromEntries(
 
 export const TranslationContext = createContext();
 
+function normalizeTranslationArgs(paramsOrFallback = {}, maybeParams = {}) {
+  if (typeof paramsOrFallback === "string") {
+    return { fallback: paramsOrFallback, params: maybeParams && typeof maybeParams === "object" ? maybeParams : {} };
+  }
+  return { fallback: null, params: paramsOrFallback && typeof paramsOrFallback === "object" ? paramsOrFallback : {} };
+}
+
 export function TranslationProvider({ children }) {
   const [language, setLanguage] = useState(() => {
     const savedLanguage = localStorage.getItem('language') || DEFAULT_LANGUAGE;
@@ -71,7 +78,8 @@ export function TranslationProvider({ children }) {
     }).catch(() => {});
   }, [language]);
 
-  const t = (key, params = {}) => {
+  const t = (key, paramsOrFallback = {}, maybeParams = {}) => {
+    const { fallback, params } = normalizeTranslationArgs(paramsOrFallback, maybeParams);
     // Many UI strings live under commonPages / matchFlow / etc., but some
     // components still call t("agdTitle") instead of t("commonPages.agdTitle").
     // When a bare key misses, walk these namespaces before showing the raw key.
@@ -116,7 +124,7 @@ export function TranslationProvider({ children }) {
       }
     }
 
-    if (typeof value !== "string") return value || key;
+    if (typeof value !== "string") return value || fallback || key;
 
     return Object.entries(params).reduce(
       (text, [paramKey, paramValue]) => text.replaceAll(`{${paramKey}}`, String(paramValue)),

@@ -19,6 +19,8 @@ test("club fixtures show approved tournament preparation availability before dra
   assert.match(clubDetail, /registrationKindLabel\} approved/);
   assert.match(clubDetail, /Available for this \$\{registrationKindLabel\.toLowerCase\(\)\} costs/);
   assert.match(clubDetail, /stageClient\.functions\.invoke\("tournamentClubAvailability"/);
+  assert.match(clubDetail, /const payload = result\?\.data \|\| result/);
+  assert.match(clubDetail, /max-h-\[70vh\][\s\S]*availabilityError/);
 
   assert.match(functions, /async tournamentClubAvailability/);
   assert.match(functions, /Only club members can set tournament availability/);

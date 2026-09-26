@@ -3,10 +3,18 @@ import { TranslationContext } from '@/lib/TranslationContext';
 
 let warnedMissingProvider = false;
 
-function fallbackTranslate(key, params = {}) {
+function normalizeTranslationArgs(paramsOrFallback = {}, maybeParams = {}) {
+  if (typeof paramsOrFallback === "string") {
+    return { fallback: paramsOrFallback, params: maybeParams && typeof maybeParams === "object" ? maybeParams : {} };
+  }
+  return { fallback: null, params: paramsOrFallback && typeof paramsOrFallback === "object" ? paramsOrFallback : {} };
+}
+
+function fallbackTranslate(key, paramsOrFallback = {}, maybeParams = {}) {
+  const { fallback, params } = normalizeTranslationArgs(paramsOrFallback, maybeParams);
   return Object.entries(params).reduce(
     (text, [paramKey, paramValue]) => text.replaceAll(`{${paramKey}}`, String(paramValue)),
-    String(key || '')
+    String(fallback || key || '')
   );
 }
 
