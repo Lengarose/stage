@@ -1,8 +1,8 @@
 import { Crown, Trophy, Shield } from "lucide-react";
 import { Link } from "react-router-dom";
-import { getBannerStyle } from "@/lib/storeItems";
 import { PAGE_BANNER_HEIGHT_CLASS } from "@/lib/pageBanner";
 import PageBannerShell from "@/components/PageBannerShell";
+import AdaptiveBannerBackground from "@/components/profile/AdaptiveBannerBackground";
 import { getCountryFlag } from "@/lib/allCountries";
 import { GamerMetaPill } from "./GamerProfileUI";
 import { cn } from "@/lib/utils";
@@ -97,17 +97,6 @@ function GamerPresidentProfileHero({
   stickyLayout = false,
   stickyDockChildren = null,
 }) {
-  const bannerStyle = (() => {
-    const base = getBannerStyle(president?.banner_url, president?.banner_position);
-    if (president?.banner_url?.startsWith?.("http")) {
-      return {
-        ...base,
-        backgroundSize: `${president.banner_zoom || 150}%`,
-        backgroundPosition: president.banner_position || "50% 50%",
-      };
-    }
-    return base;
-  })();
   const countryFlag = president?.country_code ? getCountryFlag(president.country_code) : "";
 
   const banner = (
@@ -117,7 +106,11 @@ function GamerPresidentProfileHero({
         onClick={onBannerClick}
         className="absolute inset-0 block w-full overflow-hidden text-left"
       >
-        <div className="absolute inset-0" style={bannerStyle} />
+        <AdaptiveBannerBackground
+          bannerUrl={president?.banner_url}
+          bannerPosition={president?.banner_position || "50% 50%"}
+          bannerZoom={president?.banner_zoom}
+        />
         <div className="absolute inset-0 bg-gradient-to-b from-[#060912]/30 via-[#060912]/20 to-[#060912]" />
         <div className="absolute inset-0 bg-gradient-to-r from-amber-500/10 via-transparent to-cyan-500/10" />
       </button>

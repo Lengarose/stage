@@ -158,20 +158,43 @@ export const STORE_ITEMS = [
   },
 ];
 
-// Resolve a banner_id to inline CSS style object
-export function getBannerStyle(bannerId, position) {
+// Resolve a banner_id to inline CSS style object.
+// Uploaded photos use `cover` so they always fill the banner width —
+// `contain` left portraits/small images as a tiny centered block.
+export function getBannerStyle(bannerId, position, zoom) {
   if (!bannerId) bannerId = "banner_default";
   // Custom uploaded image URL
   if (bannerId.startsWith("http") || bannerId.startsWith("/uploads/")) {
+    const zoomNum = Number(zoom);
     return {
       backgroundImage: `url(${bannerId})`,
-      backgroundSize: "contain",
+      backgroundSize: Number.isFinite(zoomNum) && zoomNum > 0 ? `${zoomNum}%` : "cover",
       backgroundRepeat: "no-repeat",
       backgroundPosition: position || "50% 50%",
     };
   }
   const item = STORE_ITEMS.find(i => i.id === bannerId);
   return { background: item?.style || STORE_ITEMS[0].style };
+}
+
+/**
+ * Measure an image and pick a background-size that fills the banner slot.
+ * Wide banner assets keep cover (or the user's zoom). Narrow / small photos
+ * are forced to cover so they expand to screen width instead of sitting tiny.
+ */
+export function resolveBannerFillSize(naturalWidth, naturalHeight, zoom) {
+  const zoomNum = Number(zoom);
+  if (Number.isFinite(zoomNum) && zoomNum > 0) return `${zoomNum}%`;
+  const w = Number(naturalWidth) || 0;
+  const h = Number(naturalHeight) || 0;
+  if (w > 0 && h > 0) {
+    const aspect = w / h;
+    // Portrait / square / modest landscape — boost so they fill the wide slot.
+    if (aspect < 2) return "cover";
+    // Already a wide banner asset — fill the slot without letterboxing.
+    return "cover";
+  }
+  return "cover";
 }
 
 export const RARITY_STYLES = {

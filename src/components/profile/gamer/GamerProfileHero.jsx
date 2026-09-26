@@ -1,9 +1,9 @@
 import { Link } from "react-router-dom";
 import { BadgeCheck, Gamepad2, Shield, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getBannerStyle } from "@/lib/storeItems";
 import { PAGE_BANNER_HEIGHT_CLASS } from "@/lib/pageBanner";
 import PageBannerShell from "@/components/PageBannerShell";
+import AdaptiveBannerBackground from "@/components/profile/AdaptiveBannerBackground";
 import {
   GamerMetaPill,
   GamerPlayerCard,
@@ -25,14 +25,14 @@ function GamerProfileHero({
   stickyLayout = false,
   stickyDockChildren = null,
 }) {
-  const bannerStyle = getBannerStyle(player?.banner_url, player?.banner_position);
-  const heroBannerStyle = bannerStyle.backgroundImage
-    ? { ...bannerStyle, backgroundPosition: player?.banner_position || "50% 64%" }
-    : bannerStyle;
-
   const banner = (
     <div className={cn("relative w-full overflow-hidden", stickyLayout ? "h-full" : PAGE_BANNER_HEIGHT_CLASS)}>
-      <div className="absolute inset-0 scale-[1.03]" style={heroBannerStyle} />
+      <AdaptiveBannerBackground
+        bannerUrl={player?.banner_url}
+        bannerPosition={player?.banner_position || "50% 64%"}
+        bannerZoom={player?.banner_zoom}
+        className="scale-[1.03]"
+      />
       <div className="absolute inset-0 bg-gradient-to-b from-[#04070d]/20 via-[#04070d]/28 via-55% to-[#060912]" />
       <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-[#060912] via-[#060912]/78 to-transparent" />
       <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/14 via-transparent to-amber-500/12" />

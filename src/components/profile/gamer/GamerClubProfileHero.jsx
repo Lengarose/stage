@@ -1,7 +1,7 @@
 import { Gamepad2, Globe, Users } from "lucide-react";
-import { getBannerStyle } from "@/lib/storeItems";
 import { PAGE_BANNER_HEIGHT_CLASS } from "@/lib/pageBanner";
 import PageBannerShell from "@/components/PageBannerShell";
+import AdaptiveBannerBackground from "@/components/profile/AdaptiveBannerBackground";
 import { getCountryFlag } from "@/lib/allCountries";
 import GamerClubCard, { GamerClubPhotoFrame } from "./GamerClubCard";
 import { GamerMetaPill, GamerRecordStrip } from "./GamerProfileUI";
@@ -26,10 +26,6 @@ function GamerClubProfileHero({
   stickyLayout = false,
   stickyDockChildren = null,
 }) {
-  const bannerStyle = getBannerStyle(club?.banner_url, club?.banner_position);
-  const heroBannerStyle = bannerStyle.backgroundImage
-    ? { ...bannerStyle, backgroundPosition: club?.banner_position || "50% 64%" }
-    : bannerStyle;
   const countryFlag = club?.country_code ? getCountryFlag(club.country_code) : "";
 
   const banner = (
@@ -39,7 +35,12 @@ function GamerClubProfileHero({
         onClick={onBannerClick}
         className="absolute inset-0 block w-full overflow-hidden text-left"
       >
-        <div className="absolute inset-0 scale-[1.03]" style={heroBannerStyle} />
+        <AdaptiveBannerBackground
+          bannerUrl={club?.banner_url}
+          bannerPosition={club?.banner_position || "50% 64%"}
+          bannerZoom={club?.banner_zoom}
+          className="scale-[1.03]"
+        />
         <div className="absolute inset-0 bg-gradient-to-b from-[#04070d]/20 via-[#04070d]/28 via-55% to-[#060912]" />
         <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-[#060912] via-[#060912]/78 to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-r from-amber-500/12 via-transparent to-cyan-500/14" />
