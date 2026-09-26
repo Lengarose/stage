@@ -63,7 +63,6 @@ export function applySectionPacks({
   };
 
   for (const [lang, sections] of Object.entries(SECTION_PACKS)) {
-    if (lang === "en" || lang === "fr") continue;
     for (const [section, pack] of Object.entries(sections || {})) {
       const bucket = targets[section];
       if (!bucket || !pack) continue;

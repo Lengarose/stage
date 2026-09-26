@@ -126,10 +126,13 @@ export function TranslationProvider({ children }) {
 
     if (typeof value !== "string") return value || fallback || key;
 
-    return Object.entries(params).reduce(
-      (text, [paramKey, paramValue]) => text.replaceAll(`{${paramKey}}`, String(paramValue)),
-      value
-    );
+    // Support both {name} and {{name}} placeholders used across packs.
+    return Object.entries(params).reduce((text, [paramKey, paramValue]) => {
+      const str = String(paramValue);
+      return text
+        .replaceAll(`{{${paramKey}}}`, str)
+        .replaceAll(`{${paramKey}}`, str);
+    }, value);
   };
 
   return (

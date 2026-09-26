@@ -117,28 +117,28 @@ export default function AdminDashboardPanel({
         <DashboardGamerStatCard
           label={t("admin.sections.clubs")}
           value={clubs.length}
-          sub={t("admin.dashboard.clubsOnPlatform", { count: totals.clubs || clubs.length })}
+          sub={t("admin.stats.onPlatform", { count: totals.clubs || clubs.length })}
           accent="violet"
           icon={Shield}
         />
         <DashboardGamerStatCard
-          label={t("admin.dashboard.expiredFixtures")}
+          label={t("admin.stats.expiredFixtures")}
           value={expiredFixtures.length}
-          sub={expiredFixtures.length ? t("admin.dashboard.schedulingBacklog") : t("admin.dashboard.scheduleHealthy")}
+          sub={expiredFixtures.length ? t("admin.stats.schedulingBacklog") : t("admin.stats.scheduleHealthy")}
           accent="rose"
           icon={Activity}
         />
         <DashboardGamerStatCard
-          label={t("admin.dashboard.pendingRegistrations")}
+          label={t("admin.stats.pendingRegistrations")}
           value={pendingRegs}
-          sub={t("admin.dashboard.seasonApplications")}
+          sub={t("admin.stats.seasonApplications")}
           accent="gold"
           icon={UsersRound}
         />
         <DashboardGamerStatCard
-          label={t("admin.dashboard.matchesPlayed")}
+          label={t("admin.stats.matchesPlayed")}
           value={totals.completed_matches ?? "—"}
-          sub={totals.active_users_30d ? t("admin.dashboard.activeUsers30d", { count: totals.active_users_30d }) : t("admin.dashboard.platformActivity")}
+          sub={totals.active_users_30d ? t("admin.stats.activeUsers30d", { count: totals.active_users_30d }) : t("admin.stats.platformActivity")}
           accent="cyan"
           icon={BarChart3}
         />

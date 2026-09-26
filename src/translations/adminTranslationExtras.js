@@ -165,8 +165,10 @@ function enFromKey(key) {
 
 function frFromKey(key, en) {
   const frMap = {
-    "{{count}} on platform": "{{count}} sur la plateforme",
-    "{{count}} total": "{{count}} au total",
+    "{count} on platform": "{count} sur la plateforme",
+    "{{count}} on platform": "{count} sur la plateforme",
+    "{count} total": "{count} au total",
+    "{{count}} total": "{count} au total",
     "Deep analytics & tournament tracking": "Analytics approfondis & suivi des tournois",
     "Transfer Window": "Mercato",
     "Window status": "Statut du mercato",
@@ -350,19 +352,20 @@ const EXTRA_KEYS = [
 export const adminExtrasEn = nestKeys(EXTRA_KEYS, enFromKey);
 export const adminExtrasFr = nestKeys(EXTRA_KEYS, (k) => frFromKey(k, enFromKey(k)));
 
-function mergeDeep(base, ext) {
+export function mergeAdminExtras(translations, lang) {
+  const extras = lang === "fr" ? adminExtrasFr : adminExtrasEn;
+  // Fill gaps only — never overwrite keys already defined in adminTranslations.
+  return mergeDeepMissing(translations, extras);
+}
+
+function mergeDeepMissing(base, ext) {
   const out = { ...base };
   for (const [k, v] of Object.entries(ext || {})) {
-    if (v && typeof v === "object" && !Array.isArray(v) && out[k] && typeof out[k] === "object") {
-      out[k] = mergeDeep(out[k], v);
-    } else {
+    if (v && typeof v === "object" && !Array.isArray(v)) {
+      out[k] = mergeDeepMissing(out[k] && typeof out[k] === "object" ? out[k] : {}, v);
+    } else if (out[k] === undefined || out[k] === null || out[k] === "") {
       out[k] = v;
     }
   }
   return out;
-}
-
-export function mergeAdminExtras(translations, lang) {
-  const extras = lang === "fr" ? adminExtrasFr : adminExtrasEn;
-  return mergeDeep(translations, extras);
 }

@@ -13,7 +13,7 @@ const packsDir = path.join(root, "src/translations/packs");
 const outFile = path.join(root, "src/translations/localePackRegistry.js");
 
 const SECTIONS = ["commonPages", "matchFlow", "competitionFlow", "tournamentDetail"];
-const SKIP_LANGS = new Set(["en", "fr"]);
+const SKIP_LANGS = new Set([]);
 
 const files = fs.readdirSync(packsDir).filter((f) => f.endsWith(".json"));
 const found = [];

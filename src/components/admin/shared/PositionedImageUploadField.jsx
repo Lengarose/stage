@@ -3,6 +3,8 @@ import { Move } from "lucide-react";
 import ImagePositionEditor from "@/components/ImagePositionEditor";
 import ImageUploadField from "@/components/admin/shared/ImageUploadField";
 import { Button } from "@/components/ui/button";
+import { PAGE_BANNER_HEIGHT_CLASS } from "@/lib/pageBanner";
+import { cn } from "@/lib/utils";
 
 export default function PositionedImageUploadField({
   label,
@@ -19,7 +21,9 @@ export default function PositionedImageUploadField({
 }) {
   const [editorOpen, setEditorOpen] = useState(false);
   const aspect = preview === "hero" ? "banner" : "banner";
-  const previewClass = preview === "hero" ? "aspect-[21/9]" : "aspect-[16/10]";
+  const previewClass = preview === "hero"
+    ? cn("w-full overflow-hidden", PAGE_BANNER_HEIGHT_CLASS)
+    : "aspect-[16/10] w-full min-h-[200px]";
   const previewStyle = value
     ? {
       backgroundImage: `url(${value})`,

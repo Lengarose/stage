@@ -116,5 +116,7 @@
   "viewFullStandings": "عرض الترتيب الكامل",
   "viewProfile": "عرض الملف الشخصي",
   "waitForSlot": "انتظر الفتحة",
-  "waitlisted": "مدرج في قائمة الانتظار"
+  "waitlisted": "مدرج في قائمة الانتظار",
+  "eliteLeague": "دوري النخبة",
+  "eliteLeagueDesc": "مراكز 7–12 في الدرجة الأولى تتأهل للنخبة."
 }

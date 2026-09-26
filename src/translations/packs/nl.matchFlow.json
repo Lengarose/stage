@@ -153,5 +153,14 @@
   "maxGames": "Max. wedstrijden",
   "gamesPlayed": "Gespeelde wedstrijden",
   "gamesUnit": "{count} wedstrijden",
-  "daysUnit": "{count} dagen"
+  "daysUnit": "{count} dagen",
+  "messageUnavailable": "Bericht niet beschikbaar.",
+  "inboxSearch": "Zoeken",
+  "yesterday": "Gisteren",
+  "cancelGame": "Wedstrijd annuleren",
+  "confirmCancel": "Annulering bevestigen",
+  "keepMatch": "Wedstrijd behouden",
+  "changeTime": "Tijd wijzigen",
+  "cancelWaitingOpponent": "Wachten tot je tegenstander de annulering bevestigt.",
+  "fixtureActions": "Wedstrijd"
 }

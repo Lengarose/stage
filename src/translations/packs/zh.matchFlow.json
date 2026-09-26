@@ -153,5 +153,14 @@
   "maxGames": "最大场次",
   "gamesPlayed": "已赛场次",
   "gamesUnit": "{count} 场",
-  "daysUnit": "{count} 天"
+  "daysUnit": "{count} 天",
+  "messageUnavailable": "消息不可用。",
+  "inboxSearch": "搜索",
+  "yesterday": "昨天",
+  "cancelGame": "取消比赛",
+  "confirmCancel": "确认取消",
+  "keepMatch": "保留比赛",
+  "changeTime": "更改时间",
+  "cancelWaitingOpponent": "等待对手确认取消。",
+  "fixtureActions": "赛程"
 }

@@ -116,5 +116,7 @@
   "viewFullStandings": "Посмотреть полную турнирную таблицу",
   "viewProfile": "Посмотреть профиль",
   "waitForSlot": "дождаться слота",
-  "waitlisted": "В списке ожидания"
+  "waitlisted": "В списке ожидания",
+  "eliteLeague": "Elite League",
+  "eliteLeagueDesc": "Места 7–12 Дивизиона 1 выходят в Elite."
 }

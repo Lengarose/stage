@@ -116,5 +116,7 @@
   "viewFullStandings": "ランキング全体を見る",
   "viewProfile": "プロフィールを見る",
   "waitForSlot": "場所を待つ",
-  "waitlisted": "順番待ちリスト"
+  "waitlisted": "順番待ちリスト",
+  "eliteLeague": "エリートリーグ",
+  "eliteLeagueDesc": "ディビジョン1の7〜12位がエリートに進出します。"
 }

@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { useTranslation } from "@/hooks/useTranslation";
 import { cn } from "@/lib/utils";
+import { PAGE_BANNER_HEIGHT_CLASS } from "@/lib/pageBanner";
 import { hasStagePlus } from "@/lib/subscriptionUtils";
 
 // Derive the "league group" a game belongs to for the filter dropdown.
@@ -486,8 +487,9 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
   );
 
   return (
-    <div className="min-h-full bg-[#07070b] text-white">
-      <section className="relative overflow-hidden border-b border-[#d8dee8]/30 bg-[#07070b]">
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain bg-[#07070b] text-white">
+      {/* Banner scrolls away first */}
+      <section className={cn("relative w-full shrink-0 overflow-hidden border-b border-[#d8dee8]/30 bg-[#07070b]", PAGE_BANNER_HEIGHT_CLASS)}>
         <div
           className="absolute inset-0 bg-[radial-gradient(circle_at_72%_22%,rgba(238,243,251,0.26),transparent_30%),radial-gradient(circle_at_20%_72%,rgba(255,255,255,0.18),transparent_28%),linear-gradient(110deg,#171c25_0%,#10141d_45%,#252b36_100%)]"
           style={bannerStyle}
@@ -495,162 +497,164 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
         <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/24 to-black/62" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_48%_118%,rgba(255,255,255,0.16),transparent_36%)]" />
         <div className="absolute bottom-0 left-[8%] h-px w-[74%] bg-gradient-to-r from-transparent via-[#eef3fb] to-transparent shadow-[0_0_24px_rgba(238,243,251,0.75)]" />
-        <div className="relative mx-auto flex min-h-[230px] max-w-[1600px] items-end justify-end px-4 py-5 sm:px-6 lg:px-8">
-          <div className="flex w-full flex-wrap items-center justify-end gap-2.5">
-            {!scopedTournamentId && (
-              <ActionTab
-                onClick={() => setArrangeOpen(true)}
-                tone="silver"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                {t("matchFlow.arrangeGame")}
-              </ActionTab>
-            )}
-            <ActionTab
-              disabled={!selectedGame}
-              onClick={() => setOpsOpen(true)}
-            >
-              <Radio className="h-3.5 w-3.5" />
-              {t("matchFlow.liveStream")}
-            </ActionTab>
-            <ActionTab
-              disabled={!selectedGame}
-              onClick={() => setChatOpen(true)}
-              tone="silver"
-              className="relative"
-            >
-              <MessageSquare className="h-3.5 w-3.5" />
-              {t("matchFlow.chat")}
-              {chatUnread > 0 ? (
-                <span className="absolute -right-1 -top-1 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#8eeeff] px-1 text-[10px] font-semibold leading-none text-black">
-                  {chatUnread > 99 ? "99+" : chatUnread}
-                </span>
-              ) : null}
-            </ActionTab>
-          </div>
-        </div>
       </section>
 
-      <div className="mx-auto grid max-w-[1600px] gap-5 px-4 py-5 sm:px-6 lg:grid-cols-[380px_minmax(0,1fr)] lg:px-8">
-        <aside className={cn(
-          "relative overflow-hidden border border-[#eef3fb]/22 p-3 shadow-[0_0_42px_-24px_rgba(238,243,251,0.85)] lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)]",
-          hasMatchScreensBg ? "bg-black/40" : "bg-gradient-to-b from-[#1b212c]/90 via-[#111827]/95 to-black/82",
-        )}
-        >
-          <GameDayTileBackgroundLayers style={matchScreensBackgroundStyle} variant="panel" />
-          <div aria-hidden className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#f8fbff] to-transparent" />
-          <div className="relative z-[1]">
-          <div className="mb-3 flex items-center justify-between gap-3 px-2 pt-2">
-            <div>
-              <p className="font-heading text-xs font-black uppercase tracking-[0.2em] text-[#f8fbff]">Match Screens</p>
-              <p className={cn(
-                "mt-1 text-[10px] uppercase tracking-[0.16em]",
-                hasMatchScreensBg ? "text-white/85" : "text-white/35",
-              )}>
-                {visibleGames.length}/{games.length} visible
-              </p>
-            </div>
-            {myPlayer ? (
-              <button
-                type="button"
-                aria-label="Change Match Screens background"
-                onClick={() => setTileBackgroundDialog({ tileKey: "match_screens", title: "Match Screens" })}
-                className="flex h-8 w-8 shrink-0 items-center justify-center border border-white/15 bg-black/35 text-white/65 transition hover:border-[#f8fbff]/60 hover:bg-[#d8dee8]/15 hover:text-white"
-              >
-                <MoreHorizontal className="h-4 w-4" />
-              </button>
-            ) : null}
-            {leagueGroups.length > 1 && (
-              <Select value={leagueFilter} onValueChange={setLeagueFilter}>
-                <SelectTrigger className="h-9 w-[150px] border-[#f8fbff]/25 bg-black/50 text-[10px] text-white">
-                  <SelectValue placeholder={t("matchFlow.allLeagues")} />
-                </SelectTrigger>
-                <SelectContent className="max-h-[60vh]">
-                  <SelectItem value="all" className="text-xs">
-                    {t("matchFlow.all")} <span className="ml-1 text-muted-foreground">({games.length})</span>
-                  </SelectItem>
-                  {leagueGroups.map(group => (
-                    <SelectItem key={group.key} value={group.key} className="text-xs">
-                      {group.label}
-                      <span className="ml-1 text-muted-foreground">({group.count})</span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </div>
-          {pendingScheduleFixtures.length > 0 && !scopedTournamentId ? (
-            <div className="mx-2 mb-3 space-y-2">
-              <p className="px-1 font-heading text-[10px] font-black uppercase tracking-[0.18em] text-[#f8fbff]/70">
-                Schedule · GOST
-              </p>
-              {pendingScheduleFixtures.map(({ fixture }) => {
-                const panelClub = identityClubs.find((c) =>
-                  String(c?.id) === String(fixture.home_club_id) || String(c?.id) === String(fixture.away_club_id)
-                ) || myClub;
-                return (
-                  <div
-                    key={fixture.id}
-                    className="border border-[#eef3fb]/18 bg-black/45 p-2.5"
-                  >
-                    <div className="mb-2 flex items-center justify-between gap-2 px-0.5">
-                      <p className="truncate text-[11px] font-semibold text-white/90">
-                        {fixture.home_club_name} vs {fixture.away_club_name}
-                      </p>
-                      <span className="shrink-0 text-[9px] font-bold uppercase tracking-wider text-white/40">
-                        {String(fixture.scheduling_status || "open").replace(/_/g, " ")}
-                      </span>
-                    </div>
-                    <p className="mb-2 truncate px-0.5 text-[10px] uppercase tracking-wider text-white/35">
-                      {fixture.competition_name || fixture.competition_slug || "GOST"}
-                      {fixture.matchday ? ` · MD ${fixture.matchday}` : ""}
-                    </p>
-                    <FixtureSchedulerPanel
-                      fixture={fixture}
-                      fixtureType="competition"
-                      myClub={panelClub}
-                      myEmail={user?.email || myPlayer?.email || ""}
-                      myGamertag={myPlayer?.gamertag || user?.email || ""}
-                      onUpdate={() => setRefreshTick((v) => v + 1)}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-          ) : null}
-          {visibleGames.length === 0 ? (
-            <div className="mx-2 rounded-sm border border-white/10 px-4 py-8 text-center">
-              <Zap className="mx-auto mb-2 h-8 w-8 text-white/20" />
-              <p className="text-sm text-white/55">
-                {games.length === 0 && pendingScheduleFixtures.length === 0
-                  ? t("matchFlow.noScheduledGames")
-                  : games.length === 0
-                    ? "Confirm a GOST schedule above to unlock kickoff."
-                    : t("matchFlow.noMatchesInLeague")}
-              </p>
-              {games.length > 0 ? <p className="mt-1 text-xs text-white/35">{t("matchFlow.switchToAll")}</p> : null}
-            </div>
-          ) : (
-            <div className="flex gap-2 overflow-x-auto pb-1 lg:max-h-[520px] lg:flex-col lg:overflow-y-auto lg:overflow-x-hidden lg:pr-1">
-            {visibleGames.map(game => (
-              <GameDayCard
-                key={game.id}
-                game={game}
-                selected={selectedGame?.id === game.id}
-                onClick={() => setSelectedGame(game)}
-                myClub={pickMyClubForMatch(game, identityClubs)}
-                myPlayer={myPlayer}
-                tournament={tournamentMap[game.tournament_id]}
-                glass={hasMatchScreensBg}
-              />
-            ))}
-            </div>
+      {/* Sticky dock under nav: action bar + match screens / detail */}
+      <div className="sticky top-0 z-10 flex h-full min-h-0 shrink-0 flex-col bg-[#07070b]">
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2.5 border-b border-[#d8dee8]/20 bg-[linear-gradient(120deg,rgba(17,24,39,0.96),rgba(7,7,11,0.94))] px-4 py-3 backdrop-blur-md sm:px-6 lg:px-8">
+          {!scopedTournamentId && (
+            <ActionTab
+              onClick={() => setArrangeOpen(true)}
+              tone="silver"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              {t("matchFlow.arrangeGame")}
+            </ActionTab>
           )}
-          </div>
-        </aside>
+          <ActionTab
+            disabled={!selectedGame}
+            onClick={() => setOpsOpen(true)}
+          >
+            <Radio className="h-3.5 w-3.5" />
+            {t("matchFlow.liveStream")}
+          </ActionTab>
+          <ActionTab
+            disabled={!selectedGame}
+            onClick={() => setChatOpen(true)}
+            tone="silver"
+            className="relative"
+          >
+            <MessageSquare className="h-3.5 w-3.5" />
+            {t("matchFlow.chat")}
+            {chatUnread > 0 ? (
+              <span className="absolute -right-1 -top-1 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#8eeeff] px-1 text-[10px] font-semibold leading-none text-black">
+                {chatUnread > 99 ? "99+" : chatUnread}
+              </span>
+            ) : null}
+          </ActionTab>
+        </div>
 
-        <div className="min-w-0">
-          {detail}
+        <div className="mx-auto grid min-h-0 w-full max-w-[1600px] flex-1 gap-5 overflow-y-auto px-4 py-5 sm:px-6 lg:grid-cols-[380px_minmax(0,1fr)] lg:overflow-hidden lg:px-8">
+          <aside className={cn(
+            "relative flex min-h-0 flex-col overflow-hidden border border-[#eef3fb]/22 p-3 shadow-[0_0_42px_-24px_rgba(238,243,251,0.85)]",
+            hasMatchScreensBg ? "bg-black/40" : "bg-gradient-to-b from-[#1b212c]/90 via-[#111827]/95 to-black/82",
+          )}
+          >
+            <GameDayTileBackgroundLayers style={matchScreensBackgroundStyle} variant="panel" />
+            <div aria-hidden className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#f8fbff] to-transparent" />
+            <div className="relative z-[1] flex min-h-0 flex-1 flex-col">
+              <div className="mb-3 flex shrink-0 items-center justify-between gap-3 px-2 pt-2">
+                <div>
+                  <p className="font-heading text-xs font-black uppercase tracking-[0.2em] text-[#f8fbff]">Match Screens</p>
+                  <p className={cn(
+                    "mt-1 text-[10px] uppercase tracking-[0.16em]",
+                    hasMatchScreensBg ? "text-white/85" : "text-white/35",
+                  )}>
+                    {visibleGames.length}/{games.length} visible
+                  </p>
+                </div>
+                {myPlayer ? (
+                  <button
+                    type="button"
+                    aria-label="Change Match Screens background"
+                    onClick={() => setTileBackgroundDialog({ tileKey: "match_screens", title: "Match Screens" })}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center border border-white/15 bg-black/35 text-white/65 transition hover:border-[#f8fbff]/60 hover:bg-[#d8dee8]/15 hover:text-white"
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                  </button>
+                ) : null}
+                {leagueGroups.length > 1 && (
+                  <Select value={leagueFilter} onValueChange={setLeagueFilter}>
+                    <SelectTrigger className="h-9 w-[150px] border-[#f8fbff]/25 bg-black/50 text-[10px] text-white">
+                      <SelectValue placeholder={t("matchFlow.allLeagues")} />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[60vh]">
+                      <SelectItem value="all" className="text-xs">
+                        {t("matchFlow.all")} <span className="ml-1 text-muted-foreground">({games.length})</span>
+                      </SelectItem>
+                      {leagueGroups.map(group => (
+                        <SelectItem key={group.key} value={group.key} className="text-xs">
+                          {group.label}
+                          <span className="ml-1 text-muted-foreground">({group.count})</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+              {pendingScheduleFixtures.length > 0 && !scopedTournamentId ? (
+                <div className="mx-2 mb-3 shrink-0 space-y-2">
+                  <p className="px-1 font-heading text-[10px] font-black uppercase tracking-[0.18em] text-[#f8fbff]/70">
+                    Schedule · GOST
+                  </p>
+                  {pendingScheduleFixtures.map(({ fixture }) => {
+                    const panelClub = identityClubs.find((c) =>
+                      String(c?.id) === String(fixture.home_club_id) || String(c?.id) === String(fixture.away_club_id)
+                    ) || myClub;
+                    return (
+                      <div
+                        key={fixture.id}
+                        className="border border-[#eef3fb]/18 bg-black/45 p-2.5"
+                      >
+                        <div className="mb-2 flex items-center justify-between gap-2 px-0.5">
+                          <p className="truncate text-[11px] font-semibold text-white/90">
+                            {fixture.home_club_name} vs {fixture.away_club_name}
+                          </p>
+                          <span className="shrink-0 text-[9px] font-bold uppercase tracking-wider text-white/40">
+                            {String(fixture.scheduling_status || "open").replace(/_/g, " ")}
+                          </span>
+                        </div>
+                        <p className="mb-2 truncate px-0.5 text-[10px] uppercase tracking-wider text-white/35">
+                          {fixture.competition_name || fixture.competition_slug || "GOST"}
+                          {fixture.matchday ? ` · MD ${fixture.matchday}` : ""}
+                        </p>
+                        <FixtureSchedulerPanel
+                          fixture={fixture}
+                          fixtureType="competition"
+                          myClub={panelClub}
+                          myEmail={user?.email || myPlayer?.email || ""}
+                          myGamertag={myPlayer?.gamertag || user?.email || ""}
+                          onUpdate={() => setRefreshTick((v) => v + 1)}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : null}
+              {visibleGames.length === 0 ? (
+                <div className="mx-2 rounded-sm border border-white/10 px-4 py-8 text-center">
+                  <Zap className="mx-auto mb-2 h-8 w-8 text-white/20" />
+                  <p className="text-sm text-white/55">
+                    {games.length === 0 && pendingScheduleFixtures.length === 0
+                      ? t("matchFlow.noScheduledGames")
+                      : games.length === 0
+                        ? "Confirm a GOST schedule above to unlock kickoff."
+                        : t("matchFlow.noMatchesInLeague")}
+                  </p>
+                  {games.length > 0 ? <p className="mt-1 text-xs text-white/35">{t("matchFlow.switchToAll")}</p> : null}
+                </div>
+              ) : (
+                <div className="flex min-h-0 flex-1 gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-y-auto lg:overflow-x-hidden lg:pr-1">
+                  {visibleGames.map(game => (
+                    <GameDayCard
+                      key={game.id}
+                      game={game}
+                      selected={selectedGame?.id === game.id}
+                      onClick={() => setSelectedGame(game)}
+                      myClub={pickMyClubForMatch(game, identityClubs)}
+                      myPlayer={myPlayer}
+                      tournament={tournamentMap[game.tournament_id]}
+                      glass={hasMatchScreensBg}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </aside>
+
+          <div className="min-h-0 min-w-0 overflow-y-auto lg:overflow-hidden">
+            {detail}
+          </div>
         </div>
       </div>
 

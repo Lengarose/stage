@@ -61,7 +61,7 @@
   "selectMessage": "Sélectionne un message pour le lire",
   "inboxSearch": "Rechercher",
   "yesterday": "Hier",
-  "today": "Aujourd'hui",
+  "today": "Aujourd'hui !",
   "matchInvite": "Invitation match",
   "contractBadge": "Contrat",
   "clubInvite": "Invitation club",
@@ -149,7 +149,6 @@
   "maxTeams": "Équipes max",
   "countdown": "Compte à rebours",
   "inDays": "Dans {count} jours",
-  "today": "Aujourd'hui !",
   "viewTournament": "Voir le tournoi",
   "gamesLeft": "Matchs restants",
   "daysLeft": "Jours restants",
@@ -166,5 +165,6 @@
   "confirmCancel": "Confirmer l'annulation",
   "keepMatch": "Garder le match",
   "changeTime": "Changer l'heure",
-  "cancelWaitingOpponent": "En attente de la confirmation d'annulation de l'adversaire."
+  "cancelWaitingOpponent": "En attente de la confirmation d'annulation de l'adversaire.",
+  "messageUnavailable": "Message indisponible."
 }

@@ -2,12 +2,14 @@ import { Link } from "react-router-dom";
 import { BadgeCheck, Gamepad2, Shield, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getBannerStyle } from "@/lib/storeItems";
+import { PAGE_BANNER_HEIGHT_CLASS } from "@/lib/pageBanner";
+import PageBannerShell from "@/components/PageBannerShell";
 import {
   GamerMetaPill,
   GamerPlayerCard,
 } from "./GamerProfileUI";
 
-export default function GamerProfileHero({
+function GamerProfileHero({
   player,
   user,
   club,
@@ -20,110 +22,137 @@ export default function GamerProfileHero({
   verifiedHandle,
   onAvatarClick,
   children,
+  stickyLayout = false,
+  stickyDockChildren = null,
 }) {
   const bannerStyle = getBannerStyle(player?.banner_url, player?.banner_position);
   const heroBannerStyle = bannerStyle.backgroundImage
     ? { ...bannerStyle, backgroundPosition: player?.banner_position || "50% 64%" }
     : bannerStyle;
-  return (
-    <div className="relative">
-      <div className="relative h-60 sm:h-72 md:h-[22rem] w-full overflow-hidden">
-        <div className="absolute inset-0 scale-[1.03]" style={heroBannerStyle} />
-        <div className="absolute inset-0 bg-gradient-to-b from-[#04070d]/20 via-[#04070d]/28 via-55% to-[#060912]" />
-        <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-[#060912] via-[#060912]/78 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/14 via-transparent to-amber-500/12" />
-        <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-[#060912] via-[#060912]/55 to-transparent" />
-        {topLeftActions ? <div className="absolute top-4 left-4 z-20 flex items-center gap-2">{topLeftActions}</div> : null}
-        {topActions ? <div className="absolute top-4 right-4 z-20 flex items-center gap-2">{topActions}</div> : null}
-      </div>
 
-      <div className="max-w-6xl mx-auto px-4 -mt-32 sm:-mt-36 relative z-10">
-        <div className="flex flex-col lg:flex-row gap-5 lg:gap-8 items-start">
-          <GamerPlayerCard player={player} onAvatarClick={onAvatarClick} />
+  const banner = (
+    <div className={cn("relative w-full overflow-hidden", stickyLayout ? "h-full" : PAGE_BANNER_HEIGHT_CLASS)}>
+      <div className="absolute inset-0 scale-[1.03]" style={heroBannerStyle} />
+      <div className="absolute inset-0 bg-gradient-to-b from-[#04070d]/20 via-[#04070d]/28 via-55% to-[#060912]" />
+      <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-[#060912] via-[#060912]/78 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/14 via-transparent to-amber-500/12" />
+      <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-[#060912] via-[#060912]/55 to-transparent" />
+      {topLeftActions ? <div className="absolute top-4 left-4 z-20 flex items-center gap-2">{topLeftActions}</div> : null}
+      {topActions ? <div className="absolute top-4 right-4 z-20 flex items-center gap-2">{topActions}</div> : null}
+    </div>
+  );
 
-          <div className="flex-1 min-w-0 space-y-3 pt-2 lg:pt-10">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="min-w-0 space-y-2">
-                <p className="font-heading text-[10px] font-black uppercase tracking-[0.34em] text-cyan-200/55">Player Profile</p>
-                <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="font-heading text-4xl sm:text-5xl md:text-6xl font-black uppercase tracking-tight leading-none drop-shadow-[0_8px_28px_rgba(0,0,0,0.85)]">
-                    {player?.gamertag || user?.full_name || "Player"}
-                  </h1>
-                  {Number(player?.is_verified) === 1 ? (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-cyan-300">
-                      <BadgeCheck className="w-3.5 h-3.5" /> EA
-                    </span>
-                  ) : null}
-                </div>
+  const body = (
+    <div className="max-w-6xl mx-auto px-4 -mt-32 sm:-mt-36 relative z-10">
+      <div className="flex flex-col lg:flex-row gap-5 lg:gap-8 items-start">
+        <GamerPlayerCard player={player} onAvatarClick={onAvatarClick} />
 
-                <div className="flex flex-wrap gap-2">
-                  {player?.position ? (
-                    <GamerMetaPill><Target className="w-3 h-3 text-cyan-400" />{formatPositions ? formatPositions(player) : player.position}</GamerMetaPill>
-                  ) : null}
-                  {player?.platform ? (
-                    <GamerMetaPill><Gamepad2 className="w-3 h-3 text-amber-400" />{player.platform}</GamerMetaPill>
-                  ) : null}
-                  {player?.country ? <GamerMetaPill>{player.country}</GamerMetaPill> : null}
-                  {club ? (
-                    <Link to={`/clubs/${club.id}`}>
-                      <GamerMetaPill className="hover:border-cyan-400/30 hover:text-cyan-300 transition-colors">
-                        <Shield className="w-3 h-3" />{club.name}
-                      </GamerMetaPill>
-                    </Link>
-                  ) : null}
-                </div>
-
-                {roleBadges.length > 0 ? (
-                  <div className="flex flex-wrap gap-1.5">
-                    {roleBadges.map((role) => (
-                      <span
-                        key={role}
-                        className={cn(
-                          "text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border capitalize",
-                          role === "president" ? "bg-cyan-500/15 text-cyan-300 border-cyan-500/30" :
-                          role === "captain" ? "bg-amber-500/15 text-amber-300 border-amber-500/30" :
-                          "bg-white/5 text-white/50 border-white/10"
-                        )}
-                      >
-                        {role}
-                      </span>
-                    ))}
-                  </div>
-                ) : null}
-
-                {managementBadges.length > 0 ? (
-                  <div className="flex flex-wrap gap-1.5">
-                    {managementBadges.map((badge) => (
-                      <span
-                        key={badge.id}
-                        className={cn(
-                          "text-[10px] px-2 py-0.5 rounded-full font-black uppercase tracking-wider border",
-                          badge.tone === "amber" ? "bg-amber-500/15 text-amber-300 border-amber-500/30" :
-                          badge.tone === "cyan" ? "bg-cyan-500/15 text-cyan-300 border-cyan-500/30" :
-                          "bg-white/5 text-white/55 border-white/10"
-                        )}
-                        title={badge.clubName || undefined}
-                      >
-                        {badge.label}
-                      </span>
-                    ))}
-                  </div>
+        <div className="flex-1 min-w-0 space-y-3 pt-2 lg:pt-10">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0 space-y-2">
+              <p className="font-heading text-[10px] font-black uppercase tracking-[0.34em] text-cyan-200/55">Player Profile</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="font-heading text-4xl sm:text-5xl md:text-6xl font-black uppercase tracking-tight leading-none drop-shadow-[0_8px_28px_rgba(0,0,0,0.85)]">
+                  {player?.gamertag || user?.full_name || "Player"}
+                </h1>
+                {Number(player?.is_verified) === 1 ? (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-cyan-300">
+                    <BadgeCheck className="w-3.5 h-3.5" /> EA
+                  </span>
                 ) : null}
               </div>
 
-              {sideActions ? <div className="flex flex-wrap gap-2 shrink-0">{sideActions}</div> : null}
+              <div className="flex flex-wrap gap-2">
+                {player?.position ? (
+                  <GamerMetaPill><Target className="w-3 h-3 text-cyan-400" />{formatPositions ? formatPositions(player) : player.position}</GamerMetaPill>
+                ) : null}
+                {player?.platform ? (
+                  <GamerMetaPill><Gamepad2 className="w-3 h-3 text-amber-400" />{player.platform}</GamerMetaPill>
+                ) : null}
+                {player?.country ? <GamerMetaPill>{player.country}</GamerMetaPill> : null}
+                {club ? (
+                  <Link to={`/clubs/${club.id}`}>
+                    <GamerMetaPill className="hover:border-cyan-400/30 hover:text-cyan-300 transition-colors">
+                      <Shield className="w-3 h-3" />{club.name}
+                    </GamerMetaPill>
+                  </Link>
+                ) : null}
+              </div>
+
+              {roleBadges.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {roleBadges.map((role) => (
+                    <span
+                      key={role}
+                      className={cn(
+                        "text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border capitalize",
+                        role === "president" ? "bg-cyan-500/15 text-cyan-300 border-cyan-500/30" :
+                        role === "captain" ? "bg-amber-500/15 text-amber-300 border-amber-500/30" :
+                        "bg-white/5 text-white/50 border-white/10"
+                      )}
+                    >
+                      {role}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+
+              {managementBadges.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {managementBadges.map((badge) => (
+                    <span
+                      key={badge.id}
+                      className={cn(
+                        "text-[10px] px-2 py-0.5 rounded-full font-black uppercase tracking-wider border",
+                        badge.tone === "amber" ? "bg-amber-500/15 text-amber-300 border-amber-500/30" :
+                        badge.tone === "cyan" ? "bg-cyan-500/15 text-cyan-300 border-cyan-500/30" :
+                        "bg-white/5 text-white/55 border-white/10"
+                      )}
+                      title={badge.clubName || undefined}
+                    >
+                      {badge.label}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
             </div>
 
-            {player?.bio ? <p className="text-sm text-white/65 leading-relaxed max-w-2xl">{player.bio}</p> : null}
-            {verifiedHandle ? (
-              <p className="text-xs text-cyan-300/80">
-                {verifiedHandle}
-              </p>
-            ) : null}
-            {children}
+            {sideActions ? <div className="flex flex-wrap gap-2 shrink-0">{sideActions}</div> : null}
           </div>
+
+          {player?.bio ? <p className="text-sm text-white/65 leading-relaxed max-w-2xl">{player.bio}</p> : null}
+          {verifiedHandle ? (
+            <p className="text-xs text-cyan-300/80">
+              {verifiedHandle}
+            </p>
+          ) : null}
+          {children}
         </div>
       </div>
     </div>
   );
+
+  if (stickyLayout) {
+    return (
+      <PageBannerShell
+        banner={banner}
+        className="bg-transparent"
+        dockClassName="bg-transparent"
+      >
+        {body}
+        {stickyDockChildren}
+      </PageBannerShell>
+    );
+  }
+
+  return (
+    <div className="relative">
+      {banner}
+      {body}
+    </div>
+  );
 }
+
+GamerProfileHero.isStickyBannerHero = true;
+
+export default GamerProfileHero;

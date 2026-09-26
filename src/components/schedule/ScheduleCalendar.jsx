@@ -1,15 +1,17 @@
-import { useState, useRef, useCallback } from "react";
-import { createPortal } from "react-dom";
+import { useState, useMemo, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import {
   format, parseISO, isValid, startOfMonth, endOfMonth,
   startOfWeek, endOfWeek, addDays, addMonths, subMonths,
-  isSameMonth, isSameDay, isToday
+  isSameMonth, isSameDay, isToday,
 } from "@/lib/momentDate";
-import { ChevronLeft, ChevronRight, X, Trophy, FileText, Shield, Star } from "lucide-react";
+import {
+  ChevronLeft, ChevronRight, ChevronDown, X,
+} from "lucide-react";
 import MatchDetail from "./MatchDetail";
-import { getContractTargetPlayerId } from "@/lib/playerContractFields";
-import { useTranslation } from "@/hooks/useTranslation";
+import { COMPETITIONS } from "@/lib/competitionUtils";
+
+const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 function parseDate(d) {
   if (!d) return null;
@@ -19,55 +21,231 @@ function parseDate(d) {
 
 function buildDateMap(events) {
   const map = new Map();
-  events.forEach(ev => {
-    if (ev.type === "contract_reminder") return; // inline reminder — no calendar date
+  events.forEach((ev) => {
+    if (ev.type === "contract_reminder") return;
     const d = parseDate(ev.date);
     if (!d) return;
     const key = format(d, "yyyy-MM-dd");
     if (!map.has(key)) map.set(key, []);
     map.get(key).push(ev);
   });
+  for (const [, list] of map) {
+    list.sort((a, b) => {
+      const ta = parseDate(a.date)?.getTime() || 0;
+      const tb = parseDate(b.date)?.getTime() || 0;
+      return ta - tb;
+    });
+  }
   return map;
 }
 
-const OUTCOME_STYLE = {
-  W: "text-success",
-  L: "text-destructive",
-  D: "text-warning",
-};
-
-const STATUS_BADGE_CLS = {
-  scheduled:             "bg-primary/10 text-primary",
-  awaiting_confirmation: "bg-warning/10 text-warning",
-  completed:             "bg-secondary text-muted-foreground",
-  forfeit:               "bg-destructive/10 text-destructive",
-  in_progress:           "bg-success/10 text-success",
-  disputed:              "bg-destructive/10 text-destructive",
-};
-
-// Derive a player display name from a contract event
-function contractPlayerName(ev, players) {
-  const c = ev.contractData;
-  if (!c) return null;
-  const targetPlayerId = getContractTargetPlayerId(c);
-  if (players && targetPlayerId) {
-    const p = players.find(pl => pl.id === targetPlayerId);
-    if (p?.gamertag) return p.gamertag;
-  }
+function resolveGostSlug(ev = {}) {
+  const raw = String(ev.competitionSlug || ev.competition_slug || "").toLowerCase().trim();
+  if (COMPETITIONS.some((c) => c.slug === raw)) return raw;
+  const name = String(ev.competition || ev.competition_name || "").toLowerCase();
+  if (name.includes("supreme")) return "supreme";
+  if (name.includes("elite")) return "elite";
+  if (name.includes("challenger")) return "challenger";
   return null;
 }
 
-export default function ScheduleCalendar({ events, myPlayer, myClub, players = [] }) {
-  const { t } = useTranslation();
+function shortName(name = "", max = 18) {
+  const cleaned = String(name || "").trim() || "TBD";
+  if (cleaned.length <= max) return cleaned;
+  return `${cleaned.slice(0, max - 1)}…`;
+}
+
+/** FM-style solid match block colours */
+function matchBlockStyle(ev) {
+  if (ev.type === "contract_end") {
+    return {
+      bg: "linear-gradient(90deg,#3b2a08,#5c4210)",
+      label: "Contract",
+      accent: "#FBBF24",
+    };
+  }
+  if (ev.type === "tournament_start") {
+    return {
+      bg: "linear-gradient(90deg,#2a1548,#4c1d95)",
+      label: "Tournament",
+      accent: "#C084FC",
+    };
+  }
+
+  const slug = resolveGostSlug(ev);
+  if (slug === "supreme") {
+    return {
+      bg: "linear-gradient(90deg,#0c4a6e,#0369a1)",
+      label: "Supreme",
+      accent: "#38BDF8",
+    };
+  }
+  if (slug === "elite") {
+    return {
+      bg: "linear-gradient(90deg,#1e3a8a,#4338ca)",
+      label: "Elite",
+      accent: "#A5B4FC",
+    };
+  }
+  if (slug === "challenger") {
+    return {
+      bg: "linear-gradient(90deg,#14532d,#166534)",
+      label: "Challenger",
+      accent: "#4ADE80",
+    };
+  }
+  if (ev.source === "regional" || /regional|league/i.test(String(ev.competition || ""))) {
+    return {
+      bg: "linear-gradient(90deg,#7f1d1d,#991b1b)",
+      label: shortName(String(ev.competition || "Regional").replace(/^STAGE\s+/i, ""), 16),
+      accent: "#FCA5A5",
+    };
+  }
+  return {
+    bg: "linear-gradient(90deg,#881337,#9f1239)",
+    label: shortName(String(ev.competition || "Match").replace(/^STAGE\s+/i, ""), 16),
+    accent: "#FDA4AF",
+  };
+}
+
+function homeAwayNames(ev) {
+  if (ev.homeName || ev.awayName) {
+    return { home: ev.homeName || "TBD", away: ev.awayName || "TBD" };
+  }
+  const m = ev.matchData;
+  if (m) {
+    return {
+      home: m.home_club_name || m.home_player_name || "TBD",
+      away: m.away_club_name || m.away_player_name || "TBD",
+    };
+  }
+  if (ev.opposition) {
+    return {
+      home: ev.isHome ? (ev.myClubName || "You") : ev.opposition,
+      away: ev.isHome ? ev.opposition : (ev.myClubName || "You"),
+    };
+  }
+  return { home: "TBD", away: "TBD" };
+}
+
+function timeOrScore(ev) {
+  if (ev.result?.display) return ev.result.display;
+  const m = ev.matchData;
+  if (m && ["completed", "awaiting_confirmation", "played"].includes(String(m.status || "")) && m.home_score != null) {
+    return `${m.home_score}-${m.away_score}`;
+  }
+  if (ev.homeScore != null && ev.awayScore != null) {
+    const st = String(ev.status || "").toLowerCase();
+    if (["played", "completed", "finished"].includes(st) || Number(ev.homeScore) + Number(ev.awayScore) > 0) {
+      return `${ev.homeScore}-${ev.awayScore}`;
+    }
+  }
+  const d = parseDate(ev.date);
+  if (d) {
+    const hm = format(d, "HH:mm");
+    if (hm !== "00:00") return hm;
+  }
+  if (ev.matchday) return `MD${ev.matchday}`;
+  return "TBD";
+}
+
+function venueLetter(ev, myClubId) {
+  if (ev.venueKey === "home" || ev.venue === "Home") return "H";
+  if (ev.venueKey === "away" || ev.venue === "Away") return "A";
+  if (myClubId && ev.matchData) {
+    if (String(ev.matchData.home_club_id) === String(myClubId)) return "H";
+    if (String(ev.matchData.away_club_id) === String(myClubId)) return "A";
+  }
+  return "";
+}
+
+function MatchBlock({ ev, myClub, onClick }) {
+  const style = matchBlockStyle(ev);
+  const { home, away } = homeAwayNames(ev);
+  const opp = myClub?.id
+    ? (String(ev.matchData?.home_club_id || ev.fixtureData?.home_club_id) === String(myClub.id) ? away : home)
+    : away;
+  const venue = venueLetter(ev, myClub?.id);
+  const when = timeOrScore(ev);
+
+  if (ev.type === "contract_end" || ev.type === "tournament_start") {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className="w-full rounded-[3px] px-1.5 py-1 text-left text-[10px] font-semibold text-white shadow-sm"
+        style={{ background: style.bg }}
+      >
+        <div className="flex items-center justify-between gap-1">
+          <span className="truncate" style={{ color: style.accent }}>{style.label}</span>
+          <span className="shrink-0 tabular-nums text-white/80">{when}</span>
+        </div>
+        <p className="truncate font-bold text-white">
+          {ev.type === "tournament_start" ? (ev.tournamentData?.name || ev.competition) : "Contract ends"}
+        </p>
+      </button>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full rounded-[3px] px-1.5 py-1 text-left shadow-sm transition hover:brightness-110"
+      style={{ background: style.bg }}
+      title={`${home} vs ${away}`}
+    >
+      <div className="flex items-center justify-between gap-1 text-[9px] font-bold uppercase tracking-wide text-white/85">
+        <span className="truncate">{style.label}</span>
+        <span className="shrink-0 tabular-nums">{when}</span>
+      </div>
+      <div className="mt-0.5 flex items-center justify-between gap-1">
+        <p className="truncate text-[11px] font-bold leading-tight text-white">
+          {shortName(opp || away, 16)}
+        </p>
+        <span className="shrink-0 text-[9px] font-black text-white/70">
+          {venue}
+        </span>
+      </div>
+      <p className="truncate text-[9px] leading-tight text-white/55">
+        {shortName(home, 12)} vs {shortName(away, 12)}
+      </p>
+    </button>
+  );
+}
+
+export default function ScheduleCalendar({ events, myPlayer, myClub, fullScreen = true }) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState(null);
   const [detailEvent, setDetailEvent] = useState(null);
+  const [filter, setFilter] = useState("all");
+  const [didAutoJump, setDidAutoJump] = useState(false);
 
-  // Hover tooltip state
-  const [tooltip, setTooltip] = useState(null); // { x, y, dayEvents, dayLabel }
-  const tooltipTimeout = useRef(null);
+  const filteredEvents = useMemo(() => {
+    return (events || []).filter((ev) => {
+      if (filter === "gost") {
+        return ev.type === "match" && (ev.source === "gost" || resolveGostSlug(ev));
+      }
+      if (filter === "fixtures") {
+        return ev.type === "match";
+      }
+      return true;
+    });
+  }, [events, filter]);
 
-  const dateMap = buildDateMap(events);
+  const dateMap = useMemo(() => buildDateMap(filteredEvents), [filteredEvents]);
+
+  useEffect(() => {
+    if (didAutoJump) return;
+    const dated = filteredEvents.map((ev) => parseDate(ev.date)).filter(Boolean).sort((a, b) => a - b);
+    if (!dated.length) return;
+    const monthKey = format(currentMonth, "yyyy-MM");
+    const hasInMonth = dated.some((d) => format(d, "yyyy-MM") === monthKey);
+    if (!hasInMonth) {
+      const upcoming = dated.find((d) => d >= new Date()) || dated[dated.length - 1];
+      setCurrentMonth(startOfMonth(upcoming));
+    }
+    setDidAutoJump(true);
+  }, [filteredEvents, currentMonth, didAutoJump]);
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -80,434 +258,202 @@ export default function ScheduleCalendar({ events, myPlayer, myClub, players = [
     days.push(cursor);
     cursor = addDays(cursor, 1);
   }
-
-  const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-  const selectedKey = selectedDate ? format(selectedDate, "yyyy-MM-dd") : null;
-  const selectedEvents = selectedKey ? (dateMap.get(selectedKey) || []) : [];
-
-  function handleDayClick(day) {
-    const key = format(day, "yyyy-MM-dd");
-    const dayEvents = dateMap.get(key) || [];
-    setSelectedDate(day);
-    setDetailEvent(null);
-    if (dayEvents.length === 1) setDetailEvent(dayEvents[0]);
-    setTooltip(null);
-  }
-
-  const handleMouseEnter = useCallback((e, day, dayEvents) => {
-    if (dayEvents.length === 0) return;
-    clearTimeout(tooltipTimeout.current);
-    const rect = e.currentTarget.getBoundingClientRect();
-    setTooltip({
-      x: rect.left + rect.width / 2,
-      y: rect.top + window.scrollY,
-      dayEvents,
-      dayLabel: format(day, "d MMM"),
-    });
-  }, []);
-
-  const handleMouseLeave = useCallback(() => {
-    tooltipTimeout.current = setTimeout(() => setTooltip(null), 80);
-  }, []);
-
-  return (
-    <div className="flex flex-col xl:flex-row gap-5">
-      {/* ── Calendar grid ── */}
-      <div className="flex-1 bg-card border border-border rounded-2xl overflow-hidden shadow-lg">
-        {/* Month nav */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-border bg-secondary/40">
-          <button
-            onClick={() => setCurrentMonth(m => subMonths(m, 1))}
-            className="p-2 rounded-xl hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground"
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-          <h2 className="font-heading text-xl font-bold text-foreground uppercase tracking-widest">
-            {format(currentMonth, "MMMM yyyy")}
-          </h2>
-          <button
-            onClick={() => setCurrentMonth(m => addMonths(m, 1))}
-            className="p-2 rounded-xl hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground"
-          >
-            <ChevronRight className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Day headers */}
-        <div className="grid grid-cols-7 border-b border-border">
-          {dayNames.map(d => (
-            <div key={d} className="py-2 sm:py-3 text-center text-[9px] sm:text-[11px] uppercase tracking-widest text-muted-foreground font-semibold">
-              <span className="hidden sm:inline">{d}</span>
-              <span className="sm:hidden">{d[0]}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* Day tiles — NO overflow-hidden so tooltips aren't clipped */}
-        <div className="grid grid-cols-7">
-          {days.map((day, i) => {
-            const key = format(day, "yyyy-MM-dd");
-            const dayEvents = dateMap.get(key) || [];
-            const isCurrentMonth = isSameMonth(day, currentMonth);
-            const isSelected = selectedDate && isSameDay(day, selectedDate);
-            const todayDay = isToday(day);
-            const hasMatch = dayEvents.some(e => e.type === "match");
-            const hasContract = dayEvents.some(e => e.type === "contract_end");
-            const hasTournament = dayEvents.some(e => e.type === "tournament_start");
-
-            return (
-              <button
-                key={i}
-                onClick={() => handleDayClick(day)}
-                onMouseEnter={e => handleMouseEnter(e, day, dayEvents)}
-                onMouseLeave={handleMouseLeave}
-                className={cn(
-                  "relative min-h-[44px] sm:min-h-[72px] md:min-h-[90px] p-1 sm:p-2 md:p-3 border-b border-r border-border transition-all",
-                  "flex flex-col items-center gap-0.5 sm:gap-1",
-                  !isCurrentMonth && "opacity-25",
-                  isSelected && "bg-primary/15 ring-1 ring-inset ring-primary/40",
-                  !isSelected && dayEvents.length > 0 && "hover:bg-secondary/60",
-                  !isSelected && dayEvents.length === 0 && "hover:bg-secondary/20 cursor-default",
-                  (i + 1) % 7 === 0 && "border-r-0"
-                )}
-              >
-                {/* Day number */}
-                <span className={cn(
-                  "text-[11px] sm:text-sm md:text-base font-semibold w-5 h-5 sm:w-7 sm:h-7 flex items-center justify-center rounded-full transition-colors leading-none",
-                  todayDay && !isSelected && "bg-primary text-primary-foreground",
-                  isSelected && !todayDay && "text-primary font-bold",
-                  !todayDay && !isSelected && "text-foreground"
-                )}>
-                  {format(day, "d")}
-                </span>
-
-                {/* Event dots */}
-                {dayEvents.length > 0 && (
-                  <div className="flex items-center justify-center gap-0.5">
-                    {hasMatch && <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-primary" />}
-                    {hasContract && <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-warning" />}
-                    {hasTournament && <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-accent" />}
-                  </div>
-                )}
-
-                {/* Inline event count label on larger tiles */}
-                {dayEvents.length > 1 && (
-                  <span className="hidden sm:block text-[9px] text-muted-foreground font-medium">
-                    {t("commonPages.scalEventsCount", { count: dayEvents.length })}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Legend */}
-        <div className="px-5 py-3 border-t border-border bg-secondary/20 flex items-center gap-5">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-primary" />
-            <span className="text-[11px] text-muted-foreground uppercase tracking-wider">{t("commonPages.scalMatch")}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-warning" />
-            <span className="text-[11px] text-muted-foreground uppercase tracking-wider">{t("commonPages.scalContractEnd")}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-accent" />
-            <span className="text-[11px] text-muted-foreground uppercase tracking-wider">{t("commonPages.scalTournament")}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-primary ring-2 ring-primary/40" />
-            <span className="text-[11px] text-muted-foreground uppercase tracking-wider">{t("commonPages.scalToday")}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Right panel ── */}
-      <div className={cn(
-        "xl:w-[400px] shrink-0 xl:sticky xl:top-6 xl:self-start",
-        !selectedDate && "hidden xl:block"
-      )}>
-        {!selectedDate ? (
-          <div className="bg-card border border-border rounded-2xl p-10 flex flex-col items-center justify-center gap-3 text-center min-h-[300px] shadow-lg">
-            <Trophy className="w-10 h-10 text-muted-foreground/20" />
-            <p className="text-sm text-muted-foreground">{t("commonPages.scalClickDate")}</p>
-          </div>
-        ) : (
-          <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-lg">
-            <div className="px-5 py-4 border-b border-border bg-secondary/40 flex items-center justify-between">
-              <div>
-                <p className="font-heading text-base font-bold text-foreground uppercase tracking-wide">
-                  {format(selectedDate, "EEEE")}
-                </p>
-                <p className="text-xs text-muted-foreground">{format(selectedDate, "d MMMM yyyy")}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => { setSelectedDate(null); setDetailEvent(null); }}
-                className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {selectedEvents.length === 0 ? (
-              <div className="p-8 text-center">
-                <p className="text-sm text-muted-foreground">{t("commonPages.scalNoEvents")}</p>
-              </div>
-            ) : detailEvent ? (
-              <div>
-                <button
-                  type="button"
-                  onClick={() => setDetailEvent(null)}
-                  className="flex items-center gap-1.5 px-5 py-2.5 text-xs text-primary hover:underline border-b border-border w-full text-left"
-                >
-                  ← {t("commonPages.scalBackTo", { date: format(selectedDate, "d MMM") })}
-                </button>
-                <div className="p-4">
-                  <MatchDetail event={detailEvent} myPlayer={myPlayer} myClub={myClub} />
-                </div>
-              </div>
-            ) : (
-              <div className="divide-y divide-border">
-                {selectedEvents.map(ev => (
-                  <DayEventRow key={ev.id} ev={ev} players={players} onClick={() => setDetailEvent(ev)} />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* ── Mobile slide-up ── */}
-      {selectedDate && (
-        <div className="xl:hidden fixed inset-0 z-50 flex flex-col justify-end">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => { setSelectedDate(null); setDetailEvent(null); }} />
-          <div className="relative bg-background rounded-t-2xl shadow-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-300">
-            <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-border shrink-0">
-              <div className="w-10 h-1 rounded-full bg-border mx-auto absolute left-1/2 -translate-x-1/2 top-2" />
-              {detailEvent ? (
-                <button type="button" onClick={() => setDetailEvent(null)} className="text-xs text-primary">← {t("commonPages.scalBack")}</button>
-              ) : (
-                <p className="font-semibold text-foreground text-sm">{format(selectedDate, "EEEE d MMMM")}</p>
-              )}
-              <button type="button" onClick={() => { setSelectedDate(null); setDetailEvent(null); }} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="overflow-y-auto flex-1">
-              {detailEvent ? (
-                <div className="p-4">
-                  <MatchDetail event={detailEvent} myPlayer={myPlayer} myClub={myClub} />
-                </div>
-              ) : selectedEvents.length === 0 ? (
-                <div className="p-8 text-center">
-                  <p className="text-sm text-muted-foreground">{t("commonPages.scalNoEvents")}</p>
-                </div>
-              ) : (
-                <div className="divide-y divide-border">
-                  {selectedEvents.map(ev => (
-                    <DayEventRow key={ev.id} ev={ev} players={players} onClick={() => setDetailEvent(ev)} />
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Portal tooltip (always renders above everything) ── */}
-      {tooltip && createPortal(
-        <HoverTooltip
-          t={t}
-          tooltip={tooltip}
-          players={players}
-          onMouseEnter={() => clearTimeout(tooltipTimeout.current)}
-          onMouseLeave={() => setTooltip(null)}
-        />,
-        document.body
-      )}
-    </div>
-  );
-}
-
-/* ─── Portal Tooltip ─────────────────────────────────────────────────────── */
-function HoverTooltip({ t, tooltip, players, onMouseEnter, onMouseLeave }) {
-  const { x, y, dayEvents, dayLabel } = tooltip;
-  const W = 224; // tooltip width px
-
-  // Position above the tile, centred horizontally, clamped to viewport
-  const left = Math.max(8, Math.min(x - W / 2, window.innerWidth - W - 8));
-  const top = y - 8; // will be shifted up by translateY(-100%)
+  const weekCount = Math.max(1, Math.ceil(days.length / 7));
 
   return (
     <div
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
-      style={{
-        position: "absolute",
-        top,
-        left,
-        width: W,
-        transform: "translateY(-100%)",
-        zIndex: 9999,
-        pointerEvents: "auto",
-      }}
-      className="bg-card border border-border rounded-xl shadow-2xl p-3 animate-in fade-in duration-100"
-    >
-      <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">
-        {dayLabel} · {t("commonPages.scalEventsCount", { count: dayEvents.length })}
-      </p>
-      <div className="space-y-2">
-        {dayEvents.slice(0, 4).map(ev => (
-          <HoverEventCard key={ev.id} ev={ev} players={players} t={t} />
-        ))}
-        {dayEvents.length > 4 && (
-          <p className="text-[10px] text-muted-foreground text-center">{t("commonPages.scalMore", { count: dayEvents.length - 4 })}</p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/* ─── Hover event card ───────────────────────────────────────────────────── */
-function HoverEventCard({ ev, players, t }) {
-  if (ev.type === "tournament_start") {
-    const td = ev.tournamentData;
-    return (
-      <div className="flex items-center gap-2">
-        <Star className="w-3 h-3 text-accent shrink-0" />
-        <span className="text-[11px] text-foreground truncate font-semibold">{td.name} — {t("commonPages.scalStarts")}</span>
-      </div>
-    );
-  }
-  if (ev.type === "contract_end") {
-    const name = contractPlayerName(ev, players);
-    return (
-      <div className="flex items-center gap-2">
-        <FileText className="w-3 h-3 text-warning shrink-0" />
-        <span className="text-[11px] text-foreground truncate">
-          {name ? t("commonPages.scalPlayerContractEnds", { name }) : t("commonPages.scalContractEnd")}
-        </span>
-      </div>
-    );
-  }
-  const m = ev.matchData;
-  return (
-    <div className="space-y-0.5">
-      <div className="flex items-center gap-1.5">
-        <Shield className="w-3 h-3 text-primary shrink-0" />
-        <span className="text-[11px] font-semibold text-foreground truncate">{ev.opposition || "TBD"}</span>
-        {ev.result && (
-          <span className={cn("text-[10px] font-bold ml-auto shrink-0", OUTCOME_STYLE[ev.result.outcome])}>
-            {ev.result.display}
-          </span>
-        )}
-      </div>
-      <p className="text-[10px] text-muted-foreground truncate">{ev.competition}</p>
-      {m?.scheduled_date && (
-        <p className="text-[10px] text-muted-foreground">
-          {format(parseISO(m.scheduled_date), "HH:mm")} · {ev.venue}
-        </p>
+      className={cn(
+        "flex h-full min-h-0 flex-1 flex-col bg-background text-foreground",
+        fullScreen && "min-h-0"
       )}
-    </div>
-  );
-}
+    >
+      {/* FM toolbar */}
+      <div className="shrink-0 border-b border-border px-3 py-2 sm:px-4">
+        <p className="mb-2 text-[11px] text-muted-foreground">
+          Overview <span className="text-muted-foreground/50">›</span> <span className="text-foreground/80">Calendar</span>
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center overflow-hidden rounded-md border border-border">
+            {[
+              { id: "all", label: "General" },
+              { id: "gost", label: "GOST" },
+              { id: "fixtures", label: "Fixtures" },
+            ].map((f, i) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => setFilter(f.id)}
+                className={cn(
+                  "px-3 py-1.5 text-[11px] font-semibold transition",
+                  i > 0 && "border-l border-border",
+                  filter === f.id
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-secondary text-muted-foreground hover:bg-secondary/80 hover:text-foreground"
+                )}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
 
-/* ─── Day event row (right panel / mobile) ───────────────────────────────── */
-function DayEventRow({ ev, players, onClick }) {
-  const { t } = useTranslation();
-  const STATUS_LABELS = {
-    scheduled: t("commonPages.scalScheduled"),
-    awaiting_confirmation: t("commonPages.scalPending"),
-    completed: t("commonPages.scalFT"),
-    forfeit: t("commonPages.scalForfeit"),
-    in_progress: t("commonPages.scalLive"),
-    disputed: t("commonPages.scalDisputed"),
-  };
+          <button
+            type="button"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary px-3 py-1.5 text-[11px] font-semibold text-foreground"
+          >
+            {format(currentMonth, "MMMM yyyy")}
+            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+          </button>
 
-  if (ev.type === "tournament_start") {
-    const td = ev.tournamentData;
-    const startTime = td.start_date ? format(parseISO(td.start_date), "HH:mm") : null;
-    const now = new Date();
-    const startDate = td.start_date ? parseISO(td.start_date) : null;
-    const diffMs = startDate ? startDate - now : null;
-    const diffDays = diffMs !== null ? Math.ceil(diffMs / (1000 * 60 * 60 * 24)) : null;
-    const countdown = diffDays !== null && diffDays > 0 ? t("commonPages.scalInDays", { days: diffDays }) : diffDays === 0 ? t("commonPages.scalTodayExcl") : null;
-    return (
-      <div className="w-full text-left px-5 py-4 flex items-center gap-3 bg-accent/5 border-l-2 border-accent">
-        <div className="w-9 h-9 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center shrink-0">
-          <Trophy className="w-4 h-4 text-accent" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-foreground truncate">{td.name}</p>
-          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-            <span className="text-[10px] text-accent font-semibold uppercase tracking-wider">{t("commonPages.scalTournamentStart")}</span>
-            {startTime && <span className="text-[10px] text-muted-foreground">{startTime}</span>}
-            {td.platform && <span className="text-[10px] text-muted-foreground/60">{td.platform}</span>}
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              aria-label="Previous month"
+              onClick={() => setCurrentMonth((m) => subMonths(m, 1))}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-secondary text-muted-foreground hover:bg-secondary/80 hover:text-foreground"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              aria-label="Next month"
+              onClick={() => setCurrentMonth((m) => addMonths(m, 1))}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-secondary text-muted-foreground hover:bg-secondary/80 hover:text-foreground"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setCurrentMonth(new Date())}
+              className="rounded-md border border-border bg-secondary px-3 py-1.5 text-[11px] font-semibold text-muted-foreground hover:bg-secondary/80 hover:text-foreground"
+            >
+              Today
+            </button>
+          </div>
+
+          <div className="ml-auto hidden items-center gap-2 lg:flex">
+            {COMPETITIONS.map((c) => (
+              <span key={c.slug} className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground">
+                <span className="h-2 w-2 rounded-sm" style={{ background: c.color }} />
+                {c.name.replace(/^STAGE\s+/i, "").replace(" League", "")}
+              </span>
+            ))}
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground">
+              <span className="h-2 w-2 rounded-sm bg-[#991b1b]" />
+              Regional
+            </span>
           </div>
         </div>
-        {countdown && (
-          <span className="text-[10px] px-2 py-0.5 rounded bg-accent/10 text-accent font-medium shrink-0">{countdown}</span>
-        )}
       </div>
-    );
-  }
-  if (ev.type === "contract_end") {
-    const c = ev.contractData;
-    const name = contractPlayerName(ev, players);
-    return (
-      <button type="button" onClick={onClick} className="w-full text-left px-5 py-4 hover:bg-secondary/40 transition-colors flex items-center gap-3">
-        <div className="w-9 h-9 rounded-xl bg-warning/10 border border-warning/20 flex items-center justify-center shrink-0">
-          <FileText className="w-4 h-4 text-warning" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-foreground truncate">
-            {name ? t("commonPages.scalPlayerContractEnds", { name }) : t("commonPages.scalContractEnd")}
-          </p>
-          <p className="text-xs text-muted-foreground capitalize">{c?.contract_type} · {c?.max_games} {t("commonPages.scalGames")}</p>
-        </div>
-        <span className="text-[10px] px-2 py-0.5 rounded bg-warning/10 text-warning font-medium shrink-0">{t("commonPages.scalEnd")}</span>
-      </button>
-    );
-  }
 
-  const m = ev.matchData;
-  const resultColor = ev.result
-    ? ev.result.outcome === "W" ? "text-success" : ev.result.outcome === "L" ? "text-destructive" : "text-warning"
-    : "";
-  const badgeLabel = STATUS_LABELS[m?.status] || m?.status;
-  const badgeCls = STATUS_BADGE_CLS[m?.status] || "bg-secondary text-muted-foreground";
-
-  const oppLogoUrl = ev.isHome ? ev.awayAvatarUrl : ev.homeAvatarUrl;
-  const isClubMatch = !!(ev.matchData?.home_club_id || ev.matchData?.away_club_id);
-
-  return (
-    <button type="button" onClick={onClick} className="w-full text-left px-5 py-4 hover:bg-secondary/40 transition-colors flex items-center gap-3">
-      <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 overflow-hidden">
-        {isClubMatch && oppLogoUrl
-          ? <img src={oppLogoUrl} alt={ev.opposition} className="w-full h-full object-cover" style={{ objectPosition: "50% 50%" }} />
-          : <Shield className="w-4 h-4 text-primary" />
-        }
+      {/* Weekday headers */}
+      <div className="grid shrink-0 grid-cols-7 border-b border-border bg-secondary/40">
+        {DAY_NAMES.map((d) => (
+          <div
+            key={d}
+            className="border-r border-border/60 px-2 py-1.5 text-[11px] font-medium text-muted-foreground last:border-r-0"
+          >
+            <span className="hidden sm:inline">{d}</span>
+            <span className="sm:hidden">{d.slice(0, 3)}</span>
+          </div>
+        ))}
       </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-foreground truncate">{ev.opposition || t("commonPages.scalTBD")}</p>
-        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-          {m?.scheduled_date && (
-            <span className="text-[10px] text-muted-foreground">{format(parseISO(m.scheduled_date), "HH:mm")}</span>
-          )}
-          <span className={cn("text-[10px] font-medium", ev.venue === "Home" ? "text-primary" : "text-muted-foreground")}>
-            {ev.venue === "Home" ? t("commonPages.scalHome") : t("commonPages.scalAway")}
-          </span>
-          <span className="text-[10px] text-muted-foreground/60 truncate max-w-[140px]">{ev.competition}</span>
+
+      {/* Full-height month grid */}
+      <div
+        className="grid min-h-0 flex-1 grid-cols-7"
+        style={{ gridTemplateRows: `repeat(${weekCount}, minmax(0, 1fr))` }}
+      >
+        {days.map((day, i) => {
+          const key = format(day, "yyyy-MM-dd");
+          const dayEvents = (dateMap.get(key) || []).filter((ev) => {
+            if (filter === "fixtures") return ev.type === "match";
+            return true;
+          });
+          const inMonth = isSameMonth(day, currentMonth);
+          const today = isToday(day);
+          const visible = dayEvents.slice(0, 5);
+          const extra = dayEvents.length - visible.length;
+          const dateLabel = !inMonth || format(day, "d") === "1"
+            ? format(day, "d MMM")
+            : format(day, "d");
+
+          return (
+            <div
+              key={key}
+              className={cn(
+                "flex min-h-0 flex-col border-b border-r border-border/60 bg-card p-1 last:border-r-0 sm:p-1.5",
+                !inMonth && "bg-background opacity-50",
+                today && "ring-1 ring-inset ring-primary/70"
+              )}
+            >
+              <div
+                className={cn(
+                  "mb-1 shrink-0 px-0.5 text-[11px] font-medium tabular-nums",
+                  today ? "font-bold text-primary" : "text-muted-foreground"
+                )}
+              >
+                {dateLabel}
+              </div>
+
+              <div className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {visible.map((ev) => (
+                  <MatchBlock
+                    key={ev.id}
+                    ev={ev}
+                    myClub={myClub}
+                    onClick={() => setDetailEvent(ev)}
+                  />
+                ))}
+                {extra > 0 ? (
+                  <p className="px-0.5 text-[9px] font-semibold text-muted-foreground">+{extra} more</p>
+                ) : null}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Detail overlay */}
+      {detailEvent ? (
+        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-6">
+          <div className="relative max-h-[90vh] w-full max-w-lg overflow-hidden rounded-t-2xl border border-border bg-card shadow-2xl sm:rounded-2xl">
+            <div className="flex items-center justify-between border-b border-border px-4 py-3">
+              <p className="text-sm font-bold text-foreground">
+                {homeAwayNames(detailEvent).home} vs {homeAwayNames(detailEvent).away}
+              </p>
+              <button
+                type="button"
+                onClick={() => setDetailEvent(null)}
+                className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="max-h-[min(70vh,560px)] overflow-y-auto p-4">
+              {detailEvent.matchData || detailEvent.type === "contract_end" || detailEvent.type === "tournament_start" ? (
+                <MatchDetail event={detailEvent} myPlayer={myPlayer} myClub={myClub} />
+              ) : (
+                <div
+                  className="rounded-xl p-4"
+                  style={{ background: matchBlockStyle(detailEvent).bg }}
+                >
+                  <p className="text-[10px] font-black uppercase tracking-wider text-white/70">
+                    {matchBlockStyle(detailEvent).label}
+                    {detailEvent.matchday ? ` · MD ${detailEvent.matchday}` : ""}
+                  </p>
+                  <p className="mt-2 font-heading text-2xl font-black uppercase text-white">
+                    {homeAwayNames(detailEvent).home}
+                    <span className="mx-2 text-white/40">vs</span>
+                    {homeAwayNames(detailEvent).away}
+                  </p>
+                  <p className="mt-2 text-sm text-white/70">{detailEvent.competition}</p>
+                  <p className="mt-1 text-sm font-bold text-white">{timeOrScore(detailEvent)}</p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
-      </div>
-      <div className="shrink-0 text-right">
-        {ev.result ? (
-          <span className={cn("text-sm font-bold", resultColor)}>{ev.result.display}</span>
-        ) : (
-          <span className={cn("text-[10px] px-2 py-0.5 rounded font-medium", badgeCls)}>{badgeLabel}</span>
-        )}
-      </div>
-    </button>
+      ) : null}
+    </div>
   );
 }

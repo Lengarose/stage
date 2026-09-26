@@ -7,6 +7,8 @@ import TrophiesImg from '@/assets/Trophies.PNG';
 import CoachLuisImg from '@/assets/Coach Luis.PNG';
 import DDZImg from '@/assets/DDZ.PNG';
 import { useTranslation } from '@/hooks/useTranslation';
+import { HOME_FEATURE_IMAGE_CLASS } from '@/lib/pageBanner';
+import { cn } from '@/lib/utils';
 
 /* ─── fade-in wrapper ────────────────────────────────────── */
 const FadeIn = ({ children, delay = 0, className = '' }) => {
@@ -26,12 +28,12 @@ const FadeIn = ({ children, delay = 0, className = '' }) => {
 };
 
 /* ─── alternating picture + text section ─────────────────── */
-function PictureSection({ tag, title, text, imageUrl, flip = false, objectPosition = 'center', imageZoom, accent = '#3b82f6' }) {
+function PictureSection({ tag, title, text, imageUrl, flip = false, objectPosition = '50% 28%', imageZoom, accent = '#3b82f6' }) {
   const frame = imageUrl ? (
     <div
       role="img"
       aria-label={title}
-      className="w-full aspect-[16/10] rounded-2xl overflow-hidden border border-white/10 shadow-2xl bg-cover bg-no-repeat"
+      className={cn("w-full rounded-2xl overflow-hidden border border-white/10 shadow-2xl bg-cover bg-no-repeat", HOME_FEATURE_IMAGE_CLASS)}
       style={{
         backgroundImage: `url(${imageUrl})`,
         backgroundPosition: objectPosition,
@@ -40,7 +42,7 @@ function PictureSection({ tag, title, text, imageUrl, flip = false, objectPositi
     >
     </div>
   ) : (
-    <div className="w-full aspect-[16/10] rounded-2xl border border-white/10 bg-white/4 flex items-center justify-center">
+    <div className={cn("w-full rounded-2xl border border-white/10 bg-white/4 flex items-center justify-center", HOME_FEATURE_IMAGE_CLASS)}>
       <p className="text-white/15 text-xs uppercase tracking-widest">Image</p>
     </div>
   );

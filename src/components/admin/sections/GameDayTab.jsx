@@ -23,20 +23,21 @@ function ActionCard({ label, value, sub, icon: Icon, tone }) {
   return (
     <div
       className={cn(
-        "border bg-black/20 p-4",
+        "border bg-black/20 py-3 px-6",
         tone === "danger" && "border-rose-400/25 shadow-[inset_0_0_28px_rgba(244,63,94,0.08)]",
         tone === "warning" && "border-amber-400/25 shadow-[inset_0_0_28px_rgba(245,158,11,0.08)]",
         tone === "info" && "border-cyan-400/25 shadow-[inset_0_0_28px_rgba(34,211,238,0.08)]",
         tone === "neutral" && "border-white/10"
       )}
+      style={{ clipPath: "polygon(6% 0, 100% 0, 94% 100%, 0 100%)" }}
     >
       <div className="flex items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/40">{label}</p>
           <p className="mt-2 font-heading text-3xl font-black uppercase text-white">{value}</p>
           <p className="mt-1 text-xs text-white/45">{sub}</p>
         </div>
-        <Icon className="h-5 w-5 text-white/45" />
+        <Icon className="h-5 w-5 shrink-0 text-white/45" />
       </div>
     </div>
   );

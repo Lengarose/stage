@@ -2573,6 +2573,14 @@ async function runStartupMigrations() {
     INDEX idx_follows_follower_email (follower_email),
     INDEX idx_follows_follower_player (follower_player_id)
   )`).catch((err) => console.error('[migration] follows:', err.message));
+  await addCol('follows', 'follower_id', 'VARCHAR(36) NULL');
+  await addCol('follows', 'follower_email', 'VARCHAR(255) NULL');
+  await addCol('follows', 'follower_player_id', 'VARCHAR(36) NULL');
+  await addCol('follows', 'target_name', 'VARCHAR(150) NULL');
+  await addCol('follows', 'updated_date', 'DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP');
+  await addIndex('follows', 'idx_follows_target', '(target_type, target_id)');
+  await addIndex('follows', 'idx_follows_follower_email', '(follower_email)');
+  await addIndex('follows', 'idx_follows_follower_player', '(follower_player_id)');
 
   await EXECUTESQL(`CREATE TABLE IF NOT EXISTS player_loans (
     id                       VARCHAR(36) PRIMARY KEY,

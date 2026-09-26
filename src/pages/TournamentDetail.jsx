@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import PageBannerShell from "@/components/PageBannerShell";
 import {
   calculateGroupStandings,
   getLeagueTournamentFixtureMatches,
@@ -998,13 +999,20 @@ export default function TournamentDetail() {
   ];
 
   return (
-    <div className="min-h-screen">
-      {/* ── HERO ─────────────────────────────────────── */}
-      <div className="relative w-full overflow-hidden border-b border-cyan-400/10" style={heroStyle}>
-        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(1,8,18,0.98)_0%,rgba(1,8,18,0.64)_42%,rgba(1,8,18,0.86)_100%)] pointer-events-none" />
-        <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-background via-background/70 to-transparent pointer-events-none" />
-        <div className="absolute inset-0 opacity-35 pointer-events-none bg-[radial-gradient(ellipse_at_50%_0%,rgba(103,232,249,0.24),transparent_45%)]" />
-
+    <PageBannerShell
+      className="bg-background"
+      dockClassName="bg-background"
+      banner={(
+        <>
+          <div className="absolute inset-0" style={heroStyle} />
+          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(1,8,18,0.98)_0%,rgba(1,8,18,0.64)_42%,rgba(1,8,18,0.86)_100%)] pointer-events-none" />
+          <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-background via-background/70 to-transparent pointer-events-none" />
+          <div className="absolute inset-0 opacity-35 pointer-events-none bg-[radial-gradient(ellipse_at_50%_0%,rgba(103,232,249,0.24),transparent_45%)]" />
+        </>
+      )}
+    >
+      {/* ── HERO CONTENT ──────────────────────────────── */}
+      <div className="relative border-b border-cyan-400/10 bg-[#050b14]">
         <div className="relative max-w-7xl mx-auto px-4 lg:px-8">
           <button type="button" onClick={() => navigate(-1)}
             className="mt-4 inline-flex h-10 max-w-[240px] items-center justify-center gap-2 border border-cyan-200/25 bg-black/24 px-4 font-heading text-xs font-black uppercase tracking-[0.12em] text-cyan-50/95 shadow-[0_0_24px_-16px_rgba(0,229,255,0.9)] backdrop-blur-md transition-all hover:border-cyan-200/55 hover:bg-cyan-300/10 hover:text-white hover:shadow-[0_0_24px_-10px_rgba(0,229,255,0.9)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/50"
@@ -1979,6 +1987,6 @@ export default function TournamentDetail() {
           )}
         </DialogContent>
       </Dialog>
-    </div>
+    </PageBannerShell>
   );
 }

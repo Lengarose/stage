@@ -153,5 +153,14 @@
   "yourClub": "귀하의 클럽",
   "yourClubNeedsSeat": "귀하의 클럽은 먼저 최소한 한 명의 선수를 배치해야 합니다.",
   "yourPerformance": "당신의 성과",
-  "yourResponseRequired": "응답이 필요합니다"
+  "yourResponseRequired": "응답이 필요합니다",
+  "messageUnavailable": "메시지를 사용할 수 없습니다.",
+  "inboxSearch": "검색",
+  "yesterday": "어제",
+  "cancelGame": "경기 취소",
+  "confirmCancel": "취소 확인",
+  "keepMatch": "경기 유지",
+  "changeTime": "시간 변경",
+  "cancelWaitingOpponent": "상대의 취소 확인을 기다리는 중.",
+  "fixtureActions": "경기"
 }

@@ -153,5 +153,14 @@
   "yourClub": "Kulübünüz",
   "yourClubNeedsSeat": "Kulübünüzün ilk önce en az bir oyuncunun koltuğa oturması gerekiyor.",
   "yourPerformance": "Performansınız",
-  "yourResponseRequired": "Yanıtınız gerekli"
+  "yourResponseRequired": "Yanıtınız gerekli",
+  "messageUnavailable": "Mesaj kullanılamıyor.",
+  "inboxSearch": "Ara",
+  "yesterday": "Dün",
+  "cancelGame": "Maçı iptal et",
+  "confirmCancel": "İptali onayla",
+  "keepMatch": "Maçı koru",
+  "changeTime": "Saati değiştir",
+  "cancelWaitingOpponent": "Rakibin iptali onaylaması bekleniyor.",
+  "fixtureActions": "Maç"
 }

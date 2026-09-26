@@ -153,5 +153,14 @@
   "maxGames": "最大試合数",
   "gamesPlayed": "消化試合数",
   "gamesUnit": "{count} 試合",
-  "daysUnit": "{count} 日"
+  "daysUnit": "{count} 日",
+  "messageUnavailable": "メッセージを表示できません。",
+  "inboxSearch": "検索",
+  "yesterday": "昨日",
+  "cancelGame": "試合をキャンセル",
+  "confirmCancel": "キャンセルを確認",
+  "keepMatch": "試合を維持",
+  "changeTime": "時間を変更",
+  "cancelWaitingOpponent": "相手のキャンセル確認を待っています。",
+  "fixtureActions": "試合"
 }

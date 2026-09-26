@@ -10,6 +10,7 @@ import {
 } from "./additionalLocales.js";
 import { getAdminTranslations } from "./adminTranslations.js";
 import { mergeAdminExtras } from "./adminTranslationExtras.js";
+import { applyAdminLabelPatches } from "./adminLabelPatches.js";
 import { applySectionPacks, applySettingsPacks } from "./localePacks.js";
 import { PAGE_GUIDE_STEPS_EN } from "../lib/pageWalkthroughCopy.js";
 
@@ -1230,7 +1231,7 @@ const localized = {
     commonPages: commonPageTranslations.en,
   },
   fr: {
-    auth: { createAccount: "Créer un compte", welcomeBack: "Bon retour", continueGoogle: "Continuer avec Google", continueOutlook: "Continuer avec Outlook", continueKick: "Continuer avec Kick", continueTwitch: "Continuer avec Twitch", or: "ou", emailAddress: "Adresse e-mail", identifier: "E-mail, gamertag ou nom du club", password: "Mot de passe", confirmPassword: "Confirmer le mot de passe", passwordsDoNotMatch: "Les mots de passe ne correspondent pas.", signinFailed: "Connexion impossible. Réessaie.", accountExists: "Un compte existe déjà avec cet e-mail.", signupFailed: "Impossible de créer le compte. Réessaie.", invalidSignin: "E-mail, gamertag, club ou mot de passe invalide.", creating: "Création du compte...", signingIn: "Connexion...", signIn: "Se connecter", signUp: "S’inscrire", switchToSignin: "Déjà un compte ? Se connecter", switchToSignup: "Pas encore de compte ? S’inscrire", chooseLanguage: "Choisir la langue", afterSignup: "Après l’inscription", joinDiscord: "Rejoindre notre communauté Discord", discordAnytime: "Tu peux aussi rejoindre Discord depuis Community dans l’app" },
+    auth: { createAccount: "Créer un compte", welcomeBack: "Bon retour", continueGoogle: "Continuer avec Google", continueOutlook: "Continuer avec Outlook", continueKick: "Continuer avec Kick", continueTwitch: "Continuer avec Twitch", or: "ou", emailAddress: "Adresse e-mail", identifier: "E-mail, gamertag ou nom du club", password: "Mot de passe", confirmPassword: "Confirmer le mot de passe", passwordsDoNotMatch: "Les mots de passe ne correspondent pas.", signinFailed: "Connexion impossible. Réessaie.", accountExists: "Un compte existe déjà avec cet e-mail.", signupFailed: "Impossible de créer le compte. Réessaie.", invalidSignin: "E-mail, gamertag, club ou mot de passe invalide.", invalidEmail: "Entre une adresse e-mail valide.", creating: "Création du compte...", signingIn: "Connexion...", signIn: "Se connecter", signUp: "S’inscrire", switchToSignin: "Déjà un compte ? Se connecter", switchToSignup: "Pas encore de compte ? S’inscrire", chooseLanguage: "Choisir la langue", afterSignup: "Après l’inscription", joinDiscord: "Rejoindre notre communauté Discord", discordAnytime: "Tu peux aussi rejoindre Discord depuis Community dans l’app" },
     settingsPage: { title: "Paramètres", subtitle: "Langue, sons, thème & compte", languageTitle: "Langue", languageDescription: "Choisis ta langue préférée", languageComingSoon: "Les drapeaux gris arrivent bientôt — pas encore sélectionnables.", roleUpgradeTitle: "Rôles du compte", roleUpgradeLoading: "Vérification des rôles du compte...", roleUpgradePlayerDesc: "Ajoute un rôle président en créant un club. Après la création du club, ce compte devient Joueur + Président.", roleUpgradePlayerButton: "Ajouter le rôle président", roleUpgradePlayerDialogTitle: "Créer ton club président", roleUpgradePresidentDesc: "Ajoute un rôle joueur en créant ton profil joueur. Ton club reste dans le mode Président, et ce compte devient Joueur + Président. Créer un profil joueur ne te signe pas automatiquement dans ton club — il faut encore un contrat joueur pour jouer.", roleUpgradePresidentButton: "Ajouter le rôle joueur", roleUpgradePresidentDialogTitle: "Créer ton profil joueur", notificationSoundTitle: "Son de notification", notificationSoundDesc: "Tape une icône pour écouter — alertes sport pour le match day", soundSport: "Sport & Stade", soundClassic: "Tons classiques", saveChanges: "Enregistrer", saving: "Enregistrement...", saved: "Paramètres enregistrés",
       stgCustomTheme: "Thème personnalisé", stgCustomThemeDesc: "Choisis un préréglage ou personnalise", stgPresetThemes: "Thèmes prédéfinis", stgPrimaryColor: "Couleur principale", stgGradientColor: "Couleur du dégradé", stgBackgroundColor: "Couleur de fond", stgBackgroundOpacity: "Opacité du fond", stgTextColor: "Couleur du texte", stgPrimaryTextColor: "Couleur du texte principal", stgSecondaryTextColor: "Couleur du texte secondaire", stgBackgroundImage: "Image de fond", stgChangeBackground: "Changer le fond", stgUploadBackground: "Importer une image de fond", stgBackgroundUploaded: "Image de fond importée", stgAppTheme: "Thème de l'app", stgAppThemeDesc: "Choisis ton thème préféré", stgThemeDark: "Sombre", stgThemeDay: "Jour", stgThemeLiveDark: "LIVE DARK", stgThemeLiveWhite: "LIVE WHITE", stgThemeCustom: "Personnalisé", stgLiveDarkBgTitle: "Fond LIVE DARK", stgLiveDarkBgDesc: "Choisis un fond ou laisse-le changer chaque jour.", stgLiveDarkBgDaily: "Rotation quotidienne", stgLiveDarkBgDailyDesc: "Trophées · WIS · Stade — nouveau chaque jour", stgLiveDarkBgTrophies: "Trophées", stgLiveDarkBgWis: "WIS", stgLiveDarkBgHiw: "Stade", stgLiveDarkUploadsTitle: "Tes images", stgLiveDarkUploadsDesc: "{count} / {max} emplacements — remplace une image pour en changer", stgLiveDarkUploadAdd: "Ajouter", stgLiveDarkUploading: "Import…", stgLiveDarkUploadFullTitle: "3 images max", stgLiveDarkUploadFullDesc: "Tous les emplacements sont pleins. Remplace une de tes images pour en ajouter une autre.", stgLiveDarkUploadInvalid: "Choisis un fichier image", stgLiveDarkUploadFailed: "Impossible d'importer cette image", stgLiveDarkCustomSlot: "Perso {n}", stgLiveDarkSlotEmpty: "Emplacement {n}", stgLiveDarkUseCustom: "Utiliser ce fond", stgLiveDarkRemoveCustom: "Supprimer l'image", stgLiveDarkBlur: "Flou du fond", stgLiveDarkOverlay: "Voile bleu sombre", stgAccountSecurity: "Sécurité du compte", stgAccountSecurityDesc: "Gère ton mot de passe et la sécurité de ton compte", stgChangePassword: "Changer le mot de passe", stgCurrentPassword: "Mot de passe actuel", stgEnterCurrentPassword: "Entre le mot de passe actuel", stgNewPassword: "Nouveau mot de passe", stgEnterNewPassword: "Entre le nouveau mot de passe (min. 8 caractères)", stgConfirmPassword: "Confirmer le mot de passe", stgConfirmNewPassword: "Confirme le nouveau mot de passe", stgUpdating: "Mise à jour...", stgUpdatePassword: "Mettre à jour", stgCommunityDesc: "Rejoins le Discord officiel — nouveaux et vétérans bienvenus", stgSignOut: "Se déconnecter", stgDangerZone: "Zone dangereuse", stgDangerZoneDesc: "Supprime définitivement ton compte et toutes tes données.", stgDeleteAccount: "Supprimer le compte", stgDeleteWarning: "Cela supprime définitivement ta connexion, ton profil joueur lié, les clubs rattachés à ce compte, les contrats, les achats et les données associées.", stgCannotUndo: "Action irréversible.", stgTypeToConfirm: "Tape DELETE pour confirmer :", stgTypeDelete: "Tape DELETE", stgDeleting: "Suppression...", stgDeleteMyAccount: "Supprimer mon compte" },
     mobile: { guide: "Guide", openGuide: "Ouvrir le guide {label}", closeGuide: "Fermer le guide", previousStep: "Étape précédente", nextStep: "Étape suivante", stepCount: "Étape {current} sur {total}", next: "Suivant", done: "Terminé" },
@@ -1332,22 +1333,45 @@ applySettingsPacks(localized);
 // Extra nav section/item labels used by the sidebar & mobile nav (Layout.jsx).
 // Missing languages fall back to English automatically via Object.assign default.
 const extraNav = {
-  en: { community: "Community", market: "Market", discover: "Discover", competitions: "GOST", gost: "GOST", regionalLeagues: "Regional Leagues", clubs: "Clubs", squad: "Squad", dashboard: "Dashboard", welcome: "Welcome" },
-  fr: { community: "Communauté", market: "Marché", discover: "Découvrir", competitions: "Compétitions", clubs: "Clubs", squad: "Effectif", dashboard: "Tableau de bord", welcome: "Bienvenue" },
-  nl: { community: "Community", market: "Markt", discover: "Ontdekken", competitions: "GOST", gost: "GOST", regionalLeagues: "Regional Leagues", clubs: "Clubs", squad: "Selectie", dashboard: "Dashboard" },
-  es: { community: "Comunidad", market: "Mercado", discover: "Descubrir", competitions: "Competiciones", clubs: "Clubes", squad: "Plantilla", dashboard: "Panel" },
-  pt: { community: "Comunidade", market: "Mercado", discover: "Descobrir", competitions: "Competições", clubs: "Clubes", squad: "Plantel", dashboard: "Painel" },
-  it: { community: "Community", market: "Mercato", discover: "Scopri", competitions: "Competizioni", clubs: "Club", squad: "Rosa", dashboard: "Dashboard" },
-  de: { community: "Community", market: "Markt", discover: "Entdecken", competitions: "Wettbewerbe", clubs: "Clubs", squad: "Kader", dashboard: "Dashboard" },
-  zh: { community: "社区", market: "市场", discover: "发现", competitions: "竞赛", clubs: "俱乐部", squad: "阵容", dashboard: "仪表盘", welcome: "欢迎" },
-  ja: { community: "コミュニティ", market: "マーケット", discover: "発見", competitions: "大会", clubs: "クラブ", squad: "メンバー", dashboard: "ダッシュボード", welcome: "ようこそ" },
-  ...EXTENDED_EXTRA_NAV,
+  en: { ...(EXTENDED_EXTRA_NAV.en || {}), community: "Community", market: "Market", discover: "Discover", competitions: "GOST", gost: "GOST", regionalLeagues: "Regional Leagues", clubs: "Clubs", squad: "Squad", dashboard: "Dashboard", welcome: "Welcome", presidents: "Presidents", scouting: "Scouting" },
+  fr: { ...(EXTENDED_EXTRA_NAV.fr || {}), community: "Communauté", market: "Marché", discover: "Découvrir", competitions: "Compétitions", gost: "GOST", regionalLeagues: "Ligues régionales", clubs: "Clubs", squad: "Effectif", dashboard: "Tableau de bord", welcome: "Bienvenue", presidents: "Présidents", scouting: "Scouting" },
+  nl: { ...(EXTENDED_EXTRA_NAV.nl || {}), community: "Community", market: "Markt", discover: "Ontdekken", competitions: "GOST", gost: "GOST", regionalLeagues: "Regionale competities", clubs: "Clubs", squad: "Selectie", dashboard: "Dashboard", welcome: "Welkom", presidents: "Voorzitters", scouting: "Scouting" },
+  es: { ...(EXTENDED_EXTRA_NAV.es || {}), community: "Comunidad", market: "Mercado", discover: "Descubrir", competitions: "Competiciones", gost: "GOST", regionalLeagues: "Ligas regionales", clubs: "Clubes", squad: "Plantilla", dashboard: "Panel", welcome: "Bienvenido", presidents: "Presidentes", scouting: "Scouting" },
+  pt: { ...(EXTENDED_EXTRA_NAV.pt || {}), community: "Comunidade", market: "Mercado", discover: "Descobrir", competitions: "Competições", gost: "GOST", regionalLeagues: "Ligas regionais", clubs: "Clubes", squad: "Plantel", dashboard: "Painel", welcome: "Bem-vindo", presidents: "Presidentes", scouting: "Scouting" },
+  it: { ...(EXTENDED_EXTRA_NAV.it || {}), community: "Community", market: "Mercato", discover: "Scopri", competitions: "Competizioni", gost: "GOST", regionalLeagues: "Leghe regionali", clubs: "Club", squad: "Rosa", dashboard: "Dashboard", welcome: "Benvenuto", presidents: "Presidenti", scouting: "Scouting" },
+  de: { ...(EXTENDED_EXTRA_NAV.de || {}), community: "Community", market: "Markt", discover: "Entdecken", competitions: "Wettbewerbe", gost: "GOST", regionalLeagues: "Regionalligen", clubs: "Clubs", squad: "Kader", dashboard: "Dashboard", welcome: "Willkommen", presidents: "Präsidenten", scouting: "Scouting" },
+  zh: { ...(EXTENDED_EXTRA_NAV.zh || {}), community: "社区", market: "市场", discover: "发现", competitions: "竞赛", gost: "GOST", regionalLeagues: "地区联赛", clubs: "俱乐部", squad: "阵容", dashboard: "仪表盘", welcome: "欢迎", presidents: "主席", scouting: "球探" },
+  ja: { ...(EXTENDED_EXTRA_NAV.ja || {}), community: "コミュニティ", market: "マーケット", discover: "発見", competitions: "大会", gost: "GOST", regionalLeagues: "地域リーグ", clubs: "クラブ", squad: "メンバー", dashboard: "ダッシュボード", welcome: "ようこそ", presidents: "会長", scouting: "スカウティング" },
+  ko: { ...(EXTENDED_EXTRA_NAV.ko || {}), community: "커뮤니티", market: "마켓", discover: "발견", competitions: "대회", gost: "GOST", regionalLeagues: "지역 리그", clubs: "클럽", squad: "스쿼드", dashboard: "대시보드", welcome: "환영합니다", presidents: "회장", scouting: "스카우팅" },
+  ru: { ...(EXTENDED_EXTRA_NAV.ru || {}), community: "Сообщество", market: "Рынок", discover: "Обзор", competitions: "Турниры", gost: "GOST", regionalLeagues: "Региональные лиги", clubs: "Клубы", squad: "Состав", dashboard: "Панель", welcome: "Добро пожаловать", presidents: "Президенты", scouting: "Скаутинг" },
+  pl: { ...(EXTENDED_EXTRA_NAV.pl || {}), community: "Społeczność", market: "Rynek", discover: "Odkrywaj", competitions: "Rozgrywki", gost: "GOST", regionalLeagues: "Ligi regionalne", clubs: "Kluby", squad: "Kadra", dashboard: "Panel", welcome: "Witaj", presidents: "Prezesi", scouting: "Scouting" },
+  tr: { ...(EXTENDED_EXTRA_NAV.tr || {}), community: "Topluluk", market: "Pazar", discover: "Keşfet", competitions: "Turnuvalar", gost: "GOST", regionalLeagues: "Bölgesel ligler", clubs: "Kulüpler", squad: "Kadro", dashboard: "Panel", welcome: "Hoş geldin", presidents: "Başkanlar", scouting: "Scouting" },
+  ar: { ...(EXTENDED_EXTRA_NAV.ar || {}), community: "المجتمع", market: "السوق", discover: "اكتشف", competitions: "البطولات", gost: "GOST", regionalLeagues: "الدوريات الإقليمية", clubs: "الأندية", squad: "الفريق", dashboard: "لوحة التحكم", welcome: "مرحبًا", presidents: "الرؤساء", scouting: "الكشافة" },
 };
 for (const [lang, names] of Object.entries(EXTENDED_LANGUAGE_NAMES)) {
   languageNames[lang] = names;
 }
+const AUTH_INVALID_EMAIL = {
+  en: "Please enter a valid email address.",
+  fr: "Entre une adresse e-mail valide.",
+  nl: "Voer een geldig e-mailadres in.",
+  es: "Introduce un correo electrónico válido.",
+  de: "Bitte gib eine gültige E-Mail-Adresse ein.",
+  it: "Inserisci un indirizzo email valido.",
+  pt: "Introduz um endereço de e-mail válido.",
+  zh: "请输入有效的电子邮箱。",
+  ja: "有効なメールアドレスを入力してください。",
+  ko: "유효한 이메일을 입력하세요.",
+  ru: "Введите корректный email.",
+  pl: "Wprowadź prawidłowy adres e-mail.",
+  tr: "Geçerli bir e-posta gir.",
+  ar: "يرجى إدخال بريد إلكتروني صالح.",
+};
 for (const [lang, block] of Object.entries(localized)) {
   Object.assign(block.nav, extraNav[lang] || extraNav.en);
+  if (block.auth && !block.auth.invalidEmail) {
+    block.auth.invalidEmail = AUTH_INVALID_EMAIL[lang] || AUTH_INVALID_EMAIL.en;
+  }
 }
 
 const fallbackGuideKeys = Object.keys(pageGuides.en);
@@ -1373,6 +1397,6 @@ export function getCoreTranslations(language) {
     ...core,
     languageNames: names,
     walkthrough: guides,
-    admin: mergeAdminExtras(getAdminTranslations(language), language),
+    admin: applyAdminLabelPatches(mergeAdminExtras(getAdminTranslations(language), language), language),
   };
 }

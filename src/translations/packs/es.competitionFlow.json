@@ -116,5 +116,7 @@
   "approved": "Aprobado",
   "rejected": "Rechazado",
   "waitlisted": "En lista de espera",
-  "removed": "Eliminado"
+  "removed": "Eliminado",
+  "eliteLeague": "Elite League",
+  "eliteLeagueDesc": "Las posiciones 7-12 de División 1 se clasifican para Elite."
 }

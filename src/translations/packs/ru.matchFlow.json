@@ -153,5 +153,14 @@
   "yourClub": "Ваш клуб",
   "yourClubNeedsSeat": "Вашему клубу сначала нужно, чтобы хотя бы один игрок занял место.",
   "yourPerformance": "Ваше выступление",
-  "yourResponseRequired": "Требуется ваш ответ"
+  "yourResponseRequired": "Требуется ваш ответ",
+  "messageUnavailable": "Сообщение недоступно.",
+  "inboxSearch": "Поиск",
+  "yesterday": "Вчера",
+  "cancelGame": "Отменить матч",
+  "confirmCancel": "Подтвердить отмену",
+  "keepMatch": "Оставить матч",
+  "changeTime": "Изменить время",
+  "cancelWaitingOpponent": "Ожидание подтверждения отмены соперником.",
+  "fixtureActions": "Матч"
 }

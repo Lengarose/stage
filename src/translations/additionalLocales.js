@@ -33,11 +33,11 @@ export const EXTENDED_LANGUAGE_NAMES = {
 };
 
 export const EXTENDED_EXTRA_NAV = {
-  ru: { community: "Сообщество", market: "Рынок", discover: "Обзор", competitions: "Соревнования", clubs: "Клубы", squad: "Состав", dashboard: "Панель", welcome: "Добро пожаловать" },
-  ko: { community: "커뮤니티", market: "마켓", discover: "탐색", competitions: "대회", clubs: "클럽", squad: "스쿼드", dashboard: "대시보드", welcome: "환영합니다" },
-  ar: { community: "المجتمع", market: "السوق", discover: "استكشاف", competitions: "المنافسات", clubs: "الأندية", squad: "التشكيلة", dashboard: "لوحة التحكم", welcome: "مرحبًا" },
-  pl: { community: "Społeczność", market: "Rynek", discover: "Odkrywaj", competitions: "Rozgrywki", clubs: "Kluby", squad: "Skład", dashboard: "Panel", welcome: "Witaj" },
-  tr: { community: "Topluluk", market: "Pazar", discover: "Keşfet", competitions: "Müsabakalar", clubs: "Kulüpler", squad: "Kadro", dashboard: "Panel", welcome: "Hoş geldin" },
+  ru: { community: "Сообщество", market: "Рынок", discover: "Обзор", competitions: "Соревнования", gost: "GOST", regionalLeagues: "Региональные лиги", clubs: "Клубы", squad: "Состав", dashboard: "Панель", welcome: "Добро пожаловать" },
+  ko: { community: "커뮤니티", market: "마켓", discover: "탐색", competitions: "대회", gost: "GOST", regionalLeagues: "지역 리그", clubs: "클럽", squad: "스쿼드", dashboard: "대시보드", welcome: "환영합니다" },
+  ar: { community: "المجتمع", market: "السوق", discover: "استكشاف", competitions: "المنافسات", gost: "GOST", regionalLeagues: "الدوريات الإقليمية", clubs: "الأندية", squad: "التشكيلة", dashboard: "لوحة التحكم", welcome: "مرحبًا" },
+  pl: { community: "Społeczność", market: "Rynek", discover: "Odkrywaj", competitions: "Rozgrywki", gost: "GOST", regionalLeagues: "Ligi regionalne", clubs: "Kluby", squad: "Skład", dashboard: "Panel", welcome: "Witaj" },
+  tr: { community: "Topluluk", market: "Pazar", discover: "Keşfet", competitions: "Müsabakalar", gost: "GOST", regionalLeagues: "Bölgesel ligler", clubs: "Kulüpler", squad: "Kadro", dashboard: "Panel", welcome: "Hoş geldin" },
 };
 
 export function buildExtendedMatchFlow(en) {

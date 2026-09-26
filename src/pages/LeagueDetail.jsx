@@ -15,6 +15,7 @@ import { getRegionalLeagueMaxClubs } from "@/lib/regionalLeagueRules";
 import { generateRegionalLeagueFixtures } from "@/lib/competitionUtils";
 import { swalAlert, swalConfirm } from "@/lib/swal";
 import { useTranslation } from "@/hooks/useTranslation";
+import PageBannerShell from "@/components/PageBannerShell";
 
 const SCHEDULING_BADGE = {
   open:          { key: "ldStatusAwaiting",  cls: "text-muted-foreground border-border"           },
@@ -227,35 +228,39 @@ export default function LeagueDetail() {
   const leagueStatusText = String(league.status || "draft").replace(/_/g, " ");
 
   return (
-    <div className="min-h-screen bg-background">
-      <section className="relative min-h-[240px] overflow-hidden sm:min-h-[280px] lg:min-h-[320px]">
-        {league.banner_url && (
-          <img src={league.banner_url} alt="" className="absolute inset-0 h-full w-full object-cover" />
-        )}
-        {!league.banner_url && (
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_20%,rgba(34,211,238,0.22),transparent_35%),linear-gradient(135deg,rgba(7,16,28,0.98),rgba(2,6,23,0.86))]" />
-        )}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-cyan-200/35 shadow-[0_0_28px_4px_rgba(34,211,238,0.42)]" />
-        <div
-          className="pointer-events-none absolute bottom-0 left-[8%] h-[3px] w-[52%] bg-gradient-to-r from-transparent via-cyan-300/80 to-transparent"
-          style={{ transform: "skewX(-18deg)", filter: "drop-shadow(0 0 16px rgba(34,211,238,0.85))" }}
-        />
-        <div className="relative mx-auto flex max-w-7xl px-4 py-8 lg:px-8 lg:py-10">
-          <Link
-            to="/leagues"
-            className="inline-flex h-12 min-w-[150px] items-center justify-center gap-3 px-7 font-heading text-sm font-black uppercase tracking-[0.18em] text-cyan-50/95 shadow-[0_0_24px_-16px_rgba(34,211,238,0.9)] backdrop-blur-md transition hover:border-cyan-200/60 hover:bg-cyan-300/10 hover:text-white hover:shadow-[0_0_24px_-10px_rgba(34,211,238,0.9)]"
-            style={{
-              clipPath: "polygon(10% 0, 100% 0, 90% 100%, 0 100%)",
-              background: "linear-gradient(135deg, rgba(8,22,38,0.52), rgba(30,74,118,0.28))",
-              borderTop: "1px solid rgba(186,230,253,0.42)",
-              borderBottom: "1px solid rgba(186,230,253,0.42)",
-            }}
-          >
-            <ArrowLeft className="w-4 h-4 text-cyan-200/95" /> Back
-          </Link>
-        </div>
-      </section>
-
+    <PageBannerShell
+      className="bg-background"
+      dockClassName="bg-background"
+      banner={(
+        <>
+          {league.banner_url && (
+            <img src={league.banner_url} alt="" className="absolute inset-0 h-full w-full object-cover" />
+          )}
+          {!league.banner_url && (
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_20%,rgba(34,211,238,0.22),transparent_35%),linear-gradient(135deg,rgba(7,16,28,0.98),rgba(2,6,23,0.86))]" />
+          )}
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-cyan-200/35 shadow-[0_0_28px_4px_rgba(34,211,238,0.42)]" />
+          <div
+            className="pointer-events-none absolute bottom-0 left-[8%] h-[3px] w-[52%] bg-gradient-to-r from-transparent via-cyan-300/80 to-transparent"
+            style={{ transform: "skewX(-18deg)", filter: "drop-shadow(0 0 16px rgba(34,211,238,0.85))" }}
+          />
+          <div className="relative mx-auto flex max-w-7xl px-4 py-8 lg:px-8 lg:py-10">
+            <Link
+              to="/leagues"
+              className="inline-flex h-12 min-w-[150px] items-center justify-center gap-3 px-7 font-heading text-sm font-black uppercase tracking-[0.18em] text-cyan-50/95 shadow-[0_0_24px_-16px_rgba(34,211,238,0.9)] backdrop-blur-md transition hover:border-cyan-200/60 hover:bg-cyan-300/10 hover:text-white hover:shadow-[0_0_24px_-10px_rgba(34,211,238,0.9)]"
+              style={{
+                clipPath: "polygon(10% 0, 100% 0, 90% 100%, 0 100%)",
+                background: "linear-gradient(135deg, rgba(8,22,38,0.52), rgba(30,74,118,0.28))",
+                borderTop: "1px solid rgba(186,230,253,0.42)",
+                borderBottom: "1px solid rgba(186,230,253,0.42)",
+              }}
+            >
+              <ArrowLeft className="w-4 h-4 text-cyan-200/95" /> Back
+            </Link>
+          </div>
+        </>
+      )}
+    >
       <div className="mx-auto flex max-w-7xl justify-end px-4 pt-4 lg:px-8">
         <span
           className={cn(
@@ -701,7 +706,7 @@ export default function LeagueDetail() {
         )}
 
       </div>
-    </div>
+    </PageBannerShell>
   );
 }
 

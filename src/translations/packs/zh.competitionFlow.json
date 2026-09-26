@@ -116,5 +116,7 @@
   "viewFullStandings": "查看完整排名",
   "viewProfile": "查看个人资料",
   "waitForSlot": "等待一个地方",
-  "waitlisted": "等候名单"
+  "waitlisted": "等候名单",
+  "eliteLeague": "精英联赛",
+  "eliteLeagueDesc": "甲级联赛第 7–12 名晋级精英赛。"
 }

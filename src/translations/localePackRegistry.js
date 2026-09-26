@@ -7,10 +7,18 @@ import de_commonPages from "./packs/de.commonPages.json" with { type: "json" };
 import de_competitionFlow from "./packs/de.competitionFlow.json" with { type: "json" };
 import de_matchFlow from "./packs/de.matchFlow.json" with { type: "json" };
 import de_tournamentDetail from "./packs/de.tournamentDetail.json" with { type: "json" };
+import en_commonPages from "./packs/en.commonPages.json" with { type: "json" };
+import en_competitionFlow from "./packs/en.competitionFlow.json" with { type: "json" };
+import en_matchFlow from "./packs/en.matchFlow.json" with { type: "json" };
+import en_tournamentDetail from "./packs/en.tournamentDetail.json" with { type: "json" };
 import es_commonPages from "./packs/es.commonPages.json" with { type: "json" };
 import es_competitionFlow from "./packs/es.competitionFlow.json" with { type: "json" };
 import es_matchFlow from "./packs/es.matchFlow.json" with { type: "json" };
 import es_tournamentDetail from "./packs/es.tournamentDetail.json" with { type: "json" };
+import fr_commonPages from "./packs/fr.commonPages.json" with { type: "json" };
+import fr_competitionFlow from "./packs/fr.competitionFlow.json" with { type: "json" };
+import fr_matchFlow from "./packs/fr.matchFlow.json" with { type: "json" };
+import fr_tournamentDetail from "./packs/fr.tournamentDetail.json" with { type: "json" };
 import it_commonPages from "./packs/it.commonPages.json" with { type: "json" };
 import it_competitionFlow from "./packs/it.competitionFlow.json" with { type: "json" };
 import it_matchFlow from "./packs/it.matchFlow.json" with { type: "json" };
@@ -61,11 +69,23 @@ export const SECTION_PACKS = {
     matchFlow: de_matchFlow,
     tournamentDetail: de_tournamentDetail,
   },
+  en: {
+    commonPages: en_commonPages,
+    competitionFlow: en_competitionFlow,
+    matchFlow: en_matchFlow,
+    tournamentDetail: en_tournamentDetail,
+  },
   es: {
     commonPages: es_commonPages,
     competitionFlow: es_competitionFlow,
     matchFlow: es_matchFlow,
     tournamentDetail: es_tournamentDetail,
+  },
+  fr: {
+    commonPages: fr_commonPages,
+    competitionFlow: fr_competitionFlow,
+    matchFlow: fr_matchFlow,
+    tournamentDetail: fr_tournamentDetail,
   },
   it: {
     commonPages: it_commonPages,

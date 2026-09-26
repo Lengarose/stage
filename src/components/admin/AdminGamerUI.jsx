@@ -116,6 +116,7 @@ export function AdminGamerStatsRow({ disputes, forfeits, players, tournaments, i
       <DashboardGamerStatCard
         label={t("admin.sections.tournaments")}
         value={activeTournaments.length}
+        sub={activeTournaments.length ? t("admin.stats.activeTournaments") : t("admin.stats.noActiveTournaments")}
         accent="green"
         icon={Trophy}
       />

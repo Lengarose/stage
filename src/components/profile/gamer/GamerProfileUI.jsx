@@ -1,3 +1,4 @@
+import { Children, cloneElement, isValidElement } from "react";
 import { cn } from "@/lib/utils";
 import { playerAvatarInitials, resolvePlayerAvatarUrl } from "@/lib/playerAvatar";
 import { useEffect, useState } from "react";
@@ -30,24 +31,45 @@ const ACCENT_VALUE = {
 };
 
 export function GamerProfileShell({ children, className }) {
+  const kids = Children.toArray(children);
+  const heroIndex = kids.findIndex(
+    (child) => isValidElement(child) && child.type?.isStickyBannerHero
+  );
+  const hasStickyBanner = heroIndex >= 0;
+  const content = hasStickyBanner
+    ? cloneElement(kids[heroIndex], {
+        stickyLayout: true,
+        stickyDockChildren: [
+          ...kids.slice(0, heroIndex),
+          ...kids.slice(heroIndex + 1),
+        ],
+      })
+    : children;
+
   return (
-    <div className={cn("min-h-screen bg-[#060912] text-white relative overflow-x-hidden", className)}>
+    <div
+      className={cn(
+        "relative flex h-full min-h-0 flex-1 flex-col overflow-x-hidden bg-[#060912] text-white",
+        hasStickyBanner ? "overflow-hidden" : "overflow-y-auto overscroll-y-contain",
+        className
+      )}
+    >
       <div
-        className="pointer-events-none fixed inset-0 opacity-[0.42]"
+        className="pointer-events-none absolute inset-0 opacity-[0.42]"
         style={{
           backgroundImage:
             "radial-gradient(circle at 18% 0%, rgba(0,229,255,0.14), transparent 38%), radial-gradient(circle at 82% 8%, rgba(255,184,0,0.08), transparent 34%), linear-gradient(180deg, #04070d 0%, #09101c 48%, #05070c 100%)",
         }}
       />
       <div
-        className="pointer-events-none fixed inset-0 opacity-[0.055]"
+        className="pointer-events-none absolute inset-0 opacity-[0.055]"
         style={{
           backgroundImage:
             "linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px)",
           backgroundSize: "56px 56px",
         }}
       />
-      <div className="relative z-[1]">{children}</div>
+      <div className="relative z-[1] flex min-h-0 flex-1 flex-col">{content}</div>
     </div>
   );
 }
@@ -226,17 +248,19 @@ export function GamerStatTile({ label, value, accent = "cyan", sub, className, s
   return (
     <div
       className={cn(
-        "min-w-0 border p-3 backdrop-blur-md",
+        "min-w-0 border backdrop-blur-md",
+        // Angled clip eats the corners — px-6 keeps labels/values clear of the slant.
+        rounded ? "rounded-xl p-3" : "py-3 px-6",
         tinted
           ? (ACCENT_TINT[accent] || ACCENT_TINT.cyan)
           : rounded
-            ? "rounded-xl border-white/10 bg-white/[0.03]"
+            ? "border-white/10 bg-white/[0.03]"
             : "border-cyan-300/15 bg-white/[0.03]",
         className,
       )}
       style={rounded ? undefined : { clipPath: "polygon(6% 0, 100% 0, 94% 100%, 0 100%)" }}
     >
-      <p className={cn("text-[9px] font-bold uppercase tracking-[0.22em] mb-1", tinted ? "text-white/55" : "text-white/40")}>{label}</p>
+      <p className={cn("text-[9px] font-bold uppercase tracking-[0.22em] mb-1 truncate", tinted ? "text-white/55" : "text-white/40")}>{label}</p>
       <p className={cn(
         "font-heading text-2xl font-black leading-none",
         tinted
@@ -245,7 +269,7 @@ export function GamerStatTile({ label, value, accent = "cyan", sub, className, s
       )}>
         {value}
       </p>
-      {sub ? <p className={cn("text-[10px] mt-1", tinted ? "text-white/50" : "text-white/40")}>{sub}</p> : null}
+      {sub ? <p className={cn("text-[10px] mt-1 truncate", tinted ? "text-white/50" : "text-white/40")}>{sub}</p> : null}
     </div>
   );
 }

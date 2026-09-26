@@ -1,10 +1,11 @@
-import { Crown, Trophy } from "lucide-react";
+import { Crown, Trophy, Shield } from "lucide-react";
 import { Link } from "react-router-dom";
 import { getBannerStyle } from "@/lib/storeItems";
+import { PAGE_BANNER_HEIGHT_CLASS } from "@/lib/pageBanner";
+import PageBannerShell from "@/components/PageBannerShell";
 import { getCountryFlag } from "@/lib/allCountries";
 import { GamerMetaPill } from "./GamerProfileUI";
 import { cn } from "@/lib/utils";
-import { Shield } from "lucide-react";
 
 export function GamerPresidentPhotoFrame({
   president,
@@ -82,7 +83,7 @@ function ClubChip({ club, label }) {
   );
 }
 
-export default function GamerPresidentProfileHero({
+function GamerPresidentProfileHero({
   president,
   club,
   successLabel,
@@ -93,6 +94,8 @@ export default function GamerPresidentProfileHero({
   sinceLabel,
   sinceDate,
   children,
+  stickyLayout = false,
+  stickyDockChildren = null,
 }) {
   const bannerStyle = (() => {
     const base = getBannerStyle(president?.banner_url, president?.banner_position);
@@ -107,12 +110,12 @@ export default function GamerPresidentProfileHero({
   })();
   const countryFlag = president?.country_code ? getCountryFlag(president.country_code) : "";
 
-  return (
-    <div className="relative">
+  const banner = (
+    <div className={cn("relative h-full w-full overflow-hidden", !stickyLayout && PAGE_BANNER_HEIGHT_CLASS)}>
       <button
         type="button"
         onClick={onBannerClick}
-        className="relative block w-full h-44 sm:h-56 md:h-64 overflow-hidden text-left"
+        className="absolute inset-0 block w-full overflow-hidden text-left"
       >
         <div className="absolute inset-0" style={bannerStyle} />
         <div className="absolute inset-0 bg-gradient-to-b from-[#060912]/30 via-[#060912]/20 to-[#060912]" />
@@ -120,63 +123,89 @@ export default function GamerPresidentProfileHero({
       </button>
       {topLeftActions ? <div className="absolute top-4 left-4 z-20 flex items-center gap-2">{topLeftActions}</div> : null}
       {topActions ? <div className="absolute top-4 right-4 z-20 flex items-center gap-2">{topActions}</div> : null}
+    </div>
+  );
 
-      <div className="max-w-6xl mx-auto px-4 -mt-24 sm:-mt-28 relative z-10">
-        <div className="flex flex-col lg:flex-row gap-5 lg:gap-8 items-start">
-          <GamerPresidentPhotoFrame president={president} />
+  const body = (
+    <div className="max-w-6xl mx-auto px-4 -mt-24 sm:-mt-28 relative z-10">
+      <div className="flex flex-col lg:flex-row gap-5 lg:gap-8 items-start">
+        <GamerPresidentPhotoFrame president={president} />
 
-          <div className="flex-1 min-w-0 space-y-3 pt-2 lg:pt-6">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="min-w-0 space-y-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="font-heading text-3xl sm:text-4xl md:text-5xl font-black uppercase tracking-tight leading-none">
-                    {president?.display_name || "President"}
-                  </h1>
-                  {president?.role_title ? (
-                    <span className="font-heading text-xl font-black text-amber-400/80 border border-amber-400/25 rounded-lg px-2 py-0.5">
-                      {president.role_title}
-                    </span>
-                  ) : null}
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  <GamerMetaPill><Crown className="w-3 h-3 text-amber-400" />President</GamerMetaPill>
-                  {successLabel ? (
-                    <GamerMetaPill className="border-amber-300/30 text-amber-200">{successLabel}</GamerMetaPill>
-                  ) : null}
-                  {president?.management_style ? (
-                    <GamerMetaPill>{president.management_style}</GamerMetaPill>
-                  ) : null}
-                  {countryFlag ? (
-                    <GamerMetaPill>{countryFlag} {president.country_code}</GamerMetaPill>
-                  ) : null}
-                </div>
+        <div className="flex-1 min-w-0 space-y-3 pt-2 lg:pt-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0 space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="font-heading text-3xl sm:text-4xl md:text-5xl font-black uppercase tracking-tight leading-none">
+                  {president?.display_name || "President"}
+                </h1>
+                {president?.role_title ? (
+                  <span className="font-heading text-xl font-black text-amber-400/80 border border-amber-400/25 rounded-lg px-2 py-0.5">
+                    {president.role_title}
+                  </span>
+                ) : null}
               </div>
-              {(club?.id || sideActions) ? (
-                <div className="flex flex-col items-stretch sm:items-end gap-2 shrink-0">
-                  <ClubChip club={club} />
-                  {sideActions ? <div className="flex flex-wrap gap-2 justify-end">{sideActions}</div> : null}
-                </div>
-              ) : null}
+
+              <div className="flex flex-wrap gap-2">
+                <GamerMetaPill><Crown className="w-3 h-3 text-amber-400" />President</GamerMetaPill>
+                {successLabel ? (
+                  <GamerMetaPill className="border-amber-300/30 text-amber-200">{successLabel}</GamerMetaPill>
+                ) : null}
+                {president?.management_style ? (
+                  <GamerMetaPill>{president.management_style}</GamerMetaPill>
+                ) : null}
+                {countryFlag ? (
+                  <GamerMetaPill>{countryFlag} {president.country_code}</GamerMetaPill>
+                ) : null}
+              </div>
             </div>
-
-            {president?.quote ? (
-              <p className="text-sm font-semibold text-white/85">"{president.quote}"</p>
-            ) : null}
-            {president?.bio ? (
-              <p className="text-sm text-white/65 leading-relaxed max-w-2xl">{president.bio}</p>
-            ) : null}
-            {sinceDate ? (
-              <div className="flex flex-wrap gap-2 text-xs text-white/50">
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300/25 bg-amber-300/10 px-2.5 py-1 text-amber-100">
-                  <Trophy className="w-3 h-3 text-amber-300" /> {sinceLabel} {sinceDate}
-                </span>
+            {(club?.id || sideActions) ? (
+              <div className="flex flex-col items-stretch sm:items-end gap-2 shrink-0">
+                <ClubChip club={club} />
+                {sideActions ? <div className="flex flex-wrap gap-2 justify-end">{sideActions}</div> : null}
               </div>
             ) : null}
-            {children}
           </div>
+
+          {president?.quote ? (
+            <p className="text-sm font-semibold text-white/85">"{president.quote}"</p>
+          ) : null}
+          {president?.bio ? (
+            <p className="text-sm text-white/65 leading-relaxed max-w-2xl">{president.bio}</p>
+          ) : null}
+          {sinceDate ? (
+            <div className="flex flex-wrap gap-2 text-xs text-white/50">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300/25 bg-amber-300/10 px-2.5 py-1 text-amber-100">
+                <Trophy className="w-3 h-3 text-amber-300" /> {sinceLabel} {sinceDate}
+              </span>
+            </div>
+          ) : null}
+          {children}
         </div>
       </div>
     </div>
   );
+
+  if (stickyLayout) {
+    return (
+      <PageBannerShell
+        banner={banner}
+        className="bg-transparent"
+        dockClassName="bg-transparent"
+      >
+        {body}
+        {stickyDockChildren}
+      </PageBannerShell>
+    );
+  }
+
+  return (
+    <div className="relative">
+      {banner}
+      {body}
+    </div>
+  );
 }
+
+GamerPresidentProfileHero.isStickyBannerHero = true;
+
+export default GamerPresidentProfileHero;

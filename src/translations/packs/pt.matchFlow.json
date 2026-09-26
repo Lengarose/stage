@@ -153,5 +153,14 @@
   "maxGames": "Jogos máx.",
   "gamesPlayed": "Jogos disputados",
   "gamesUnit": "{count} jogos",
-  "daysUnit": "{count} dias"
+  "daysUnit": "{count} dias",
+  "messageUnavailable": "Mensagem indisponível.",
+  "inboxSearch": "Pesquisar",
+  "yesterday": "Ontem",
+  "cancelGame": "Cancelar jogo",
+  "confirmCancel": "Confirmar cancelamento",
+  "keepMatch": "Manter jogo",
+  "changeTime": "Alterar hora",
+  "cancelWaitingOpponent": "À espera que o adversário confirme o cancelamento.",
+  "fixtureActions": "Jogo"
 }

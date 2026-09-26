@@ -153,5 +153,14 @@
   "yourClub": "ناديك",
   "yourClubNeedsSeat": "يحتاج ناديك إلى لاعب واحد على الأقل ليشغل مقعدًا أولاً.",
   "yourPerformance": "أدائك",
-  "yourResponseRequired": "ردك مطلوب"
+  "yourResponseRequired": "ردك مطلوب",
+  "messageUnavailable": "الرسالة غير متاحة.",
+  "inboxSearch": "بحث",
+  "yesterday": "أمس",
+  "cancelGame": "إلغاء المباراة",
+  "confirmCancel": "تأكيد الإلغاء",
+  "keepMatch": "الإبقاء على المباراة",
+  "changeTime": "تغيير الوقت",
+  "cancelWaitingOpponent": "بانتظار تأكيد الخصم للإلغاء.",
+  "fixtureActions": "مباراة"
 }

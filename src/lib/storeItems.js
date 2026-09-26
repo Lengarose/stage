@@ -163,7 +163,12 @@ export function getBannerStyle(bannerId, position) {
   if (!bannerId) bannerId = "banner_default";
   // Custom uploaded image URL
   if (bannerId.startsWith("http") || bannerId.startsWith("/uploads/")) {
-    return { backgroundImage: `url(${bannerId})`, backgroundSize: "cover", backgroundPosition: position || "50% 50%" };
+    return {
+      backgroundImage: `url(${bannerId})`,
+      backgroundSize: "contain",
+      backgroundRepeat: "no-repeat",
+      backgroundPosition: position || "50% 50%",
+    };
   }
   const item = STORE_ITEMS.find(i => i.id === bannerId);
   return { background: item?.style || STORE_ITEMS[0].style };

@@ -116,5 +116,7 @@
   "approved": "Genehmigt",
   "rejected": "Abgelehnt",
   "waitlisted": "Warteliste",
-  "removed": "Entfernt"
+  "removed": "Entfernt",
+  "eliteLeague": "Elite League",
+  "eliteLeagueDesc": "Division-1-Plätze 7–12 qualifizieren sich für Elite."
 }

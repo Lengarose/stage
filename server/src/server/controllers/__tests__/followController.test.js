@@ -122,6 +122,10 @@ test('follows table, route, and Stage client entity exist', () => {
 
   assert.match(routes, /app\.use\('\/api\/stage\/follows', verifyToken/);
   assert.match(migrations, /CREATE TABLE IF NOT EXISTS follows \(/);
+  assert.match(migrations, /addCol\('follows', 'follower_id'/);
+  assert.match(migrations, /addCol\('follows', 'follower_email'/);
+  assert.match(migrations, /addCol\('follows', 'follower_player_id'/);
+  assert.match(migrations, /addIndex\('follows', 'idx_follows_target'/);
   assert.match(schema, /CREATE TABLE IF NOT EXISTS follows \(/);
   assert.match(webClient, /'Follow'/);
   assert.match(deletion, /DELETE FROM follows WHERE LOWER\(TRIM\(follower_email\)\) IN /);

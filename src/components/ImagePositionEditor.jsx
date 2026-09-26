@@ -3,6 +3,8 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { Move, X } from "lucide-react";
 import { GamerPlayerPhotoFrame } from "@/components/profile/gamer/GamerProfileUI";
 import { GamerClubPhotoFrame } from "@/components/profile/gamer/GamerClubCard";
+import { PAGE_BANNER_HEIGHT_CLASS } from "@/lib/pageBanner";
+import { cn } from "@/lib/utils";
 
 export default function ImagePositionEditor({
   open,
@@ -220,7 +222,10 @@ export default function ImagePositionEditor({
             </div>
           ) : (
             <div
-              className="w-full h-28 cursor-grab active:cursor-grabbing select-none border border-white/20"
+              className={cn(
+                "w-full cursor-grab active:cursor-grabbing select-none border border-white/20",
+                PAGE_BANNER_HEIGHT_CLASS
+              )}
               style={previewStyle}
               {...dragHandlers}
             />

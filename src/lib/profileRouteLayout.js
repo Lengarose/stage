@@ -32,5 +32,8 @@ export function isFullBleedRoute(pathname = "") {
   return isProfileFullBleedRoute(pathname)
     || isGameDayFullBleedRoute(pathname)
     || isTransferMarketFullBleedRoute(pathname)
-    || isNewsFullBleedRoute(pathname);
+    || isNewsFullBleedRoute(pathname)
+    || /^\/leagues\/[^/]+\/?$/.test(pathname)
+    || /^\/competitions\/[^/]+\/?$/.test(pathname)
+    || /^\/tournaments\/(?!profile-player|profile-club|game-day)[^/]+\/?$/.test(pathname);
 }

@@ -61,7 +61,7 @@
   "selectMessage": "Select a message to read it",
   "inboxSearch": "Search",
   "yesterday": "Yesterday",
-  "today": "Today",
+  "today": "Today!",
   "matchInvite": "Match Invite",
   "contractBadge": "Contract",
   "clubInvite": "Club Invite",
@@ -149,7 +149,6 @@
   "maxTeams": "Max Teams",
   "countdown": "Countdown",
   "inDays": "In {count} days",
-  "today": "Today!",
   "viewTournament": "View Tournament",
   "gamesLeft": "Games Left",
   "daysLeft": "Days Left",
@@ -166,5 +165,6 @@
   "confirmCancel": "Confirm cancel",
   "keepMatch": "Keep match",
   "changeTime": "Change time",
-  "cancelWaitingOpponent": "Waiting for your opponent to confirm the cancel."
+  "cancelWaitingOpponent": "Waiting for your opponent to confirm the cancel.",
+  "messageUnavailable": "Message unavailable."
 }

@@ -12,10 +12,12 @@ function normalizeTranslationArgs(paramsOrFallback = {}, maybeParams = {}) {
 
 function fallbackTranslate(key, paramsOrFallback = {}, maybeParams = {}) {
   const { fallback, params } = normalizeTranslationArgs(paramsOrFallback, maybeParams);
-  return Object.entries(params).reduce(
-    (text, [paramKey, paramValue]) => text.replaceAll(`{${paramKey}}`, String(paramValue)),
-    String(fallback || key || '')
-  );
+  return Object.entries(params).reduce((text, [paramKey, paramValue]) => {
+    const str = String(paramValue);
+    return text
+      .replaceAll(`{{${paramKey}}}`, str)
+      .replaceAll(`{${paramKey}}`, str);
+  }, String(fallback || key || ''));
 }
 
 export function useTranslation() {

@@ -1468,5 +1468,22 @@
   "profClubInfo": "Club Info",
   "presInfoTitle": "President Info",
   "presTabPlayersSigned": "Players Signed",
-  "presNoSignedPlayers": "No signed players yet."
+  "presNoSignedPlayers": "No signed players yet.",
+  "acceptReturn": "Accept return",
+  "acceptReturnConfirm": "Accept the early return and end this loan?",
+  "cdReleasePlayerConfirm": "Release this player from the club?",
+  "cdRemoveRoleConfirm": "Remove this role?",
+  "continue": "Continue",
+  "exerciseOption": "Exercise option",
+  "exerciseOptionDaysPrompt": "Contract length in days (optional)",
+  "exerciseOptionSalaryPrompt": "Weekly salary (STC)",
+  "invalidAmount": "Enter a valid amount",
+  "onLoan": "On loan",
+  "onLoanAt": "On loan at {club}",
+  "onLoanFrom": "On loan from {club}",
+  "purchaseAwaitingPlayer": "Purchase offer sent — awaiting player response",
+  "rejectReturn": "Reject return",
+  "requestReturn": "Request early return",
+  "requestReturnConfirm": "Ask the other club to end this loan early?",
+  "until": "Until {date}"
 }

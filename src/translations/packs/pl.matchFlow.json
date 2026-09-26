@@ -153,5 +153,14 @@
   "yourClub": "Twój klub",
   "yourClubNeedsSeat": "Twój klub potrzebuje co najmniej jednego zawodnika, który zajmie miejsce jako pierwszy.",
   "yourPerformance": "Twoja wydajność",
-  "yourResponseRequired": "Wymagana jest Twoja odpowiedź"
+  "yourResponseRequired": "Wymagana jest Twoja odpowiedź",
+  "messageUnavailable": "Wiadomość niedostępna.",
+  "inboxSearch": "Szukaj",
+  "yesterday": "Wczoraj",
+  "cancelGame": "Anuluj mecz",
+  "confirmCancel": "Potwierdź anulowanie",
+  "keepMatch": "Zachowaj mecz",
+  "changeTime": "Zmień godzinę",
+  "cancelWaitingOpponent": "Oczekiwanie na potwierdzenie anulowania przez przeciwnika.",
+  "fixtureActions": "Mecz"
 }

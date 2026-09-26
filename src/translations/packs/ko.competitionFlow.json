@@ -116,5 +116,7 @@
   "viewFullStandings": "전체 순위 보기",
   "viewProfile": "프로필 보기",
   "waitForSlot": "자리를 기다리다",
-  "waitlisted": "대기자 명단"
+  "waitlisted": "대기자 명단",
+  "eliteLeague": "엘리트 리그",
+  "eliteLeagueDesc": "디비전 1의 7–12위가 엘리트에 진출합니다."
 }

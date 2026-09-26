@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Move, User, Shield, Monitor, Tablet, Smartphone } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PAGE_BANNER_HEIGHT_CLASS } from "@/lib/pageBanner";
 
 /**
  * Full-featured banner position + zoom editor with multi-size preview.
@@ -67,9 +68,9 @@ export default function BannerPreviewEditor({
   };
 
   const PREVIEW_SIZES = {
-    desktop: { label: "Desktop", icon: Monitor, bannerH: "h-44", containerW: "w-full" },
-    tablet:  { label: "Tablet",  icon: Tablet,  bannerH: "h-36", containerW: "max-w-sm mx-auto" },
-    mobile:  { label: "Mobile",  icon: Smartphone, bannerH: "h-28", containerW: "max-w-[280px] mx-auto" },
+    desktop: { label: "Desktop", icon: Monitor, containerW: "w-full" },
+    tablet:  { label: "Tablet",  icon: Tablet,  containerW: "max-w-sm mx-auto" },
+    mobile:  { label: "Mobile",  icon: Smartphone, containerW: "max-w-[280px] mx-auto" },
   };
 
   const currentSize = PREVIEW_SIZES[previewSize];
@@ -88,7 +89,7 @@ export default function BannerPreviewEditor({
             </DialogTitle>
           </DialogHeader>
           <p className="text-xs text-muted-foreground mt-1">
-            Drag the banner area to reposition. Switch preview sizes to see how it looks on different screens.
+            Drag the banner area to reposition. Preview width changes by device; height matches Transfer Room on every page.
           </p>
         </div>
 
@@ -119,7 +120,10 @@ export default function BannerPreviewEditor({
           <div className={cn("transition-all duration-300", currentSize.containerW)}>
             {/* Draggable banner */}
             <div
-              className={cn("relative w-full overflow-hidden cursor-grab active:cursor-grabbing select-none rounded-t-xl", currentSize.bannerH)}
+              className={cn(
+                "relative w-full overflow-hidden cursor-grab active:cursor-grabbing select-none rounded-t-xl",
+                PAGE_BANNER_HEIGHT_CLASS
+              )}
               style={bannerStyle}
               onMouseDown={e => { e.preventDefault(); startDrag(e.clientX, e.clientY); }}
               onMouseMove={e => { if (dragRef.current) moveDrag(e.clientX, e.clientY, e.currentTarget.getBoundingClientRect()); }}

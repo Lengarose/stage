@@ -5,7 +5,7 @@ export default function DashboardGamerStatCard({ label, value, sub, accent = "cy
   return (
     <div className={cn("relative min-w-0", className)}>
       {Icon ? (
-        <Icon className="absolute right-3 top-3 z-[1] h-4 w-4 text-white/35" />
+        <Icon className="absolute right-6 top-3 z-[1] h-4 w-4 text-white/35" />
       ) : null}
       <GamerStatTile label={label} value={value} sub={sub} accent={accent} shape="angled" tinted />
     </div>

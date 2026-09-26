@@ -13,13 +13,14 @@ import { CONTRACT_TYPES } from "@/lib/contractTypes";
 import { getContractTargetPlayerId, normalizePlayerContracts } from "@/lib/playerContractFields";
 import { canShowContractOfferButton, canShowLoanRequestButton, getContractOfferBlockReason } from "@/lib/contractOfferVisibility";
 import { buildTransferMarketEntries, normalizeTransferMarketPlayers } from "@/lib/transferMarketEntries";
+import { PAGE_BANNER_HEIGHT_CLASS } from "@/lib/pageBanner";
+import { cn } from "@/lib/utils";
 import { canManageClubIdentity } from "@/lib/clubPresidentAccess";
 import { canCreateContractOffer } from "@/lib/transferWindowAccess";
 import { useTransferWindowStatus } from "@/lib/useTransferWindowStatus";
 import { useTranslation } from "@/hooks/useTranslation";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
 
 export default function TransferMarket() {
   const { t } = useTranslation();
@@ -192,27 +193,33 @@ export default function TransferMarket() {
     : undefined;
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-[radial-gradient(circle_at_18%_16%,rgba(0,229,255,0.10),transparent_32%),linear-gradient(120deg,#050b12,#02070c_58%,#05070d)] text-white">
-      <div className="shrink-0 border-b border-[#f5c542]/20 bg-[linear-gradient(120deg,rgba(7,16,24,0.72),rgba(1,7,12,0.52))] pb-3 backdrop-blur-sm">
-        <div
-          className="relative h-[200px] w-full overflow-hidden bg-[radial-gradient(circle_at_18%_20%,rgba(0,229,255,0.14),transparent_36%),linear-gradient(120deg,rgba(7,16,24,0.86),rgba(1,7,12,0.92))] shadow-[0_24px_90px_-62px_rgba(0,229,255,0.95)] sm:h-[260px] xl:h-[300px]"
-          style={bannerStyle}
-        >
-          <div aria-hidden className="absolute inset-0 bg-[linear-gradient(180deg,transparent,rgba(2,7,12,0.22))]" />
-          {!roomConfig?.background_url ? (
-            <div className="absolute inset-0 grid place-items-center">
-              <p className="font-heading text-sm font-black uppercase tracking-[0.3em] text-white/25">Transfer Room Banner</p>
-            </div>
-          ) : null}
-        </div>
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain bg-[radial-gradient(circle_at_18%_16%,rgba(0,229,255,0.10),transparent_32%),linear-gradient(120deg,#050b12,#02070c_58%,#05070d)] text-white">
+      {/* Banner scrolls away first */}
+      <div
+        className={cn(
+          "relative w-full shrink-0 overflow-hidden bg-[radial-gradient(circle_at_18%_20%,rgba(0,229,255,0.14),transparent_36%),linear-gradient(120deg,rgba(7,16,24,0.86),rgba(1,7,12,0.92))] shadow-[0_24px_90px_-62px_rgba(0,229,255,0.95)]",
+          PAGE_BANNER_HEIGHT_CLASS
+        )}
+        style={bannerStyle}
+      >
+        <div aria-hidden className="absolute inset-0 bg-[linear-gradient(180deg,transparent,rgba(2,7,12,0.22))]" />
+        {!roomConfig?.background_url ? (
+          <div className="absolute inset-0 grid place-items-center">
+            <p className="font-heading text-sm font-black uppercase tracking-[0.3em] text-white/25">Transfer Room Banner</p>
+          </div>
+        ) : null}
+      </div>
 
-        <div className="mt-3 flex flex-col gap-3 px-4 md:flex-row md:items-center md:justify-between sm:px-6">
+      {/* Sticky dock: once the banner is gone, this fills the viewport under the nav.
+          Further scroll happens inside the scout/list pane; scroll-up at top brings the banner back. */}
+      <div className="sticky top-0 z-10 flex h-full min-h-0 shrink-0 flex-col border-b border-[#f5c542]/20 bg-[linear-gradient(120deg,rgba(7,16,24,0.96),rgba(1,7,12,0.94))] backdrop-blur-md">
+        <div className="flex shrink-0 flex-col gap-3 px-4 py-3 md:flex-row md:items-center md:justify-between sm:px-6">
           <div className="text-xs text-white/45">
-              {t("commonPages.playersFound", { count: filteredEntries.length, plural: filteredEntries.length !== 1 ? "s" : "" })}
-              <span className="mx-2 text-white/20">·</span>
-              <span className="text-[#7cff6b]">{t("commonPages.freeShort", { count: freeAgents.length })}</span>
-              <span className="mx-2 text-white/20">·</span>
-              <span className="text-[#f5c542]">{t("commonPages.expiringShort", { count: expiringPlayers.length })}</span>
+            {t("commonPages.playersFound", { count: filteredEntries.length, plural: filteredEntries.length !== 1 ? "s" : "" })}
+            <span className="mx-2 text-white/20">·</span>
+            <span className="text-[#7cff6b]">{t("commonPages.freeShort", { count: freeAgents.length })}</span>
+            <span className="mx-2 text-white/20">·</span>
+            <span className="text-[#f5c542]">{t("commonPages.expiringShort", { count: expiringPlayers.length })}</span>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 shrink-0">
@@ -259,26 +266,25 @@ export default function TransferMarket() {
             </Button>
           </div>
         </div>
-      </div>
 
-      {loading ? (
-        <div className="flex flex-1 items-center justify-center py-24">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#f5c542]/20 border-t-[#f5c542]" />
-        </div>
-      ) : viewMode === "list" ? (
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 sm:px-6">
-          <TransferPlayerList
-            players={filteredEntries}
-            selectedId={selected?.player?.id}
-            onSelect={(entry) => selectEntry(entry, { openDetails: true })}
-            canManage={canManage}
-            canOffer={canOfferPlayer}
-            getOfferBlockReason={getOfferBlockReason}
-            onOffer={setOfferTarget}
-          />
-        </div>
-      ) : (
-        <TransferScoutBoard
+        {loading ? (
+          <div className="flex min-h-0 flex-1 items-center justify-center py-24">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#f5c542]/20 border-t-[#f5c542]" />
+          </div>
+        ) : viewMode === "list" ? (
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 sm:px-6">
+            <TransferPlayerList
+              players={filteredEntries}
+              selectedId={selected?.player?.id}
+              onSelect={(entry) => selectEntry(entry, { openDetails: true })}
+              canManage={canManage}
+              canOffer={canOfferPlayer}
+              getOfferBlockReason={getOfferBlockReason}
+              onOffer={setOfferTarget}
+            />
+          </div>
+        ) : (
+          <TransferScoutBoard
             entries={filteredEntries}
             selected={selected}
             onSelect={selectEntry}
@@ -290,7 +296,8 @@ export default function TransferMarket() {
             onRequestLoan={setLoanTarget}
             windowOpen={windowOpen}
           />
-      )}
+        )}
+      </div>
 
       <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
         <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto border-[#f5c542]/20 bg-[#071018] p-0 text-white">

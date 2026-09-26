@@ -116,5 +116,7 @@
   "viewFullStandings": "Tüm puan durumunu görüntüle",
   "viewProfile": "Profili Görüntüle",
   "waitForSlot": "slotu bekle",
-  "waitlisted": "Bekleme listesine alındı"
+  "waitlisted": "Bekleme listesine alındı",
+  "eliteLeague": "Elite League",
+  "eliteLeagueDesc": "Division 1'de 7–12. sıralar Elite'e yükselir."
 }

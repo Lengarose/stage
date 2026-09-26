@@ -17,7 +17,7 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
   const [events, setEvents] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState("fixtures"); // "fixtures" | "calendar"
+  const [view, setView] = useState("calendar"); // "fixtures" | "calendar"
   const [allPlayers, setAllPlayers] = useState([]);
 
   useEffect(() => {
@@ -42,19 +42,25 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
   async function load() {
     setLoading(true);
     const { user: u, player, club } = await resolveMyPlayerAndClub();
-    if (!u) { setLoading(false); return; }
-    setUser(u);
-    setMyPlayer(player);
+    setUser(u || null);
+    setMyPlayer(player || null);
+    if (club) setMyClub(club);
+    else setMyClub(null);
 
-    const [tournaments, contracts] = await Promise.all([
-      stageClient.entities.Tournament.list("-created_date", 100),
-      stageClient.entities.PlayerContract.list("-created_date", 50),
+    const [tournaments, contracts, gostFixtures, regionalFixtures] = await Promise.all([
+      stageClient.entities.Tournament.list("-created_date", 100).catch(() => []),
+      u ? stageClient.entities.PlayerContract.list("-created_date", 50).catch(() => []) : Promise.resolve([]),
+      stageClient.entities.CompetitionFixture
+        ? stageClient.entities.CompetitionFixture.list("-created_date", 500).catch(() => [])
+        : Promise.resolve([]),
+      stageClient.entities.RegionalLeagueFixture
+        ? stageClient.entities.RegionalLeagueFixture.list("-created_date", 300).catch(() => [])
+        : Promise.resolve([]),
     ]);
 
     let clubPlayers = [];
     if (club) {
       clubPlayers = await stageClient.entities.Player.filter({ club_id: club.id }).catch(() => []);
-      setMyClub(club);
     }
     setAllPlayers(clubPlayers);
 
@@ -73,7 +79,9 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
       );
     }
 
-    const matchArrays = await Promise.all(matchFilters);
+    const matchArrays = matchFilters.length
+      ? await Promise.all(matchFilters.map((p) => Promise.resolve(p).catch(() => [])))
+      : [];
     const allMatches = matchArrays.flat();
 
     // Deduplicate by id
@@ -82,7 +90,7 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
     const matches = Array.from(matchMap.values());
 
     // Build tournament lookup
-    const tournamentMap = new Map(tournaments.map(t => [t.id, t]));
+    const tournamentMap = new Map((tournaments || []).map(t => [t.id, t]));
 
     // Build match player stat lookup for ratings
     const matchIds = matches.map(m => m.id);
@@ -152,12 +160,16 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
       return {
         id: m.id,
         type: "match",
+        source: "match",
         date: m.scheduled_date || m.created_date,
         opposition,
         venue,
         venueKey: isHome ? "home" : "away",
         result,
         competition,
+        competitionSlug: resolveCompetitionSlug(m, tournament, competition),
+        homeName: m.home_club_name || m.home_player_name || "TBD",
+        awayName: m.away_club_name || m.away_player_name || "TBD",
         status: m.status,
         matchData: m,
         tournament,
@@ -168,10 +180,82 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
       };
     });
 
+    // GOST fixtures — only confrontations involving the user's club
+    const myClubId = club?.id != null ? String(club.id) : null;
+    const gostEvents = (gostFixtures || [])
+      .filter((f) => {
+        if (!myClubId) return false;
+        return String(f.home_club_id) === myClubId || String(f.away_club_id) === myClubId;
+      })
+      .map((f) => {
+      const slug = String(f.competition_slug || "").toLowerCase();
+      const competitionName = f.competition_name
+        || (slug === "supreme" ? "STAGE Supreme League"
+          : slug === "elite" ? "STAGE Elite League"
+            : slug === "challenger" ? "STAGE Challenger League"
+              : "GOST");
+      const played = String(f.status || "").toLowerCase() === "played"
+        || (f.home_score != null && f.away_score != null);
+      const isHome = String(f.home_club_id) === myClubId;
+      return {
+        id: `gost-${f.id}`,
+        type: "match",
+        source: "gost",
+        date: f.confirmed_date || f.scheduled_date || f.window_start || f.home_proposed_date || f.away_proposed_date || null,
+        opposition: isHome ? (f.away_club_name || "TBD") : (f.home_club_name || "TBD"),
+        venue: isHome ? "Home" : "Away",
+        venueKey: isHome ? "home" : "away",
+        result: played ? { display: `${f.home_score}–${f.away_score}`, outcome: null } : null,
+        competition: competitionName,
+        competitionSlug: slug || resolveCompetitionSlug(f, null, competitionName),
+        homeName: f.home_club_name || "TBD",
+        awayName: f.away_club_name || "TBD",
+        homeScore: f.home_score,
+        awayScore: f.away_score,
+        matchday: f.matchday,
+        status: f.status || f.scheduling_status || "scheduled",
+        matchData: null,
+        fixtureData: f,
+        isHome,
+      };
+    });
+
+    // Regional league fixtures — only leagues / confrontations involving the user's club
+    const regionalEvents = (regionalFixtures || [])
+      .filter((f) => {
+        if (!myClubId) return false;
+        return String(f.home_club_id) === myClubId || String(f.away_club_id) === myClubId;
+      })
+      .map((f) => {
+      const played = String(f.status || "").toLowerCase() === "played"
+        || (f.home_score != null && f.away_score != null);
+      const isHome = String(f.home_club_id) === myClubId;
+      return {
+        id: `rl-${f.id}`,
+        type: "match",
+        source: "regional",
+        date: f.confirmed_date || f.scheduled_date || f.window_start || null,
+        opposition: isHome ? (f.away_club_name || "TBD") : (f.home_club_name || "TBD"),
+        venue: isHome ? "Home" : "Away",
+        venueKey: isHome ? "home" : "away",
+        result: played ? { display: `${f.home_score}–${f.away_score}`, outcome: null } : null,
+        competition: f.league_name || f.competition_name || "Regional League",
+        competitionSlug: null,
+        homeName: f.home_club_name || "TBD",
+        awayName: f.away_club_name || "TBD",
+        homeScore: f.home_score,
+        awayScore: f.away_score,
+        matchday: f.matchday,
+        status: f.status || f.scheduling_status || "scheduled",
+        matchData: null,
+        fixtureData: f,
+        isHome,
+      };
+    });
     // Contract reminder events
     const contractEvents = [];
     const today = new Date();
-    const myContracts = contracts.filter(c =>
+    const myContracts = (contracts || []).filter(c =>
       (getContractTargetPlayerId(c) === player?.id || c.team_id === club?.id) && c.status === "active"
     );
     myContracts.forEach(c => {
@@ -214,18 +298,18 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
     // Tournament calendar events — only for tournaments the user's club is registered in
     const tournamentEvents = [];
     if (club?.id) {
-      tournaments.forEach(t => {
-        if (t.start_date && (t.registered_clubs || []).includes(club.id)) {
+      (tournaments || []).forEach(tr => {
+        if (tr.start_date && (tr.registered_clubs || []).includes(club.id)) {
           tournamentEvents.push({
-            id: `tournament-start-${t.id}`,
+            id: `tournament-start-${tr.id}`,
             type: "tournament_start",
-            date: t.start_date,
-            competition: t.name,
+            date: tr.start_date,
+            competition: tr.name,
             opposition: "",
             venue: "",
             result: null,
             status: "tournament",
-            tournamentData: t,
+            tournamentData: tr,
           });
         }
       });
@@ -236,13 +320,33 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
     const scopedMatchEvents = scopedTournamentId
       ? matchEvents.filter(e => e.matchData?.tournament_id === scopedTournamentId)
       : matchEvents;
+    const scopedGostEvents = scopedTournamentId ? [] : gostEvents;
+    const scopedRegionalEvents = scopedTournamentId ? [] : regionalEvents;
     const scopedContractEvents = scopedTournamentId ? [] : contractEvents;
     const scopedTournamentEvents = scopedTournamentId
       ? tournamentEvents.filter(e => e.tournamentData?.id === scopedTournamentId)
       : tournamentEvents;
 
+    // Prefer GOST fixture rows when the same confrontation also exists as a Match
+    const gostKeys = new Set(
+      scopedGostEvents.map((e) => `${e.homeName}|${e.awayName}|${String(e.date || "").slice(0, 10)}`)
+    );
+    const dedupedMatches = scopedMatchEvents.filter((e) => {
+      if (e.competitionSlug && ["supreme", "elite", "challenger"].includes(e.competitionSlug)) {
+        const key = `${e.homeName}|${e.awayName}|${String(e.date || "").slice(0, 10)}`;
+        if (gostKeys.has(key)) return false;
+      }
+      return true;
+    });
+
     // Merge and sort all events by date descending (most recent first)
-    const all = [...scopedMatchEvents, ...scopedContractEvents, ...scopedTournamentEvents].sort((a, b) => {
+    const all = [
+      ...dedupedMatches,
+      ...scopedGostEvents,
+      ...scopedRegionalEvents,
+      ...scopedContractEvents,
+      ...scopedTournamentEvents,
+    ].sort((a, b) => {
       const da = a.date ? new Date(a.date) : new Date(0);
       const db = b.date ? new Date(b.date) : new Date(0);
       return db - da;
@@ -253,7 +357,63 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
   }
 
   return (
-    <div className="min-h-screen bg-background p-4 lg:p-8">
+    <div className={cn(
+      view === "calendar"
+        ? "flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background p-0"
+        : "min-h-screen overflow-y-auto bg-background p-4 lg:p-8"
+    )}>
+      {view === "calendar" ? (
+        <div className="flex h-full min-h-0 flex-1 flex-col">
+          <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border bg-background px-3 py-2 sm:px-4">
+            <div className="flex items-center gap-2">
+              <CalendarDays className="h-5 w-5 text-primary" />
+              <h1 className="font-heading text-xl font-black uppercase tracking-wide text-foreground sm:text-2xl">
+                {t("matchFlow.scheduleTitle")}
+              </h1>
+            </div>
+            <div className="flex items-center rounded-lg border border-border bg-secondary p-0.5">
+              <button
+                type="button"
+                onClick={() => setView("fixtures")}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all",
+                  "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <List className="w-3.5 h-3.5" />
+                {t("matchFlow.fixtures")}
+              </button>
+              <button
+                type="button"
+                onClick={() => setView("calendar")}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all",
+                  "bg-primary text-primary-foreground shadow"
+                )}
+              >
+                <CalendarDays className="w-3.5 h-3.5" />
+                {t("matchFlow.calendar")}
+              </button>
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="flex flex-1 items-center justify-center">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary/20 border-t-primary" />
+            </div>
+          ) : (
+            <div className="min-h-0 flex-1">
+              <ScheduleCalendar
+                events={events}
+                myPlayer={myPlayer}
+                myClub={myClub}
+                players={allPlayers}
+                fullScreen
+              />
+            </div>
+          )}
+        </div>
+      ) : (
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
@@ -306,8 +466,6 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
           <div className="flex justify-center py-32">
             <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
           </div>
-        ) : view === "calendar" ? (
-          <ScheduleCalendar events={events} myPlayer={myPlayer} myClub={myClub} players={allPlayers} />
         ) : (
           <>
             {/* Desktop: dual-column layout */}
@@ -362,7 +520,7 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
           </>
         )}
       </div>
-
+      )}
     </div>
   );
 }
@@ -378,6 +536,16 @@ function deriveCompetition(match, tournament, t) {
   if (tournament.type === "swiss" || tournament.type === "swiss_ucl") return `${tournament.name} · ${t("matchFlow.swiss")}`;
   if (tournament.type === "double_elimination") return `${tournament.name} · ${t("matchFlow.doubleElim")}`;
   return tournament.name || t("matchFlow.tournament");
+}
+
+function resolveCompetitionSlug(row = {}, tournament = null, competitionLabel = "") {
+  const raw = String(row.competition_slug || row.slug || tournament?.competition_slug || "").toLowerCase().trim();
+  if (["supreme", "elite", "challenger"].includes(raw)) return raw;
+  const name = String(competitionLabel || row.competition_name || tournament?.name || "").toLowerCase();
+  if (name.includes("supreme")) return "supreme";
+  if (name.includes("elite")) return "elite";
+  if (name.includes("challenger")) return "challenger";
+  return null;
 }
 
 function getResult(match, club, player) {
