@@ -3707,7 +3707,7 @@ test('tournamentRegistration allows canonical president user to submit their clu
   assert.equal(proofs.club['club-1'].status, 'pending');
 });
 
-test('tournamentRegistration stores player Ultimate Team registration proof photo', async () => {
+test('tournamentRegistration registers player tournaments without an Ultimate Team proof photo', async () => {
   const updates = [];
   const tournament = {
     id: 'tournament-1',

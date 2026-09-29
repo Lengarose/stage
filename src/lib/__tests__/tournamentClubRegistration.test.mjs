@@ -29,3 +29,19 @@ test("official club tournament registration uses EA FC club name and community r
   assert.match(functions, /proof_type:\s*cleanProofUrl \? 'pro_club' : \(cleanEaClubName \? 'ea_club_name' : 'direct_entry'\)/);
   assert.match(functions, /ea_club_name:\s*cleanEaClubName \|\| null/);
 });
+
+test("player tournament registration does not ask for Ultimate Team photos", () => {
+  const page = read("src/pages/TournamentDetail.jsx");
+  const actions = read("src/api/tournamentActions.js");
+  const functions = read("server/src/server/functions/legacyFunctions.js");
+
+  assert.doesNotMatch(page, /renderPlayerRegistrationProofUpload/);
+  assert.doesNotMatch(page, /uploadUtPhoto/);
+  assert.doesNotMatch(page, /utPhoto/);
+  assert.doesNotMatch(page, /registrationProofUrl/);
+  assert.match(actions, /export async function registerTournamentPlayer\(tournamentId, playerId\)/);
+  assert.doesNotMatch(actions, /registration_proof_url:\s*registrationProofUrl/);
+  assert.doesNotMatch(functions, /Ultimate Team photo is required for player registration/);
+  assert.doesNotMatch(functions, /proof_type:\s*'ultimate_team'/);
+  assert.match(functions, /proof_type:\s*cleanProofUrl \? 'registration_upload' : 'direct_entry'/);
+});
