@@ -3705,7 +3705,7 @@ test('tournamentRegistration allows canonical president user to submit their clu
   assert.equal(proofs.club['club-1'].status, 'pending');
 });
 
-test('tournamentRegistration stores player Ultimate Team registration proof photo', async () => {
+test('tournamentRegistration registers player tournaments without an Ultimate Team proof photo', async () => {
   const updates = [];
   const tournament = {
     id: 'tournament-1',
@@ -3778,7 +3778,6 @@ test('tournamentRegistration stores player Ultimate Team registration proof phot
       body: {
         tournament_id: 'tournament-1',
         player_id: 'player-1',
-        registration_proof_url: '/uploads/ultimate-team.png',
       },
       user: { id: 'user-1' },
     },
@@ -3789,8 +3788,8 @@ test('tournamentRegistration stores player Ultimate Team registration proof phot
   assert.equal(response.body.data.success, true);
   assert.equal(updates.length, 1);
   const proofs = JSON.parse(updates[0].params[1]);
-  assert.equal(proofs.player['player-1'].proof_url, '/uploads/ultimate-team.png');
-  assert.equal(proofs.player['player-1'].proof_type, 'ultimate_team');
+  assert.equal(proofs.player['player-1'].proof_url, null);
+  assert.equal(proofs.player['player-1'].proof_type, 'direct_entry');
 });
 
 test('tournamentWithdrawal allows canonical president user to withdraw their club', async () => {

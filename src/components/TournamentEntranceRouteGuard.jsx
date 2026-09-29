@@ -9,12 +9,13 @@ function hasActivePlan(user) {
   return hasStagePlus(user);
 }
 
-function isAllowedTournamentLimitedPath(pathname, tournamentId) {
+export function isAllowedTournamentLimitedPath(pathname, tournamentId) {
   if (!pathname) return false;
   if (pathname.startsWith("/tournaments/entrance/")) return true;
   if (pathname === "/tournaments/game-day") return true;
   if (pathname === "/tournaments/schedule") return true;
   if (pathname === "/tournaments/inbox") return true;
+  if (pathname === "/wallet") return true;
   if (pathname === "/tournaments/profile-player") return true;
   if (pathname === "/tournaments/profile-player/edit") return true;
   if (pathname === "/tournaments/players") return true;

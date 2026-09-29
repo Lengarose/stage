@@ -181,6 +181,7 @@ function getTournamentLimitedGroups(t, tournamentId, participantType) {
         { path: "/tournaments/game-day", icon: Zap,          label: t("nav.gameDay") },
         { path: "/tournaments/schedule", icon: CalendarDays, label: t("nav.schedule") },
         { path: "/tournaments/inbox",    icon: Inbox,        label: t("nav.inbox") },
+        { path: "/wallet",               icon: Zap,          label: t("nav.wallet") },
       ],
     },
     { label: isPlayerType ? t("nav.players") : t("nav.clubs"), items: communityItems },

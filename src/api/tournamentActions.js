@@ -120,11 +120,10 @@ export async function setAdminTournamentClubs(tournamentId, clubIds) {
   });
 }
 
-export async function registerTournamentPlayer(tournamentId, playerId, registrationProofUrl = null) {
+export async function registerTournamentPlayer(tournamentId, playerId) {
   return stageClient.functions.invoke("tournamentRegistration", {
     tournament_id: tournamentId,
     player_id: playerId,
-    registration_proof_url: registrationProofUrl,
   });
 }
 

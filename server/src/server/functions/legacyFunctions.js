@@ -12209,7 +12209,6 @@ const HANDLERS = {
       }
 
       if (!player_id) return fail('player_id required for player tournament');
-      if (!cleanProofUrl) return fail('Ultimate Team photo is required for player registration');
 
       const players = await query('SELECT * FROM players WHERE id = ? LIMIT 1 FOR UPDATE', [player_id]);
       if (!players.length) return fail('Player not found');
@@ -12282,8 +12281,8 @@ const HANDLERS = {
       const proofs = parseProofs(tournament.registration_proofs);
       proofs.player[String(player_id)] = {
         participant_id: String(player_id),
-        proof_type: 'ultimate_team',
-        proof_url: cleanProofUrl,
+        proof_type: cleanProofUrl ? 'registration_upload' : 'direct_entry',
+        proof_url: cleanProofUrl || null,
         submitted_by_user_id: _auth_user_id,
         submitted_at: new Date().toISOString(),
       };

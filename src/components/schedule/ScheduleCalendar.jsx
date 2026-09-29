@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import {
   format, parseISO, isValid, startOfMonth, endOfMonth,
   startOfWeek, endOfWeek, addDays, addMonths, subMonths,
-  isSameMonth, isSameDay, isToday,
+  isSameMonth, isToday,
 } from "@/lib/momentDate";
 import {
   ChevronLeft, ChevronRight, ChevronDown, X,

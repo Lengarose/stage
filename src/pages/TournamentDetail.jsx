@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useId } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import {
@@ -16,7 +16,7 @@ import {
   simulateTournamentScore,
   withdrawTournamentClub,
 } from "@/api/tournamentActions";
-import { Trophy, ArrowLeft, Users, Calendar, Shield, Check, Play, AlertTriangle, Flag, BookOpen, Download, Coins, ExternalLink, Image as ImageIcon, Upload } from "lucide-react";
+import { Trophy, ArrowLeft, Users, Calendar, Shield, Check, Play, AlertTriangle, Flag, BookOpen, Download, Coins, ExternalLink, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -74,13 +74,9 @@ export default function TournamentDetail() {
   const [forfeitMatch, setForfeitMatch] = useState(null);
   const [forfeitDialogOpen, setForfeitDialogOpen] = useState(false);
   const [forfeitProof, setForfeitProof] = useState("");
-  const [registrationProofUrl, setRegistrationProofUrl] = useState("");
-  const [uploadingRegistrationProof, setUploadingRegistrationProof] = useState(false);
   const [clubRegistrationOpen, setClubRegistrationOpen] = useState(false);
   const [eaClubName, setEaClubName] = useState("");
   const [registeringClub, setRegisteringClub] = useState(false);
-  const registrationProofInputRef = useRef(null);
-  const registrationProofInputId = useId();
 
   const parseSubmission = (raw) => {
     if (!raw) return null;
@@ -140,56 +136,6 @@ export default function TournamentDetail() {
     );
   };
 
-  async function uploadRegistrationProof(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type?.startsWith("image/")) {
-      await swalAlert(t("tournamentDetail.uploadImageOnly"));
-      e.target.value = "";
-      return;
-    }
-    setUploadingRegistrationProof(true);
-    try {
-      const result = await stageClient.integrations.Core.UploadFile({ file });
-      setRegistrationProofUrl(result?.file_url || "");
-    } catch (err) {
-      await swalAlert(err?.message || t("tournamentDetail.uploadFailed"));
-    } finally {
-      setUploadingRegistrationProof(false);
-      e.target.value = "";
-    }
-  }
-
-  const renderPlayerRegistrationProofUpload = () => (
-    <div className="w-full sm:w-72 rounded-lg border border-white/15 bg-black/25 p-2.5 text-left">
-      <input
-        id={registrationProofInputId}
-        ref={registrationProofInputRef}
-        type="file"
-        accept="image/*"
-        className="sr-only"
-        disabled={uploadingRegistrationProof}
-        onChange={uploadRegistrationProof}
-      />
-      <label
-        htmlFor={uploadingRegistrationProof ? undefined : registrationProofInputId}
-        className="w-full inline-flex items-center justify-between gap-2 rounded-md border border-white/15 bg-white/10 px-3 py-2 text-xs font-bold text-white hover:bg-white/15 cursor-pointer touch-manipulation aria-disabled:opacity-60"
-      >
-        <span className="inline-flex items-center gap-2">
-          <Upload className="w-3.5 h-3.5" />
-          {t("tournamentDetail.utPhoto")}
-        </span>
-        <span className="text-[10px] text-white/60">
-          {uploadingRegistrationProof ? t("tournamentDetail.uploading") : registrationProofUrl ? t("tournamentDetail.ready") : t("tournamentDetail.required")}
-        </span>
-      </label>
-      {registrationProofUrl && (
-        <a href={registrationProofUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1.5 text-[11px] text-success underline underline-offset-2">
-          <ImageIcon className="w-3 h-3" /> {t("tournamentDetail.viewUploadedPhoto")}
-        </a>
-      )}
-    </div>
-  );
   const [isCreator, setIsCreator] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [rulesModalOpen, setRulesModalOpen] = useState(false);
@@ -443,10 +389,6 @@ export default function TournamentDetail() {
 
   async function registerPlayer() {
     if (!myPlayer || !tournament) return;
-    if (!registrationProofUrl) {
-      await swalAlert(t("tournamentDetail.uploadUtPhoto"));
-      return;
-    }
     const entryCost = tournament.entry_credits ?? 50;
     const entryFeeSTC = tournament.entry_fee_stc ?? 0;
     const currentCredits = user?.credits ?? 0;
@@ -460,7 +402,7 @@ export default function TournamentDetail() {
       return;
     }
     try {
-      const res = await registerTournamentPlayer(tournament.id, myPlayer.id, registrationProofUrl);
+      const res = await registerTournamentPlayer(tournament.id, myPlayer.id);
       if (!res.data.success) {
         await swalAlert(res.data.error || t("tournamentDetail.registrationFailed"));
         return;
@@ -474,7 +416,6 @@ export default function TournamentDetail() {
         setUser((prev) => (prev ? { ...prev, credits: res.data.new_user_credits } : prev));
       }
       setTournament(prev => ({ ...prev, registered_players: updated }));
-      setRegistrationProofUrl("");
     } catch (err) {
       await swalAlert(t("tournamentDetail.registrationFailed") + ": " + (err?.message || t("tournamentDetail.unknownError")));
     }
@@ -1115,8 +1056,7 @@ export default function TournamentDetail() {
 
               {isPlayerTournament && tournament.status === "registration" && myPlayer && !myPlayerRegistered && !isFull && (
                 <>
-                  {renderPlayerRegistrationProofUpload()}
-                  <Button onClick={registerPlayer} disabled={uploadingRegistrationProof || !registrationProofUrl || (user?.credits ?? 0) < (tournament.entry_credits ?? 50)}
+                  <Button onClick={registerPlayer} disabled={(user?.credits ?? 0) < (tournament.entry_credits ?? 50)}
                   className="h-12 rounded-none bg-gradient-to-r from-cyan-500 to-blue-500 px-5 font-heading text-sm font-black uppercase tracking-wide text-white shadow-[0_0_24px_rgba(34,211,238,0.18)] hover:from-cyan-400 hover:to-blue-400"
                   style={{ clipPath: "polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%)" }}>
                     <Users className="w-4 h-4 mr-2" /> {t("tournamentDetail.registerAsPlayer")}
@@ -1204,8 +1144,7 @@ export default function TournamentDetail() {
             {/* Player tournament registration */}
             {isPlayerTournament && tournament.status === "registration" && myPlayer && !myPlayerRegistered && !isFull && (
               <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-                {renderPlayerRegistrationProofUpload()}
-                <Button onClick={registerPlayer} className="h-10 rounded-none bg-cyan-400 text-black leading-relaxed hover:bg-cyan-300" style={{ clipPath: "polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)" }} disabled={uploadingRegistrationProof || !registrationProofUrl || (user?.credits ?? 0) < (tournament.entry_credits ?? 50) || ((tournament.entry_fee_stc ?? 0) > 0 && (myPlayer.stc ?? 0) < (tournament.entry_fee_stc ?? 0))}>
+                <Button onClick={registerPlayer} className="h-10 rounded-none bg-cyan-400 text-black leading-relaxed hover:bg-cyan-300" style={{ clipPath: "polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)" }} disabled={(user?.credits ?? 0) < (tournament.entry_credits ?? 50) || ((tournament.entry_fee_stc ?? 0) > 0 && (myPlayer.stc ?? 0) < (tournament.entry_fee_stc ?? 0))}>
                   <Users className="w-4 h-4 mr-2" /> {t("tournamentDetail.registerAsPlayer")} <span className="ml-1 opacity-70 text-xs">({tournament.entry_credits ?? 50} credits{(tournament.entry_fee_stc ?? 0) > 0 ? ` + ${(tournament.entry_fee_stc ?? 0).toLocaleString()} STC` : ''})</span>
                 </Button>
               </div>
