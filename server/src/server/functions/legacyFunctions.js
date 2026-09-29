@@ -51,6 +51,7 @@ const {
 const Match = require('../models/matchModel');
 const { DEFAULT_STORE_SETTINGS, getCreditPack, getActiveStoreSettings } = require('../utils/storeSettings');
 const { isWallClockPast } = require('../utils/datetime');
+const { registrationRulesError } = require('../utils/tournamentRuleTemplates');
 const {
   addUserCredits,
   getUserCredits,
@@ -11963,7 +11964,8 @@ const HANDLERS = {
   // Mirrors base44/functions/tournamentRegistration — frontend expects:
   //   { data: { success, error?, ... } }
   async tournamentRegistration({
-    tournament_id, club_id, player_id, registration_proof_url, ea_club_name, _auth_user_id,
+    tournament_id, club_id, player_id, registration_proof_url, ea_club_name,
+    rules_accepted, rules_template_id, _auth_user_id,
   }) {
     const MIN_STC = 100;
     const MAX_STC = 1_000_000;
@@ -12010,6 +12012,8 @@ const HANDLERS = {
       const tRows = await query('SELECT * FROM tournaments WHERE id = ? LIMIT 1 FOR UPDATE', [tournament_id]);
       if (!tRows.length) return fail('Tournament not found');
       const tournament = tRows[0];
+      const rulesError = registrationRulesError(tournament, { rules_accepted, rules_template_id });
+      if (rulesError) return fail(rulesError);
 
       if (String(tournament.status || '') !== 'registration') {
         return fail('Tournament registration is closed');
@@ -12184,6 +12188,7 @@ const HANDLERS = {
           reviewed_at: requiresClubAdminReview ? null : now,
           credits_spent: creditsSpent,
           stc_locked: entryFee,
+          rules_accepted_at: now,
         };
         await query(
           'UPDATE tournaments SET registered_clubs = ?, registration_proofs = ?, updated_date = NOW() WHERE id = ?',
@@ -12280,12 +12285,14 @@ const HANDLERS = {
 
       registeredPl = [...registeredPl, String(player_id)];
       const proofs = parseProofs(tournament.registration_proofs);
+      const submittedAt = new Date().toISOString();
       proofs.player[String(player_id)] = {
         participant_id: String(player_id),
         proof_type: 'ultimate_team',
         proof_url: cleanProofUrl,
         submitted_by_user_id: _auth_user_id,
-        submitted_at: new Date().toISOString(),
+        submitted_at: submittedAt,
+        rules_accepted_at: submittedAt,
       };
       await query(
         'UPDATE tournaments SET registered_players = ?, registration_proofs = ?, updated_date = NOW() WHERE id = ?',

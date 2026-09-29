@@ -3597,6 +3597,7 @@ test('tournamentRegistration stores club EA FC name for admin verification witho
         tournament_id: 'tournament-1',
         club_id: 'club-1',
         ea_club_name: 'The Hooded FC',
+        rules_accepted: true,
       },
       user: { id: 'user-1' },
     },
@@ -3691,6 +3692,7 @@ test('tournamentRegistration allows canonical president user to submit their clu
         tournament_id: 'tournament-1',
         club_id: 'club-1',
         ea_club_name: 'President FC',
+        rules_accepted: true,
       },
       user: { id: 'president-user' },
     },
@@ -3779,6 +3781,7 @@ test('tournamentRegistration stores player Ultimate Team registration proof phot
         tournament_id: 'tournament-1',
         player_id: 'player-1',
         registration_proof_url: '/uploads/ultimate-team.png',
+        rules_accepted: true,
       },
       user: { id: 'user-1' },
     },
@@ -3791,6 +3794,182 @@ test('tournamentRegistration stores player Ultimate Team registration proof phot
   const proofs = JSON.parse(updates[0].params[1]);
   assert.equal(proofs.player['player-1'].proof_url, '/uploads/ultimate-team.png');
   assert.equal(proofs.player['player-1'].proof_type, 'ultimate_team');
+  assert.match(proofs.player['player-1'].rules_accepted_at, /^\d{4}-\d{2}-\d{2}T/);
+});
+
+function tournamentRegistrationHarness({ tournament, club, body }) {
+  const updates = [];
+  const pool = {
+    promise() {
+      return {
+        async getConnection() {
+          return {
+            async beginTransaction() {},
+            async commit() {},
+            async rollback() {},
+            release() {},
+            async query(sql, params = []) {
+              if (/SELECT \* FROM tournaments WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[tournament], []];
+              if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[club], []];
+              if (/SELECT credits FROM users WHERE id = \? LIMIT 1/.test(sql)) return [[{ credits: 150 }], []];
+              if (/SELECT id, subscription/.test(sql) && /FROM players/.test(sql)) {
+                return [[{ id: 'player-1', subscription: 'stage_plus' }], []];
+              }
+              if (/SELECT role_id/.test(sql) && /FROM users/.test(sql)) return [[{ role_id: 0 }], []];
+              if (/SELECT id/.test(sql) && /FROM clubs/.test(sql) && /president_user_id/.test(sql)) return [[], []];
+              if (/registered_clubs, registered_players/.test(sql)) return [[], []];
+              if (/UPDATE tournaments SET registered_clubs = \?, registration_proofs = \?/.test(sql)) {
+                updates.push({ sql, params });
+                return [{ affectedRows: 1 }, []];
+              }
+              throw new Error(`Unexpected transaction SQL: ${sql}`);
+            },
+          };
+        },
+      };
+    },
+  };
+  const executesql = async (sql, params = []) => {
+    if (/SELECT id, email, role_id FROM users WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: params[0], email: 'owner@example.test', role_id: 1 }];
+    }
+    if (/SELECT email FROM users WHERE role_id IN/.test(sql)) return [];
+    if (/SELECT \* FROM store_settings/.test(sql) || /FROM store_configs/.test(sql)) return [];
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+  const router = loadFunctionsRouterWithDbMock(executesql, { pool });
+  const handle = postFunctionHandler(router);
+  const response = {
+    statusCode: 200,
+    body: null,
+    status(code) { this.statusCode = code; return this; },
+    json(payload) { this.body = payload; },
+  };
+  return {
+    updates,
+    response,
+    handle: () => handle(
+      {
+        params: { name: 'tournamentRegistration' },
+        body,
+        user: { id: 'user-1' },
+      },
+      response,
+    ),
+  };
+}
+
+test('tournamentRegistration without rules acceptance does not change the tournament', async () => {
+  const harness = tournamentRegistrationHarness({
+    tournament: {
+      id: 'tournament-1',
+      name: 'Pro Club Cup',
+      status: 'registration',
+      participant_type: 'club',
+      max_teams: 8,
+      entry_fee_stc: 0,
+      entry_credits: 0,
+      registered_clubs: JSON.stringify([]),
+      registered_players: JSON.stringify([]),
+      registration_proofs: JSON.stringify({}),
+      custom_rules: 'rules_template:prize',
+    },
+    club: {
+      id: 'club-1',
+      owner_email: 'owner@example.test',
+      user_id: 'user-1',
+      credits: 10,
+      stc: 5000,
+    },
+    body: {
+      tournament_id: 'tournament-1',
+      club_id: 'club-1',
+      ea_club_name: 'The Hooded FC',
+    },
+  });
+  await harness.handle();
+  assert.equal(harness.response.body.data.success, false);
+  assert.equal(harness.response.body.data.error, 'Accept the tournament rules before registering.');
+  assert.equal(harness.updates.length, 0);
+});
+
+test('tournamentRegistration refuses a rules template that is not the one stored on the tournament', async () => {
+  const harness = tournamentRegistrationHarness({
+    tournament: {
+      id: 'tournament-1',
+      name: 'Pro Club Cup',
+      status: 'registration',
+      participant_type: 'club',
+      max_teams: 8,
+      entry_fee_stc: 0,
+      entry_credits: 0,
+      registered_clubs: JSON.stringify([]),
+      registered_players: JSON.stringify([]),
+      registration_proofs: JSON.stringify({ club: { 'club-1': { status: 'draft', ea_club_name: 'Kept FC' } } }),
+      custom_rules: 'rules_template:prize',
+    },
+    club: {
+      id: 'club-1',
+      owner_email: 'owner@example.test',
+      user_id: 'user-1',
+      credits: 10,
+      stc: 5000,
+    },
+    body: {
+      tournament_id: 'tournament-1',
+      club_id: 'club-1',
+      ea_club_name: 'The Hooded FC',
+      rules_accepted: true,
+      rules_template_id: 'standard_cup',
+    },
+  });
+  await harness.handle();
+  assert.equal(harness.response.body.data.success, false);
+  assert.equal(
+    harness.response.body.data.error,
+    'These rules are out of date. Reload the tournament and accept the current rules.',
+  );
+  assert.equal(harness.updates.length, 0);
+});
+
+test('tournamentRegistration stores rules acceptance on the club proof without dropping existing fields', async () => {
+  const harness = tournamentRegistrationHarness({
+    tournament: {
+      id: 'tournament-1',
+      name: 'Pro Club Cup',
+      status: 'registration',
+      participant_type: 'club',
+      max_teams: 8,
+      entry_fee_stc: 0,
+      entry_credits: 0,
+      registered_clubs: JSON.stringify([]),
+      registered_players: JSON.stringify([]),
+      registration_proofs: JSON.stringify({}),
+      custom_rules: 'rules_template:prize',
+    },
+    club: {
+      id: 'club-1',
+      owner_email: 'owner@example.test',
+      user_id: 'user-1',
+      credits: 10,
+      stc: 5000,
+    },
+    body: {
+      tournament_id: 'tournament-1',
+      club_id: 'club-1',
+      ea_club_name: 'The Hooded FC',
+      rules_accepted: true,
+      rules_template_id: 'prize',
+    },
+  });
+  await harness.handle();
+  assert.equal(harness.response.statusCode, 200, JSON.stringify(harness.response.body));
+  assert.equal(harness.response.body.data.success, true);
+  assert.equal(harness.updates.length, 1);
+  const proofs = JSON.parse(harness.updates[0].params[1]);
+  assert.equal(proofs.club['club-1'].ea_club_name, 'The Hooded FC');
+  assert.equal(proofs.club['club-1'].status, 'pending');
+  assert.match(proofs.club['club-1'].rules_accepted_at, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
 });
 
 test('tournamentWithdrawal allows canonical president user to withdraw their club', async () => {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useId } from "react";
+import { useState, useEffect, useRef, useId, useMemo } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import {
@@ -41,6 +41,7 @@ import { getClubManagerEmails } from "@/lib/scheduleEngine";
 import { createInboxEventId } from "@/lib/inboxEventId";
 import { canOpenTournamentGameDay, tournamentGameDayWebPath } from "@/lib/tournamentGameDay";
 import { useTranslation } from "@/hooks/useTranslation";
+import { resolveTournamentRules } from "@/lib/tournamentRuleTemplates";
 
 function requiresClubTournamentAdminReview(tournament) {
   if (!tournament || tournament.participant_type === "player") return false;
@@ -50,7 +51,7 @@ function requiresClubTournamentAdminReview(tournament) {
 export default function TournamentDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const [tournament, setTournament] = useState(null);
   const [clubs, setClubs] = useState([]);
   const [allClubs, setAllClubs] = useState([]);
@@ -193,6 +194,7 @@ export default function TournamentDetail() {
   const [isCreator, setIsCreator] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [rulesModalOpen, setRulesModalOpen] = useState(false);
+  const [rulesAccepted, setRulesAccepted] = useState(false);
   const [streamMatch, setStreamMatch] = useState(null);
   const [streamDialogOpen, setStreamDialogOpen] = useState(false);
   const [streamUrl, setStreamUrl] = useState("");
@@ -398,7 +400,11 @@ export default function TournamentDetail() {
       const res = await registerTournamentClub(
         tournament.id,
         effectiveId,
-        requiresAdminReview ? { eaClubName: cleanEaClubName } : {},
+        {
+          ...(requiresAdminReview ? { eaClubName: cleanEaClubName } : {}),
+          rulesAccepted: true,
+          tournament,
+        },
       );
       
       if (!res.data.success) {
@@ -460,7 +466,11 @@ export default function TournamentDetail() {
       return;
     }
     try {
-      const res = await registerTournamentPlayer(tournament.id, myPlayer.id, registrationProofUrl);
+      const res = await registerTournamentPlayer(tournament.id, myPlayer.id, {
+        registrationProofUrl,
+        rulesAccepted: true,
+        tournament,
+      });
       if (!res.data.success) {
         await swalAlert(res.data.error || t("tournamentDetail.registrationFailed"));
         return;
@@ -803,6 +813,14 @@ export default function TournamentDetail() {
     }
   }
 
+  const rules = useMemo(
+    () => (tournament ? resolveTournamentRules(tournament, language) : null),
+    [tournament, language],
+  );
+  useEffect(() => {
+    setRulesAccepted(false);
+  }, [tournament?.id, tournament?.rules_template_id, tournament?.custom_rules]);
+
   if (loading) return <div className="flex items-center justify-center h-full"><div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" /></div>;
   if (!tournament) return <div className="p-6 lg:p-10 text-center"><p className="text-muted-foreground">{t("tournamentDetail.tournamentNotFound")}</p><Link to="/tournaments"><Button variant="outline" className="mt-4">{t("tournamentDetail.back")}</Button></Link></div>;
 
@@ -821,6 +839,10 @@ export default function TournamentDetail() {
     ? (tournament.registered_players?.length || 0)
     : (tournament.registered_clubs?.length || 0);
   const isFull = registeredCount >= tournament.max_teams;
+  const showRegistrationConsent = tournament.status === "registration" && !isFull && (
+    (!isPlayerTournament && effectiveClubId && !myClubRegistered && !myClubRegistrationPending)
+    || (isPlayerTournament && myPlayer && !myPlayerRegistered)
+  );
   const isOrganizer = tournament.organizer_email === user?.email;
   const canManageTournament = isAdmin || isCreator || isOrganizer;
   const myClubId = effectiveClubId;
@@ -1083,6 +1105,30 @@ export default function TournamentDetail() {
             </div>
 
             <div className="flex shrink-0 flex-col items-stretch gap-3 lg:items-end">
+              {showRegistrationConsent && rules?.body && (
+                <div className="w-full max-w-md bg-black/35 p-4 text-left ring-1 ring-white/10"
+                  style={{ clipPath: "polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%)" }}>
+                  <p className="font-heading text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100/70">{rules.title}</p>
+                  <div className="mt-2 max-h-48 overflow-y-auto">
+                    <p className="whitespace-pre-wrap text-sm leading-relaxed text-white/75">{rules.body}</p>
+                  </div>
+                  {rules.rulesFileUrl && (
+                    <a href={rules.rulesFileUrl} target="_blank" rel="noreferrer"
+                      className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-cyan-200 hover:text-white">
+                      <Download className="w-3.5 h-3.5" /> {rules.fileLabel}
+                    </a>
+                  )}
+                  <label className="mt-3 flex items-start gap-2 text-sm leading-relaxed text-white">
+                    <input
+                      type="checkbox"
+                      className="mt-1 h-4 w-4 shrink-0 accent-cyan-300"
+                      checked={rulesAccepted}
+                      onChange={(event) => setRulesAccepted(event.target.checked)}
+                    />
+                    <span>{rules.acceptanceLabel}</span>
+                  </label>
+                </div>
+              )}
               {!isPlayerTournament && tournament.status === "registration" && effectiveClubId && !myClubRegistered && !myClubRegistrationPending && !isFull && (() => {
                 const clubData = effectiveClub;
                 const entryCost = tournament.entry_credits ?? 50;
@@ -1097,7 +1143,7 @@ export default function TournamentDetail() {
                           registerClub();
                         }
                       }}
-                      disabled={registeringClub || (!takeoverClub && !canAfford)}
+                      disabled={registeringClub || !rulesAccepted || (!takeoverClub && !canAfford)}
                       className="h-10 min-w-[210px] rounded-none border border-cyan-200/25 bg-black/24 px-7 font-heading text-xs font-black uppercase tracking-[0.12em] text-cyan-50/95 shadow-[0_0_24px_-16px_rgba(0,229,255,0.9)] backdrop-blur-md transition-all hover:border-cyan-200/55 hover:bg-cyan-300/10 hover:text-white hover:shadow-[0_0_24px_-10px_rgba(0,229,255,0.9)] focus-visible:ring-2 focus-visible:ring-cyan-300/50 disabled:border-white/10 disabled:text-white/45 disabled:opacity-55"
                       style={{ clipPath: "polygon(8% 0, 100% 0, 92% 100%, 0 100%)" }}>
                       {registeringClub ? "Registering..." : (takeoverClub ? t("tournamentDetail.registerClubNamed", { name: takeoverClub.name }) : t("tournamentDetail.registerMyClub"))}
@@ -1116,7 +1162,7 @@ export default function TournamentDetail() {
               {isPlayerTournament && tournament.status === "registration" && myPlayer && !myPlayerRegistered && !isFull && (
                 <>
                   {renderPlayerRegistrationProofUpload()}
-                  <Button onClick={registerPlayer} disabled={uploadingRegistrationProof || !registrationProofUrl || (user?.credits ?? 0) < (tournament.entry_credits ?? 50)}
+                  <Button onClick={registerPlayer} disabled={!rulesAccepted || uploadingRegistrationProof || !registrationProofUrl || (user?.credits ?? 0) < (tournament.entry_credits ?? 50)}
                   className="h-12 rounded-none bg-gradient-to-r from-cyan-500 to-blue-500 px-5 font-heading text-sm font-black uppercase tracking-wide text-white shadow-[0_0_24px_rgba(34,211,238,0.18)] hover:from-cyan-400 hover:to-blue-400"
                   style={{ clipPath: "polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%)" }}>
                     <Users className="w-4 h-4 mr-2" /> {t("tournamentDetail.registerAsPlayer")}
@@ -1141,14 +1187,11 @@ export default function TournamentDetail() {
                 <span className="text-xs text-success flex items-center gap-1.5"><Check className="w-3.5 h-3.5" /> {t("tournamentDetail.registered")}</span>
               )}
 
-              {(tournament.custom_rules || tournament.rules_file_url) && (
-                <Button type="button" variant="outline" size="sm" onClick={() => {
-                  if (tournament.rules_file_url && !tournament.custom_rules) window.open(tournament.rules_file_url, '_blank');
-                  else setRulesModalOpen(true);
-                }} className="rounded-none border-white/15 bg-black/25 text-xs text-white/60 hover:bg-white/10"
+              {(rules?.body || tournament.rules_file_url) && (
+                <Button type="button" variant="outline" size="sm" onClick={() => setRulesModalOpen(true)} className="rounded-none border-white/15 bg-black/25 text-xs text-white/60 hover:bg-white/10"
                   style={{ clipPath: "polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)" }}>
                   <BookOpen className="w-3.5 h-3.5 mr-1.5" />
-                  {tournament.rules_file_url && !tournament.custom_rules ? t("tournamentDetail.downloadRules") : t("tournamentDetail.viewRules")}
+                  {t("tournamentDetail.viewRules")}
                 </Button>
               )}
             </div>
@@ -1205,7 +1248,7 @@ export default function TournamentDetail() {
             {isPlayerTournament && tournament.status === "registration" && myPlayer && !myPlayerRegistered && !isFull && (
               <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
                 {renderPlayerRegistrationProofUpload()}
-                <Button onClick={registerPlayer} className="h-10 rounded-none bg-cyan-400 text-black leading-relaxed hover:bg-cyan-300" style={{ clipPath: "polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)" }} disabled={uploadingRegistrationProof || !registrationProofUrl || (user?.credits ?? 0) < (tournament.entry_credits ?? 50) || ((tournament.entry_fee_stc ?? 0) > 0 && (myPlayer.stc ?? 0) < (tournament.entry_fee_stc ?? 0))}>
+                <Button onClick={registerPlayer} className="h-10 rounded-none bg-cyan-400 text-black leading-relaxed hover:bg-cyan-300" style={{ clipPath: "polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)" }} disabled={!rulesAccepted || uploadingRegistrationProof || !registrationProofUrl || (user?.credits ?? 0) < (tournament.entry_credits ?? 50) || ((tournament.entry_fee_stc ?? 0) > 0 && (myPlayer.stc ?? 0) < (tournament.entry_fee_stc ?? 0))}>
                   <Users className="w-4 h-4 mr-2" /> {t("tournamentDetail.registerAsPlayer")} <span className="ml-1 opacity-70 text-xs">({tournament.entry_credits ?? 50} credits{(tournament.entry_fee_stc ?? 0) > 0 ? ` + ${(tournament.entry_fee_stc ?? 0).toLocaleString()} STC` : ''})</span>
                 </Button>
               </div>
@@ -1752,15 +1795,15 @@ export default function TournamentDetail() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-2">
-            {tournament.custom_rules && (
+            {rules?.body && (
               <div className="bg-secondary/50 rounded-xl p-4">
-                <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{tournament.custom_rules}</p>
+                <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{rules.body}</p>
               </div>
             )}
-            {tournament.rules_file_url && (
-              <a href={tournament.rules_file_url} target="_blank" rel="noreferrer"
+            {rules?.rulesFileUrl && (
+              <a href={rules.rulesFileUrl} target="_blank" rel="noreferrer"
                 className="flex items-center gap-2 px-4 py-3 rounded-xl border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 transition-colors font-medium text-sm">
-                <Download className="w-4 h-4" /> Download Rules Document
+                <Download className="w-4 h-4" /> {rules.fileLabel}
               </a>
             )}
           </div>
@@ -1826,7 +1869,7 @@ export default function TournamentDetail() {
             <Button
               type="button"
               onClick={registerClub}
-              disabled={registeringClub || (requiresClubRegistrationReview && !eaClubName.trim())}
+              disabled={registeringClub || !rulesAccepted || (requiresClubRegistrationReview && !eaClubName.trim())}
               className="h-12 w-full rounded-none bg-cyan-400 font-heading text-sm font-black uppercase tracking-[0.16em] text-black hover:bg-cyan-300 disabled:opacity-45"
               style={{ clipPath: "polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%)" }}
             >

@@ -454,6 +454,7 @@ async function runStartupMigrations() {
   await addCol('matches', 'score_corrected_at', 'DATETIME NULL');
   await addCol('matches', 'score_corrected_by', 'VARCHAR(36) NULL');
   await addCol('tournaments', 'registration_proofs', 'JSON NULL');
+  await addCol('tournaments', 'rules_template_id', 'VARCHAR(40) NULL');
 
   await addCol('matches', 'home_club_id', 'VARCHAR(36) NULL');
   await addCol('matches', 'away_club_id', 'VARCHAR(36) NULL');

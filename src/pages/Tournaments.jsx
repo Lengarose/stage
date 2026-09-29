@@ -23,6 +23,11 @@ import {
   getTournamentMaxTeamOptions,
   normalizeTournamentMaxTeams,
 } from "@/lib/tournamentRules";
+import {
+  encodeRulesTemplate,
+  listTournamentRuleTemplates,
+  renderTournamentRules,
+} from "@/lib/tournamentRuleTemplates";
 import { useTranslation } from "@/hooks/useTranslation";
 
 const TYPE_LABEL = {
@@ -48,7 +53,7 @@ function cleanCountryName(name) {
 }
 
 export default function Tournaments() {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const [tournaments, setTournaments] = useState([]);
   const [trophyItems, setTrophyItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -65,7 +70,7 @@ export default function Tournaments() {
     region: "Global", country_code: "", max_teams: "8",
     start_date: "", entry_fee_stc: "1000",
     banner_url: "", banner_color: "#0d1830", banner_position: "50% 50%",
-    participant_type: "club", custom_rules: "", rules_file_url: "",
+    participant_type: "club", rules_template_id: "standard_cup", rules_file_url: "",
     trophy_item_id: "",
   });
 
@@ -138,8 +143,11 @@ export default function Tournaments() {
       const maxTeams = normalizeTournamentMaxTeams(form.type, form.max_teams);
       const prizes = calculateTournamentPrizeBreakdown(form.entry_fee_stc, maxTeams);
       const selectedTrophy = trophyItems.find(t => t.id === form.trophy_item_id);
+      const rulesTemplateId = form.rules_template_id || "standard_cup";
       await stageClient.entities.Tournament.create({
         ...form,
+        rules_template_id: rulesTemplateId,
+        custom_rules: encodeRulesTemplate(rulesTemplateId),
         name: user.role === "admin" ? `By STAGE · ${form.name}` : form.name,
         max_teams: maxTeams,
         entry_credits: TOURNAMENT_CREDIT_COST,
@@ -172,7 +180,7 @@ export default function Tournaments() {
   }
 
   function resetForm() {
-    setForm({ name: "", description: "", type: "knockout", platform: "PlayStation", region: "Global", country_code: "", max_teams: "8", start_date: "", entry_fee_stc: "1000", banner_url: "", banner_color: "#0d1830", banner_position: "50% 50%", participant_type: "club", custom_rules: "", rules_file_url: "", trophy_item_id: "" });
+    setForm({ name: "", description: "", type: "knockout", platform: "PlayStation", region: "Global", country_code: "", max_teams: "8", start_date: "", entry_fee_stc: "1000", banner_url: "", banner_color: "#0d1830", banner_position: "50% 50%", participant_type: "club", rules_template_id: "standard_cup", rules_file_url: "", trophy_item_id: "" });
     setBannerPreview(null);
     setBannerFile(null);
     setModalStep(1);
@@ -494,9 +502,32 @@ export default function Tournaments() {
                 </div>
 
                 <div>
-                  <label className="label-xs">{t("commonPages.trnCustomRules")} <span className="font-normal lowercase text-muted-foreground">({t("commonPages.trnOptional")})</span></label>
-                  <Textarea value={form.custom_rules} onChange={e => setForm(f => ({ ...f, custom_rules: e.target.value }))}
-                    className={cn(tournamentDialogFieldClass, "min-h-[120px] py-3")} rows={3} placeholder={t("commonPages.trnRulesPlaceholder")} />
+                  <label className="label-xs">{t("commonPages.trnCustomRules")}</label>
+                  <Select value={form.rules_template_id || "standard_cup"} onValueChange={value => setForm(current => ({ ...current, rules_template_id: value }))}>
+                    <SelectTrigger className={tournamentDialogSelectClass}><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {listTournamentRuleTemplates(language).map(template => (
+                        <SelectItem key={template.id} value={template.id}>{template.title}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="mt-2 text-xs text-white/45">
+                    {listTournamentRuleTemplates(language).find(template => template.id === (form.rules_template_id || "standard_cup"))?.summary}
+                  </p>
+                  <div className="mt-3 max-h-56 overflow-y-auto bg-black/25 p-4 text-sm text-white/75 ring-1 ring-cyan-300/15" style={tournamentDialogClip}>
+                    <p className="whitespace-pre-wrap leading-relaxed">{renderTournamentRules(form.rules_template_id || "standard_cup", {
+                      name: form.name,
+                      type: form.type,
+                      platform: form.platform,
+                      region: form.region,
+                      country_code: form.country_code,
+                      max_teams: form.max_teams,
+                      participant_type: form.participant_type,
+                      start_date: form.start_date,
+                      entry_fee_stc: form.entry_fee_stc,
+                      entry_credits: TOURNAMENT_CREDIT_COST,
+                    }, language).body}</p>
+                  </div>
                   <div className="mt-2">
                     {form.rules_file_url ? (
                       <div className="flex items-center gap-2 bg-white/[0.045] px-3 py-2 ring-1 ring-cyan-300/15" style={tournamentDialogClip}>
