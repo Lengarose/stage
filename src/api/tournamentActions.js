@@ -96,7 +96,7 @@ export async function registerTournamentClub(tournamentId, clubId, options = {})
   const rules = assertRulesAcceptance(source);
   const payload = {
     registration_proof_url: source.registrationProofUrl || source.registration_proof_url || null,
-    ea_club_name: source.eaClubName || source.ea_club_name || null,
+    ea_club_name: options.eaClubName || source.eaClubName || source.ea_club_name || null,
     ...rules,
   };
   return stageClient.functions.invoke("tournamentRegistration", {
@@ -122,15 +122,12 @@ export async function setAdminTournamentClubs(tournamentId, clubIds) {
   });
 }
 
-export async function registerTournamentPlayer(tournamentId, playerId, registrationProofUrl = null, extra = {}) {
-  const source = registrationProofUrl && typeof registrationProofUrl === "object"
-    ? registrationProofUrl
-    : { registrationProofUrl, ...extra };
+export async function registerTournamentPlayer(tournamentId, playerId) {
+  const source = typeof arguments[2] === "object" && arguments[2] ? arguments[2] : {};
   const rules = assertRulesAcceptance(source);
   return stageClient.functions.invoke("tournamentRegistration", {
     tournament_id: tournamentId,
     player_id: playerId,
-    registration_proof_url: source.registrationProofUrl || source.registration_proof_url || null,
     ...rules,
   });
 }

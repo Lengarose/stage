@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useId, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import {
@@ -395,10 +395,6 @@ export default function TournamentDetail() {
 
   async function registerPlayer() {
     if (!myPlayer || !tournament) return;
-    if (!registrationProofUrl) {
-      await swalAlert(t("tournamentDetail.uploadUtPhoto"));
-      return;
-    }
     const entryCost = tournament.entry_credits ?? 50;
     const entryFeeSTC = tournament.entry_fee_stc ?? 0;
     const currentCredits = user?.credits ?? 0;
@@ -413,7 +409,6 @@ export default function TournamentDetail() {
     }
     try {
       const res = await registerTournamentPlayer(tournament.id, myPlayer.id, {
-        registrationProofUrl,
         rulesAccepted: true,
         tournament,
       });
@@ -430,7 +425,6 @@ export default function TournamentDetail() {
         setUser((prev) => (prev ? { ...prev, credits: res.data.new_user_credits } : prev));
       }
       setTournament(prev => ({ ...prev, registered_players: updated }));
-      setRegistrationProofUrl("");
     } catch (err) {
       await swalAlert(t("tournamentDetail.registrationFailed") + ": " + (err?.message || t("tournamentDetail.unknownError")));
     }
@@ -1106,15 +1100,12 @@ export default function TournamentDetail() {
               )}
 
               {isPlayerTournament && tournament.status === "registration" && myPlayer && !myPlayerRegistered && !isFull && (
-                <>
-                  {renderPlayerRegistrationProofUpload()}
-                  <Button onClick={registerPlayer} disabled={!rulesAccepted || uploadingRegistrationProof || !registrationProofUrl || (user?.credits ?? 0) < (tournament.entry_credits ?? 50)}
+                <Button onClick={registerPlayer} disabled={!rulesAccepted || (user?.credits ?? 0) < (tournament.entry_credits ?? 50)}
                   className="h-12 rounded-none bg-gradient-to-r from-cyan-500 to-blue-500 px-5 font-heading text-sm font-black uppercase tracking-wide text-white shadow-[0_0_24px_rgba(34,211,238,0.18)] hover:from-cyan-400 hover:to-blue-400"
                   style={{ clipPath: "polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%)" }}>
                     <Users className="w-4 h-4 mr-2" /> {t("tournamentDetail.registerAsPlayer")}
                     <span className="ml-1 opacity-70 text-xs">({tournament.entry_credits ?? 50}✧)</span>
                   </Button>
-                </>
               )}
 
               {!isPlayerTournament && myClubRegistered && tournament.status === "registration" && (
@@ -1193,8 +1184,7 @@ export default function TournamentDetail() {
             {/* Player tournament registration */}
             {isPlayerTournament && tournament.status === "registration" && myPlayer && !myPlayerRegistered && !isFull && (
               <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-                {renderPlayerRegistrationProofUpload()}
-                <Button onClick={registerPlayer} className="h-10 rounded-none bg-cyan-400 text-black leading-relaxed hover:bg-cyan-300" style={{ clipPath: "polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)" }} disabled={!rulesAccepted || uploadingRegistrationProof || !registrationProofUrl || (user?.credits ?? 0) < (tournament.entry_credits ?? 50) || ((tournament.entry_fee_stc ?? 0) > 0 && (myPlayer.stc ?? 0) < (tournament.entry_fee_stc ?? 0))}>
+                <Button onClick={registerPlayer} className="h-10 rounded-none bg-cyan-400 text-black leading-relaxed hover:bg-cyan-300" style={{ clipPath: "polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)" }} disabled={!rulesAccepted || (user?.credits ?? 0) < (tournament.entry_credits ?? 50) || ((tournament.entry_fee_stc ?? 0) > 0 && (myPlayer.stc ?? 0) < (tournament.entry_fee_stc ?? 0))}>
                   <Users className="w-4 h-4 mr-2" /> {t("tournamentDetail.registerAsPlayer")} <span className="ml-1 opacity-70 text-xs">({tournament.entry_credits ?? 50} credits{(tournament.entry_fee_stc ?? 0) > 0 ? ` + ${(tournament.entry_fee_stc ?? 0).toLocaleString()} STC` : ''})</span>
                 </Button>
               </div>
