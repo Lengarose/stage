@@ -21,7 +21,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import PageBannerShell from "@/components/PageBannerShell";
 import {
   calculateGroupStandings,
   getLeagueTournamentFixtureMatches,
@@ -394,11 +393,18 @@ export default function TournamentDetail() {
   }
 
   async function registerPlayer() {
-    if (!myPlayer || !tournament) return;
+    if (!tournament) return;
+    if (!myPlayer) {
+      await swalAlert(t("tournamentDetail.needPlayerProfile") || "Create your player profile before registering.");
+      return;
+    }
     const entryCost = tournament.entry_credits ?? 50;
     const entryFeeSTC = tournament.entry_fee_stc ?? 0;
     const currentCredits = user?.credits ?? 0;
-    if (currentCredits < entryCost) { await swalAlert(t("tournamentDetail.notEnoughCredits")); return; }
+    if (currentCredits < entryCost) {
+      await swalAlert(t("tournamentDetail.notEnoughCredits"));
+      return;
+    }
     if (entryFeeSTC > 0 && (myPlayer.stc ?? 0) < entryFeeSTC) {
       await swalAlert(t("tournamentDetail.notEnoughStc", { amount: entryFeeSTC.toLocaleString() }));
       return;
@@ -410,21 +416,23 @@ export default function TournamentDetail() {
     try {
       const res = await registerTournamentPlayer(tournament.id, myPlayer.id, {
         rulesAccepted: true,
+        rulesTemplateId: tournament.rules_template_id || null,
         tournament,
       });
-      if (!res.data.success) {
-        await swalAlert(res.data.error || t("tournamentDetail.registrationFailed"));
+      if (!res?.data?.success) {
+        await swalAlert(res?.data?.error || t("tournamentDetail.registrationFailed"));
         return;
       }
-      const updated = [...(tournament.registered_players || []), myPlayer.id];
-      setMyPlayer(prev => ({
+      const updated = [...(tournament.registered_players || []).map(String), String(myPlayer.id)];
+      setMyPlayer((prev) => ({
         ...prev,
         stc: res.data.new_player_stc ?? prev.stc,
       }));
       if (res.data.new_user_credits != null) {
         setUser((prev) => (prev ? { ...prev, credits: res.data.new_user_credits } : prev));
       }
-      setTournament(prev => ({ ...prev, registered_players: updated }));
+      setTournament((prev) => ({ ...prev, registered_players: updated }));
+      await swalAlert(t("tournamentDetail.registered") || "Registered successfully.");
     } catch (err) {
       await swalAlert(t("tournamentDetail.registrationFailed") + ": " + (err?.message || t("tournamentDetail.unknownError")));
     }
@@ -774,11 +782,16 @@ export default function TournamentDetail() {
   const myClubRegistrationProof = effectiveClubId ? clubRegistrationProofs[String(effectiveClubId)] : null;
   const myClubRegistrationStatus = String(myClubRegistrationProof?.status || "").toLowerCase();
   const myClubRegistrationPending = myClubRegistrationStatus === "pending";
-  const myPlayerRegistered = tournament.registered_players?.includes(myPlayer?.id);
+  const myPlayerRegistered = (tournament.registered_players || []).map(String).includes(String(myPlayer?.id || ""));
   const registeredCount = isPlayerTournament
     ? (tournament.registered_players?.length || 0)
     : (tournament.registered_clubs?.length || 0);
   const isFull = registeredCount >= tournament.max_teams;
+  const entryCreditsNeeded = tournament.entry_credits ?? 50;
+  const entryStcNeeded = tournament.entry_fee_stc ?? 0;
+  const canAffordPlayerEntry =
+    (user?.credits ?? 0) >= entryCreditsNeeded
+    && (entryStcNeeded <= 0 || (myPlayer?.stc ?? 0) >= entryStcNeeded);
   const showRegistrationConsent = tournament.status === "registration" && !isFull && (
     (!isPlayerTournament && effectiveClubId && !myClubRegistered && !myClubRegistrationPending)
     || (isPlayerTournament && myPlayer && !myPlayerRegistered)
@@ -961,20 +974,13 @@ export default function TournamentDetail() {
   ];
 
   return (
-    <PageBannerShell
-      className="bg-background"
-      dockClassName="bg-background"
-      banner={(
-        <>
-          <div className="absolute inset-0" style={heroStyle} />
-          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(1,8,18,0.98)_0%,rgba(1,8,18,0.64)_42%,rgba(1,8,18,0.86)_100%)] pointer-events-none" />
-          <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-background via-background/70 to-transparent pointer-events-none" />
-          <div className="absolute inset-0 opacity-35 pointer-events-none bg-[radial-gradient(ellipse_at_50%_0%,rgba(103,232,249,0.24),transparent_45%)]" />
-        </>
-      )}
-    >
+    <div className="h-full min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-background">
       {/* ── HERO CONTENT ──────────────────────────────── */}
       <div className="relative border-b border-cyan-400/10 bg-[#050b14]">
+        <div className="absolute inset-0" style={heroStyle} />
+        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(1,8,18,0.98)_0%,rgba(1,8,18,0.64)_42%,rgba(1,8,18,0.86)_100%)] pointer-events-none" />
+        <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-background via-background/70 to-transparent pointer-events-none" />
+        <div className="absolute inset-0 opacity-35 pointer-events-none bg-[radial-gradient(ellipse_at_50%_0%,rgba(103,232,249,0.24),transparent_45%)]" />
         <div className="relative max-w-7xl mx-auto px-4 lg:px-8">
           <button type="button" onClick={() => navigate(-1)}
             className="mt-4 inline-flex h-10 max-w-[240px] items-center justify-center gap-2 border border-cyan-200/25 bg-black/24 px-4 font-heading text-xs font-black uppercase tracking-[0.12em] text-cyan-50/95 shadow-[0_0_24px_-16px_rgba(0,229,255,0.9)] backdrop-blur-md transition-all hover:border-cyan-200/55 hover:bg-cyan-300/10 hover:text-white hover:shadow-[0_0_24px_-10px_rgba(0,229,255,0.9)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/50"
@@ -1100,11 +1106,15 @@ export default function TournamentDetail() {
               )}
 
               {isPlayerTournament && tournament.status === "registration" && myPlayer && !myPlayerRegistered && !isFull && (
-                <Button onClick={registerPlayer} disabled={!rulesAccepted || (user?.credits ?? 0) < (tournament.entry_credits ?? 50)}
-                  className="h-12 rounded-none bg-gradient-to-r from-cyan-500 to-blue-500 px-5 font-heading text-sm font-black uppercase tracking-wide text-white shadow-[0_0_24px_rgba(34,211,238,0.18)] hover:from-cyan-400 hover:to-blue-400"
-                  style={{ clipPath: "polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%)" }}>
+                <Button
+                  type="button"
+                  onClick={registerPlayer}
+                  disabled={!rulesAccepted || !canAffordPlayerEntry}
+                  className="h-12 rounded-none bg-gradient-to-r from-cyan-500 to-blue-500 px-5 font-heading text-sm font-black uppercase tracking-wide text-white shadow-[0_0_24px_rgba(34,211,238,0.18)] hover:from-cyan-400 hover:to-blue-400 disabled:opacity-55"
+                  style={{ clipPath: "polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%)" }}
+                >
                     <Users className="w-4 h-4 mr-2" /> {t("tournamentDetail.registerAsPlayer")}
-                    <span className="ml-1 opacity-70 text-xs">({tournament.entry_credits ?? 50}✧)</span>
+                    <span className="ml-1 opacity-70 text-xs">({entryCreditsNeeded}✧{entryStcNeeded > 0 ? ` + ${entryStcNeeded.toLocaleString()} STC` : ""})</span>
                   </Button>
               )}
 
@@ -1184,8 +1194,14 @@ export default function TournamentDetail() {
             {/* Player tournament registration */}
             {isPlayerTournament && tournament.status === "registration" && myPlayer && !myPlayerRegistered && !isFull && (
               <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-                <Button onClick={registerPlayer} className="h-10 rounded-none bg-cyan-400 text-black leading-relaxed hover:bg-cyan-300" style={{ clipPath: "polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)" }} disabled={!rulesAccepted || (user?.credits ?? 0) < (tournament.entry_credits ?? 50) || ((tournament.entry_fee_stc ?? 0) > 0 && (myPlayer.stc ?? 0) < (tournament.entry_fee_stc ?? 0))}>
-                  <Users className="w-4 h-4 mr-2" /> {t("tournamentDetail.registerAsPlayer")} <span className="ml-1 opacity-70 text-xs">({tournament.entry_credits ?? 50} credits{(tournament.entry_fee_stc ?? 0) > 0 ? ` + ${(tournament.entry_fee_stc ?? 0).toLocaleString()} STC` : ''})</span>
+                <Button
+                  type="button"
+                  onClick={registerPlayer}
+                  className="h-10 rounded-none bg-cyan-400 text-black leading-relaxed hover:bg-cyan-300 disabled:opacity-55"
+                  style={{ clipPath: "polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)" }}
+                  disabled={!rulesAccepted || !canAffordPlayerEntry}
+                >
+                  <Users className="w-4 h-4 mr-2" /> {t("tournamentDetail.registerAsPlayer")} <span className="ml-1 opacity-70 text-xs">({entryCreditsNeeded} credits{entryStcNeeded > 0 ? ` + ${entryStcNeeded.toLocaleString()} STC` : ""})</span>
                 </Button>
               </div>
             )}
@@ -1966,6 +1982,6 @@ export default function TournamentDetail() {
           )}
         </DialogContent>
       </Dialog>
-    </PageBannerShell>
+    </div>
   );
 }
