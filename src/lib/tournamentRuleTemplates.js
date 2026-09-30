@@ -403,3 +403,34 @@ export function assertRulesAcceptance({
     rules_template_id: stored || sent || null,
   };
 }
+
+export function mergeLocalRulesAcceptance(tournament, { playerId, clubId } = {}) {
+  const existing = tournament?.registration_proofs;
+  let proofs = { club: {}, player: {} };
+  if (existing && typeof existing === "object" && !Array.isArray(existing)) {
+    proofs = {
+      club: existing.club && typeof existing.club === "object" ? { ...existing.club } : {},
+      player: existing.player && typeof existing.player === "object" ? { ...existing.player } : {},
+    };
+  }
+  const now = new Date().toISOString();
+  const isPlayerTournament = String(tournament?.participant_type || "").toLowerCase() === "player";
+  if (isPlayerTournament && playerId) {
+    const key = String(playerId);
+    proofs.player[key] = {
+      ...(proofs.player[key] || {}),
+      participant_id: key,
+      proof_type: proofs.player[key]?.proof_type || "rules_acceptance",
+      rules_accepted_at: now,
+    };
+  } else if (clubId) {
+    const key = String(clubId);
+    proofs.club[key] = {
+      ...(proofs.club[key] || {}),
+      participant_id: key,
+      proof_type: proofs.club[key]?.proof_type || "rules_acceptance",
+      rules_accepted_at: now,
+    };
+  }
+  return proofs;
+}

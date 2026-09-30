@@ -874,6 +874,7 @@
   "teThisTournament": "this tournament",
   "teAskFreshLink": "Ask the tournament organiser for a fresh invite link.",
   "teScopedNote": "Your account will be scoped to {name} until the tournament ends. Full access unlocks automatically afterwards.",
+  "teTestGrantNote": "Test link: this account receives 50 credits and 5,000 STC once, enough to enter.",
   "teHidePassword": "Hide password",
   "teShowPassword": "Show password",
   "teUnableAccount": "Unable to load your account.",

@@ -11,7 +11,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { stageClient, clearNeedsOnboarding, clearOAuthReturnState, userNeedsOnboarding } from '@/api/stageClient';
 import { ensureAdminPanelMode, isAppAdminUser, isEffectiveAdmin, isAdminGlobalRoute } from '@/lib/adminAuth';
 import { getOwnedClubId } from '@/lib/userIdentityFields';
-import { shouldApplyTournamentEntranceAccess } from '@/lib/tournamentEntranceAccess';
+import { claimTournamentTestGrantIfNeeded, shouldApplyTournamentEntranceAccess } from '@/lib/tournamentEntranceAccess';
 import BannerImg from '@/assets/Name logo.png';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import TournamentEntranceRouteGuard from '@/components/TournamentEntranceRouteGuard';
@@ -154,18 +154,22 @@ const OAuthCallback = () => {
         Boolean(entranceMatch) &&
         shouldApplyTournamentEntranceAccess(u);
 
-      if (shouldLimit) {
+      if (entranceMatch) {
         try {
           const resolved = await stageClient.http.post('/public/resolve-entrance-token', {
             token: entranceMatch[1],
           });
           const tournamentId = resolved?.data?.tournament?.id;
-          if (tournamentId) {
+          if (shouldLimit && tournamentId) {
             await stageClient.functions
               .invoke('applyTournamentEntranceAccessMode', { tournament_id: tournamentId })
               .catch(() => {});
-            await checkUserAuth().catch(() => null);
           }
+          await claimTournamentTestGrantIfNeeded(stageClient, {
+            token: entranceMatch[1],
+            link: resolved?.data?.link,
+          });
+          await checkUserAuth().catch(() => null);
         } catch {
           /* keep going — onboarding still required for new users */
         }

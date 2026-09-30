@@ -5,7 +5,7 @@ import { useState } from "react";
 import { stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Database, Link2, Plus, Search, Trophy, X, Copy, RotateCcw, Ban, Trash2, Wand2 } from "lucide-react";
+import { Database, FlaskConical, Link2, Plus, Search, Trophy, X, Copy, RotateCcw, Ban, Trash2, Wand2 } from "lucide-react";
 import { useTranslation } from "@/hooks/useTranslation";
 
 function EntranceLinksDialog({ open, onOpenChange, tournamentId, tournamentName }) {
@@ -70,15 +70,18 @@ function EntranceLinksDialog({ open, onOpenChange, tournamentId, tournamentName 
     }
   }
 
-  async function createNew() {
-    setActionLoading("create");
+  async function createNew(linkKind = "standard") {
+    setActionLoading(linkKind === "test" ? "create-test" : "create");
     try {
-      const result = await stageClient.functions.invoke("createTournamentEntranceLink", { tournament_id: tournamentId });
+      const result = await stageClient.functions.invoke("createTournamentEntranceLink", {
+        tournament_id: tournamentId,
+        ...(linkKind === "test" ? { link_kind: "test" } : {}),
+      });
       const link = result?.data?.link || result?.link || null;
       if (link?.token) {
         const url = `${window.location.origin}/tournaments/entrance/${link.token}/signin`;
         await navigator.clipboard.writeText(url).catch(() => {});
-        window.alert(t("admin.tournaments.entranceLinkCopied"));
+        window.alert(linkKind === "test" ? t("admin.tournaments.testLinkCopied") : t("admin.tournaments.entranceLinkCopied"));
       }
       await fetchLinks();
     } catch (err) {
@@ -97,9 +100,14 @@ function EntranceLinksDialog({ open, onOpenChange, tournamentId, tournamentName 
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
-          <Button size="sm" onClick={createNew} disabled={actionLoading === "create"} className="gap-1.5 text-xs h-7">
-            <Plus className="w-3 h-3" /> {t("admin.tournaments.createNewLink")}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" onClick={() => createNew("standard")} disabled={actionLoading === "create"} className="gap-1.5 text-xs h-7">
+              <Plus className="w-3 h-3" /> {t("admin.tournaments.createNewLink")}
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => createNew("test")} disabled={actionLoading === "create-test"} className="gap-1.5 text-xs h-7 border-warning/30 text-warning">
+              <FlaskConical className="w-3 h-3" /> {t("admin.tournaments.createTestLink")}
+            </Button>
+          </div>
           {loading ? (
             <p className="text-xs text-muted-foreground">{t("admin.tournaments.loadingLinks")}</p>
           ) : links.length === 0 ? (
@@ -111,14 +119,21 @@ function EntranceLinksDialog({ open, onOpenChange, tournamentId, tournamentName 
                 return (
                   <div key={link.id} className="border border-border rounded p-3 bg-secondary/30 space-y-1.5">
                     <div className="flex items-center justify-between gap-2">
-                      <span className={cn(
-                        "text-[10px] px-2 py-0.5 rounded border uppercase tracking-wider font-bold",
-                        isActive
-                          ? "bg-primary/10 text-primary border-primary/20"
-                          : "bg-destructive/10 text-destructive border-destructive/20"
-                      )}>
-                        {link.status || "unknown"}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className={cn(
+                          "text-[10px] px-2 py-0.5 rounded border uppercase tracking-wider font-bold",
+                          isActive
+                            ? "bg-primary/10 text-primary border-primary/20"
+                            : "bg-destructive/10 text-destructive border-destructive/20"
+                        )}>
+                          {link.status || "unknown"}
+                        </span>
+                        {String(link.link_kind || "").toLowerCase() === "test" && (
+                          <span className="text-[10px] px-2 py-0.5 rounded border uppercase tracking-wider font-bold bg-warning/10 text-warning border-warning/20">
+                            {t("admin.tournaments.testLinkBadge")}
+                          </span>
+                        )}
+                      </div>
                       <span className="text-[10px] text-muted-foreground">
                         {link.created_date ? new Date(link.created_date).toLocaleDateString() : ""}
                       </span>
@@ -189,14 +204,21 @@ export default function TournamentsTab({
     }
   }
 
-  async function createEntranceLink(tournamentId) {
+  async function createEntranceLink(tournamentId, linkKind = "standard") {
     try {
-      const result = await stageClient.functions.invoke("createTournamentEntranceLink", { tournament_id: tournamentId });
+      const result = await stageClient.functions.invoke("createTournamentEntranceLink", {
+        tournament_id: tournamentId,
+        ...(linkKind === "test" ? { link_kind: "test" } : {}),
+      });
       const link = result?.data?.link || result?.link || null;
       if (!link?.token) throw new Error(t("admin.tournaments.linkTokenMissing"));
       const url = `${window.location.origin}/tournaments/entrance/${link.token}/signin`;
       await navigator.clipboard.writeText(url).catch(() => {});
-      window.alert(t("admin.tournaments.entranceLinkCreated", { url }));
+      window.alert(
+        linkKind === "test"
+          ? t("admin.tournaments.testLinkCreated", { url })
+          : t("admin.tournaments.entranceLinkCreated", { url })
+      );
     } catch (err) {
       window.alert(err?.error || err?.message || t("admin.tournaments.createLinkFailed"));
     }
@@ -304,6 +326,9 @@ export default function TournamentsTab({
                 <Link to={`/tournaments/${tournament.id}`}><Button size="sm" variant="outline" className="border-border text-muted-foreground text-xs">{t("admin.actions.view")}</Button></Link>
                 <Button size="sm" variant="outline" onClick={() => createEntranceLink(tournament.id)} className="border-border text-muted-foreground text-xs gap-1">
                   <Link2 className="w-3.5 h-3.5" /> {t("admin.tournaments.quickLink")}
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => createEntranceLink(tournament.id, "test")} className="border-warning/30 text-warning hover:text-warning text-xs gap-1">
+                  <FlaskConical className="w-3.5 h-3.5" /> {t("admin.tournaments.quickTestLink")}
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => setEntranceDialog({ id: tournament.id, name: tournament.name })} className="border-border text-muted-foreground text-xs gap-1">
                   <Link2 className="w-3.5 h-3.5" /> {t("admin.tournaments.manageLinks")}

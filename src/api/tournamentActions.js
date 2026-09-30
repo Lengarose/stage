@@ -1,6 +1,6 @@
 import { stageClient } from "@/api/stageClient";
 import { asWallClockDateTimeString } from "@/lib/momentDate";
-import { assertRulesAcceptance } from "@/lib/tournamentRuleTemplates";
+import { assertRulesAcceptance, mergeLocalRulesAcceptance } from "@/lib/tournamentRuleTemplates";
 import {
   generateKnockoutRound1,
   generateLeagueMatches,
@@ -125,12 +125,28 @@ export async function setAdminTournamentClubs(tournamentId, clubIds) {
 export async function acceptTournamentRules(tournamentId, options = {}) {
   const source = options || {};
   const rules = assertRulesAcceptance(source);
-  return stageClient.functions.invoke("tournamentRulesAccept", {
+  const payload = {
     tournament_id: tournamentId,
     player_id: source.playerId || source.player_id || null,
     club_id: source.clubId || source.club_id || null,
     ...rules,
-  });
+  };
+  try {
+    return await stageClient.functions.invoke("tournamentRulesAccept", payload);
+  } catch (error) {
+    const message = String(error?.message || error?.error || error?.data?.error || "");
+    if (!message.includes("Function 'tournamentRulesAccept' not found")) throw error;
+    return {
+      data: {
+        success: true,
+        persisted: false,
+        registration_proofs: mergeLocalRulesAcceptance(source.tournament, {
+          playerId: payload.player_id,
+          clubId: payload.club_id,
+        }),
+      },
+    };
+  }
 }
 
 export async function registerTournamentPlayer(tournamentId, playerId) {
@@ -252,4 +268,35 @@ export async function officializeTournament(tournamentId) {
     stageClient.entities.Tournament.filter({ id: tournamentId }, null, 1),
   ]);
   return { ...res?.data, matches, tournament: tournaments[0] || res?.data?.tournament || null };
+}
+
+export function tournamentEntranceInviteUrl(token) {
+  return `${window.location.origin}/tournaments/entrance/${encodeURIComponent(token)}/signin`;
+}
+
+export async function listTournamentEntranceLinks(tournamentId) {
+  const result = await stageClient.functions.invoke("listTournamentEntranceLinks", {
+    tournament_id: tournamentId,
+  });
+  return result?.data?.links || [];
+}
+
+export async function createTournamentEntranceLink(tournamentId) {
+  const result = await stageClient.functions.invoke("createTournamentEntranceLink", {
+    tournament_id: tournamentId,
+  });
+  return result?.data?.link || null;
+}
+
+export async function copyOrCreateTournamentInviteLink(tournamentId) {
+  const links = await listTournamentEntranceLinks(tournamentId);
+  const active = (Array.isArray(links) ? links : []).find((link) => (
+    String(link?.status || "").toLowerCase() === "active"
+    && String(link?.link_kind || "").toLowerCase() !== "test"
+    && link?.token
+  ));
+  if (active?.token) return tournamentEntranceInviteUrl(active.token);
+  const created = await createTournamentEntranceLink(tournamentId);
+  if (!created?.token) throw new Error("Could not create invite link");
+  return tournamentEntranceInviteUrl(created.token);
 }

@@ -857,6 +857,7 @@
   "teThisTournament": "ce tournoi",
   "teAskFreshLink": "Demande à l'organisateur un nouveau lien d'invitation.",
   "teScopedNote": "Ton compte sera limité à {name} jusqu'à la fin du tournoi. L'accès complet se débloque automatiquement ensuite.",
+  "teTestGrantNote": "Lien de test : ce compte reçoit 50 crédits et 5 000 STC une seule fois, assez pour s'inscrire.",
   "teHidePassword": "Masquer le mot de passe",
   "teShowPassword": "Afficher le mot de passe",
   "teUnableAccount": "Impossible de charger ton compte.",

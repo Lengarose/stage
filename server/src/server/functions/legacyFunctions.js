@@ -3490,8 +3490,22 @@ async function assertTournamentOrganizer(userId, tournament) {
     email === String(tournament.creator_email || '').toLowerCase()
     || email === String(tournament.organizer_email || '').toLowerCase()
   );
-  if (!isAdmin && !isOwner) throw new Error('Only the tournament creator or admin can do this');
+  if (!isAdmin && !isOwner) {
+    const err = new Error('Only the tournament creator or admin can do this');
+    err.status = 403;
+    throw err;
+  }
   return { user, isAdmin };
+}
+
+async function requireEntranceLinkManager(userId, tournamentId) {
+  if (!userId) throw new Error('not authenticated');
+  if (!tournamentId) throw new Error('tournament_id required');
+  const tournamentRows = await EXECUTESQL('SELECT * FROM tournaments WHERE id = ? LIMIT 1', [tournamentId]);
+  if (!tournamentRows.length) throw new Error('Tournament not found');
+  const tournament = tournamentRows[0];
+  const auth = await assertTournamentOrganizer(userId, tournament);
+  return { tournament, ...auth };
 }
 
 async function getTournamentEntries(tournament) {
@@ -3930,15 +3944,16 @@ async function resolvePlayerContactForInvite(playerId) {
 
 const HANDLERS = {
   async createTournamentEntranceLink({ _auth_user_id, tournament_id, link_kind }) {
-    const admin = await requireAdminUser(_auth_user_id);
-    if (!tournament_id) throw new Error('tournament_id required');
-    const tournamentRows = await EXECUTESQL('SELECT * FROM tournaments WHERE id = ? LIMIT 1', [tournament_id]);
-    const tournament = tournamentRows[0];
-    if (!tournament) throw new Error('Tournament not found');
+    const { tournament, user, isAdmin } = await requireEntranceLinkManager(_auth_user_id, tournament_id);
+    const isTest = String(link_kind || '').toLowerCase() === 'test';
+    if (isTest && !isAdmin) {
+      const err = new Error('Only STAGE admin can create test entrance links');
+      err.status = 403;
+      throw err;
+    }
 
     const id = uuidv4();
     const token = generateEntranceToken();
-    const isTest = String(link_kind || '').toLowerCase() === 'test';
     const link = {
       id,
       token,
@@ -3946,7 +3961,7 @@ const HANDLERS = {
       tournament_name: tournament.name || null,
       status: 'active',
       max_teams: tournament.max_teams || null,
-      created_by_user_id: admin.id,
+      created_by_user_id: user.id,
       created_date: new Date().toISOString(),
       updated_date: new Date().toISOString(),
       ...(isTest ? { link_kind: 'test' } : {}),
@@ -3957,21 +3972,21 @@ const HANDLERS = {
        VALUES (?, 'tournament_entrance_link', ?, 'active', NOW(), NOW())`,
       [id, JSON.stringify(link)],
     );
-    await writeAdminAuditLog({
-      admin,
-      action: 'tournament_entrance_link_create',
-      entityType: 'tournament_entrance_link',
-      entityId: id,
-      entityName: tournament.name || null,
-      newValue: link,
-    });
+    if (isAdmin) {
+      await writeAdminAuditLog({
+        admin: user,
+        action: 'tournament_entrance_link_create',
+        entityType: 'tournament_entrance_link',
+        entityId: id,
+        entityName: tournament.name || null,
+        newValue: link,
+      });
+    }
     return { data: { success: true, link } };
   },
 
   async listTournamentEntranceLinks({ _auth_user_id, tournament_id }) {
-    const admin = await requireAdminUser(_auth_user_id);
-    void admin;
-    if (!tournament_id) throw new Error('tournament_id required');
+    const { isAdmin } = await requireEntranceLinkManager(_auth_user_id, tournament_id);
     const rows = await EXECUTESQL(
       `SELECT * FROM league_entities
         WHERE entity_type = 'tournament_entrance_link'
@@ -3979,10 +3994,12 @@ const HANDLERS = {
         ORDER BY created_date DESC`,
       [tournament_id],
     );
+    const links = rows.map(parseTournamentEntranceLinkRow)
+      .filter((link) => isAdmin || !isTestEntranceLink(link));
     return {
       data: {
         success: true,
-        links: rows.map(parseTournamentEntranceLinkRow),
+        links,
       },
     };
   },
@@ -4096,7 +4113,6 @@ const HANDLERS = {
   },
 
   async revokeTournamentEntranceLink({ _auth_user_id, link_id }) {
-    const admin = await requireAdminUser(_auth_user_id);
     if (!link_id) throw new Error('link_id required');
     const rows = await EXECUTESQL(
       "SELECT * FROM league_entities WHERE id = ? AND entity_type = 'tournament_entrance_link' LIMIT 1",
@@ -4104,25 +4120,32 @@ const HANDLERS = {
     );
     if (!rows.length) throw new Error('Entrance link not found');
     const current = parseTournamentEntranceLinkRow(rows[0]);
+    const { user, isAdmin } = await requireEntranceLinkManager(_auth_user_id, current.tournament_id);
+    if (isTestEntranceLink(current) && !isAdmin) {
+      const err = new Error('Only STAGE admin can manage test entrance links');
+      err.status = 403;
+      throw err;
+    }
     const next = {
       ...current,
       status: 'revoked',
       updated_date: new Date().toISOString(),
     };
     await updateLeagueEntityData(EXECUTESQL, 'tournament_entrance_link', link_id, next, { status: 'revoked' });
-    await writeAdminAuditLog({
-      admin,
-      action: 'tournament_entrance_link_revoke',
-      entityType: 'tournament_entrance_link',
-      entityId: link_id,
-      oldValue: current,
-      newValue: next,
-    });
+    if (isAdmin) {
+      await writeAdminAuditLog({
+        admin: user,
+        action: 'tournament_entrance_link_revoke',
+        entityType: 'tournament_entrance_link',
+        entityId: link_id,
+        oldValue: current,
+        newValue: next,
+      });
+    }
     return { data: { success: true, link: next } };
   },
 
   async regenerateTournamentEntranceLink({ _auth_user_id, link_id }) {
-    const admin = await requireAdminUser(_auth_user_id);
     if (!link_id) throw new Error('link_id required');
     const rows = await EXECUTESQL(
       "SELECT * FROM league_entities WHERE id = ? AND entity_type = 'tournament_entrance_link' LIMIT 1",
@@ -4130,20 +4153,28 @@ const HANDLERS = {
     );
     if (!rows.length) throw new Error('Entrance link not found');
     const current = parseTournamentEntranceLinkRow(rows[0]);
+    const { user, isAdmin } = await requireEntranceLinkManager(_auth_user_id, current.tournament_id);
+    if (isTestEntranceLink(current) && !isAdmin) {
+      const err = new Error('Only STAGE admin can manage test entrance links');
+      err.status = 403;
+      throw err;
+    }
     const revoked = {
       ...current,
       status: 'revoked',
       updated_date: new Date().toISOString(),
     };
     await updateLeagueEntityData(EXECUTESQL, 'tournament_entrance_link', link_id, revoked, { status: 'revoked' });
-    await writeAdminAuditLog({
-      admin,
-      action: 'tournament_entrance_link_regenerate_revoke',
-      entityType: 'tournament_entrance_link',
-      entityId: link_id,
-      oldValue: current,
-      newValue: revoked,
-    });
+    if (isAdmin) {
+      await writeAdminAuditLog({
+        admin: user,
+        action: 'tournament_entrance_link_regenerate_revoke',
+        entityType: 'tournament_entrance_link',
+        entityId: link_id,
+        oldValue: current,
+        newValue: revoked,
+      });
+    }
 
     const id = uuidv4();
     const token = generateEntranceToken();
@@ -4152,24 +4183,28 @@ const HANDLERS = {
       id,
       token,
       status: 'active',
-      created_by_user_id: admin.id,
+      created_by_user_id: user.id,
       created_date: new Date().toISOString(),
       updated_date: new Date().toISOString(),
+      ...(isTestEntranceLink(current) ? { link_kind: 'test' } : {}),
     };
+    if (!isTestEntranceLink(current)) delete next.link_kind;
     await EXECUTESQL(
       `INSERT INTO league_entities
         (id, entity_type, data_json, status, created_date, updated_date)
        VALUES (?, 'tournament_entrance_link', ?, 'active', NOW(), NOW())`,
       [id, JSON.stringify(next)],
     );
-    await writeAdminAuditLog({
-      admin,
-      action: 'tournament_entrance_link_regenerate_create',
-      entityType: 'tournament_entrance_link',
-      entityId: id,
-      oldValue: null,
-      newValue: next,
-    });
+    if (isAdmin) {
+      await writeAdminAuditLog({
+        admin: user,
+        action: 'tournament_entrance_link_regenerate_create',
+        entityType: 'tournament_entrance_link',
+        entityId: id,
+        oldValue: null,
+        newValue: next,
+      });
+    }
     return { data: { success: true, link: next } };
   },
 

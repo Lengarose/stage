@@ -2880,6 +2880,9 @@ test('revokeTournamentEntranceLink invalidates token', async () => {
         data_json: JSON.stringify({ id: 'link-1', token: 'tok', tournament_id: 'tournament-1', status: 'active' }),
       }];
     }
+    if (/SELECT \* FROM tournaments WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: params[0], name: 'Summer Cup', creator_email: 'admin@example.test' }];
+    }
     if (/UPDATE league_entities SET/.test(sql)) {
       updates.push({ sql, params });
       return { affectedRows: 1 };
@@ -2982,6 +2985,9 @@ test('listTournamentEntranceLinks returns links for a tournament to admin', asyn
     if (/SELECT id, email, role_id FROM users WHERE id = \? LIMIT 1/.test(sql)) {
       return [{ id: params[0], email: 'admin@example.test', role_id: 0 }];
     }
+    if (/SELECT \* FROM tournaments WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: params[0], name: 'Summer Cup', creator_email: 'admin@example.test' }];
+    }
     if (/FROM league_entities\s+WHERE entity_type = 'tournament_entrance_link'/.test(sql)) {
       return [{
         id: 'link-1',
@@ -3054,6 +3060,133 @@ test('createTournamentEntranceLink stays standard unless link_kind is test', asy
   assert.equal(testLink.statusCode, 200);
   assert.equal(testLink.body.data.link.link_kind, 'test');
   assert.equal(JSON.parse(inserts[1].params[1]).link_kind, 'test');
+});
+
+function organizerEntranceSqlMock({
+  email = 'creator@example.test',
+  roleId = 1,
+  creatorEmail = 'creator@example.test',
+  organizerEmail = null,
+  inserts = [],
+  links = [],
+} = {}) {
+  return async (sql, params = []) => {
+    if (/SELECT id, email, role_id FROM users WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: params[0], email, role_id: roleId }];
+    }
+    if (/SELECT \* FROM tournaments WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{
+        id: params[0],
+        name: 'Community Cup',
+        creator_email: creatorEmail,
+        organizer_email: organizerEmail,
+      }];
+    }
+    if (/FROM league_entities\s+WHERE entity_type = 'tournament_entrance_link'/.test(sql)) {
+      return links;
+    }
+    if (/INSERT INTO league_entities/.test(sql)) {
+      inserts.push({ sql, params });
+      return { affectedRows: 1 };
+    }
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+}
+
+test('createTournamentEntranceLink allows the tournament creator', async () => {
+  const inserts = [];
+  const router = loadFunctionsRouterWithDbMock(organizerEntranceSqlMock({ inserts }));
+  const handle = postFunctionHandler(router);
+  const response = makeJsonResponse();
+
+  await handle(
+    { params: { name: 'createTournamentEntranceLink' }, body: { tournament_id: 'tournament-1' }, user: { id: 'creator-1' } },
+    response,
+  );
+
+  assert.equal(response.statusCode, 200, response.body?.error);
+  assert.equal(response.body.data.success, true);
+  assert.equal(response.body.data.link.status, 'active');
+  assert.equal(response.body.data.link.link_kind, undefined);
+  assert.equal(inserts.length, 1);
+});
+
+test('createTournamentEntranceLink rejects a random player', async () => {
+  const router = loadFunctionsRouterWithDbMock(organizerEntranceSqlMock({
+    email: 'other@example.test',
+    creatorEmail: 'creator@example.test',
+  }));
+  const handle = postFunctionHandler(router);
+  const response = makeJsonResponse();
+
+  await handle(
+    { params: { name: 'createTournamentEntranceLink' }, body: { tournament_id: 'tournament-1' }, user: { id: 'user-2' } },
+    response,
+  );
+
+  assert.equal(response.statusCode, 403);
+  assert.match(String(response.body.error || ''), /creator or admin/i);
+});
+
+test('createTournamentEntranceLink blocks test links for community organizers', async () => {
+  const inserts = [];
+  const router = loadFunctionsRouterWithDbMock(organizerEntranceSqlMock({ inserts }));
+  const handle = postFunctionHandler(router);
+  const response = makeJsonResponse();
+
+  await handle(
+    {
+      params: { name: 'createTournamentEntranceLink' },
+      body: { tournament_id: 'tournament-1', link_kind: 'test' },
+      user: { id: 'creator-1' },
+    },
+    response,
+  );
+
+  assert.equal(response.statusCode, 403);
+  assert.match(String(response.body.error || ''), /test entrance/i);
+  assert.equal(inserts.length, 0);
+});
+
+test('listTournamentEntranceLinks hides test links from organizers', async () => {
+  const router = loadFunctionsRouterWithDbMock(organizerEntranceSqlMock({
+    links: [
+      {
+        id: 'link-std',
+        entity_type: 'tournament_entrance_link',
+        status: 'active',
+        data_json: JSON.stringify({
+          id: 'link-std',
+          tournament_id: 'tournament-1',
+          token: 'std-token',
+          status: 'active',
+        }),
+      },
+      {
+        id: 'link-test',
+        entity_type: 'tournament_entrance_link',
+        status: 'active',
+        data_json: JSON.stringify({
+          id: 'link-test',
+          tournament_id: 'tournament-1',
+          token: 'test-token',
+          status: 'active',
+          link_kind: 'test',
+        }),
+      },
+    ],
+  }));
+  const handle = postFunctionHandler(router);
+  const response = makeJsonResponse();
+
+  await handle(
+    { params: { name: 'listTournamentEntranceLinks' }, body: { tournament_id: 'tournament-1' }, user: { id: 'creator-1' } },
+    response,
+  );
+
+  assert.equal(response.statusCode, 200, response.body?.error);
+  assert.equal(response.body.data.links.length, 1);
+  assert.equal(response.body.data.links[0].id, 'link-std');
 });
 
 function entranceTokenSqlMock({

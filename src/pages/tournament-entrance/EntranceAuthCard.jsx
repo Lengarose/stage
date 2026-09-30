@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { stageClient } from "@/api/stageClient";
 import { useAuth } from "@/lib/AuthContext";
 import { ensureAdminPanelMode, isAppAdminUser } from "@/lib/adminAuth";
-import { shouldApplyTournamentEntranceAccess } from "@/lib/tournamentEntranceAccess";
+import { claimTournamentTestGrantIfNeeded, shouldApplyTournamentEntranceAccess } from "@/lib/tournamentEntranceAccess";
 import { format, parseISO, isValid } from "@/lib/momentDate";
 import { useTranslation } from "@/hooks/useTranslation";
 import BannerImg from "@/assets/Banner.jpg";
@@ -93,6 +93,7 @@ export default function EntranceAuthCard({ mode }) {
   const [loading, setLoading]       = useState(true);
   const [resolveError, setResolveError] = useState("");
   const [tournament, setTournament] = useState(null);
+  const [entranceLink, setEntranceLink] = useState(null);
 
   const [identifier, setIdentifier]               = useState("");
   const [password, setPassword]                   = useState("");
@@ -104,7 +105,7 @@ export default function EntranceAuthCard({ mode }) {
 
   const postAuthHandledRef = useRef(false);
 
-  const finalizeAuthedUser = useCallback(async (tournamentId) => {
+  const finalizeAuthedUser = useCallback(async (tournamentId, link = entranceLink) => {
     const me = await stageClient.auth.me().catch(() => null);
     if (!me) throw new Error(t("commonPages.teUnableAccount"));
     if (isAppAdminUser(me)) ensureAdminPanelMode();
@@ -112,10 +113,11 @@ export default function EntranceAuthCard({ mode }) {
       await stageClient.functions
         .invoke("applyTournamentEntranceAccessMode", { tournament_id: tournamentId })
         .catch(() => {});
-      await checkUserAuth().catch(() => {});
     }
+    await claimTournamentTestGrantIfNeeded(stageClient, { token, link });
+    await checkUserAuth().catch(() => {});
     navigate("/", { replace: true });
-  }, [navigate, checkUserAuth, isSignup, t]);
+  }, [navigate, checkUserAuth, isSignup, t, token, entranceLink]);
 
   useEffect(() => {
     let mounted = true;
@@ -136,7 +138,11 @@ export default function EntranceAuthCard({ mode }) {
           return;
         }
         const row = resolved.data.tournament || null;
-        if (mounted) setTournament(row);
+        const link = resolved.data.link || null;
+        if (mounted) {
+          setTournament(row);
+          setEntranceLink(link);
+        }
 
         const isAuthed = await stageClient.auth.isAuthenticated().catch(() => false);
         if (isAuthed && row?.id && !postAuthHandledRef.current) {
@@ -144,7 +150,7 @@ export default function EntranceAuthCard({ mode }) {
           // Returning from OAuth (or already signed in): finish entrance signup then home.
           // Onboarding gate in App.jsx will open if this is a new OAuth account.
           try {
-            await finalizeAuthedUser(row.id);
+            await finalizeAuthedUser(row.id, link);
           } catch {
             navigate("/", { replace: true });
           }
@@ -185,7 +191,7 @@ export default function EntranceAuthCard({ mode }) {
       }
       stageClient.auth.setToken(access_token);
       await checkUserAuth();
-      if (tournament?.id) await finalizeAuthedUser(tournament.id);
+      if (tournament?.id) await finalizeAuthedUser(tournament.id, entranceLink);
     } catch (err) {
       const serverError = err?.error || err?.message || "";
       if (isSignup && String(serverError).toLowerCase().includes("this user with this email exist")) {
@@ -430,6 +436,11 @@ export default function EntranceAuthCard({ mode }) {
                 <p className="text-white/35 text-[11px] md:text-[10px] text-center pt-2 leading-snug">
                   {t("commonPages.teScopedNote", { name: tournamentName })}
                 </p>
+                {entranceLink?.link_kind === "test" && (
+                  <p className="text-cyan-200/80 text-[11px] md:text-[10px] text-center pt-1 leading-snug">
+                    {t("commonPages.teTestGrantNote")}
+                  </p>
+                )}
               </form>
             </>
           )}

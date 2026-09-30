@@ -35,6 +35,28 @@ test("tournament entrance links treat expired Stage Plus as free", () => {
   }), true);
 });
 
+test("only test entrance links claim the tester grant", async () => {
+  const { isTestEntranceLink, claimTournamentTestGrantIfNeeded } = await import("../tournamentEntranceAccess.js");
+  assert.equal(isTestEntranceLink({ link_kind: "test" }), true);
+  assert.equal(isTestEntranceLink({ link_kind: "standard" }), false);
+  assert.equal(isTestEntranceLink({}), false);
+
+  const calls = [];
+  const client = { functions: { invoke: async (name, body) => { calls.push({ name, body }); return { data: { granted: true } }; } } };
+  await claimTournamentTestGrantIfNeeded(client, { token: "abc", link: { link_kind: "standard" } });
+  assert.equal(calls.length, 0);
+  await claimTournamentTestGrantIfNeeded(client, { token: "abc", link: { link_kind: "test" } });
+  assert.deepEqual(calls, [{ name: "claimTournamentTestGrant", body: { token: "abc" } }]);
+});
+
+test("entrance auth claims tester credits only through the dedicated grant function", () => {
+  const card = read("src/pages/tournament-entrance/EntranceAuthCard.jsx");
+  const app = read("src/App.jsx");
+  assert.match(card, /claimTournamentTestGrantIfNeeded/);
+  assert.match(app, /claimTournamentTestGrantIfNeeded/);
+  assert.doesNotMatch(card, /addUserCredits|starter_credits/);
+});
+
 test("tournament-limited users can open the existing Wallet page", () => {
   const guard = read("src/components/TournamentEntranceRouteGuard.jsx");
   const layout = read("src/components/Layout.jsx");

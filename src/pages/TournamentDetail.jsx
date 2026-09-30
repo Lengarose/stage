@@ -12,12 +12,13 @@ import {
   initializeTournamentDraw,
   officializeTournament,
   acceptTournamentRules,
+  copyOrCreateTournamentInviteLink,
   registerTournamentClub,
   registerTournamentPlayer,
   simulateTournamentScore,
   withdrawTournamentClub,
 } from "@/api/tournamentActions";
-import { Trophy, ArrowLeft, Users, Calendar, Shield, Check, Play, AlertTriangle, Flag, BookOpen, Download, Coins, ExternalLink, Image as ImageIcon } from "lucide-react";
+import { Trophy, ArrowLeft, Users, Calendar, Shield, Check, Play, AlertTriangle, Flag, BookOpen, Download, Coins, ExternalLink, Image as ImageIcon, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -149,6 +150,7 @@ export default function TournamentDetail() {
   const [takeoverClub, setTakeoverClub] = useState(null);
   const [activeTab, setActiveTab] = useState("bracket");
   const [autoAdvancingRound, setAutoAdvancingRound] = useState(false);
+  const [inviteBusy, setInviteBusy] = useState(false);
   const autoAdvanceAttemptsRef = useRef(new Set());
 
   useEffect(() => {
@@ -185,7 +187,7 @@ export default function TournamentDetail() {
         setIsBasic(u?.role === "admin");
         setTournamentEntryCost(u?.role === "admin" ? 0 : getTournamentEntryCost());
         setIsAdmin(u?.role === "admin");
-        setIsCreator(Boolean(u?.email && t?.creator_email === u.email));
+        setIsCreator(Boolean(u?.email && String(t?.creator_email || "").toLowerCase() === String(u.email).toLowerCase()));
         if (u?.role === "admin") {
           const tcId = localStorage.getItem('admin_takeover_club_id');
           if (tcId) {
@@ -487,6 +489,26 @@ export default function TournamentDetail() {
       await swalAlert((t("tournamentDetail.rulesSaveFailed") || "Could not save rules acceptance.") + ": " + (err?.message || t("tournamentDetail.unknownError")));
     } finally {
       setSavingRules(false);
+    }
+  }
+
+  async function copyInviteLink() {
+    if (!tournament) return;
+    const allowed = isAdmin || isCreator || String(tournament.organizer_email || "").toLowerCase() === String(user?.email || "").toLowerCase();
+    if (!allowed) return;
+    setInviteBusy(true);
+    try {
+      const url = await copyOrCreateTournamentInviteLink(id);
+      try {
+        await navigator.clipboard.writeText(url);
+        await swalAlert(t("tournamentDetail.inviteLinkCopied"));
+      } catch {
+        await swalAlert(`${t("tournamentDetail.inviteLinkCopied")}\n${url}`);
+      }
+    } catch (err) {
+      await swalAlert(err?.message || t("tournamentDetail.inviteLinkFailed"));
+    } finally {
+      setInviteBusy(false);
     }
   }
 
@@ -817,9 +839,6 @@ export default function TournamentDetail() {
     () => (tournament ? resolveTournamentRules(tournament, language) : null),
     [tournament, language],
   );
-  useEffect(() => {
-    setRulesAccepted(false);
-  }, [tournament?.id, tournament?.rules_template_id, tournament?.custom_rules]);
 
   if (loading) return <div className="flex items-center justify-center h-full"><div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" /></div>;
   if (!tournament) return <div className="p-6 lg:p-10 text-center"><p className="text-muted-foreground">{t("tournamentDetail.tournamentNotFound")}</p><Link to="/tournaments"><Button variant="outline" className="mt-4">{t("tournamentDetail.back")}</Button></Link></div>;
@@ -856,8 +875,9 @@ export default function TournamentDetail() {
     || (isPlayerTournament && myPlayer && !myPlayerRegistered)
   );
   const showRulesConsentPanel = showRegistrationConsent && rules?.body && !hasSavedRulesAcceptance;
-  const isOrganizer = tournament.organizer_email === user?.email;
+  const isOrganizer = String(tournament.organizer_email || "").toLowerCase() === String(user?.email || "").toLowerCase();
   const canManageTournament = isAdmin || isCreator || isOrganizer;
+  const canShareInvite = canManageTournament && ["registration", "in_progress"].includes(String(tournament.status || ""));
   const myClubId = effectiveClubId;
   const isLeagueTournament = tournament.type === "league";
   const isGroupStageTournament = tournament.type === "group_stage";
@@ -1111,6 +1131,18 @@ export default function TournamentDetail() {
             </div>
 
             <div className="flex shrink-0 flex-col items-stretch gap-3 lg:items-end">
+              {canShareInvite && (
+                <Button
+                  type="button"
+                  onClick={copyInviteLink}
+                  disabled={inviteBusy}
+                  className="h-10 min-w-[210px] rounded-none border border-cyan-200/25 bg-black/24 px-7 font-heading text-xs font-black uppercase tracking-[0.12em] text-cyan-50/95 shadow-[0_0_24px_-16px_rgba(0,229,255,0.9)] backdrop-blur-md transition-all hover:border-cyan-200/55 hover:bg-cyan-300/10 hover:text-white disabled:opacity-55"
+                  style={{ clipPath: "polygon(8% 0, 100% 0, 92% 100%, 0 100%)" }}
+                >
+                  <Link2 className="w-4 h-4 mr-2" />
+                  {inviteBusy ? t("tournamentDetail.copyingInvite") : t("tournamentDetail.inviteLink")}
+                </Button>
+              )}
               {showRulesConsentPanel && (
                 <div className="w-full max-w-md bg-black/35 p-4 text-left ring-1 ring-white/10"
                   style={{ clipPath: "polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%)" }}>
@@ -1224,7 +1256,7 @@ export default function TournamentDetail() {
       </div>
 
       {/* ── INFO STRIP ────────────────────────────────── */}
-      {(tournament.entry_fee_stc > 0 || effectiveClubId || (isPlayerTournament && myPlayer)) && (
+      {(tournament.entry_fee_stc > 0 || effectiveClubId || (isPlayerTournament && myPlayer) || canManageTournament) && (
         <div className="border-y border-cyan-300/10 bg-[#06111f]/95">
           <div className="max-w-7xl mx-auto px-4 lg:px-8 py-3 flex flex-wrap items-center gap-3">
             {tournament.entry_fee_stc > 0 && (
@@ -1320,6 +1352,15 @@ export default function TournamentDetail() {
                 className="h-9 rounded-none border border-amber-300/30 bg-amber-300/10 text-xs text-amber-200 hover:bg-amber-300/15"
                 style={{ clipPath: "polygon(9px 0, 100% 0, calc(100% - 9px) 100%, 0 100%)" }}>
                 <Trophy className="w-3 h-3 mr-1.5" /> End Tournament
+              </Button>
+            )}
+
+            {canShareInvite && (
+              <Button type="button" onClick={copyInviteLink} disabled={inviteBusy} size="sm"
+                className="h-9 rounded-none border border-cyan-300/25 bg-cyan-300/10 text-xs text-cyan-100 hover:bg-cyan-300/15"
+                style={{ clipPath: "polygon(9px 0, 100% 0, calc(100% - 9px) 100%, 0 100%)" }}>
+                <Link2 className="w-3 h-3 mr-1.5" />
+                {inviteBusy ? t("tournamentDetail.copyingInvite") : t("tournamentDetail.inviteLink")}
               </Button>
             )}
 
