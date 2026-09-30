@@ -122,6 +122,17 @@ export async function setAdminTournamentClubs(tournamentId, clubIds) {
   });
 }
 
+export async function acceptTournamentRules(tournamentId, options = {}) {
+  const source = options || {};
+  const rules = assertRulesAcceptance(source);
+  return stageClient.functions.invoke("tournamentRulesAccept", {
+    tournament_id: tournamentId,
+    player_id: source.playerId || source.player_id || null,
+    club_id: source.clubId || source.club_id || null,
+    ...rules,
+  });
+}
+
 export async function registerTournamentPlayer(tournamentId, playerId) {
   const source = typeof arguments[2] === "object" && arguments[2] ? arguments[2] : {};
   const rules = assertRulesAcceptance(source);

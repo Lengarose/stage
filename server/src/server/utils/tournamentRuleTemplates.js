@@ -269,6 +269,34 @@ function acceptanceLabel(name, locale) {
     : `I have read and accept the rules of ${label}.`;
 }
 
+const PRIVATE_TEST_CONFIDENTIALITY = {
+  fr: `Confidentialité (tournoi test / cercle privé)
+Ce tournoi est un test en cercle privé. Tu ne dois pas en parler à des personnes extérieures. Il se joue uniquement entre les participants invités. Toute divulgation hors de ce cercle est interdite.`,
+  en: `Confidentiality (private test tournament)
+This tournament is a closed private-circle test. Do not tell people outside the invited group. It is played only among yourselves. Sharing it outside this circle is forbidden.`,
+};
+
+function isPrivateTestTournament(tournament) {
+  if (!tournament || typeof tournament !== 'object') return false;
+  if (tournament.is_test === true || tournament.is_private === true) return true;
+  const visibility = String(tournament.visibility || '').trim().toLowerCase();
+  if (visibility === 'private' || visibility === 'test') return true;
+  const hay = `${tournament.name || ''} ${tournament.description || ''}`.toLowerCase();
+  return /\b(test|testing|beta|privé|prive|private|cercle)\b/.test(hay);
+}
+
+function privateTestConfidentiality(locale) {
+  return PRIVATE_TEST_CONFIDENTIALITY[normalizeRuleLocale(locale)];
+}
+
+function withPrivateTestConfidentiality(body, tournament, locale) {
+  const text = String(body || '').trim();
+  if (!text || !isPrivateTestTournament(tournament)) return text;
+  const clause = privateTestConfidentiality(locale);
+  if (text.includes(clause.split('\n')[0])) return text;
+  return `${text}\n\n${clause}`;
+}
+
 function renderTournamentRules(templateId, tournament = {}, locale = 'en', countries = []) {
   const lang = normalizeRuleLocale(locale);
   const id = isTournamentRuleTemplate(templateId) ? templateId : 'standard_cup';
@@ -277,7 +305,11 @@ function renderTournamentRules(templateId, tournament = {}, locale = 'en', count
   return {
     templateId: id,
     title: template.title[lang],
-    body: fillTemplate(template.body[lang], values, lang),
+    body: withPrivateTestConfidentiality(
+      fillTemplate(template.body[lang], values, lang),
+      tournament,
+      lang,
+    ),
     acceptanceLabel: acceptanceLabel(values.tournament_name, lang),
   };
 }
@@ -293,7 +325,7 @@ function resolveTournamentRules(tournament, locale = 'en', countries = []) {
       templateId: storedId,
       source: 'server',
       title,
-      body: serverText,
+      body: withPrivateTestConfidentiality(serverText, tournament, lang),
       rulesFileUrl,
       fileLabel: lang === 'fr' ? 'Fichier de règlement' : 'Rules file',
       acceptanceLabel: acceptanceLabel(String(tournament?.name || '').trim(), lang),
@@ -305,7 +337,7 @@ function resolveTournamentRules(tournament, locale = 'en', countries = []) {
       templateId: null,
       source: 'custom',
       title: lang === 'fr' ? 'Règlement' : 'Rules',
-      body: custom,
+      body: withPrivateTestConfidentiality(custom, tournament, lang),
       rulesFileUrl,
       fileLabel: lang === 'fr' ? 'Fichier de règlement' : 'Rules file',
       acceptanceLabel: acceptanceLabel(String(tournament?.name || '').trim(), lang),
@@ -378,6 +410,7 @@ module.exports = {
   encodeRulesTemplate,
   readStoredRulesTemplateId,
   listTournamentRuleTemplates,
+  isPrivateTestTournament,
   renderTournamentRules,
   resolveTournamentRules,
   applyStoredTournamentRules,

@@ -18,6 +18,7 @@ function loadFunctionsRouterWithDbMock(executesql, options = {}) {
   const clubMembershipServicePath = path.resolve(__dirname, '../../services/clubMembershipService.js');
   const presidentResolutionServicePath = path.resolve(__dirname, '../../services/presidentResolutionService.js');
   const scoreProofServicePath = path.resolve(__dirname, '../../services/scoreProofService.js');
+  const userCreditsServicePath = path.resolve(__dirname, '../../services/userCreditsService.js');
   const servicePath = path.resolve(__dirname, '../../services/competitionEngineService.js');
   const matchModelPath = path.resolve(__dirname, '../../models/matchModel.js');
   const socketPath = path.resolve(__dirname, '../../utils/socketBroadcast.js');
@@ -36,6 +37,7 @@ function loadFunctionsRouterWithDbMock(executesql, options = {}) {
   delete require.cache[clubMembershipServicePath];
   delete require.cache[presidentResolutionServicePath];
   delete require.cache[scoreProofServicePath];
+  delete require.cache[userCreditsServicePath];
   delete require.cache[servicePath];
   delete require.cache[matchModelPath];
   delete require.cache[socketPath];
@@ -3016,6 +3018,159 @@ test('listTournamentEntranceLinks returns links for a tournament to admin', asyn
   assert.equal(response.body.data.links[0].tournament_id, 'tournament-1');
 });
 
+test('createTournamentEntranceLink stays standard unless link_kind is test', async () => {
+  const inserts = [];
+  const executesql = async (sql, params = []) => {
+    if (/SELECT id, email, role_id FROM users WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: params[0], email: 'admin@example.test', role_id: 0 }];
+    }
+    if (/SELECT \* FROM tournaments WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: params[0], name: 'Summer Cup', start_date: '2026-06-10T20:00:00.000Z' }];
+    }
+    if (/INSERT INTO league_entities/.test(sql)) {
+      inserts.push({ sql, params });
+      return { affectedRows: 1 };
+    }
+    if (/INSERT INTO admin_audit_log/.test(sql)) return { affectedRows: 1 };
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+  const router = loadFunctionsRouterWithDbMock(executesql);
+  const handle = postFunctionHandler(router);
+
+  const standard = makeJsonResponse();
+  await handle(
+    { params: { name: 'createTournamentEntranceLink' }, body: { tournament_id: 'tournament-1' }, user: { id: 'admin-1' } },
+    standard,
+  );
+  assert.equal(standard.statusCode, 200);
+  assert.equal(standard.body.data.link.link_kind, undefined);
+  assert.equal(JSON.parse(inserts[0].params[1]).link_kind, undefined);
+
+  const testLink = makeJsonResponse();
+  await handle(
+    { params: { name: 'createTournamentEntranceLink' }, body: { tournament_id: 'tournament-1', link_kind: 'test' }, user: { id: 'admin-1' } },
+    testLink,
+  );
+  assert.equal(testLink.statusCode, 200);
+  assert.equal(testLink.body.data.link.link_kind, 'test');
+  assert.equal(JSON.parse(inserts[1].params[1]).link_kind, 'test');
+});
+
+function entranceTokenSqlMock({
+  link = {},
+  tournament = { id: 'tournament-1', status: 'registration', max_teams: 8, registered_players: '[]', registered_clubs: '[]' },
+  grantRows = [],
+  userCredits = 0,
+  player = { id: 'player-1', email: 'tester@example.test', stc: 0 },
+  onUpdate = {},
+} = {}) {
+  const storedLink = {
+    id: 'link-1',
+    token: 'test-token',
+    tournament_id: 'tournament-1',
+    status: 'active',
+    ...link,
+  };
+  return async (sql, params = []) => {
+    if (/SELECT \* FROM league_entities\s+WHERE entity_type = 'tournament_entrance_link'/.test(sql)) {
+      return [{
+        id: storedLink.id,
+        entity_type: 'tournament_entrance_link',
+        status: storedLink.status,
+        data_json: JSON.stringify(storedLink),
+      }];
+    }
+    if (/SELECT \* FROM tournaments WHERE id = \? LIMIT 1/.test(sql)) {
+      return tournament ? [tournament] : [];
+    }
+    if (/SELECT id FROM league_entities\s+WHERE entity_type = 'tournament_test_grant'/.test(sql)) {
+      return grantRows;
+    }
+    if (/SELECT credits FROM users WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ credits: userCredits }];
+    }
+    if (/UPDATE users SET credits = \?, credits_refreshed_at/.test(sql)) {
+      onUpdate.credits = params[0];
+      userCredits = params[0];
+      return { affectedRows: 1 };
+    }
+    if (/SELECT id, stc FROM players WHERE user_id = \?/.test(sql) || /SELECT id, email, stc FROM players WHERE user_id = \?/.test(sql)) {
+      return player ? [player] : [];
+    }
+    if (/UPDATE players SET stc = \?/.test(sql)) {
+      onUpdate.stc = params[0];
+      if (player) player.stc = params[0];
+      return { affectedRows: 1 };
+    }
+    if (/INSERT INTO player_stc_transactions/.test(sql)) {
+      onUpdate.stcTx = true;
+      return { affectedRows: 1 };
+    }
+    if (/INSERT INTO league_entities/.test(sql)) {
+      onUpdate.grantInsert = JSON.parse(params[1]);
+      grantRows.push({ id: params[0] });
+      return { affectedRows: 1 };
+    }
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+}
+
+test('claimTournamentTestGrant does not credit a standard entrance link', async () => {
+  const onUpdate = {};
+  const router = loadFunctionsRouterWithDbMock(entranceTokenSqlMock({
+    link: { token: 'standard-token' },
+    onUpdate,
+  }));
+  const handle = postFunctionHandler(router);
+  const response = makeJsonResponse();
+
+  await handle(
+    { params: { name: 'claimTournamentTestGrant' }, body: { token: 'standard-token' }, user: { id: 'user-1' } },
+    response,
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.data.success, true);
+  assert.equal(response.body.data.granted, false);
+  assert.equal(response.body.data.reason, 'not_test_link');
+  assert.equal(onUpdate.credits, undefined);
+  assert.equal(onUpdate.stc, undefined);
+  assert.equal(onUpdate.grantInsert, undefined);
+});
+
+test('claimTournamentTestGrant gives testers 50 credits and 5000 STC once', async () => {
+  const onUpdate = {};
+  const router = loadFunctionsRouterWithDbMock(entranceTokenSqlMock({
+    link: { token: 'test-token', link_kind: 'test' },
+    userCredits: 0,
+    player: { id: 'player-1', email: 'tester@example.test', stc: 0 },
+    onUpdate,
+  }));
+  const handle = postFunctionHandler(router);
+  const first = makeJsonResponse();
+
+  await handle(
+    { params: { name: 'claimTournamentTestGrant' }, body: { token: 'test-token' }, user: { id: 'user-1' } },
+    first,
+  );
+
+  assert.equal(first.statusCode, 200);
+  assert.equal(first.body.data.granted, true);
+  assert.equal(first.body.data.credits_after, 50);
+  assert.equal(first.body.data.player_stc_after, 5000);
+  assert.equal(onUpdate.credits, 50);
+  assert.equal(onUpdate.stc, 5000);
+
+  const second = makeJsonResponse();
+  await handle(
+    { params: { name: 'claimTournamentTestGrant' }, body: { token: 'test-token' }, user: { id: 'user-1' } },
+    second,
+  );
+  assert.equal(second.body.data.granted, false);
+  assert.equal(second.body.data.reason, 'already_claimed');
+  assert.equal(second.body.data.credits_after, 50);
+});
+
 function clubResultSqlMock(match, updates = []) {
   return async (sql, params = []) => {
     if (/SELECT id, email, player_id, owner_id, role_id, role FROM users WHERE id = \? LIMIT 1/.test(sql)) {
@@ -3970,6 +4125,91 @@ test('tournamentRegistration stores rules acceptance on the club proof without d
   assert.equal(proofs.club['club-1'].ea_club_name, 'The Hooded FC');
   assert.equal(proofs.club['club-1'].status, 'pending');
   assert.match(proofs.club['club-1'].rules_accepted_at, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+});
+
+test('tournamentRulesAccept saves player rules acceptance without registering', async () => {
+  const updates = [];
+  const tournament = {
+    id: 'tournament-1',
+    name: 'FC27 SEPTEMBER TOURNAMENT 26',
+    description: 'THE FIRST TESTING OF THE STAGE LEAGUES APPLICATION.',
+    status: 'registration',
+    participant_type: 'player',
+    max_teams: 8,
+    entry_fee_stc: 1500,
+    entry_credits: 50,
+    registered_clubs: JSON.stringify([]),
+    registered_players: JSON.stringify([]),
+    registration_proofs: JSON.stringify({}),
+    custom_rules: 'rules_template:standard_cup',
+  };
+  const player = {
+    id: 'player-1',
+    user_id: 'user-1',
+    email: 'player@example.test',
+    credits: 50,
+    stc: 2000,
+  };
+  const pool = {
+    promise() {
+      return {
+        async getConnection() {
+          return {
+            async beginTransaction() {},
+            async commit() {},
+            async rollback() {},
+            release() {},
+            async query(sql, params = []) {
+              if (/SELECT \* FROM tournaments WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[tournament], []];
+              if (/SELECT \* FROM players WHERE id = \? LIMIT 1/.test(sql)) return [[player], []];
+              if (/UPDATE tournaments SET registration_proofs = \?/.test(sql)) {
+                updates.push({ sql, params });
+                tournament.registration_proofs = params[0];
+                return [{ affectedRows: 1 }, []];
+              }
+              throw new Error(`Unexpected transaction SQL: ${sql}`);
+            },
+          };
+        },
+      };
+    },
+  };
+  const executesql = async (sql, params = []) => {
+    if (/SELECT id, email, role_id FROM users WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: params[0], email: 'player@example.test', role_id: 1 }];
+    }
+    throw new Error(`Unexpected SQL: ${sql}`);
+  };
+  const router = loadFunctionsRouterWithDbMock(executesql, { pool });
+  const handle = postFunctionHandler(router);
+  const response = {
+    statusCode: 200,
+    body: null,
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; },
+  };
+
+  await handle(
+    {
+      params: { name: 'tournamentRulesAccept' },
+      body: {
+        tournament_id: 'tournament-1',
+        player_id: 'player-1',
+        rules_accepted: true,
+        rules_template_id: 'standard_cup',
+      },
+      user: { id: 'user-1' },
+    },
+    response,
+  );
+
+  assert.equal(response.statusCode, 200, JSON.stringify(response.body));
+  assert.equal(response.body.data.success, true);
+  assert.equal(updates.length, 1);
+  const proofs = JSON.parse(updates[0].params[0]);
+  assert.match(proofs.player['player-1'].rules_accepted_at, /^\d{4}-\d{2}-\d{2}T/);
+  assert.equal(proofs.player['player-1'].proof_type, 'rules_acceptance');
+  assert.equal(JSON.parse(tournament.registered_players).length, 0);
 });
 
 test('tournamentWithdrawal allows canonical president user to withdraw their club', async () => {

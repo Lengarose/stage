@@ -51,7 +51,7 @@ const {
 const Match = require('../models/matchModel');
 const { DEFAULT_STORE_SETTINGS, getCreditPack, getActiveStoreSettings } = require('../utils/storeSettings');
 const { isWallClockPast } = require('../utils/datetime');
-const { registrationRulesError } = require('../utils/tournamentRuleTemplates');
+const { registrationRulesError, readStoredRulesTemplateId } = require('../utils/tournamentRuleTemplates');
 const {
   addUserCredits,
   getUserCredits,
@@ -1555,7 +1555,47 @@ function parseTournamentEntranceLinkRow(row) {
     token: parsed.token || null,
     tournament_id: parsed.tournament_id || null,
     expires_at: parsed.expires_at || null,
+    link_kind: isTestEntranceLink(parsed) ? 'test' : 'standard',
   };
+}
+
+function isTestEntranceLink(link) {
+  return String(link?.link_kind || '').toLowerCase() === 'test';
+}
+
+const TEST_ENTRANCE_GRANT = Object.freeze({ credits: 50, stc: 5000 });
+
+async function resolveTournamentEntranceTokenPayload(token) {
+  const rows = await EXECUTESQL(
+    `SELECT * FROM league_entities
+      WHERE entity_type = 'tournament_entrance_link'
+        AND JSON_UNQUOTE(JSON_EXTRACT(data_json, '$.token')) = ?
+      LIMIT 1`,
+    [token],
+  );
+  if (!rows.length) {
+    return { data: { success: false, reason: 'not_found' } };
+  }
+  const link = parseTournamentEntranceLinkRow(rows[0]);
+  if (String(link.status || '').toLowerCase() !== 'active') {
+    return { data: { success: false, reason: 'revoked', link } };
+  }
+  if (isDatePassed(link.expires_at)) {
+    return { data: { success: false, reason: 'expired', link } };
+  }
+  const tournamentRows = await EXECUTESQL('SELECT * FROM tournaments WHERE id = ? LIMIT 1', [link.tournament_id]);
+  const tournament = tournamentRows[0] || null;
+  if (!tournament) return { data: { success: false, reason: 'tournament_not_found', link } };
+  let registeredPlayers = [];
+  try { registeredPlayers = JSON.parse(tournament.registered_players || '[]'); } catch { /* ignore */ }
+  let registeredClubs = [];
+  try { registeredClubs = JSON.parse(tournament.registered_clubs || '[]'); } catch { /* ignore */ }
+  const registeredCount = Math.max(registeredPlayers.length, registeredClubs.length);
+  const maxTeams = Number(tournament.max_teams || 0);
+  if (maxTeams > 0 && registeredCount >= maxTeams) {
+    return { data: { success: false, reason: 'tournament_full', link, tournament } };
+  }
+  return { data: { success: true, link, tournament } };
 }
 
 function isDatePassed(value) {
@@ -3889,7 +3929,7 @@ async function resolvePlayerContactForInvite(playerId) {
 }
 
 const HANDLERS = {
-  async createTournamentEntranceLink({ _auth_user_id, tournament_id }) {
+  async createTournamentEntranceLink({ _auth_user_id, tournament_id, link_kind }) {
     const admin = await requireAdminUser(_auth_user_id);
     if (!tournament_id) throw new Error('tournament_id required');
     const tournamentRows = await EXECUTESQL('SELECT * FROM tournaments WHERE id = ? LIMIT 1', [tournament_id]);
@@ -3898,6 +3938,7 @@ const HANDLERS = {
 
     const id = uuidv4();
     const token = generateEntranceToken();
+    const isTest = String(link_kind || '').toLowerCase() === 'test';
     const link = {
       id,
       token,
@@ -3908,6 +3949,7 @@ const HANDLERS = {
       created_by_user_id: admin.id,
       created_date: new Date().toISOString(),
       updated_date: new Date().toISOString(),
+      ...(isTest ? { link_kind: 'test' } : {}),
     };
     await EXECUTESQL(
       `INSERT INTO league_entities
@@ -3947,37 +3989,110 @@ const HANDLERS = {
 
   async resolveTournamentEntranceToken({ token }) {
     if (!token) throw new Error('token required');
-    const rows = await EXECUTESQL(
-      `SELECT * FROM league_entities
-        WHERE entity_type = 'tournament_entrance_link'
-          AND JSON_UNQUOTE(JSON_EXTRACT(data_json, '$.token')) = ?
+    return resolveTournamentEntranceTokenPayload(token);
+  },
+
+  async claimTournamentTestGrant({ _auth_user_id, token }) {
+    if (!_auth_user_id) throw new Error('not authenticated');
+    if (!token) throw new Error('token required');
+    const resolved = await resolveTournamentEntranceTokenPayload(token);
+    if (!resolved?.data?.success) {
+      return {
+        data: {
+          success: false,
+          granted: false,
+          reason: resolved?.data?.reason || 'invalid',
+        },
+      };
+    }
+    const link = resolved.data.link;
+    if (!isTestEntranceLink(link)) {
+      return { data: { success: true, granted: false, reason: 'not_test_link' } };
+    }
+
+    const tournamentId = link.tournament_id;
+    const existingGrant = await EXECUTESQL(
+      `SELECT id FROM league_entities
+        WHERE entity_type = 'tournament_test_grant'
+          AND JSON_UNQUOTE(JSON_EXTRACT(data_json, '$.user_id')) = ?
+          AND JSON_UNQUOTE(JSON_EXTRACT(data_json, '$.tournament_id')) = ?
         LIMIT 1`,
-      [token],
+      [_auth_user_id, tournamentId],
     );
-    if (!rows.length) {
-      return { data: { success: false, reason: 'not_found' } };
+    if (existingGrant.length) {
+      const playerRows = await EXECUTESQL(
+        'SELECT id, stc FROM players WHERE user_id = ? ORDER BY updated_date DESC LIMIT 1',
+        [_auth_user_id],
+      );
+      return {
+        data: {
+          success: true,
+          granted: false,
+          reason: 'already_claimed',
+          credits_after: await getUserCredits(_auth_user_id),
+          player_stc_after: playerRows[0] ? Number(playerRows[0].stc || 0) : null,
+        },
+      };
     }
-    const link = parseTournamentEntranceLinkRow(rows[0]);
-    if (String(link.status || '').toLowerCase() !== 'active') {
-      return { data: { success: false, reason: 'revoked', link } };
+
+    const creditResult = await refreshUserCreditsTo(_auth_user_id, TEST_ENTRANCE_GRANT.credits);
+    let playerStcAfter = null;
+    let stcAdded = 0;
+    const playerRows = await EXECUTESQL(
+      'SELECT id, email, stc FROM players WHERE user_id = ? ORDER BY updated_date DESC LIMIT 1',
+      [_auth_user_id],
+    );
+    const player = playerRows[0] || null;
+    if (player) {
+      const beforeStc = Math.max(0, Number(player.stc || 0));
+      playerStcAfter = beforeStc;
+      if (beforeStc < TEST_ENTRANCE_GRANT.stc) {
+        playerStcAfter = TEST_ENTRANCE_GRANT.stc;
+        stcAdded = playerStcAfter - beforeStc;
+        await EXECUTESQL(
+          'UPDATE players SET stc = ?, updated_date = NOW() WHERE id = ?',
+          [playerStcAfter, player.id],
+        );
+        await EXECUTESQL(
+          `INSERT INTO player_stc_transactions
+             (id, player_id, player_email, amount, balance_after, type, category, source, description, reference_id, created_date)
+           VALUES (?, ?, ?, ?, ?, 'income', 'test_entrance_grant', 'STAGE',
+                   'Test entrance grant — 5,000 STC', ?, NOW())`,
+          [uuidv4(), player.id, player.email || null, stcAdded, playerStcAfter, tournamentId],
+        ).catch(() => {});
+      }
     }
-    if (isDatePassed(link.expires_at)) {
-      return { data: { success: false, reason: 'expired', link } };
-    }
-    const tournamentRows = await EXECUTESQL('SELECT * FROM tournaments WHERE id = ? LIMIT 1', [link.tournament_id]);
-    const tournament = tournamentRows[0] || null;
-    if (!tournament) return { data: { success: false, reason: 'tournament_not_found', link } };
-    // Check if tournament is full (registered players/clubs >= max_teams).
-    let registeredPlayers = [];
-    try { registeredPlayers = JSON.parse(tournament.registered_players || '[]'); } catch { /* ignore */ }
-    let registeredClubs = [];
-    try { registeredClubs = JSON.parse(tournament.registered_clubs || '[]'); } catch { /* ignore */ }
-    const registeredCount = Math.max(registeredPlayers.length, registeredClubs.length);
-    const maxTeams = Number(tournament.max_teams || 0);
-    if (maxTeams > 0 && registeredCount >= maxTeams) {
-      return { data: { success: false, reason: 'tournament_full', link, tournament } };
-    }
-    return { data: { success: true, link, tournament } };
+
+    const grant = {
+      id: uuidv4(),
+      user_id: _auth_user_id,
+      tournament_id: tournamentId,
+      link_id: link.id,
+      credits_before: creditResult.credits_before,
+      credits_after: creditResult.credits_after,
+      credits_added: creditResult.credits_added,
+      stc_added: stcAdded,
+      player_stc_after: playerStcAfter,
+      created_date: new Date().toISOString(),
+    };
+    await EXECUTESQL(
+      `INSERT INTO league_entities
+        (id, entity_type, data_json, status, created_date, updated_date)
+       VALUES (?, 'tournament_test_grant', ?, 'claimed', NOW(), NOW())`,
+      [grant.id, JSON.stringify(grant)],
+    );
+
+    return {
+      data: {
+        success: true,
+        granted: true,
+        reason: 'granted',
+        credits_after: creditResult.credits_after,
+        credits_added: creditResult.credits_added,
+        player_stc_after: playerStcAfter,
+        stc_added: stcAdded,
+      },
+    };
   },
 
   async revokeTournamentEntranceLink({ _auth_user_id, link_id }) {
@@ -11958,6 +12073,114 @@ const HANDLERS = {
     }
 
     throw new Error(`Unknown economyTests action: ${action}`);
+  },
+
+  // Persist rules acceptance alone (before full tournament registration).
+  async tournamentRulesAccept({
+    tournament_id, club_id, player_id, rules_accepted, rules_template_id, _auth_user_id,
+  }) {
+    const fail = (msg) => ({ data: { success: false, error: msg } });
+    if (!_auth_user_id) return fail('Not authenticated');
+    if (!tournament_id) return fail('tournament_id required');
+
+    const users = await EXECUTESQL(
+      'SELECT id, email, role_id FROM users WHERE id = ? LIMIT 1',
+      [_auth_user_id],
+    );
+    if (!users.length) return fail('User not found');
+    const user = users[0];
+    const isAdmin = [0, 2].includes(Number(user.role_id));
+
+    const parseProofs = (raw) => {
+      if (!raw) return { club: {}, player: {} };
+      try {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        return {
+          club: parsed?.club && typeof parsed.club === 'object' ? parsed.club : {},
+          player: parsed?.player && typeof parsed.player === 'object' ? parsed.player : {},
+        };
+      } catch {
+        return { club: {}, player: {} };
+      }
+    };
+
+    return withTransaction(async (query) => {
+      const tRows = await query('SELECT * FROM tournaments WHERE id = ? LIMIT 1 FOR UPDATE', [tournament_id]);
+      if (!tRows.length) return fail('Tournament not found');
+      const tournament = tRows[0];
+      const rulesError = registrationRulesError(tournament, { rules_accepted, rules_template_id });
+      if (rulesError) return fail(rulesError);
+
+      if (String(tournament.status || '') !== 'registration') {
+        return fail('Tournament registration is closed');
+      }
+      if (isWallClockPast(tournament.start_date)) {
+        return fail('Tournament registration is closed');
+      }
+
+      const participantType = String(tournament.participant_type || 'club').toLowerCase();
+      const proofs = parseProofs(tournament.registration_proofs);
+      const now = new Date().toISOString();
+      const templateId = readStoredRulesTemplateId(tournament) || rules_template_id || null;
+
+      if (participantType === 'player') {
+        if (!player_id) return fail('player_id required for player tournament');
+        const players = await query('SELECT * FROM players WHERE id = ? LIMIT 1', [player_id]);
+        if (!players.length) return fail('Player not found');
+        const player = players[0];
+        const playerOk = isAdmin
+          || String(player.user_id || '') === String(_auth_user_id)
+          || String(player.email || '').toLowerCase() === String(user.email || '').toLowerCase();
+        if (!playerOk) return fail('You can only accept rules for your own player');
+
+        const existing = proofs.player[String(player_id)] || {};
+        proofs.player[String(player_id)] = {
+          ...existing,
+          participant_id: String(player_id),
+          proof_type: existing.proof_type || 'rules_acceptance',
+          submitted_by_user_id: _auth_user_id,
+          submitted_at: existing.submitted_at || now,
+          rules_accepted_at: now,
+          rules_template_id: templateId,
+        };
+      } else {
+        if (!club_id) return fail('club_id required for club tournament');
+        const clubs = await query('SELECT * FROM clubs WHERE id = ? LIMIT 1', [club_id]);
+        if (!clubs.length) return fail('Club not found');
+        const club = clubs[0];
+        const ownerOk = isAdmin
+          || String(club.president_user_id || '') === String(_auth_user_id)
+          || String(club.owner_email || '').toLowerCase() === String(user.email || '').toLowerCase()
+          || String(club.user_id || '') === String(_auth_user_id);
+        if (!ownerOk) return fail('Only the club president can accept rules for this club');
+
+        const existing = proofs.club[String(club_id)] || {};
+        proofs.club[String(club_id)] = {
+          ...existing,
+          participant_id: String(club_id),
+          proof_type: existing.proof_type || 'rules_acceptance',
+          submitted_by_user_id: _auth_user_id,
+          submitted_at: existing.submitted_at || now,
+          rules_accepted_at: now,
+          rules_template_id: templateId,
+        };
+      }
+
+      await query(
+        'UPDATE tournaments SET registration_proofs = ?, updated_date = NOW() WHERE id = ?',
+        [JSON.stringify(proofs), tournament_id],
+      );
+
+      return {
+        data: {
+          success: true,
+          message: 'Rules acceptance saved',
+          registration_proofs: proofs,
+          rules_accepted_at: now,
+          rules_template_id: templateId,
+        },
+      };
+    });
   },
 
   // ── Tournament registration (STC + optional club credits + JSON roster) ──

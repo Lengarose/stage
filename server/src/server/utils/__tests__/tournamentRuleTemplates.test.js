@@ -6,6 +6,21 @@ const {
   resolveTournamentRules,
 } = require('../tournamentRuleTemplates');
 
+test('private/test tournaments append a confidentiality clause', () => {
+  const french = renderTournamentRules('standard_cup', {
+    name: 'FC27 SEPTEMBER TOURNAMENT 26',
+    description: 'THE FIRST TESTING OF THE STAGE LEAGUES APPLICATION.',
+  }, 'fr');
+  assert.match(french.body, /cercle privé/);
+  assert.match(french.body, /ne dois pas en parler/);
+
+  const english = renderTournamentRules('standard_cup', {
+    name: 'Open Cup',
+    description: 'Public launch event',
+  }, 'en');
+  assert.doesNotMatch(english.body, /private-circle test/);
+});
+
 test('standard_cup fills this tournament name and date and leaves no placeholders', () => {
   const french = renderTournamentRules('standard_cup', {
     name: 'Tournoi Test',

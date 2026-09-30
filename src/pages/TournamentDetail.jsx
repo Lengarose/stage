@@ -11,6 +11,7 @@ import {
   generateTournamentDraw,
   initializeTournamentDraw,
   officializeTournament,
+  acceptTournamentRules,
   registerTournamentClub,
   registerTournamentPlayer,
   simulateTournamentScore,
@@ -139,7 +140,8 @@ export default function TournamentDetail() {
   const [isCreator, setIsCreator] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [rulesModalOpen, setRulesModalOpen] = useState(false);
-  const [rulesAccepted, setRulesAccepted] = useState(false);
+  const [rulesChecked, setRulesChecked] = useState(false);
+  const [savingRules, setSavingRules] = useState(false);
   const [streamMatch, setStreamMatch] = useState(null);
   const [streamDialogOpen, setStreamDialogOpen] = useState(false);
   const [streamUrl, setStreamUrl] = useState("");
@@ -300,6 +302,10 @@ export default function TournamentDetail() {
   async function registerClub() {
     const effectiveId = takeoverClub ? takeoverClub.id : (myClub?.id || myPlayer?.club_id);
     if (!effectiveId || !tournament) return;
+    if (!hasSavedRulesAcceptance) {
+      await swalAlert(t("tournamentDetail.saveRulesFirst") || "Save your rules acceptance before registering.");
+      return;
+    }
     const requiresAdminReview = requiresClubTournamentAdminReview(tournament);
     const cleanEaClubName = eaClubName.trim();
     if (requiresAdminReview && !cleanEaClubName) {
@@ -398,6 +404,10 @@ export default function TournamentDetail() {
       await swalAlert(t("tournamentDetail.needPlayerProfile") || "Create your player profile before registering.");
       return;
     }
+    if (!hasSavedRulesAcceptance) {
+      await swalAlert(t("tournamentDetail.saveRulesFirst") || "Save your rules acceptance before registering.");
+      return;
+    }
     const entryCost = tournament.entry_credits ?? 50;
     const entryFeeSTC = tournament.entry_fee_stc ?? 0;
     const currentCredits = user?.credits ?? 0;
@@ -435,6 +445,48 @@ export default function TournamentDetail() {
       await swalAlert(t("tournamentDetail.registered") || "Registered successfully.");
     } catch (err) {
       await swalAlert(t("tournamentDetail.registrationFailed") + ": " + (err?.message || t("tournamentDetail.unknownError")));
+    }
+  }
+
+  async function saveRulesAcceptance() {
+    if (!tournament || !rulesChecked || savingRules) return;
+    setSavingRules(true);
+    try {
+      const payload = isPlayerTournament
+        ? {
+            playerId: myPlayer?.id,
+            rulesAccepted: true,
+            rulesTemplateId: tournament.rules_template_id || rules?.templateId || null,
+            tournament,
+          }
+        : {
+            clubId: takeoverClub?.id || myClub?.id || myPlayer?.club_id,
+            rulesAccepted: true,
+            rulesTemplateId: tournament.rules_template_id || rules?.templateId || null,
+            tournament,
+          };
+      if (isPlayerTournament && !payload.playerId) {
+        await swalAlert(t("tournamentDetail.needPlayerProfile") || "Create your player profile before registering.");
+        return;
+      }
+      if (!isPlayerTournament && !payload.clubId) {
+        await swalAlert(t("tournamentDetail.needClub") || "Join or create a club before registering.");
+        return;
+      }
+      const res = await acceptTournamentRules(tournament.id, payload);
+      if (!res?.data?.success) {
+        await swalAlert(res?.data?.error || t("tournamentDetail.rulesSaveFailed") || "Could not save rules acceptance.");
+        return;
+      }
+      setTournament((prev) => ({
+        ...(prev || {}),
+        registration_proofs: res.data.registration_proofs || prev?.registration_proofs,
+      }));
+      setRulesChecked(true);
+    } catch (err) {
+      await swalAlert((t("tournamentDetail.rulesSaveFailed") || "Could not save rules acceptance.") + ": " + (err?.message || t("tournamentDetail.unknownError")));
+    } finally {
+      setSavingRules(false);
     }
   }
 
@@ -779,10 +831,17 @@ export default function TournamentDetail() {
   const effectiveClubId = effectiveClub?.id || null;
   const myClubRegistered = tournament.registered_clubs?.includes(effectiveClubId);
   const clubRegistrationProofs = tournament.registration_proofs?.club || {};
+  const playerRegistrationProofs = tournament.registration_proofs?.player || {};
   const myClubRegistrationProof = effectiveClubId ? clubRegistrationProofs[String(effectiveClubId)] : null;
+  const myPlayerRegistrationProof = myPlayer?.id ? playerRegistrationProofs[String(myPlayer.id)] : null;
   const myClubRegistrationStatus = String(myClubRegistrationProof?.status || "").toLowerCase();
   const myClubRegistrationPending = myClubRegistrationStatus === "pending";
   const myPlayerRegistered = (tournament.registered_players || []).map(String).includes(String(myPlayer?.id || ""));
+  const hasSavedRulesAcceptance = Boolean(
+    isPlayerTournament
+      ? myPlayerRegistrationProof?.rules_accepted_at
+      : myClubRegistrationProof?.rules_accepted_at
+  );
   const registeredCount = isPlayerTournament
     ? (tournament.registered_players?.length || 0)
     : (tournament.registered_clubs?.length || 0);
@@ -796,6 +855,7 @@ export default function TournamentDetail() {
     (!isPlayerTournament && effectiveClubId && !myClubRegistered && !myClubRegistrationPending)
     || (isPlayerTournament && myPlayer && !myPlayerRegistered)
   );
+  const showRulesConsentPanel = showRegistrationConsent && rules?.body && !hasSavedRulesAcceptance;
   const isOrganizer = tournament.organizer_email === user?.email;
   const canManageTournament = isAdmin || isCreator || isOrganizer;
   const myClubId = effectiveClubId;
@@ -1051,7 +1111,7 @@ export default function TournamentDetail() {
             </div>
 
             <div className="flex shrink-0 flex-col items-stretch gap-3 lg:items-end">
-              {showRegistrationConsent && rules?.body && (
+              {showRulesConsentPanel && (
                 <div className="w-full max-w-md bg-black/35 p-4 text-left ring-1 ring-white/10"
                   style={{ clipPath: "polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%)" }}>
                   <p className="font-heading text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100/70">{rules.title}</p>
@@ -1068,12 +1128,29 @@ export default function TournamentDetail() {
                     <input
                       type="checkbox"
                       className="mt-1 h-4 w-4 shrink-0 accent-cyan-300"
-                      checked={rulesAccepted}
-                      onChange={(event) => setRulesAccepted(event.target.checked)}
+                      checked={rulesChecked}
+                      onChange={(event) => setRulesChecked(event.target.checked)}
                     />
                     <span>{rules.acceptanceLabel}</span>
                   </label>
+                  <Button
+                    type="button"
+                    onClick={saveRulesAcceptance}
+                    disabled={!rulesChecked || savingRules}
+                    className="mt-3 h-10 w-full rounded-none bg-cyan-400 text-black hover:bg-cyan-300 disabled:opacity-55"
+                    style={{ clipPath: "polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)" }}
+                  >
+                    {savingRules
+                      ? (t("tournamentDetail.savingRules") || "Saving...")
+                      : (t("tournamentDetail.saveRules") || "Save")}
+                  </Button>
                 </div>
+              )}
+              {hasSavedRulesAcceptance && showRegistrationConsent && (
+                <span className="inline-flex items-center gap-1.5 text-xs text-success">
+                  <Check className="w-3.5 h-3.5" />
+                  {t("tournamentDetail.rulesSaved") || "Rules accepted"}
+                </span>
               )}
               {!isPlayerTournament && tournament.status === "registration" && effectiveClubId && !myClubRegistered && !myClubRegistrationPending && !isFull && (() => {
                 const clubData = effectiveClub;
@@ -1089,7 +1166,7 @@ export default function TournamentDetail() {
                           registerClub();
                         }
                       }}
-                      disabled={registeringClub || !rulesAccepted || (!takeoverClub && !canAfford)}
+                      disabled={registeringClub || !hasSavedRulesAcceptance || (!takeoverClub && !canAfford)}
                       className="h-10 min-w-[210px] rounded-none border border-cyan-200/25 bg-black/24 px-7 font-heading text-xs font-black uppercase tracking-[0.12em] text-cyan-50/95 shadow-[0_0_24px_-16px_rgba(0,229,255,0.9)] backdrop-blur-md transition-all hover:border-cyan-200/55 hover:bg-cyan-300/10 hover:text-white hover:shadow-[0_0_24px_-10px_rgba(0,229,255,0.9)] focus-visible:ring-2 focus-visible:ring-cyan-300/50 disabled:border-white/10 disabled:text-white/45 disabled:opacity-55"
                       style={{ clipPath: "polygon(8% 0, 100% 0, 92% 100%, 0 100%)" }}>
                       {registeringClub ? "Registering..." : (takeoverClub ? t("tournamentDetail.registerClubNamed", { name: takeoverClub.name }) : t("tournamentDetail.registerMyClub"))}
@@ -1109,7 +1186,7 @@ export default function TournamentDetail() {
                 <Button
                   type="button"
                   onClick={registerPlayer}
-                  disabled={!rulesAccepted || !canAffordPlayerEntry}
+                  disabled={!hasSavedRulesAcceptance || !canAffordPlayerEntry}
                   className="h-12 rounded-none bg-gradient-to-r from-cyan-500 to-blue-500 px-5 font-heading text-sm font-black uppercase tracking-wide text-white shadow-[0_0_24px_rgba(34,211,238,0.18)] hover:from-cyan-400 hover:to-blue-400 disabled:opacity-55"
                   style={{ clipPath: "polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%)" }}
                 >
@@ -1147,7 +1224,7 @@ export default function TournamentDetail() {
       </div>
 
       {/* ── INFO STRIP ────────────────────────────────── */}
-      {(tournament.entry_fee_stc > 0 || (!isPlayerTournament && effectiveClubId)) && (
+      {(tournament.entry_fee_stc > 0 || effectiveClubId || (isPlayerTournament && myPlayer)) && (
         <div className="border-y border-cyan-300/10 bg-[#06111f]/95">
           <div className="max-w-7xl mx-auto px-4 lg:px-8 py-3 flex flex-wrap items-center gap-3">
             {tournament.entry_fee_stc > 0 && (
@@ -1168,6 +1245,30 @@ export default function TournamentDetail() {
                   </span>
                 )}
               </span>
+            )}
+            {isPlayerTournament && myPlayer && (
+              <>
+                <span className="inline-flex min-h-10 items-center gap-2 bg-black/20 px-4 text-xs text-white/65 ring-1 ring-cyan-300/10"
+                  style={{ clipPath: "polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)" }}>
+                  <Shield className="w-3 h-3 text-amber-300" />
+                  <span className="font-heading uppercase tracking-[0.16em] text-white/40">{t("tournamentDetail.credits")}</span>
+                  <strong className={cn("text-amber-200", (user?.credits ?? 0) < entryCreditsNeeded && "text-red-300")}>
+                    {(user?.credits ?? 0).toLocaleString()}
+                  </strong>
+                  <span className="text-white/35">/ {entryCreditsNeeded}</span>
+                </span>
+                {entryStcNeeded > 0 && (
+                  <span className="inline-flex min-h-10 items-center gap-2 bg-black/20 px-4 text-xs text-white/65 ring-1 ring-cyan-300/10"
+                    style={{ clipPath: "polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)" }}>
+                    <Coins className="w-3 h-3 text-amber-300" />
+                    <span className="font-heading uppercase tracking-[0.16em] text-white/40">STC</span>
+                    <strong className={cn("text-amber-200", (myPlayer?.stc ?? 0) < entryStcNeeded && "text-red-300")}>
+                      {(myPlayer?.stc ?? 0).toLocaleString()}
+                    </strong>
+                    <span className="text-white/35">/ {entryStcNeeded.toLocaleString()}</span>
+                  </span>
+                )}
+              </>
             )}
             {!isPlayerTournament && effectiveClubId && (() => {
               const myClubData = effectiveClub || allClubs.find(c => c.id === effectiveClubId);
@@ -1199,7 +1300,7 @@ export default function TournamentDetail() {
                   onClick={registerPlayer}
                   className="h-10 rounded-none bg-cyan-400 text-black leading-relaxed hover:bg-cyan-300 disabled:opacity-55"
                   style={{ clipPath: "polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)" }}
-                  disabled={!rulesAccepted || !canAffordPlayerEntry}
+                  disabled={!hasSavedRulesAcceptance || !canAffordPlayerEntry}
                 >
                   <Users className="w-4 h-4 mr-2" /> {t("tournamentDetail.registerAsPlayer")} <span className="ml-1 opacity-70 text-xs">({entryCreditsNeeded} credits{entryStcNeeded > 0 ? ` + ${entryStcNeeded.toLocaleString()} STC` : ""})</span>
                 </Button>
@@ -1821,7 +1922,7 @@ export default function TournamentDetail() {
             <Button
               type="button"
               onClick={registerClub}
-              disabled={registeringClub || !rulesAccepted || (requiresClubRegistrationReview && !eaClubName.trim())}
+              disabled={registeringClub || !hasSavedRulesAcceptance || (requiresClubRegistrationReview && !eaClubName.trim())}
               className="h-12 w-full rounded-none bg-cyan-400 font-heading text-sm font-black uppercase tracking-[0.16em] text-black hover:bg-cyan-300 disabled:opacity-45"
               style={{ clipPath: "polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%)" }}
             >
