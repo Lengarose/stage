@@ -1092,3 +1092,13 @@ html, body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* A horizontal scroller with only overflow-x: auto is promoted by CSS to
+   overflow-y: auto as well. The strip then eats the vertical wheel, so the
+   page scrolls only when the pointer is beside it. clip keeps sideways
+   scrolling and lets the wheel move the page. */
+@layer utilities {
+  :where(.overflow-x-auto) {
+    overflow-y: clip;
+  }
+}

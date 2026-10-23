@@ -35,16 +35,18 @@ test('database config uses TCP when DB_SOCKET_PATH is empty', () => {
   assert.equal(config.database, 'tcp-db');
 });
 
-test('database config rejects Gandi socket with PostgreSQL default user', () => {
-  assert.throws(
-    () => buildPoolConfig({
-      DB_SOCKET_PATH: '/srv/run/mysqld/mysqld.sock',
-      DB_USER: 'hosting-db',
-      DB_PASSWORD: '',
-      DB_NAME: 'stage_league',
-    }),
-    /DB_USER=hosting-db is a PostgreSQL-style default/
-  );
+test('database config remaps Gandi PostgreSQL user to MySQL root on the Unix socket', () => {
+  const config = buildPoolConfig({
+    DB_SOCKET_PATH: '/srv/run/mysqld/mysqld.sock',
+    DB_USER: 'hosting-db',
+    DB_PASSWORD: '',
+    DB_NAME: 'postgres',
+  });
+
+  assert.equal(config.socketPath, '/srv/run/mysqld/mysqld.sock');
+  assert.equal(config.user, 'root');
+  assert.equal(config.database, 'stage_league');
+  assert.equal(config.host, undefined);
 });
 
 test('database timezone defaults to Brussels and can be overridden', () => {

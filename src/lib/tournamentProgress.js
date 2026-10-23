@@ -98,51 +98,7 @@ function calculateGenericLeagueStandings(matches, participantType) {
 }
 
 function calculateGenericGroupStandings(matches, numGroups, participantType) {
-  if (participantType === "club") {
-    return calculateGroupStandings(matches, numGroups);
-  }
-
-  const groups = Array.from({ length: numGroups }, () => ({}));
-  matches
-    .filter((m) => ["group", "group_stage"].includes(String(m.type || "")) && isFinished(m))
-    .forEach((m) => {
-      const g = Number(m.group_number ?? m.group ?? 0);
-      if (g >= groups.length) return;
-      const hId = m.home_player_id;
-      const aId = m.away_player_id;
-      if (!hId || !aId) return;
-      if (!groups[g][hId]) groups[g][hId] = { id: hId, name: m.home_player_name, P: 0, W: 0, D: 0, L: 0, GF: 0, GA: 0, GD: 0, Pts: 0 };
-      if (!groups[g][aId]) groups[g][aId] = { id: aId, name: m.away_player_name, P: 0, W: 0, D: 0, L: 0, GF: 0, GA: 0, GD: 0, Pts: 0 };
-      const h = groups[g][hId];
-      const a = groups[g][aId];
-      h.P++;
-      a.P++;
-      h.GF += m.home_score || 0;
-      h.GA += m.away_score || 0;
-      a.GF += m.away_score || 0;
-      a.GA += m.home_score || 0;
-      h.GD = h.GF - h.GA;
-      a.GD = a.GF - a.GA;
-      const w = m.winner_player_id;
-      if (w === hId) {
-        h.W++;
-        h.Pts += 3;
-        a.L++;
-      } else if (w === aId) {
-        a.W++;
-        a.Pts += 3;
-        h.L++;
-      } else {
-        h.D++;
-        a.D++;
-        h.Pts++;
-        a.Pts++;
-      }
-    });
-
-  return groups.map((g) =>
-    Object.values(g).sort((a, b) => b.Pts - a.Pts || b.GD - a.GD || b.GF - a.GF)
-  );
+  return calculateGroupStandings(matches, numGroups, participantType);
 }
 
 export function computeTournamentProgress(tournament, matches, participant) {

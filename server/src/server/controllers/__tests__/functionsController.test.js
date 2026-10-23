@@ -3095,6 +3095,9 @@ function organizerEntranceSqlMock({
         organizer_email: organizerEmail,
       }];
     }
+    if (/SELECT id, gamertag, email FROM players/.test(sql)) {
+      return [];
+    }
     if (/FROM league_entities\s+WHERE entity_type = 'tournament_entrance_link'/.test(sql)) {
       return links;
     }
@@ -3159,6 +3162,92 @@ test('createTournamentEntranceLink blocks test links for community organizers', 
   assert.equal(response.statusCode, 403);
   assert.match(String(response.body.error || ''), /test entrance/i);
   assert.equal(inserts.length, 0);
+});
+
+test('createTournamentEntranceLink is admin-only for GOST tournaments', async () => {
+  const inserts = [];
+  const router = loadFunctionsRouterWithDbMock(async (sql, params = []) => {
+    if (/SELECT id, email, role_id FROM users WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: params[0], email: 'creator@example.test', role_id: 1 }];
+    }
+    if (/SELECT \* FROM tournaments WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{
+        id: params[0],
+        name: 'By STAGE · Supreme',
+        creator_email: 'creator@example.test',
+        organizer_email: 'creator@example.test',
+      }];
+    }
+    if (/INSERT INTO league_entities/.test(sql)) {
+      inserts.push({ sql, params });
+      return { affectedRows: 1 };
+    }
+    throw new Error(`Unexpected SQL: ${sql}`);
+  });
+  const handle = postFunctionHandler(router);
+  const response = makeJsonResponse();
+
+  await handle(
+    { params: { name: 'createTournamentEntranceLink' }, body: { tournament_id: 'gost-1' }, user: { id: 'creator-1' } },
+    response,
+  );
+
+  assert.equal(response.statusCode, 403);
+  assert.equal(response.body.error, 'Admin only');
+  assert.equal(inserts.length, 0);
+});
+
+test('getTournamentInviteLink creates a standard link for the tournament creator', async () => {
+  const inserts = [];
+  const router = loadFunctionsRouterWithDbMock(organizerEntranceSqlMock({ inserts, links: [] }));
+  const handle = postFunctionHandler(router);
+  const response = makeJsonResponse();
+
+  await handle(
+    { params: { name: 'getTournamentInviteLink' }, body: { tournament_id: 'tournament-1' }, user: { id: 'creator-1' } },
+    response,
+  );
+
+  assert.equal(response.statusCode, 200, response.body?.error);
+  assert.equal(response.body.data.success, true);
+  assert.equal(response.body.data.link.status, 'active');
+  assert.equal(Boolean(response.body.data.link.token), true);
+  assert.equal(inserts.length, 1);
+});
+
+test('createTournamentEntranceLink allows the creator matched by player id', async () => {
+  const inserts = [];
+  const router = loadFunctionsRouterWithDbMock(async (sql, params = []) => {
+    if (/SELECT id, email, role_id FROM users WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{ id: params[0], email: 'alias@example.test', role_id: 1 }];
+    }
+    if (/SELECT \* FROM tournaments WHERE id = \? LIMIT 1/.test(sql)) {
+      return [{
+        id: params[0],
+        name: 'Community Cup',
+        creator_email: 'old-email@example.test',
+        creator_id: 'player-1',
+      }];
+    }
+    if (/SELECT id, gamertag, email FROM players/.test(sql)) {
+      return [{ id: 'player-1', gamertag: 'OwnerTag', email: 'alias@example.test' }];
+    }
+    if (/INSERT INTO league_entities/.test(sql)) {
+      inserts.push({ sql, params });
+      return { affectedRows: 1 };
+    }
+    throw new Error(`Unexpected SQL: ${sql}`);
+  });
+  const handle = postFunctionHandler(router);
+  const response = makeJsonResponse();
+
+  await handle(
+    { params: { name: 'createTournamentEntranceLink' }, body: { tournament_id: 'tournament-1' }, user: { id: 'creator-1' } },
+    response,
+  );
+
+  assert.equal(response.statusCode, 200, response.body?.error);
+  assert.equal(inserts.length, 1);
 });
 
 test('listTournamentEntranceLinks hides test links from organizers', async () => {
@@ -3284,7 +3373,7 @@ test('claimTournamentTestGrant does not credit a standard entrance link', async 
   assert.equal(onUpdate.grantInsert, undefined);
 });
 
-test('claimTournamentTestGrant gives testers 50 credits and 5000 STC once', async () => {
+test('claimTournamentTestGrant gives testers 50 credits and 50000 STC once', async () => {
   const onUpdate = {};
   const router = loadFunctionsRouterWithDbMock(entranceTokenSqlMock({
     link: { token: 'test-token', link_kind: 'test' },
@@ -3303,9 +3392,9 @@ test('claimTournamentTestGrant gives testers 50 credits and 5000 STC once', asyn
   assert.equal(first.statusCode, 200);
   assert.equal(first.body.data.granted, true);
   assert.equal(first.body.data.credits_after, 50);
-  assert.equal(first.body.data.player_stc_after, 5000);
+  assert.equal(first.body.data.player_stc_after, 50000);
   assert.equal(onUpdate.credits, 50);
-  assert.equal(onUpdate.stc, 5000);
+  assert.equal(onUpdate.stc, 50000);
 
   const second = makeJsonResponse();
   await handle(

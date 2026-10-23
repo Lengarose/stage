@@ -307,7 +307,7 @@ export default function Tournaments() {
 
       {/* ── Create Tournament Dialog ─────────────────────────── */}
       <Dialog open={dialogOpen} onOpenChange={open => { if (!open) resetForm(); setDialogOpen(open); }}>
-        <DialogContent hideCloseButton className="flex max-h-[82vh] max-w-2xl flex-col overflow-hidden border-cyan-300/18 bg-[#0a1724] p-0 text-white shadow-[0_0_56px_rgba(34,211,238,0.14)] sm:max-w-2xl">
+        <DialogContent hideCloseButton className="!flex max-h-[82vh] max-w-2xl flex-col overflow-hidden border-cyan-300/18 bg-[#0a1724] p-0 text-white shadow-[0_0_56px_rgba(34,211,238,0.14)] sm:max-w-2xl">
           {/* Header */}
           <div className="relative flex shrink-0 items-center justify-between overflow-hidden border-b border-cyan-300/14 px-5 pb-4 pt-5">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgba(34,211,238,0.16),transparent_42%),linear-gradient(90deg,rgba(34,211,238,0.08),rgba(255,255,255,0.035),transparent)]" />

@@ -104,14 +104,16 @@ router.post('/', async (req, res) => {
     const user = users[0] || null;
     const isAdmin = [0, 2].includes(Number(user?.role_id));
     let creatorPlayerId = null;
+    let creatorGamertag = null;
 
     if (!isAdmin) {
       const playerRows = await EXECUTESQL(
-        'SELECT id, subscription, subscription_expires_at FROM players WHERE user_id = ? OR LOWER(TRIM(email)) = LOWER(TRIM(?)) ORDER BY user_id = ? DESC, updated_date DESC LIMIT 1',
+        'SELECT id, gamertag, subscription, subscription_expires_at FROM players WHERE user_id = ? OR LOWER(TRIM(email)) = LOWER(TRIM(?)) ORDER BY user_id = ? DESC, updated_date DESC LIMIT 1',
         [userId, user?.email || '', userId]
       );
       const player = playerRows[0] || null;
       creatorPlayerId = player?.id || null;
+      creatorGamertag = player?.gamertag || null;
       if (!hasStagePlus(player)) {
         return res.status(403).json({ error: 'STAGE Plus is required to create tournaments.' });
       }
@@ -122,6 +124,16 @@ router.post('/', async (req, res) => {
     }
 
     const body = normalizeTournamentEconomics(req.body, { allowDisabled: false });
+    if (user?.email) {
+      body.organizer_email = body.organizer_email || user.email;
+      body.creator_email = body.creator_email || user.email;
+    }
+    if (creatorPlayerId) {
+      body.creator_id = body.creator_id || creatorPlayerId;
+    }
+    if (creatorGamertag) {
+      body.creator_gamertag = body.creator_gamertag || creatorGamertag;
+    }
     const tournament = new Tournament(body);
     await tournament.create();
     if (!isAdmin && userId) {
@@ -136,6 +148,17 @@ router.post('/', async (req, res) => {
     }
     const created = await tournament.selectOne(tournament.id);
     const record  = created[0];
+    try {
+      const { HANDLERS } = require('../functions/legacyFunctions');
+      if (userId && record?.id) {
+        await HANDLERS.createTournamentEntranceLink({
+          _auth_user_id: userId,
+          tournament_id: record.id,
+        });
+      }
+    } catch (err) {
+      console.error('[createTournament] default invite link', err);
+    }
     broadcastTournament(record);
     res.status(201).json(record);
   } catch (err) {
@@ -212,5 +235,21 @@ router.delete('/:id', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+async function sendTournamentInviteLink(req, res) {
+  try {
+    const { HANDLERS } = require('../functions/legacyFunctions');
+    const result = await HANDLERS.getTournamentInviteLink({
+      _auth_user_id: req.user?.id,
+      tournament_id: req.params.id,
+    });
+    res.json(result);
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message || 'Failed to load invite link' });
+  }
+}
+
+router.get('/:id/invite-link', sendTournamentInviteLink);
+router.post('/:id/invite-link', sendTournamentInviteLink);
 
 module.exports = router;

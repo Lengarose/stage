@@ -5,8 +5,9 @@
  *   node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
  */
 module.exports = {
-  // Local smoke/development DB. Leave DB_SOCKET_PATH set on Gandi; set it to
-  // an empty string locally to use DB_HOST/DB_PORT over TCP.
+  // Local smoke/development DB. Empty DB_SOCKET_PATH uses DB_HOST/DB_PORT over TCP.
+  // On Gandi the Unix socket is used automatically if /srv/run/mysqld/mysqld.sock
+  // exists — do not copy these TCP keys onto the production host as the only DB config.
   DB_SOCKET_PATH: '',
   DB_HOST: '127.0.0.1',
   DB_PORT: '3306',

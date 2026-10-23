@@ -7,7 +7,13 @@ const { generateAccessToken, generateRefreshToken } = require('../jwt/index');
 const jwt = require('jsonwebtoken');
 const { ACCESS_TOKEN_SECRET, REFRESH_TOKEN_SECRET } = require('../../constants/constants');
 const { validate, rules } = require('../middleware/validate');
-const { notifySignup } = require('../services/notifications');
+const { get } = require('../../constants/env');
+const { notifySignup, notifyPasswordReset } = require('../services/notifications');
+const {
+  requestPasswordReset,
+  isResetTokenValid,
+  resetPasswordWithToken,
+} = require('../services/passwordResetService');
 const { normalizeUserLocation, parseStoredLocation } = require('../utils/userLocation');
 
 function isValidTimeZone(value) {
@@ -142,6 +148,9 @@ router.post('/login', validate({
     if (!rows.length) return res.status(401).json({ error: 'Invalid credentials' });
 
     const user = rows[0];
+    if (!user.password_hash) {
+      return res.status(401).json({ error: 'oauth_password_required' });
+    }
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
 
@@ -304,6 +313,51 @@ router.get('/me', async (req, res) => {
     });
   } catch (err) {
     res.status(401).json({ error: 'Invalid token' });
+  }
+});
+
+router.post('/forgot-password', validate({
+  identifier: [rules.string, rules.maxLength(255)],
+  email:      [rules.string, rules.maxLength(255)],
+}), async (req, res) => {
+  try {
+    const identifier = String(req.body?.identifier || req.body?.email || '').trim();
+    if (!identifier) return res.status(400).json({ error: 'identifier required' });
+    await requestPasswordReset({
+      identifier,
+      exec: EXECUTESQL,
+      notify: notifyPasswordReset,
+      frontendUrl: get('FRONTEND_URL') || get('BASE_URL') || 'https://stageleagues.com',
+    });
+  } catch (err) {
+    console.error('[forgot-password]', err.message);
+  }
+  res.json({ ok: true });
+});
+
+router.get('/reset-password', async (req, res) => {
+  try {
+    const valid = await isResetTokenValid({ token: req.query?.token, exec: EXECUTESQL });
+    res.json({ valid });
+  } catch {
+    res.json({ valid: false });
+  }
+});
+
+router.post('/reset-password', validate({
+  token:    [rules.required, rules.string, rules.maxLength(128)],
+  password: [rules.required, rules.string, rules.minLength(8), rules.maxLength(128)],
+}), async (req, res) => {
+  try {
+    const result = await resetPasswordWithToken({
+      token: req.body?.token,
+      password: req.body?.password,
+      exec: EXECUTESQL,
+    });
+    if (!result.ok) return res.status(result.status || 400).json({ error: result.error });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

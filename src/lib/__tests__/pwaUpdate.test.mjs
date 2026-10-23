@@ -9,6 +9,8 @@ import {
   dismissPwaUpdate,
   resetPwaUpdateDismissedForTests,
   shouldAllowPwaReload,
+  clearWebsiteCookies,
+  listCookieNames,
 } from "../pwaUpdate.js";
 
 const root = resolve(import.meta.dirname, "../../..");
@@ -58,12 +60,51 @@ test("Reload and Later hide the prompt immediately", () => {
   assert.match(source, /dismissPwaUpdate/);
   assert.match(source, /isPwaUpdateDismissed/);
   assert.match(source, /function reloadNow/);
+  assert.match(source, /clearWebsiteCookies/);
   assert.match(source, /SKIP_WAITING/);
   assert.match(source, /z-\[220\]/);
   assert.doesNotMatch(
     source,
     /if \(reloadPage && !navigator\.serviceWorker\.controller\) window\.location\.reload\(\)/,
   );
+});
+
+test("listCookieNames splits a cookie header", () => {
+  assert.deepEqual(listCookieNames("a=1; b=two; c="), ["a", "b", "c"]);
+  assert.deepEqual(listCookieNames(""), []);
+});
+
+test("clearWebsiteCookies expires every readable cookie on the site", async () => {
+  const writes = [];
+  const documentRef = {
+    get cookie() {
+      return "stage_sidebar=1; theme=dark";
+    },
+    set cookie(value) {
+      writes.push(value);
+    },
+  };
+  const deleted = [];
+  const cookieStore = {
+    async getAll() {
+      return [{ name: "stage_sidebar", path: "/", domain: "stageleagues.com" }];
+    },
+    async delete(query) {
+      deleted.push(query);
+    },
+  };
+
+  await clearWebsiteCookies({
+    documentRef,
+    cookieStore,
+    hostname: "stageleagues.com",
+    pathname: "/tournaments",
+  });
+
+  assert.ok(writes.some((value) => value.startsWith("stage_sidebar=") && /max-age=0/.test(value)));
+  assert.ok(writes.some((value) => value.startsWith("theme=") && /max-age=0/.test(value)));
+  assert.ok(writes.some((value) => /domain=\.stageleagues\.com/.test(value)));
+  assert.deepEqual(deleted, [{ name: "stage_sidebar", path: "/", domain: "stageleagues.com" }]);
 });
 
 test("PWA plugin waits for the Reload button instead of auto-updating", () => {

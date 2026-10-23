@@ -1,5 +1,6 @@
 // @ts-nocheck — shadcn/ui primitives are untyped forwardRefs under checkJs.
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import BackfillStcButton from "@/components/admin/economy/BackfillStcButton";
 import MarketValueConfigPanel from "@/components/admin/economy/MarketValueConfigPanel";
 import AdminContractsPanel from "@/components/admin/economy/AdminContractsPanel";
@@ -215,16 +216,18 @@ export default function PlayersTab({
       <div className="space-y-2">
         {visiblePlayers.map(p => (
           <div key={p.id} className="bg-card border border-border rounded p-4 flex items-center gap-4">
-            <div className="w-9 h-9 rounded-full bg-secondary border border-border flex items-center justify-center shrink-0 overflow-hidden">
-              {p.avatar_url ? <img src={p.avatar_url} alt={p.gamertag} className="w-full h-full object-cover" /> : <span className="text-xs font-bold text-primary">{(p.gamertag || "?")[0].toUpperCase()}</span>}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-medium text-foreground truncate">{p.gamertag}</p>
-              <p className="text-xs text-muted-foreground truncate">
-                {p.email} · {p.platform} · {p.position}
-                {Number(p.is_verified) === 1 ? ` · ${t("admin.players.verified")}` : ""}
-              </p>
-            </div>
+            <Link to={`/players/${p.id}`} className="flex min-w-0 flex-1 items-center gap-4 group">
+              <div className="w-9 h-9 rounded-full bg-secondary border border-border flex items-center justify-center shrink-0 overflow-hidden">
+                {p.avatar_url ? <img src={p.avatar_url} alt="" className="w-full h-full object-cover" /> : <span className="text-xs font-bold text-primary">{(p.gamertag || "?")[0].toUpperCase()}</span>}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-foreground truncate group-hover:text-primary transition-colors">{p.gamertag}</p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {p.email} · {p.platform} · {p.position}
+                  {Number(p.is_verified) === 1 ? ` · ${t("admin.players.verified")}` : ""}
+                </p>
+              </div>
+            </Link>
             <div className="hidden sm:flex flex-col items-end gap-0.5 shrink-0 text-xs">
               <span className="font-semibold text-success">{((p.stc || 0) / 1000).toFixed(0)}K STC</span>
               {p.market_value_stc > 0 && (
@@ -232,6 +235,9 @@ export default function PlayersTab({
               )}
             </div>
             <div className="flex gap-2 shrink-0 flex-wrap">
+              <Link to={`/players/${p.id}`}>
+                <Button size="sm" variant="outline" className="border-border text-xs">{t("admin.actions.view")}</Button>
+              </Link>
               {hasStagePlus(p) ? (
                 <Button size="sm" variant="outline" onClick={() => removeStagePlus?.(p)} className="border-primary/30 text-primary hover:bg-primary/10 gap-1 text-xs">
                   <Crown className="w-3.5 h-3.5" /> Plus

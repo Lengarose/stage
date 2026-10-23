@@ -288,7 +288,34 @@ export async function createTournamentEntranceLink(tournamentId) {
   return result?.data?.link || null;
 }
 
+function inviteLinkFromResult(result) {
+  return result?.data?.link?.token || result?.link?.token || null;
+}
+
 export async function copyOrCreateTournamentInviteLink(tournamentId) {
+  try {
+    const result = await stageClient.http.get(`/tournaments/${encodeURIComponent(tournamentId)}/invite-link`);
+    const token = inviteLinkFromResult(result);
+    if (token) return tournamentEntranceInviteUrl(token);
+  } catch (error) {
+    if (Number(error?.status) === 403) throw error;
+  }
+  try {
+    const result = await stageClient.http.post(`/tournaments/${encodeURIComponent(tournamentId)}/invite-link`);
+    const token = inviteLinkFromResult(result);
+    if (token) return tournamentEntranceInviteUrl(token);
+  } catch (error) {
+    if (Number(error?.status) === 403) throw error;
+  }
+  try {
+    const result = await stageClient.functions.invoke("getTournamentInviteLink", {
+      tournament_id: tournamentId,
+    });
+    const token = inviteLinkFromResult(result);
+    if (token) return tournamentEntranceInviteUrl(token);
+  } catch (error) {
+    if (!isMissingFunctionError(error, "getTournamentInviteLink")) throw error;
+  }
   const links = await listTournamentEntranceLinks(tournamentId);
   const active = (Array.isArray(links) ? links : []).find((link) => (
     String(link?.status || "").toLowerCase() === "active"

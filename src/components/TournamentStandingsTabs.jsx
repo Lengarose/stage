@@ -111,7 +111,7 @@ export default function TournamentStandingsTabs({ tournament, matches, registere
                   <thead>
                     <tr className="border-b border-white/10 bg-white/[0.035] text-xs text-muted-foreground uppercase tracking-wider">
                       <th className="text-left px-2 py-2">#</th>
-                      <th className="text-left px-2 py-2">Club</th>
+                      <th className="text-left px-2 py-2">{tournament?.participant_type === "player" ? "Player" : "Club"}</th>
                       <th className="px-1.5 py-2 text-center">P</th>
                       <th className="px-1.5 py-2 text-center">W</th>
                       <th className="px-1.5 py-2 text-center">D</th>

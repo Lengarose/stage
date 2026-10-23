@@ -518,6 +518,34 @@ const auth = {
     }
   },
 
+  async requestPasswordReset(identifier) {
+    const res = await fetch(`${API_BASE}/auth/forgot-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identifier }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw data;
+    return data;
+  },
+
+  async validateResetToken(token) {
+    const res = await fetch(`${API_BASE}/auth/reset-password?token=${encodeURIComponent(token)}`);
+    const data = await res.json().catch(() => ({ valid: false }));
+    return Boolean(data?.valid);
+  },
+
+  async resetPassword(token, password) {
+    const res = await fetch(`${API_BASE}/auth/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, password }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw data;
+    return data;
+  },
+
   async registerViaEmailPassword({ email, password }) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);

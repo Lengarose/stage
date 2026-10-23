@@ -9,7 +9,7 @@
  * every `windowMs` to avoid unbounded memory growth.
  */
 
-function rateLimiter({ windowMs = 15 * 60 * 1000, max = 100, message } = {}) {
+function rateLimiter({ windowMs = 15 * 60 * 1000, max = 100, message, keyFn, skip } = {}) {
   const hits = new Map();          // key = ip, value = { count, resetAt }
 
   const msg = message || { error: 'Too many requests, please try again later.' };
@@ -26,11 +26,14 @@ function rateLimiter({ windowMs = 15 * 60 * 1000, max = 100, message } = {}) {
   }
 
   return (req, res, next) => {
+    if (typeof skip === 'function' && skip(req)) return next();
+
     purge();
 
     const ip = req.ip || req.connection?.remoteAddress || 'unknown';
     const identity = req.user?.id || req.user?.email || '';
-    const key = identity ? `${ip}:${identity}` : ip;
+    const customKey = typeof keyFn === 'function' ? keyFn(req) : '';
+    const key = customKey || (identity ? `${ip}:${identity}` : ip);
     const now = Date.now();
     let entry = hits.get(key);
 

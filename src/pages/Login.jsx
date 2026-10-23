@@ -88,6 +88,25 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const handleForgotSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    const value = String(identifier || '').trim();
+    if (!value) {
+      setError(t('auth.identifierRequired'));
+      return;
+    }
+    setIsLoading(true);
+    try {
+      await stageClient.auth.requestPasswordReset(value);
+      setMode('sent');
+    } catch (err) {
+      setError(err?.error || err?.message || t('auth.resetFailed'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleAuthSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -127,6 +146,8 @@ export default function Login() {
       const serverError = err?.error || err?.message || '';
       if (isSignup && String(serverError).toLowerCase().includes('this user with this email exist')) {
         setError(t('auth.accountExists'));
+      } else if (String(serverError) === 'oauth_password_required') {
+        setError(t('auth.oauthPasswordRequired'));
       } else {
         setError(serverError || (isSignup ? t('auth.signupFailed') : t('auth.invalidSignin')));
       }
@@ -159,7 +180,7 @@ export default function Login() {
           <div className="flex flex-col items-center mb-7 gap-2">
             <img src={LogoImg} alt="STAGE" className="h-24 w-auto object-contain" />
             <p className="font-heading text-white/50 text-sm uppercase tracking-[0.25em]">
-              {isSignup ? t('auth.createAccount') : t('auth.welcomeBack')}
+              {mode === 'forgot' || mode === 'sent' ? t('auth.resetTitle') : (isSignup ? t('auth.createAccount') : t('auth.welcomeBack'))}
             </p>
           </div>
 
@@ -195,6 +216,58 @@ export default function Login() {
           </div>
 
           {/* Email / Password form */}
+          {mode === 'sent' ? (
+            <div className="space-y-4 text-center">
+              <p className="text-white/80 text-sm">{t('auth.resetEmailSent')}</p>
+              <p className="text-white/45 text-xs">{t('auth.resetGoogleHint')}</p>
+              <button
+                type="button"
+                onClick={() => { setError(''); setMode('signin'); }}
+                className="w-full text-center font-heading text-sm uppercase tracking-wide text-white/60 hover:text-white/90 transition-colors pt-1"
+              >
+                {t('auth.backToSignin')}
+              </button>
+            </div>
+          ) : mode === 'forgot' ? (
+            <form onSubmit={handleForgotSubmit} className="space-y-3">
+              <p className="text-white/55 text-xs text-center pb-1">{t('auth.forgotHelp')}</p>
+              <input
+                type="text"
+                placeholder={t('auth.identifier')}
+                value={identifier}
+                onChange={e => setIdentifier(e.target.value)}
+                required
+                className="w-full bg-white/10 border border-white/20 text-white placeholder-white/35 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-white/55 focus:bg-white/15 transition-all"
+              />
+              <AnimatePresence>
+                {error && (
+                  <motion.p
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="text-red-400 text-xs text-center pt-1"
+                  >
+                    {error}
+                  </motion.p>
+                )}
+              </AnimatePresence>
+              <motion.button
+                type="submit"
+                disabled={isLoading}
+                whileTap={{ scale: 0.97 }}
+                className="w-full bg-white text-[#0d2461] font-heading text-lg uppercase tracking-wide py-3 rounded-xl hover:bg-gray-100 disabled:opacity-55 transition-all shadow-lg"
+              >
+                {isLoading ? t('auth.sendingReset') : t('auth.sendResetLink')}
+              </motion.button>
+              <button
+                type="button"
+                onClick={() => { setError(''); setMode('signin'); }}
+                className="w-full text-center font-heading text-sm uppercase tracking-wide text-white/60 hover:text-white/90 transition-colors pt-1"
+              >
+                {t('auth.backToSignin')}
+              </button>
+            </form>
+          ) : (
           <form onSubmit={handleAuthSubmit} className="space-y-3">
             <input
               type={isSignup ? 'email' : 'text'}
@@ -222,6 +295,18 @@ export default function Login() {
                 {showPassword ? <EyeOffIcon /> : <EyeIcon />}
               </button>
             </div>
+
+            {!isSignup && (
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => { setError(''); setMode('forgot'); }}
+                  className="text-[11px] font-semibold text-white/45 hover:text-white/80 transition-colors"
+                >
+                  {t('auth.forgotPassword')}
+                </button>
+              </div>
+            )}
 
             {isSignup && (
               <div className="relative">
@@ -313,6 +398,7 @@ export default function Login() {
               </div>
             )}
           </form>
+          )}
         </div>
       </motion.div>
     </motion.div>

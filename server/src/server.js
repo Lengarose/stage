@@ -31,14 +31,45 @@ const { ensureUploadsDir } = require('./constants/paths');
 
 // Rate-limit only brute-force-sensitive auth routes (login/register/password).
 // `/me`, `/refresh`, `/logout` are called on every page load — never throttle them.
+// Tournament entrance and public tournament reads share one bucket per
+// tournament (invite token, or tournament id). A sign-in rush must not trip
+// the general per-IP caps.
+function tournamentRateKey(req) {
+  const url = String(req.originalUrl || req.url || '');
+  if (!url.includes('/api/stage/public/')) return '';
+  if (url.includes('resolve-entrance-token')) {
+    const token = String(req.body?.token || '').trim();
+    return token ? `entrance:${token}` : '';
+  }
+  const match = url.match(/\/api\/stage\/public\/tournaments\/([^/?]+)/);
+  return match ? `tournament:${decodeURIComponent(match[1])}` : '';
+}
+
 const authLimiter = rateLimiter({ windowMs: 15 * 60 * 1000, max: 30 });
-const publicReadLimiter = rateLimiter({ windowMs: 60 * 1000, max: 120 });
+const publicReadLimiter = rateLimiter({
+  windowMs: 60 * 1000,
+  max: 120,
+  skip: (req) => Boolean(tournamentRateKey(req)),
+});
+const tournamentLimiter = rateLimiter({
+  windowMs: 60 * 1000,
+  max: 5000,
+  keyFn: tournamentRateKey,
+});
 const uploadLimiter = rateLimiter({ windowMs: 15 * 60 * 1000, max: 60 });
-const apiLimiter = rateLimiter({ windowMs: 60 * 1000, max: 600 });
+const apiLimiter = rateLimiter({
+  windowMs: 60 * 1000,
+  max: 600,
+  skip: (req) => Boolean(tournamentRateKey(req)),
+});
 app.use('/api/stage/auth/login',           authLimiter);
 app.use('/api/stage/auth/register',        authLimiter);
 app.use('/api/stage/auth/forgot-password', authLimiter);
 app.use('/api/stage/auth/reset-password',  authLimiter);
+app.use('/api/stage/public', (req, res, next) => {
+  if (!tournamentRateKey(req)) return next();
+  return tournamentLimiter(req, res, next);
+});
 app.use('/api/stage/public',               publicReadLimiter);
 app.use('/api/stage/upload',               uploadLimiter);
 app.use('/api/stage',                      apiLimiter);

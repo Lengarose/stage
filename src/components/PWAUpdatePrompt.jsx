@@ -6,6 +6,7 @@ import {
   markPwaReloaded,
   readLastPwaReloadAt,
   shouldAllowPwaReload,
+  clearWebsiteCookies,
 } from '@/lib/pwaUpdate';
 
 /**
@@ -27,7 +28,9 @@ export default function PWAUpdatePrompt() {
       if (!userRequestedReload.current) return;
       if (!shouldAllowPwaReload(Date.now(), readLastPwaReloadAt())) return;
       markPwaReloaded();
-      window.location.reload();
+      void clearWebsiteCookies().finally(() => {
+        window.location.reload();
+      });
     };
 
     navigator.serviceWorker.addEventListener('controllerchange', reloadIfRequested);
@@ -87,7 +90,9 @@ export default function PWAUpdatePrompt() {
     userRequestedReload.current = true;
     worker?.postMessage({ type: 'SKIP_WAITING' });
     markPwaReloaded();
-    window.location.reload();
+    void clearWebsiteCookies().finally(() => {
+      window.location.reload();
+    });
   }
 
   if (!needRefresh || isPwaUpdateDismissed()) return null;

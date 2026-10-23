@@ -24,5 +24,22 @@
   "chooseLanguage": "Choisir la langue",
   "afterSignup": "Après l’inscription",
   "joinDiscord": "Rejoindre notre communauté Discord",
-  "discordAnytime": "Tu peux aussi rejoindre Discord depuis Community dans l’app"
+  "discordAnytime": "Tu peux aussi rejoindre Discord depuis Community dans l’app",
+  "forgotPassword": "Mot de passe oublié ?",
+  "resetTitle": "Réinitialiser le mot de passe",
+  "forgotHelp": "Entre ton e-mail, gamertag ou nom de club. Si un compte existe, on envoie un lien.",
+  "sendResetLink": "Envoyer le lien",
+  "sendingReset": "Envoi...",
+  "resetEmailSent": "Si un compte existe, un lien a été envoyé. Vérifie ta boîte mail et les spams.",
+  "resetGoogleHint": "Inscription avec Google ? Ça ajoute un mot de passe e-mail. Tu pourras toujours utiliser Google après.",
+  "backToSignin": "Retour à la connexion",
+  "newPassword": "Nouveau mot de passe (min. 8 caractères)",
+  "savePassword": "Enregistrer le mot de passe",
+  "resetting": "Enregistrement...",
+  "resetSuccess": "Mot de passe mis à jour. Tu peux te connecter par e-mail, ou continuer avec Google.",
+  "resetLinkInvalid": "Ce lien est invalide ou a expiré. Demande-en un nouveau depuis la connexion.",
+  "resetFailed": "Impossible de réinitialiser le mot de passe. Réessaie.",
+  "passwordTooShort": "Utilise au moins 8 caractères.",
+  "oauthPasswordRequired": "Ce compte n’a pas encore de mot de passe. Continue avec Google, ou utilise Mot de passe oublié.",
+  "identifierRequired": "Entre ton e-mail, gamertag ou nom de club."
 }

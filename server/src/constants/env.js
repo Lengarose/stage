@@ -3,6 +3,10 @@
  * applyToProcessEnv() runs first in server.js so existing process.env reads keep working.
  */
 
+const fs = require('fs');
+
+const GANDI_MYSQL_SOCKET = '/srv/run/mysqld/mysqld.sock';
+
 const ENV = {
   // Server
   PORT: '8080',
@@ -95,12 +99,56 @@ try {
   if (err.code !== 'MODULE_NOT_FOUND') throw err;
 }
 
+const GANDI_POSTGRES_USER = 'hosting-db';
+const GANDI_POSTGRES_DB = 'postgres';
+
+/**
+ * Laptop env.local.js blanks DB_SOCKET_PATH and sets 127.0.0.1 for local MySQL.
+ * If that file is also on Gandi, login fails with ECONNREFUSED 127.0.0.1:3306.
+ * When the Gandi Unix socket exists, keep using it regardless of those overrides.
+ */
+function applyGandiMysqlSocketIfPresent(target, socketExists = fs.existsSync) {
+  if (!target || typeof target !== 'object') return false;
+  let present = false;
+  try {
+    present = socketExists(GANDI_MYSQL_SOCKET) === true;
+  } catch {
+    present = false;
+  }
+  if (!present) return false;
+  target.DB_SOCKET_PATH = GANDI_MYSQL_SOCKET;
+  return true;
+}
+
+/**
+ * Gandi injects PostgreSQL defaults (DB_USER=hosting-db, DB_NAME=postgres) on
+ * the same Node hosting. Those credentials cannot open MySQL and used to crash
+ * boot. Force the documented MySQL socket + root + stage_league.
+ */
+function applyGandiMysqlEnv(target, socketExists = fs.existsSync) {
+  if (!target || typeof target !== 'object') return false;
+  applyGandiMysqlSocketIfPresent(target, socketExists);
+  const socketPath = String(target.DB_SOCKET_PATH || '').trim();
+  if (socketPath !== GANDI_MYSQL_SOCKET) return false;
+  const user = String(target.DB_USER || '').trim();
+  if (!user || user === GANDI_POSTGRES_USER) target.DB_USER = 'root';
+  const name = String(target.DB_NAME || '').trim();
+  if (!name || name === GANDI_POSTGRES_DB) target.DB_NAME = 'stage_league';
+  return true;
+}
+
+applyGandiMysqlEnv(ENV);
+
 /** Sets missing process.env keys from ENV. Existing vars (e.g. host dashboard) win. */
 function applyToProcessEnv() {
   for (const [key, value] of Object.entries(ENV)) {
     if (process.env[key] !== undefined) continue;
     process.env[key] = value == null ? '' : String(value);
   }
+  // Host env / copied laptop env.local must not pin production to TCP localhost
+  // or Gandi's PostgreSQL user (hosting-db) — that crashed Node with 503.
+  applyGandiMysqlEnv(ENV);
+  applyGandiMysqlEnv(process.env);
   // Fail fast: without JWT secrets every issued token would be forgeable.
   for (const key of ['ACCESS_TOKEN_SECRET', 'REFRESH_TOKEN_SECRET']) {
     if (!process.env[key]) {
@@ -118,11 +166,27 @@ function applyToProcessEnv() {
 
 /** Resolved value: shell/host `process.env` wins, then `ENV`, then `undefined`. */
 function get(key) {
-  return ENV[key]//process.env[key] !== undefined ? process.env[key] : ENV[key];
+  const value = process.env[key] !== undefined ? process.env[key] : ENV[key];
+  if (key === 'DB_USER' && String(value || '').trim() === GANDI_POSTGRES_USER) {
+    const socket = process.env.DB_SOCKET_PATH !== undefined
+      ? process.env.DB_SOCKET_PATH
+      : ENV.DB_SOCKET_PATH;
+    if (String(socket || '').trim() === GANDI_MYSQL_SOCKET) return 'root';
+  }
+  if (key === 'DB_NAME' && String(value || '').trim() === GANDI_POSTGRES_DB) {
+    const socket = process.env.DB_SOCKET_PATH !== undefined
+      ? process.env.DB_SOCKET_PATH
+      : ENV.DB_SOCKET_PATH;
+    if (String(socket || '').trim() === GANDI_MYSQL_SOCKET) return 'stage_league';
+  }
+  return value;
 }
 
 module.exports = {
   ENV,
+  GANDI_MYSQL_SOCKET,
+  applyGandiMysqlSocketIfPresent,
+  applyGandiMysqlEnv,
   applyToProcessEnv,
   get,
   ...ENV,

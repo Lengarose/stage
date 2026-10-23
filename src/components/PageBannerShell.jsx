@@ -38,7 +38,7 @@ export default function PageBannerShell({
 
       <div
         className={cn(
-          "sticky top-0 z-20 flex h-full min-h-0 shrink-0 flex-col",
+          "sticky top-0 z-20 flex min-h-full min-w-0 shrink-0 flex-col",
           dockClassName
         )}
       >

@@ -1517,9 +1517,19 @@ function calculateCommunityStandings(matches, filterFn = () => true) {
     home.GF += homeScore; home.GA += awayScore;
     away.GF += awayScore; away.GA += homeScore;
     home.GD = home.GF - home.GA; away.GD = away.GF - away.GA;
-    if (String(winnerId || '') === String(homeId || '')) {
+    const homeScoreWins = homeScore > awayScore;
+    const awayScoreWins = awayScore > homeScore;
+    const homeWon = winnerId
+      ? String(winnerId) === String(homeId)
+      : homeScoreWins;
+    const awayWon = winnerId
+      ? String(winnerId) === String(awayId)
+      : awayScoreWins;
+    if (row.home_player_id && !row.home_club_id) home.player = true;
+    if (row.away_player_id && !row.away_club_id) away.player = true;
+    if (homeWon && !awayWon) {
       home.W += 1; home.Pts += 3; away.L += 1;
-    } else if (String(winnerId || '') === String(awayId || '')) {
+    } else if (awayWon && !homeWon) {
       away.W += 1; away.Pts += 3; home.L += 1;
     } else {
       home.D += 1; away.D += 1; home.Pts += 1; away.Pts += 1;
@@ -1579,27 +1589,40 @@ function communityTwoLegResult(legs) {
   if (!legs.length) return null;
   const sorted = [...legs].sort((a, b) => Number(a.round || 0) - Number(b.round || 0));
   const totals = {};
-  const names = {};
+  const sides = {};
+  const remember = (side, score) => {
+    if (!side?.id) return;
+    totals[side.id] = (totals[side.id] || 0) + Number(score || 0);
+    sides[side.id] = side;
+  };
   for (const leg of sorted) {
-    if (leg.home_club_id) {
-      totals[leg.home_club_id] = (totals[leg.home_club_id] || 0) + Number(leg.home_score || 0);
-      names[leg.home_club_id] = leg.home_club_name;
-    }
-    if (leg.away_club_id) {
-      totals[leg.away_club_id] = (totals[leg.away_club_id] || 0) + Number(leg.away_score || 0);
-      names[leg.away_club_id] = leg.away_club_name;
-    }
+    const homeIsPlayer = Boolean(leg.home_player_id) && !leg.home_club_id;
+    const awayIsPlayer = Boolean(leg.away_player_id) && !leg.away_club_id;
+    remember({
+      id: homeIsPlayer ? leg.home_player_id : leg.home_club_id,
+      name: homeIsPlayer ? leg.home_player_name : leg.home_club_name,
+      email: homeIsPlayer ? leg.home_player_email : null,
+      player: homeIsPlayer,
+    }, leg.home_score);
+    remember({
+      id: awayIsPlayer ? leg.away_player_id : leg.away_club_id,
+      name: awayIsPlayer ? leg.away_player_name : leg.away_club_name,
+      email: awayIsPlayer ? leg.away_player_email : null,
+      player: awayIsPlayer,
+    }, leg.away_score);
   }
   const ids = Object.keys(totals);
   if (ids.length < 2) return null;
   const [a, b] = ids;
   let winnerId = totals[a] > totals[b] ? a : totals[b] > totals[a] ? b : null;
-  if (!winnerId) winnerId = [...sorted].reverse().find(leg => leg.winner_club_id)?.winner_club_id || null;
+  if (!winnerId) winnerId = [...sorted].reverse().find(leg => leg.winner_player_id || leg.winner_club_id)?.winner_player_id
+    || [...sorted].reverse().find(leg => leg.winner_club_id)?.winner_club_id
+    || null;
   if (!winnerId) return null;
   const loserId = String(winnerId) === String(a) ? b : a;
   return {
-    winner: { id: winnerId, name: names[winnerId] || 'Winner' },
-    loser: { id: loserId, name: names[loserId] || 'Club' },
+    winner: { ...(sides[winnerId] || {}), id: winnerId, name: sides[winnerId]?.name || 'Winner' },
+    loser: { ...(sides[loserId] || {}), id: loserId, name: sides[loserId]?.name || 'Opponent' },
   };
 }
 
@@ -1718,6 +1741,28 @@ async function advanceCommunityKnockoutRounds(tournament, allMatches) {
       const tieResults = Array.from(byTie.values()).map(communityTwoLegResult).filter(Boolean);
       if (tieResults.length !== currentMatches.length) return { advanced: false, reason: 'tie_winner_missing' };
       const nextRound = currentRound + 2;
+      if (allMatches.some(row => Number(row.round || 1) === nextRound)) {
+        await EXECUTESQL('UPDATE tournaments SET current_round = ?, updated_date = NOW() WHERE id = ?', [nextRound, tournament.id]);
+        broadcastCommunityTournamentState(tournament, { current_round: nextRound });
+        return { advanced: false, reason: 'next_round_exists', next_round: nextRound };
+      }
+      const created = await createCommunityNextFromTieResults(tournament, tieResults, nextRound);
+      await EXECUTESQL('UPDATE tournaments SET current_round = ?, updated_date = NOW() WHERE id = ?', [nextRound, tournament.id]);
+      broadcastCommunityTournamentState(tournament, { current_round: nextRound });
+      return { advanced: true, next_round: nextRound, matches_created: created, aggregate: true };
+    }
+
+    const previousLegs = allMatches.filter(row => Number(row.round || 1) === currentRound - 1 && String(row.type || '') === currentType);
+    if (previousLegs.length === currentMatches.length && previousLegs.every(row => isFinishedStatus(row.status))) {
+      const byTie = new Map();
+      [...previousLegs, ...currentMatches].forEach((row) => {
+        const key = String(row.group_number ?? row.group ?? row.id);
+        if (!byTie.has(key)) byTie.set(key, []);
+        byTie.get(key).push(row);
+      });
+      const tieResults = Array.from(byTie.values()).map(communityTwoLegResult).filter(Boolean);
+      if (tieResults.length !== currentMatches.length) return { advanced: false, reason: 'tie_winner_missing' };
+      const nextRound = currentRound + 1;
       if (allMatches.some(row => Number(row.round || 1) === nextRound)) {
         await EXECUTESQL('UPDATE tournaments SET current_round = ?, updated_date = NOW() WHERE id = ?', [nextRound, tournament.id]);
         broadcastCommunityTournamentState(tournament, { current_round: nextRound });

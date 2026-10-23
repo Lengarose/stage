@@ -2678,6 +2678,18 @@ async function runStartupMigrations() {
   )`).catch((err) => console.error('[migration] admin_mail_messages:', err.message));
   await addCol('admin_mail_messages', 'bcc_addresses', 'JSON NULL');
   await addCol('admin_mail_messages', 'draft_meta', 'JSON NULL');
+
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    id            VARCHAR(36)  PRIMARY KEY,
+    user_id       VARCHAR(36)  NOT NULL,
+    token_hash    CHAR(64)     NOT NULL,
+    expires_at    DATETIME     NOT NULL,
+    used_at       DATETIME     NULL,
+    created_date  DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_prt_hash (token_hash),
+    INDEX idx_prt_user (user_id),
+    INDEX idx_prt_expires (expires_at)
+  )`).catch((err) => console.error('[migration] password_reset_tokens:', err.message));
 }
 
 module.exports = { runStartupMigrations };

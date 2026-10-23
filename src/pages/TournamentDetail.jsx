@@ -27,6 +27,9 @@ import {
   calculateGroupStandings,
   getLeagueTournamentFixtureMatches,
   getSwissUclDisplayMatches,
+  matchSide,
+  matchWinnerSide,
+  sameParticipant,
 } from "../lib/tournamentEngine";
 import { COUNTRIES } from "../lib/countries";
 import TournamentStages from "../components/TournamentStages";
@@ -44,6 +47,7 @@ import { createInboxEventId } from "@/lib/inboxEventId";
 import { tournamentGameDayWebPath } from "@/lib/tournamentGameDay";
 import { useTranslation } from "@/hooks/useTranslation";
 import { resolveTournamentRules } from "@/lib/tournamentRuleTemplates";
+import { isGostOfficialTournament, isTournamentOwner } from "@/lib/tournamentOwnership";
 
 function requiresClubTournamentAdminReview(tournament) {
   if (!tournament || tournament.participant_type === "player") return false;
@@ -185,7 +189,7 @@ export default function TournamentDetail() {
         setIsBasic(u?.role === "admin");
         setTournamentEntryCost(u?.role === "admin" ? 0 : getTournamentEntryCost());
         setIsAdmin(u?.role === "admin");
-        setIsCreator(Boolean(u?.email && String(t?.creator_email || "").toLowerCase() === String(u.email).toLowerCase()));
+        setIsCreator(isTournamentOwner(t, u, myPl));
         if (u?.role === "admin") {
           const tcId = localStorage.getItem('admin_takeover_club_id');
           if (tcId) {
@@ -222,7 +226,7 @@ export default function TournamentDetail() {
 
   useEffect(() => {
     if (tournament?.type === "group_stage" && matches.length > 0) {
-      const standings = calculateGroupStandings(matches, tournament.num_groups || 2);
+      const standings = calculateGroupStandings(matches, tournament.num_groups || 2, tournament.participant_type);
       const formatted = standings.map((group, idx) => ({
         groupIndex: idx,
         groupName: String.fromCharCode(65 + idx),
@@ -239,7 +243,7 @@ export default function TournamentDetail() {
       }));
       setGroupStandingsData(formatted);
     }
-  }, [matches, tournament?.type, tournament?.num_groups]);
+  }, [matches, tournament?.type, tournament?.num_groups, tournament?.participant_type]);
 
   useEffect(() => {
     let stopped = false;
@@ -447,7 +451,7 @@ export default function TournamentDetail() {
 
   async function copyInviteLink() {
     if (!tournament) return;
-    const allowed = isAdmin || isCreator || String(tournament.organizer_email || "").toLowerCase() === String(user?.email || "").toLowerCase();
+    const allowed = isTournamentOwner(tournament, user, myPlayer);
     if (!allowed) return;
     setInviteBusy(true);
     try {
@@ -535,7 +539,9 @@ export default function TournamentDetail() {
       ? [scheduleMatch.away_player_email || awayPlayer?.email].filter(Boolean)
       : await getClubManagerEmails(scheduleMatch.away_club_id);
     if (!awayEmails.length) {
-      await swalAlert("Could not find an away club manager to notify.");
+      await swalAlert(tournament?.participant_type === "player"
+        ? "Could not find the away player to notify."
+        : "Could not find an away club manager to notify.");
       return;
     }
 
@@ -710,9 +716,39 @@ export default function TournamentDetail() {
     }
   }
 
+  async function stampMatchWinner(match) {
+    if (!match?.id) return;
+    const result = matchWinnerSide(match, tournament?.participant_type);
+    if (result !== "home" && result !== "away") return;
+    const winner = matchSide(match, result, tournament?.participant_type);
+    const loser = matchSide(match, result === "home" ? "away" : "home", tournament?.participant_type);
+    if (!winner.id) return;
+    if (tournament?.participant_type === "player") {
+      if (sameParticipant(match.winner_player_id, winner.id)) return;
+      await stageClient.entities.Match.update(match.id, {
+        winner_player_id: winner.id,
+        winner_player_name: winner.name,
+        loser_player_id: loser.id,
+        loser_player_name: loser.name,
+      });
+      return;
+    }
+    if (sameParticipant(match.winner_club_id, winner.id)) return;
+    await stageClient.entities.Match.update(match.id, {
+      winner_club_id: winner.id,
+      winner_club_name: winner.name,
+      loser_club_id: loser.id,
+      loser_club_name: loser.name,
+    });
+  }
+
   async function officializeCurrentTournament() {
     if (!(await swalConfirm(t("tournamentDetail.officializeConfirm")))) return;
     try {
+      const latestFinal = matches.find(match => String(match.type || "").toLowerCase() === "final");
+      const latestThird = matches.find(match => ["third_place", "third-place", "bronze"].includes(String(match.type || "").toLowerCase()));
+      await stampMatchWinner(latestFinal);
+      await stampMatchWinner(latestThird);
       const result = await officializeTournament(id);
       setMatches(result.matches || []);
       if (result.tournament) setTournament(result.tournament);
@@ -775,9 +811,11 @@ export default function TournamentDetail() {
     || (isPlayerTournament && myPlayer && !myPlayerRegistered)
   );
   const showRulesConsentPanel = showRegistrationConsent && rules?.body && !hasSavedRulesAcceptance;
-  const isOrganizer = String(tournament.organizer_email || "").toLowerCase() === String(user?.email || "").toLowerCase();
+  const isOrganizer = isTournamentOwner(tournament, user, myPlayer);
   const canManageTournament = isAdmin || isCreator || isOrganizer;
-  const canShareInvite = canManageTournament && ["registration", "in_progress"].includes(String(tournament.status || ""));
+  const canShareInvite = isGostOfficialTournament(tournament)
+    ? isAdmin && String(tournament.status || "").toLowerCase() !== "cancelled"
+    : isOrganizer && String(tournament.status || "").toLowerCase() !== "cancelled";
   const isLeagueTournament = tournament.type === "league";
   const isGroupStageTournament = tournament.type === "group_stage";
   const leagueMatches = isLeagueTournament
@@ -802,10 +840,21 @@ export default function TournamentDetail() {
   const knockoutStarted = isGroupStageTournament && knockoutMatches.length > 0;
   const finalMatch = matches.find(m => String(m.type || "").toLowerCase() === "final");
   const thirdPlaceMatch = matches.find(m => ["third_place", "third-place", "bronze"].includes(String(m.type || "").toLowerCase()));
-  const finalWinnerId = isPlayerTournament ? finalMatch?.winner_player_id : finalMatch?.winner_club_id;
-  const thirdPlaceWinnerId = isPlayerTournament ? thirdPlaceMatch?.winner_player_id : thirdPlaceMatch?.winner_club_id;
-  const finalComplete = finalMatch && (finalMatch.status === "completed" || finalMatch.status === "forfeit") && finalWinnerId;
-  const thirdPlaceComplete = !thirdPlaceMatch || ((thirdPlaceMatch.status === "completed" || thirdPlaceMatch.status === "forfeit") && thirdPlaceWinnerId);
+  const finalResult = finalMatch && ["completed", "forfeit"].includes(String(finalMatch.status || ""))
+    ? matchWinnerSide(finalMatch, tournament.participant_type)
+    : null;
+  const finalWinner = finalResult === "home" || finalResult === "away"
+    ? matchSide(finalMatch, finalResult, tournament.participant_type)
+    : null;
+  const finalWinnerId = finalWinner?.id || (isPlayerTournament ? finalMatch?.winner_player_id : finalMatch?.winner_club_id);
+  const thirdPlaceResult = thirdPlaceMatch && ["completed", "forfeit"].includes(String(thirdPlaceMatch.status || ""))
+    ? matchWinnerSide(thirdPlaceMatch, tournament.participant_type)
+    : null;
+  const thirdPlaceWinnerId = (thirdPlaceResult === "home" || thirdPlaceResult === "away")
+    ? matchSide(thirdPlaceMatch, thirdPlaceResult, tournament.participant_type).id
+    : (isPlayerTournament ? thirdPlaceMatch?.winner_player_id : thirdPlaceMatch?.winner_club_id);
+  const finalComplete = Boolean(finalMatch && ["completed", "forfeit"].includes(String(finalMatch.status || "")) && finalWinnerId);
+  const thirdPlaceComplete = !thirdPlaceMatch || Boolean(["completed", "forfeit"].includes(String(thirdPlaceMatch.status || "")) && thirdPlaceWinnerId);
   const canOfficializeTournament = canManageTournament
     && !isLeagueTournament
     && tournament.status === "in_progress"
@@ -820,6 +869,9 @@ export default function TournamentDetail() {
     && visibleFixtureMatches.every(m => m.status === "completed" || m.status === "forfeit")
     && (!isGroupStageTournament || knockoutStarted);
   const winnerClub = allMatchesPlayed && tournament.winner_club_id ? clubs.find(c => c.id === tournament.winner_club_id) || allClubs.find(c => c.id === tournament.winner_club_id) : null;
+  const championName = isPlayerTournament
+    ? (tournament.winner_player_name || finalWinner?.name || "")
+    : (tournament.winner_club_name || winnerClub?.name || finalWinner?.name || "");
   // Compute winner points for display
   const winnerPoints = (() => {
     if (!allMatchesPlayed || !tournament.winner_club_id) return null;
@@ -935,18 +987,6 @@ export default function TournamentDetail() {
             </div>
 
             <div className="flex shrink-0 flex-col items-stretch gap-3 lg:items-end">
-              {canShareInvite && (
-                <Button
-                  type="button"
-                  onClick={copyInviteLink}
-                  disabled={inviteBusy}
-                  className="h-10 min-w-[210px] rounded-none border border-cyan-200/25 bg-black/24 px-7 font-heading text-xs font-black uppercase tracking-[0.12em] text-cyan-50/95 shadow-[0_0_24px_-16px_rgba(0,229,255,0.9)] backdrop-blur-md transition-all hover:border-cyan-200/55 hover:bg-cyan-300/10 hover:text-white disabled:opacity-55"
-                  style={{ clipPath: "polygon(8% 0, 100% 0, 92% 100%, 0 100%)" }}
-                >
-                  <Link2 className="w-4 h-4 mr-2" />
-                  {inviteBusy ? t("tournamentDetail.copyingInvite") : t("tournamentDetail.inviteLink")}
-                </Button>
-              )}
               {showRulesConsentPanel && (
                 <div className="w-full max-w-md bg-black/35 p-4 text-left ring-1 ring-white/10"
                   style={{ clipPath: "polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%)" }}>
@@ -1059,6 +1099,26 @@ export default function TournamentDetail() {
         </div>
       </div>
 
+      {canShareInvite && (
+        <div className="border-y border-cyan-300/25 bg-cyan-300/5">
+          <div className="max-w-7xl mx-auto px-4 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-cyan-50/90">
+              {t("tournamentDetail.inviteLinkHint")}
+            </p>
+            <Button
+              type="button"
+              onClick={copyInviteLink}
+              disabled={inviteBusy}
+              className="h-10 rounded-none bg-cyan-400 px-5 font-heading text-xs font-black uppercase tracking-[0.12em] text-black hover:bg-cyan-300 disabled:opacity-55"
+              style={{ clipPath: "polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)" }}
+            >
+              <Link2 className="w-4 h-4 mr-2" />
+              {inviteBusy ? t("tournamentDetail.copyingInvite") : t("tournamentDetail.inviteLink")}
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* ── INFO STRIP ────────────────────────────────── */}
       {(tournament.entry_fee_stc > 0 || effectiveClubId || (isPlayerTournament && myPlayer) || canManageTournament) && (
         <div className="border-y border-cyan-300/10 bg-[#06111f]/95">
@@ -1159,15 +1219,6 @@ export default function TournamentDetail() {
               </Button>
             )}
 
-            {canShareInvite && (
-              <Button type="button" onClick={copyInviteLink} disabled={inviteBusy} size="sm"
-                className="h-9 rounded-none border border-cyan-300/25 bg-cyan-300/10 text-xs text-cyan-100 hover:bg-cyan-300/15"
-                style={{ clipPath: "polygon(9px 0, 100% 0, calc(100% - 9px) 100%, 0 100%)" }}>
-                <Link2 className="w-3 h-3 mr-1.5" />
-                {inviteBusy ? t("tournamentDetail.copyingInvite") : t("tournamentDetail.inviteLink")}
-              </Button>
-            )}
-
             {canManageTournament && ["registration", "in_progress"].includes(tournament.status) && registeredCount >= 2 && matches.length === 0 && (
               <Button type="button" onClick={generateDraw} size="sm" className="h-9 rounded-none border border-cyan-300/25 bg-cyan-300/10 text-xs text-cyan-100 hover:bg-cyan-300/15"
                 style={{ clipPath: "polygon(9px 0, 100% 0, calc(100% - 9px) 100%, 0 100%)" }}>
@@ -1215,7 +1266,7 @@ export default function TournamentDetail() {
       )}
 
       {/* ── CHAMPION BANNER ───────────────────────────── */}
-      {allMatchesPlayed && winnerClub && (
+      {championName && (
         <div className="border-b border-warning/25 bg-gradient-to-r from-warning/8 via-warning/12 to-transparent">
           <div className="max-w-7xl mx-auto px-4 lg:px-8 py-4 flex items-center gap-4">
             {tournament.trophy_url && (
@@ -1223,17 +1274,17 @@ export default function TournamentDetail() {
                 className="w-12 h-12 object-contain shrink-0 drop-shadow-[0_0_16px_rgba(251,191,36,0.9)] animate-pulse-glow" />
             )}
             <div className="w-11 h-11 rounded-xl border-2 border-warning/40 overflow-hidden bg-secondary shrink-0">
-              {winnerClub.logo_url
-                ? <img src={winnerClub.logo_url} alt={winnerClub.name} className="w-full h-full object-cover" style={{ objectPosition: winnerClub.logo_position || "50% 50%" }} />
-                : <Shield className="w-5 h-5 text-warning m-3" />}
+              {winnerClub?.logo_url
+                ? <img src={winnerClub.logo_url} alt={championName} className="w-full h-full object-cover" style={{ objectPosition: winnerClub.logo_position || "50% 50%" }} />
+                : <Trophy className="w-5 h-5 text-warning m-3" />}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[10px] uppercase tracking-widest text-warning/50 font-black">{t("tournamentDetail.champion")}</p>
               <h2 className="font-heading text-lg font-black text-warning uppercase leading-tight truncate"
                 style={{ transform: "skewX(-4deg)" }}>
-                {winnerClub.name}
+                {championName}
               </h2>
-              {winnerPoints !== null && <p className="text-xs text-warning/55">{t("tournamentDetail.pointsPlatform", { points: winnerPoints, platform: winnerClub.platform })}</p>}
+              {winnerPoints !== null && winnerClub && <p className="text-xs text-warning/55">{t("tournamentDetail.pointsPlatform", { points: winnerPoints, platform: winnerClub.platform })}</p>}
             </div>
           </div>
         </div>

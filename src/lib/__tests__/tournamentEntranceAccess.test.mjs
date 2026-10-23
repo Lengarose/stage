@@ -52,9 +52,71 @@ test("only test entrance links claim the tester grant", async () => {
 test("entrance auth claims tester credits only through the dedicated grant function", () => {
   const card = read("src/pages/tournament-entrance/EntranceAuthCard.jsx");
   const app = read("src/App.jsx");
-  assert.match(card, /claimTournamentTestGrantIfNeeded/);
-  assert.match(app, /claimTournamentTestGrantIfNeeded/);
+  assert.match(card, /finishTournamentEntranceSession/);
+  assert.match(app, /finishTournamentEntranceSession/);
+  assert.doesNotMatch(card, /navigate\("\/", \{ replace: true \}\)/);
   assert.doesNotMatch(card, /addUserCredits|starter_credits/);
+});
+
+test("test entrance login opens that tournament and keeps normal access", async () => {
+  const { finishTournamentEntranceSession, readEntranceTournament, clearEntranceTournament } = await import("../tournamentEntranceAccess.js");
+  const calls = [];
+  const client = {
+    functions: {
+      invoke: async (name, body) => {
+        calls.push({ name, body });
+        return { data: { granted: true } };
+      },
+    },
+  };
+  const store = new Map();
+  globalThis.sessionStorage = {
+    getItem: (key) => (store.has(key) ? store.get(key) : null),
+    setItem: (key, value) => store.set(key, String(value)),
+    removeItem: (key) => store.delete(key),
+  };
+
+  const path = await finishTournamentEntranceSession(client, {
+    user: { id: "user-1", role_id: 1, subscription: "free", access_mode: "tournament_limited" },
+    tournamentId: "tourney test/1",
+    token: "test-token",
+    link: { link_kind: "test" },
+  });
+
+  assert.equal(path, "/tournaments/tourney%20test%2F1");
+  assert.equal(readEntranceTournament(), "tourney test/1");
+  assert.deepEqual(calls.map((call) => call.name), [
+    "clearTournamentLimitedAccess",
+    "claimTournamentTestGrant",
+  ]);
+  clearEntranceTournament();
+  delete globalThis.sessionStorage;
+});
+
+test("standard entrance login still scopes free accounts and opens the tournament", async () => {
+  const { finishTournamentEntranceSession } = await import("../tournamentEntranceAccess.js");
+  const calls = [];
+  const client = {
+    functions: {
+      invoke: async (name, body) => {
+        calls.push({ name, body });
+        return { data: {} };
+      },
+    },
+  };
+
+  const path = await finishTournamentEntranceSession(client, {
+    user: { id: "user-1", role_id: 1, subscription: "free" },
+    tournamentId: "tournament-1",
+    token: "standard-token",
+    link: { link_kind: "standard" },
+  });
+
+  assert.equal(path, "/tournaments/tournament-1");
+  assert.deepEqual(calls, [{
+    name: "applyTournamentEntranceAccessMode",
+    body: { tournament_id: "tournament-1" },
+  }]);
 });
 
 test("tournament-limited users can open the existing Wallet page", () => {

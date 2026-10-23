@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { stageClient } from "@/api/stageClient";
 import { useAuth } from "@/lib/AuthContext";
 import { ensureAdminPanelMode, isAppAdminUser } from "@/lib/adminAuth";
-import { claimTournamentTestGrantIfNeeded, shouldApplyTournamentEntranceAccess } from "@/lib/tournamentEntranceAccess";
+import { entranceTournamentPath, finishTournamentEntranceSession } from "@/lib/tournamentEntranceAccess";
 import { format, parseISO, isValid } from "@/lib/momentDate";
 import { useTranslation } from "@/hooks/useTranslation";
 import BannerImg from "@/assets/Banner.jpg";
@@ -84,7 +84,7 @@ const INPUT_CLS =
   "w-full bg-white/10 border border-white/20 text-white placeholder-white/35 rounded-xl px-4 py-4 md:py-3 text-base md:text-sm focus:outline-none focus:border-white/55 focus:bg-white/15 transition-all";
 
 export default function EntranceAuthCard({ mode }) {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const isSignup     = mode === "signup";
   const { token }    = useParams();
   const navigate     = useNavigate();
@@ -104,20 +104,23 @@ export default function EntranceAuthCard({ mode }) {
   const [formError, setFormError]   = useState("");
 
   const postAuthHandledRef = useRef(false);
+  const finalizeAuthedUserRef = useRef(null);
 
   const finalizeAuthedUser = useCallback(async (tournamentId, link = entranceLink) => {
     const me = await stageClient.auth.me().catch(() => null);
     if (!me) throw new Error(t("commonPages.teUnableAccount"));
     if (isAppAdminUser(me)) ensureAdminPanelMode();
-    if (tournamentId && shouldApplyTournamentEntranceAccess(me)) {
-      await stageClient.functions
-        .invoke("applyTournamentEntranceAccessMode", { tournament_id: tournamentId })
-        .catch(() => {});
-    }
-    await claimTournamentTestGrantIfNeeded(stageClient, { token, link });
+    const nextPath = await finishTournamentEntranceSession(stageClient, {
+      user: me,
+      tournamentId,
+      token,
+      link,
+    });
     await checkUserAuth().catch(() => {});
-    navigate("/", { replace: true });
-  }, [navigate, checkUserAuth, isSignup, t, token, entranceLink]);
+    navigate(nextPath, { replace: true });
+  }, [navigate, checkUserAuth, t, token, entranceLink]);
+
+  finalizeAuthedUserRef.current = finalizeAuthedUser;
 
   useEffect(() => {
     let mounted = true;
@@ -150,9 +153,9 @@ export default function EntranceAuthCard({ mode }) {
           // Returning from OAuth (or already signed in): finish entrance signup then home.
           // Onboarding gate in App.jsx will open if this is a new OAuth account.
           try {
-            await finalizeAuthedUser(row.id, link);
+            await finalizeAuthedUserRef.current(row.id, link);
           } catch {
-            navigate("/", { replace: true });
+            navigate(entranceTournamentPath(row.id), { replace: true });
           }
           return;
         }
@@ -164,7 +167,7 @@ export default function EntranceAuthCard({ mode }) {
     }
     bootstrap();
     return () => { mounted = false; };
-  }, [token, navigate, t, finalizeAuthedUser]);
+  }, [token, language, navigate, t]);
 
   async function handleAuthSubmit(e) {
     e.preventDefault();
@@ -433,9 +436,11 @@ export default function EntranceAuthCard({ mode }) {
                   {isSignup ? t("auth.switchToSignin") : t("auth.switchToSignup")}
                 </button>
 
-                <p className="text-white/35 text-[11px] md:text-[10px] text-center pt-2 leading-snug">
-                  {t("commonPages.teScopedNote", { name: tournamentName })}
-                </p>
+                {entranceLink?.link_kind !== "test" && (
+                  <p className="text-white/35 text-[11px] md:text-[10px] text-center pt-2 leading-snug">
+                    {t("commonPages.teScopedNote", { name: tournamentName })}
+                  </p>
+                )}
                 {entranceLink?.link_kind === "test" && (
                   <p className="text-cyan-200/80 text-[11px] md:text-[10px] text-center pt-1 leading-snug">
                     {t("commonPages.teTestGrantNote")}

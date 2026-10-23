@@ -1,5 +1,5 @@
 const mysql = require('mysql2');
-const { get } = require('../../constants/env');
+const { get, GANDI_MYSQL_SOCKET } = require('../../constants/env');
 const { isIsoDateString, toMysqlDateTime } = require('../utils/datetime');
 
 const DEFAULT_DB_TIME_ZONE = 'Europe/Brussels';
@@ -37,22 +37,22 @@ function applyConnectionTimeZone(connection, env = {}) {
 }
 
 function buildPoolConfig(env = {}) {
-  console.log('buildPoolConfig', JSON.stringify(env, null, 2));
   const read = (key, fallback = '') => readEnv(env, key, fallback);
 
   const socketPath = String(read('DB_SOCKET_PATH')).trim();
-  const user = read('DB_USER', 'root') || 'root';
-  if (socketPath === '/srv/run/mysqld/mysqld.sock' && user === 'hosting-db') {
-    throw new Error(
-      '[db-config] Invalid Gandi MySQL configuration: DB_USER=hosting-db is a PostgreSQL-style default. ' +
-      'Use DB_USER=root with DB_SOCKET_PATH=/srv/run/mysqld/mysqld.sock unless a real MySQL user was created.'
-    );
+  let user = read('DB_USER', 'root') || 'root';
+  let database = read('DB_NAME', 'stage_league') || 'stage_league';
+  // Gandi sets DB_USER=hosting-db / DB_NAME=postgres for PostgreSQL on the same
+  // Node hosting. Throwing here took the whole site down with HTTP 503.
+  if (socketPath === GANDI_MYSQL_SOCKET) {
+    if (user === 'hosting-db') user = 'root';
+    if (database === 'postgres') database = 'stage_league';
   }
 
   const baseConfig = {
     user,
     password:          read('DB_PASSWORD', ''),
-    database:          read('DB_NAME', 'stage_league') || 'stage_league',
+    database,
     charset:           'utf8mb4',
     waitForConnections: true,
     connectionLimit:    10,

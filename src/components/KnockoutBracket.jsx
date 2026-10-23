@@ -1,21 +1,29 @@
 import { Shield, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { canOpenTournamentGameDay } from "@/lib/tournamentGameDay";
+import { matchSide, matchWinnerSide, sameParticipant, projectKnockoutBracket } from "@/lib/tournamentEngine";
 
-function MatchCard({ match, myClubId, onSubmit, onSchedule, onViewStats, onAddStream, onForfeit }) {
-  const isMyMatch = match?.home_club_id === myClubId || match?.away_club_id === myClubId;
-  const completed = match?.status === "completed";
-  const homeWon = completed && match.winner_club_id === match.home_club_id;
-  const awayWon = completed && match.winner_club_id === match.away_club_id;
+function sideName(match, side, participantType) {
+  return matchSide(match, side, participantType).name || "TBD";
+}
+
+function MatchCard({ match, myParticipantId, participantType = "club", onSubmit, onSchedule, onViewStats, onAddStream, onForfeit }) {
+  const home = matchSide(match, "home", participantType);
+  const away = matchSide(match, "away", participantType);
+  const isMyMatch = sameParticipant(home.id, myParticipantId) || sameParticipant(away.id, myParticipantId);
+  const completed = match?.status === "completed" || match?.status === "forfeit";
+  const result = completed ? matchWinnerSide(match, participantType) : null;
+  const homeWon = result === "home";
+  const awayWon = result === "away";
   const pending = match?.status === "unscheduled" || match?.status === "scheduled" || match?.status === "in_progress" || match?.status === "awaiting_confirmation" || match?.status === "disputed";
-  const isHomeMatch = match?.home_club_id === myClubId;
+  const isHomeMatch = sameParticipant(home.id, myParticipantId);
   const scheduleProposalSent = isHomeMatch && match?.scheduling_status === "home_proposed";
   const canSchedule = onSchedule && isHomeMatch && !scheduleProposalSent;
   const openGameDay = onSubmit && canOpenTournamentGameDay(match);
   const showCompletedStats = completed && onViewStats;
   const showPendingActions = isMyMatch && pending && (canSchedule || openGameDay || onAddStream || onForfeit || scheduleProposalSent);
 
-  if (!match) {
+  if (match?.placeholder || !match) {
     return (
       <div className="w-56 bg-card border border-border/40 rounded-xl p-3 opacity-40">
         <div className="flex items-center justify-between py-1.5">
@@ -66,7 +74,7 @@ function MatchCard({ match, myClubId, onSubmit, onSchedule, onViewStats, onAddSt
             )}>
               <Shield className={cn("w-3 h-3", homeWon ? "text-success" : "text-primary")} />
             </div>
-            <span className="text-xs font-bold text-foreground truncate">{match.home_club_name || "TBD"}</span>
+            <span className="text-xs font-bold text-foreground truncate">{sideName(match, "home", participantType)}</span>
           </div>
           {completed ? (
             <span className={cn("text-base font-black shrink-0 w-5 text-center", homeWon ? "text-success" : "text-muted-foreground")}>
@@ -96,7 +104,7 @@ function MatchCard({ match, myClubId, onSubmit, onSchedule, onViewStats, onAddSt
             )}>
               <Shield className={cn("w-3 h-3", awayWon ? "text-success" : "text-muted-foreground")} />
             </div>
-            <span className="text-xs font-bold text-foreground truncate">{match.away_club_name || "TBD"}</span>
+            <span className="text-xs font-bold text-foreground truncate">{sideName(match, "away", participantType)}</span>
           </div>
           {completed ? (
             <span className={cn("text-base font-black shrink-0 w-5 text-center", awayWon ? "text-success" : "text-muted-foreground")}>
@@ -169,16 +177,20 @@ function Connector({ count }) {
   );
 }
 
-export default function KnockoutBracket({ matches, myClubId, onSubmit, onSchedule, onViewStats, onAddStream, onForfeit }) {
-  const rounds = [...new Set(matches.map(m => m.round))].sort((a, b) => a - b);
+export default function KnockoutBracket({ matches, tournamentType = "knockout", myClubId, myParticipantId, participantType = "club", onSubmit, onSchedule, onViewStats, onAddStream, onForfeit }) {
+  const viewerId = myParticipantId ?? myClubId ?? null;
+  const bracketMatches = projectKnockoutBracket(matches, tournamentType);
+  const rounds = [...new Set(bracketMatches.map(m => m.round))].sort((a, b) => a - b);
 
   if (rounds.length === 0) return null;
 
   const lastRound = rounds[rounds.length - 1];
 
   function getRoundLabel(round) {
-    const roundMatches = matches.filter(m => Number(m.round) === Number(round));
+    const roundMatches = bracketMatches.filter(m => Number(m.round) === Number(round));
     const types = new Set(roundMatches.map(m => String(m.type || "")));
+    if (types.has("round_of_64")) return "Round of 64";
+    if (types.has("round_of_32")) return "Round of 32";
     if (types.has("round_of_16") || types.has("ucl_r16")) return "Round of 16";
     if (types.has("quarter_final") || types.has("ucl_qf")) return "Quarter-Finals";
     if (types.has("semi_final") || types.has("ucl_sf")) return "Semi-Finals";
@@ -199,7 +211,7 @@ export default function KnockoutBracket({ matches, myClubId, onSubmit, onSchedul
     <div className="overflow-x-auto pb-4">
       <div className="flex items-start gap-0 min-w-max">
         {rounds.map((round, rIdx) => {
-          const roundMatches = matches.filter(m => m.round === round);
+          const roundMatches = bracketMatches.filter(m => m.round === round);
           const isLast = round === lastRound;
 
           return (
@@ -220,7 +232,7 @@ export default function KnockoutBracket({ matches, myClubId, onSubmit, onSchedul
                 <div className="flex flex-col gap-8">
                   {roundMatches.map(match => (
                     <div key={match.id} className="flex items-center">
-                      <MatchCard match={match} myClubId={myClubId} onSubmit={onSubmit} onSchedule={onSchedule} onViewStats={onViewStats} onAddStream={onAddStream} onForfeit={onForfeit} />
+                      <MatchCard match={match} myParticipantId={viewerId} participantType={participantType} onSubmit={onSubmit} onSchedule={onSchedule} onViewStats={onViewStats} onAddStream={onAddStream} onForfeit={onForfeit} />
                     </div>
                   ))}
                 </div>

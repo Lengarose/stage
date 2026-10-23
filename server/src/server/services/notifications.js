@@ -67,6 +67,18 @@ function notifySignup({ to, name } = {}) {
   sendMailSafe({ to, subject: `Welcome to ${BRAND}`, html });
 }
 
+function notifyPasswordReset({ to, url } = {}) {
+  if (!to || !url) return;
+  const html = layout(
+    'Reset your password',
+    row('We received a request to reset your STAGE password.') +
+    row('This link expires in one hour. If you did not ask for this, you can ignore the email.') +
+    row('If you usually sign in with Google or another provider, this also adds an email password. You can keep using Google afterwards.'),
+    { label: 'Reset password', url },
+  );
+  sendMailSafe({ to, subject: `Reset your ${BRAND} password`, html });
+}
+
 function sendEventEmail({ to, title, body, url } = {}) {
   if (!to) return;
   const html = layout(
@@ -185,6 +197,7 @@ function notifyMatchResultAdmin({
 module.exports = {
   isConfigured,
   notifySignup,
+  notifyPasswordReset,
   sendEventEmail,
   notifyAnnouncement,
   notifyMatchDay,

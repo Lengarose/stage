@@ -1588,7 +1588,7 @@ function isTestEntranceLink(link) {
   return String(link?.link_kind || '').toLowerCase() === 'test';
 }
 
-const TEST_ENTRANCE_GRANT = Object.freeze({ credits: 50, stc: 5000 });
+const TEST_ENTRANCE_GRANT = Object.freeze({ credits: 50, stc: 50000 });
 
 async function resolveTournamentEntranceTokenPayload(token) {
   const rows = await EXECUTESQL(
@@ -2060,10 +2060,12 @@ async function insertTournamentMatch(query, match) {
   await query(
     `INSERT INTO matches
        (id, tournament_id, home_club_id, away_club_id, home_club_name, away_club_name,
+        home_player_id, home_player_name, home_player_email,
+        away_player_id, away_player_name, away_player_email,
         home_score, away_score, status, mode, type, round, group_number, scheduled_date,
         scheduling_status, home_proposed_date, away_proposed_date, last_proposed_by,
         proposal_count, confirmed_date, allow_penalties, created_date, updated_date)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
     [
       id,
       match.tournament_id,
@@ -2071,10 +2073,16 @@ async function insertTournamentMatch(query, match) {
       match.away_club_id || null,
       match.home_club_name || null,
       match.away_club_name || null,
+      match.home_player_id || null,
+      match.home_player_name || null,
+      match.home_player_email || null,
+      match.away_player_id || null,
+      match.away_player_name || null,
+      match.away_player_email || null,
       Number(match.home_score || 0),
       Number(match.away_score || 0),
       status,
-      match.mode || 'club',
+      match.mode || (match.home_player_id || match.away_player_id ? 'player' : 'club'),
       matchType,
       Number(match.round || 1),
       match.group_number ?? match.group ?? null,
@@ -2954,6 +2962,11 @@ function isCommunityTournament(tournament) {
   return Boolean(tournament?.creator_gamertag) || Boolean(tournament?.creator_id);
 }
 
+function isGostOfficialTournament(tournament) {
+  if (isCommunityTournament(tournament)) return false;
+  return /^by stage\b/i.test(String(tournament?.name || '').trim());
+}
+
 function completedTournamentDeleteWaitMs(tournament) {
   if (String(tournament?.status || '').toLowerCase() !== 'completed') return 0;
   if (!isCommunityTournament(tournament)) return 0;
@@ -3095,9 +3108,16 @@ function buildTournamentDrawMatches(tournament, entries) {
   }
 
   const shuffled = shuffleTournamentEntries(seeded);
+  const openingCount = Math.floor(shuffled.length / 2);
+  const openingType = openingCount >= 32 ? 'round_of_64'
+    : openingCount >= 16 ? 'round_of_32'
+    : openingCount >= 8 ? 'round_of_16'
+    : openingCount >= 4 ? 'quarter_final'
+    : openingCount >= 2 ? 'semi_final'
+    : 'final';
   for (let i = 0; i < shuffled.length; i += 2) {
     if (shuffled[i + 1]) {
-      matches.push(makeMatch(shuffled[i], shuffled[i + 1], 1, type === 'swiss_ucl' ? 'ucl_league' : 'knockout'));
+      matches.push(makeMatch(shuffled[i], shuffled[i + 1], 1, type === 'swiss_ucl' ? 'ucl_league' : openingType, { group_number: i / 2 }));
     }
   }
   return { matches, numGroups: null };
@@ -3128,16 +3148,57 @@ function addGroupStandingTeam(table, id, name) {
   return table[id];
 }
 
-function calculateTournamentGroupStandings(matches, numGroups = 2) {
+function tournamentSide(match, side, participantType) {
+  const player = String(participantType || '').toLowerCase() === 'player';
+  const id = player ? match[`${side}_player_id`] : match[`${side}_club_id`];
+  const name = player ? match[`${side}_player_name`] : match[`${side}_club_name`];
+  const email = player ? match[`${side}_player_email`] : match[`${side}_owner_email`];
+  return {
+    id: id || null,
+    name: name || '',
+    email: email || null,
+    player,
+  };
+}
+
+function tournamentMatchResult(match, homeId, awayId, participantType) {
+  const player = String(participantType || '').toLowerCase() === 'player';
+  const winnerId = player ? match.winner_player_id : match.winner_club_id;
+  if (winnerId && String(winnerId) === String(homeId)) return 'home';
+  if (winnerId && String(winnerId) === String(awayId)) return 'away';
+  const homeScore = Number(match.home_score || 0);
+  const awayScore = Number(match.away_score || 0);
+  if (homeScore > awayScore) return 'home';
+  if (awayScore > homeScore) return 'away';
+  return 'draw';
+}
+
+function detectGroupParticipantType(matches, participantType) {
+  if (participantType) return String(participantType).toLowerCase() === 'player' ? 'player' : 'club';
+  const sample = (matches || []).find(match => match.home_player_id || match.home_club_id);
+  if (sample?.home_player_id && !sample?.home_club_id) return 'player';
+  return 'club';
+}
+
+function calculateTournamentGroupStandings(matches, numGroups = 2, participantType) {
+  const resolvedType = detectGroupParticipantType(matches, participantType);
   const groups = Array.from({ length: Math.max(1, Number(numGroups) || 2) }, () => ({}));
   matches
-    .filter(match => ['completed', 'forfeit'].includes(String(match.status || '')))
+    .filter(match => ['group', 'group_stage'].includes(String(match.type || '')) && ['completed', 'forfeit'].includes(String(match.status || '')))
     .forEach((match) => {
       const groupIndex = Number(match.group_number ?? match.group ?? 0);
       if (!groups[groupIndex]) return;
-      const home = addGroupStandingTeam(groups[groupIndex], match.home_club_id, match.home_club_name);
-      const away = addGroupStandingTeam(groups[groupIndex], match.away_club_id, match.away_club_name);
-      if (!home || !away) return;
+      const homeSide = tournamentSide(match, 'home', resolvedType);
+      const awaySide = tournamentSide(match, 'away', resolvedType);
+      const home = addGroupStandingTeam(groups[groupIndex], homeSide.id, homeSide.name);
+      const away = addGroupStandingTeam(groups[groupIndex], awaySide.id, awaySide.name);
+      if (!home || !away || String(home.id) === String(away.id)) return;
+      if (resolvedType === 'player') {
+        home.player = true;
+        away.player = true;
+        home.email = home.email || homeSide.email;
+        away.email = away.email || awaySide.email;
+      }
       const homeScore = Number(match.home_score || 0);
       const awayScore = Number(match.away_score || 0);
 
@@ -3150,11 +3211,12 @@ function calculateTournamentGroupStandings(matches, numGroups = 2) {
       home.GD = home.GF - home.GA;
       away.GD = away.GF - away.GA;
 
-      if (String(match.winner_club_id || '') === String(match.home_club_id || '')) {
+      const result = tournamentMatchResult(match, home.id, away.id, resolvedType);
+      if (result === 'home') {
         home.W += 1;
         home.Pts += 3;
         away.L += 1;
-      } else if (String(match.winner_club_id || '') === String(match.away_club_id || '')) {
+      } else if (result === 'away') {
         away.W += 1;
         away.Pts += 3;
         home.L += 1;
@@ -3343,17 +3405,37 @@ function getTeamFromMatch(match, clubId) {
   return { id: clubId, name: 'Club' };
 }
 
+function tieSideFromLeg(leg, side) {
+  if (leg[`${side}_player_id`] && !leg[`${side}_club_id`]) {
+    return {
+      id: leg[`${side}_player_id`],
+      name: leg[`${side}_player_name`] || '',
+      email: leg[`${side}_player_email`] || null,
+      player: true,
+    };
+  }
+  if (!leg[`${side}_club_id`]) return null;
+  return {
+    id: leg[`${side}_club_id`],
+    name: leg[`${side}_club_name`] || '',
+    owner_email: leg[`${side}_owner_email`] || null,
+    player: false,
+  };
+}
+
 function getTwoLegTieResult(legs) {
   const totals = {};
-  const names = {};
+  const sides = {};
   for (const leg of legs) {
-    if (leg.home_club_id) {
-      totals[leg.home_club_id] = (totals[leg.home_club_id] || 0) + Number(leg.home_score || 0);
-      names[leg.home_club_id] = leg.home_club_name;
+    const home = tieSideFromLeg(leg, 'home');
+    const away = tieSideFromLeg(leg, 'away');
+    if (home?.id) {
+      totals[home.id] = (totals[home.id] || 0) + Number(leg.home_score || 0);
+      sides[home.id] = home;
     }
-    if (leg.away_club_id) {
-      totals[leg.away_club_id] = (totals[leg.away_club_id] || 0) + Number(leg.away_score || 0);
-      names[leg.away_club_id] = leg.away_club_name;
+    if (away?.id) {
+      totals[away.id] = (totals[away.id] || 0) + Number(leg.away_score || 0);
+      sides[away.id] = away;
     }
   }
   const ids = Object.keys(totals);
@@ -3361,37 +3443,55 @@ function getTwoLegTieResult(legs) {
   const [a, b] = ids;
   let winnerId = totals[a] > totals[b] ? a : totals[b] > totals[a] ? b : null;
   if (!winnerId) {
-    const decidedLeg = [...legs].reverse().find((leg) => leg.winner_club_id);
-    winnerId = decidedLeg?.winner_club_id || a;
+    const decidedLeg = [...legs].reverse().find((leg) => leg.winner_player_id || leg.winner_club_id);
+    winnerId = decidedLeg?.winner_player_id || decidedLeg?.winner_club_id || a;
   }
   const loserId = String(winnerId) === String(a) ? b : a;
+  const winner = sides[winnerId] || { id: winnerId, name: 'Winner' };
+  const loser = sides[loserId] || { id: loserId, name: 'Opponent' };
   return {
-    winner: { id: winnerId, name: names[winnerId] || getTeamFromMatch(legs[0], winnerId)?.name || 'Winner' },
-    loser: { id: loserId, name: names[loserId] || getTeamFromMatch(legs[0], loserId)?.name || 'Club' },
+    winner: { ...winner, name: winner.name || 'Winner' },
+    loser: { ...loser, name: loser.name || 'Opponent' },
+  };
+}
+
+function tournamentTieSideFields(team, prefix) {
+  if (team?.player) {
+    return {
+      [`${prefix}_player_id`]: team.id,
+      [`${prefix}_player_name`]: team.name,
+      [`${prefix}_player_email`]: team.email || null,
+      [`${prefix}_club_id`]: null,
+      [`${prefix}_club_name`]: null,
+    };
+  }
+  return {
+    [`${prefix}_club_id`]: team.id,
+    [`${prefix}_club_name`]: team.name,
+    [`${prefix}_owner_email`]: team.owner_email || null,
   };
 }
 
 async function insertTwoLegTournamentTie(query, tournamentId, home, away, round, type, tieIndex) {
   if (!home?.id || !away?.id || String(home.id) === String(away.id)) return 0;
+  const mode = home.player || away.player ? 'player' : 'club';
   await insertTournamentMatch(query, {
     tournament_id: tournamentId,
-    home_club_id: home.id,
-    home_club_name: home.name,
-    away_club_id: away.id,
-    away_club_name: away.name,
+    ...tournamentTieSideFields(home, 'home'),
+    ...tournamentTieSideFields(away, 'away'),
     round,
     type,
+    mode,
     group_number: tieIndex,
     status: 'scheduled',
   });
   await insertTournamentMatch(query, {
     tournament_id: tournamentId,
-    home_club_id: away.id,
-    home_club_name: away.name,
-    away_club_id: home.id,
-    away_club_name: home.name,
+    ...tournamentTieSideFields(away, 'home'),
+    ...tournamentTieSideFields(home, 'away'),
     round: round + 1,
     type,
+    mode,
     group_number: tieIndex,
     status: 'scheduled',
   });
@@ -3421,7 +3521,7 @@ async function createGroupStageKnockoutRound(query, tournament, groupMatches, { 
     );
   }
 
-  const standings = calculateTournamentGroupStandings(groupMatches, tournament.num_groups || 2);
+  const standings = calculateTournamentGroupStandings(groupMatches, tournament.num_groups || 2, tournament.participant_type);
   const pairs = buildGroupKnockoutPairs(standings);
   if (!pairs.length) throw new Error('Not enough qualified teams to start the next round');
 
@@ -3441,12 +3541,12 @@ async function createNextRoundFromTieResults(query, tournamentId, tieResults, ne
   const losers = tieResults.map((result) => result.loser);
   let created = 0;
   if (winners.length === 2) {
+    const finalMode = winners[0].player || winners[1].player ? 'player' : 'club';
     await insertTournamentMatch(query, {
       tournament_id: tournamentId,
-      home_club_id: winners[0].id,
-      home_club_name: winners[0].name,
-      away_club_id: winners[1].id,
-      away_club_name: winners[1].name,
+      ...tournamentTieSideFields(winners[0], 'home'),
+      ...tournamentTieSideFields(winners[1], 'away'),
+      mode: finalMode,
       round: nextRound,
       type: 'final',
       status: 'scheduled',
@@ -3455,10 +3555,9 @@ async function createNextRoundFromTieResults(query, tournamentId, tieResults, ne
     if (losers[0]?.id && losers[1]?.id && String(losers[0].id) !== String(losers[1].id)) {
       await insertTournamentMatch(query, {
         tournament_id: tournamentId,
-        home_club_id: losers[0].id,
-        home_club_name: losers[0].name,
-        away_club_id: losers[1].id,
-        away_club_name: losers[1].name,
+        ...tournamentTieSideFields(losers[0], 'home'),
+        ...tournamentTieSideFields(losers[1], 'away'),
+        mode: losers[0].player || losers[1].player ? 'player' : 'club',
         round: nextRound,
         type: 'third_place',
         status: 'scheduled',
@@ -3487,7 +3586,12 @@ function finalAndThirdPlaceRoundMatchesTieResults(existingMatches, tieResults) {
   const thirdPlaceMatch = existingMatches.find((match) => ['third_place', 'third-place', 'bronze'].includes(String(match.type || '').toLowerCase()));
   return Boolean(
     finalMatch
-    && sameIdPair(finalMatch.home_club_id, finalMatch.away_club_id, tieResults[0].winner.id, tieResults[1].winner.id)
+    && sameIdPair(
+      finalMatch.home_player_id || finalMatch.home_club_id,
+      finalMatch.away_player_id || finalMatch.away_club_id,
+      tieResults[0].winner.id,
+      tieResults[1].winner.id,
+    )
     && (
       !tieResults[0].loser?.id
       || !tieResults[1].loser?.id
@@ -3529,12 +3633,32 @@ async function assertTournamentOrganizer(userId, tournament) {
   const user = userRows[0];
   if (!user) throw new Error('User not found');
   const isAdmin = [0, 2].includes(Number(user.role_id));
-  const email = String(user.email || '').toLowerCase();
-  const isOwner = email && (
-    email === String(tournament.creator_email || '').toLowerCase()
-    || email === String(tournament.organizer_email || '').toLowerCase()
+  const email = String(user.email || '').trim().toLowerCase();
+  const isOwnerByEmail = email && (
+    email === String(tournament.creator_email || '').trim().toLowerCase()
+    || email === String(tournament.organizer_email || '').trim().toLowerCase()
   );
-  if (!isAdmin && !isOwner) {
+  if (isAdmin || isOwnerByEmail) return { user, isAdmin };
+
+  const playerRows = await EXECUTESQL(
+    `SELECT id, gamertag, email FROM players
+      WHERE user_id = ? OR LOWER(TRIM(IFNULL(email, ''))) = LOWER(TRIM(?))
+      ORDER BY user_id = ? DESC, updated_date DESC
+      LIMIT 1`,
+    [userId, user.email || '', userId],
+  );
+  const player = playerRows[0] || null;
+  const creatorId = String(tournament.creator_id || '').trim();
+  const isOwnerByPlayer = Boolean(
+    player && creatorId && (
+      String(player.id) === creatorId
+    ),
+  );
+  const tag = String(player?.gamertag || '').trim().toLowerCase();
+  const isOwnerByGamertag = Boolean(
+    tag && tag === String(tournament.creator_gamertag || '').trim().toLowerCase(),
+  );
+  if (!isOwnerByPlayer && !isOwnerByGamertag) {
     const err = new Error('Only the tournament creator or admin can do this');
     err.status = 403;
     throw err;
@@ -3549,6 +3673,11 @@ async function requireEntranceLinkManager(userId, tournamentId) {
   if (!tournamentRows.length) throw new Error('Tournament not found');
   const tournament = tournamentRows[0];
   const auth = await assertTournamentOrganizer(userId, tournament);
+  if (isGostOfficialTournament(tournament) && !auth.isAdmin) {
+    const err = new Error('Admin only');
+    err.status = 403;
+    throw err;
+  }
   return { tournament, ...auth };
 }
 
@@ -4048,6 +4177,28 @@ const HANDLERS = {
     };
   },
 
+  async getTournamentInviteLink({ _auth_user_id, tournament_id }) {
+    const { isAdmin } = await requireEntranceLinkManager(_auth_user_id, tournament_id);
+    const rows = await EXECUTESQL(
+      `SELECT * FROM league_entities
+        WHERE entity_type = 'tournament_entrance_link'
+          AND JSON_UNQUOTE(JSON_EXTRACT(data_json, '$.tournament_id')) = ?
+        ORDER BY created_date DESC`,
+      [tournament_id],
+    );
+    const active = rows.map(parseTournamentEntranceLinkRow).find((link) => (
+      String(link?.status || '').toLowerCase() === 'active'
+      && !isTestEntranceLink(link)
+      && link?.token
+    ));
+    if (active) return { data: { success: true, link: active } };
+    return HANDLERS.createTournamentEntranceLink({
+      _auth_user_id,
+      tournament_id,
+      link_kind: isAdmin ? undefined : 'standard',
+    });
+  },
+
   async resolveTournamentEntranceToken({ token }) {
     if (!token) throw new Error('token required');
     return resolveTournamentEntranceTokenPayload(token);
@@ -4118,7 +4269,7 @@ const HANDLERS = {
           `INSERT INTO player_stc_transactions
              (id, player_id, player_email, amount, balance_after, type, category, source, description, reference_id, created_date)
            VALUES (?, ?, ?, ?, ?, 'income', 'test_entrance_grant', 'STAGE',
-                   'Test entrance grant — 5,000 STC', ?, NOW())`,
+                   'Test entrance grant — 50,000 STC', ?, NOW())`,
           [uuidv4(), player.id, player.email || null, stcAdded, playerStcAfter, tournamentId],
         ).catch(() => {});
       }
@@ -5262,6 +5413,7 @@ const HANDLERS = {
   async advanceRound({ _auth_user_id, tournamentId, tournament_id }) {
     if (!_auth_user_id) throw new Error('not authenticated');
     const id = tournamentId || tournament_id;
+    if (!id) throw new Error('tournamentId required');
     const [tournament] = await EXECUTESQL('SELECT * FROM tournaments WHERE id = ? LIMIT 1', [id]);
     if (!tournament) throw new Error('Tournament not found');
     const actor = await assertTournamentOrganizer(_auth_user_id, tournament);
@@ -5301,11 +5453,15 @@ const HANDLERS = {
       }
 
       const isPlayerTournament = String(tournament.participant_type || '').toLowerCase() === 'player';
-      const winnerId = isPlayerTournament ? finalMatch.winner_player_id : finalMatch.winner_club_id;
+      const homeSide = tournamentSide(finalMatch, 'home', isPlayerTournament ? 'player' : 'club');
+      const awaySide = tournamentSide(finalMatch, 'away', isPlayerTournament ? 'player' : 'club');
+      const finalResult = tournamentMatchResult(finalMatch, homeSide.id, awaySide.id, isPlayerTournament ? 'player' : 'club');
+      const winnerFromScore = finalResult === 'home' ? homeSide : finalResult === 'away' ? awaySide : null;
+      const winnerId = (isPlayerTournament ? finalMatch.winner_player_id : finalMatch.winner_club_id) || winnerFromScore?.id;
       if (!winnerId) throw new Error('The final does not have a winner yet');
-      const winnerName = isPlayerTournament
-        ? (String(winnerId) === String(finalMatch.home_player_id) ? finalMatch.home_player_name : finalMatch.away_player_name)
-        : (String(winnerId) === String(finalMatch.home_club_id) ? finalMatch.home_club_name : finalMatch.away_club_name);
+      const winnerName = sameIdValue(winnerId, homeSide.id)
+        ? homeSide.name
+        : (sameIdValue(winnerId, awaySide.id) ? awaySide.name : (winnerFromScore?.name || 'Winner'));
 
       if (isPlayerTournament) {
         await query(

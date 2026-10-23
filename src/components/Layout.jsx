@@ -2329,6 +2329,28 @@ export default function Layout() {
     };
   }, []);
 
+  useEffect(() => {
+    const onWheel = (event) => {
+      if (event.defaultPrevented) return;
+      if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+      const start = event.target instanceof Element ? event.target : null;
+      const trap = start?.closest(".overflow-x-auto");
+      if (!trap || trap.scrollHeight > trap.clientHeight + 1) return;
+      let parent = trap.parentElement;
+      while (parent) {
+        const overflowY = getComputedStyle(parent).overflowY;
+        if ((overflowY === "auto" || overflowY === "scroll") && parent.scrollHeight > parent.clientHeight + 1) {
+          parent.scrollTop += event.deltaY;
+          event.preventDefault();
+          return;
+        }
+        parent = parent.parentElement;
+      }
+    };
+    document.addEventListener("wheel", onWheel, { passive: false, capture: true });
+    return () => document.removeEventListener("wheel", onWheel, { capture: true });
+  }, []);
+
   return (
     <div
       className={cn(

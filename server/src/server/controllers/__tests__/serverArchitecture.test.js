@@ -123,6 +123,9 @@ test('auth sends a welcome email on sign-up and never on sign-in', () => {
   assert.doesNotMatch(authController, /notifyLogin/);
   assert.match(authController, /notifySignup/);
   assert.match(authController, /router\.post\('\/register'/);
+  assert.match(authController, /router\.post\('\/forgot-password'/);
+  assert.match(authController, /router\.post\('\/reset-password'/);
+  assert.match(notifications, /function notifyPasswordReset/);
   assert.doesNotMatch(oauthController, /notifyLogin/);
   assert.match(oauthController, /player\.__isNewUser/);
   assert.match(oauthController, /notifySignup/);
@@ -146,6 +149,7 @@ test('Stripe mobile checkout returns through an HTTPS handoff into the native ap
   assert.match(server, /stage:\/\/apps\/store/);
   assert.match(app, /path="\/auth\/store-return"/);
   assert.match(app, /path="\/store\/mobile-return"/);
+  assert.match(app, /path="\/reset-password"/);
   assert.match(app, /MobileStoreHandoff/);
   assert.match(oauthController, /router\.get\('\/store-return'/);
   assert.match(store, /client"\) === "mobile"/);

@@ -25,5 +25,22 @@
   "chooseLanguage": "Choose language",
   "afterSignup": "After you sign up",
   "joinDiscord": "Join our Discord community",
-  "discordAnytime": "You can also join anytime from Community in the app"
+  "discordAnytime": "You can also join anytime from Community in the app",
+  "forgotPassword": "Forgot password?",
+  "resetTitle": "Reset password",
+  "forgotHelp": "Enter your email, gamertag, or club name. We will send a reset link if an account exists.",
+  "sendResetLink": "Send reset link",
+  "sendingReset": "Sending...",
+  "resetEmailSent": "If an account exists, we sent a reset link. Check your inbox and spam folder.",
+  "resetGoogleHint": "Signed up with Google? This adds an email password. You can still use Google after.",
+  "backToSignin": "Back to sign in",
+  "newPassword": "New password (min. 8 characters)",
+  "savePassword": "Save password",
+  "resetting": "Saving...",
+  "resetSuccess": "Your password is updated. You can sign in with email, or keep using Google.",
+  "resetLinkInvalid": "This reset link is invalid or has expired. Request a new one from sign in.",
+  "resetFailed": "Could not reset the password. Try again.",
+  "passwordTooShort": "Use at least 8 characters.",
+  "oauthPasswordRequired": "This account has no password yet. Continue with Google, or use Forgot password.",
+  "identifierRequired": "Enter your email, gamertag, or club name."
 }

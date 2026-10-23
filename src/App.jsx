@@ -11,7 +11,12 @@ import { Toaster } from '@/components/ui/toaster';
 import { stageClient, clearNeedsOnboarding, clearOAuthReturnState, userNeedsOnboarding } from '@/api/stageClient';
 import { ensureAdminPanelMode, isAppAdminUser, isEffectiveAdmin, isAdminGlobalRoute } from '@/lib/adminAuth';
 import { getOwnedClubId } from '@/lib/userIdentityFields';
-import { claimTournamentTestGrantIfNeeded, shouldApplyTournamentEntranceAccess } from '@/lib/tournamentEntranceAccess';
+import {
+  clearEntranceTournament,
+  entranceTournamentPath,
+  finishTournamentEntranceSession,
+  readEntranceTournament,
+} from '@/lib/tournamentEntranceAccess';
 import BannerImg from '@/assets/Name logo.png';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import TournamentEntranceRouteGuard from '@/components/TournamentEntranceRouteGuard';
@@ -23,6 +28,7 @@ import PWAUpdatePrompt from '@/components/PWAUpdatePrompt';
 
 // Eagerly loaded — needed for initial render / auth flow
 import Login from './pages/Login';
+import ResetPassword from './pages/ResetPassword';
 import Landing from './pages/Landing';
 import Onboarding from './pages/Onboarding';
 import Home from './pages/Home';
@@ -145,27 +151,21 @@ const OAuthCallback = () => {
         return;
       }
 
-      // Tournament entrance invites: apply limited mode for eligible free users
-      // before onboarding mounts (Onboarding replaces the entrance route).
+      // Tournament entrance invites open that tournament after sign-in.
+      // Test links keep the normal header; standard links can still scope free accounts.
       const returnTo = result.returnTo || '/';
 
       const entranceMatch = String(returnTo).match(/\/tournaments\/entrance\/([^/]+)\/(signin|signup)/);
-      const shouldLimit =
-        Boolean(entranceMatch) &&
-        shouldApplyTournamentEntranceAccess(u);
+      let nextPath = '/';
 
       if (entranceMatch) {
         try {
           const resolved = await stageClient.http.post('/public/resolve-entrance-token', {
             token: entranceMatch[1],
           });
-          const tournamentId = resolved?.data?.tournament?.id;
-          if (shouldLimit && tournamentId) {
-            await stageClient.functions
-              .invoke('applyTournamentEntranceAccessMode', { tournament_id: tournamentId })
-              .catch(() => {});
-          }
-          await claimTournamentTestGrantIfNeeded(stageClient, {
+          nextPath = await finishTournamentEntranceSession(stageClient, {
+            user: u,
+            tournamentId: resolved?.data?.tournament?.id,
             token: entranceMatch[1],
             link: resolved?.data?.link,
           });
@@ -176,8 +176,7 @@ const OAuthCallback = () => {
       }
 
       clearOAuthReturnState();
-      // Always land on home so AuthenticatedApp can show Onboarding when needed.
-      navigate('/', { replace: true });
+      navigate(nextPath, { replace: true });
     })();
 
     return () => {
@@ -273,8 +272,15 @@ const SplashScreen = () => (
 const AuthenticatedApp = () => {
   const { isLoadingAuth, authError, user, checkUserAuth } = useAuth();
   const [playerSetupComplete, setPlayerSetupComplete] = React.useState(false);
-  const [showLogin, setShowLogin] = React.useState(false);
+  const [showLogin, setShowLogin] = React.useState(() => {
+    try {
+      return new URLSearchParams(window.location.search).get('signin') === '1';
+    } catch {
+      return false;
+    }
+  });
   const location = useLocation();
+  const navigate = useNavigate();
   const isTournamentEntrancePath = location.pathname.startsWith('/tournaments/entrance/');
 
   const handleOnboardingComplete = React.useCallback(() => {
@@ -317,6 +323,25 @@ const AuthenticatedApp = () => {
     stageClient.functions.invoke('contractManagement', { action: 'expire_overdue' }).catch(() => {});
     stageClient.functions.invoke('contractManagement', { action: 'auto_pay_salaries' }).catch(() => {});
   }, [user?.id]);
+
+  // Invite links remember the tournament across onboarding, then open it once.
+  React.useEffect(() => {
+    if (!user) return;
+    if (!playerSetupComplete && !hasCompletedOnboarding) return;
+    const pending = readEntranceTournament();
+    if (!pending) return;
+    const target = entranceTournamentPath(pending);
+    const onHome = location.pathname === '/' || location.pathname === '/dashboard';
+    const onEntrance = location.pathname.startsWith('/tournaments/entrance/');
+    if (location.pathname === target || onHome || onEntrance) {
+      clearEntranceTournament();
+      if ((onHome || onEntrance) && location.pathname !== target) {
+        navigate(target, { replace: true });
+      }
+      return;
+    }
+    clearEntranceTournament();
+  }, [user, playerSetupComplete, hasCompletedOnboarding, location.pathname, navigate]);
 
   // Auto-release tournament-limited users when tournament is completed or end_date has passed.
   React.useEffect(() => {
@@ -502,6 +527,7 @@ function App() {
                 <Route path="/auth/mobile-handoff" element={<MobileOAuthHandoff />} />
                 <Route path="/auth/store-return" element={<MobileStoreHandoff />} />
                 <Route path="/store/mobile-return" element={<MobileStoreHandoff />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="*" element={
                   <ChatNotificationsProvider>
                     <AuthenticatedApp />

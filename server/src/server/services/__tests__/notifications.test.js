@@ -44,6 +44,22 @@ test('notifySignup always queues a welcome email', () => {
   assert.match(sent[0].html, /Alex/);
 });
 
+test('notifyPasswordReset always queues a reset email with the STAGE link', () => {
+  const sent = [];
+  const { notifyPasswordReset } = loadNotifications((payload) => sent.push(payload));
+
+  notifyPasswordReset({
+    to: 'player@example.test',
+    url: 'https://stageleagues.com/reset-password?token=abc',
+  });
+
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].to, 'player@example.test');
+  assert.match(sent[0].subject, /Reset your STAGE League password/);
+  assert.match(sent[0].html, /reset-password\?token=abc/);
+  assert.match(sent[0].html, /Google/);
+});
+
 test('sendEventEmail uses the in-app title, body, and link', () => {
   const sent = [];
   const { sendEventEmail } = loadNotifications((payload) => sent.push(payload));

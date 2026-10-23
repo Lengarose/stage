@@ -1913,24 +1913,36 @@ export default function Admin(props) {
     </>
   );
 
+  const adminDialogFieldClass = "h-12 w-full rounded-none border border-cyan-300/18 bg-white/[0.08] px-3 text-sm text-white outline-none placeholder:text-white/35 focus:border-cyan-300/40";
+  const adminDialogSelectClass = "h-12 rounded-none border-cyan-300/18 bg-white/[0.08] text-white focus:ring-cyan-300/30";
+  const adminDialogClip = { clipPath: "polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%)" };
+
   const adminDialogs = (
     <>
       {/* Create Tournament Dialog */}
       <Dialog open={createTournamentOpen} onOpenChange={open => { if (!open) setAdminModalStep(1); setCreateTournamentOpen(open); }}>
-        <DialogContent className="bg-card border-border max-w-2xl p-0 gap-0 flex flex-col max-h-[90vh]">
-          {/* Header */}
-          <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-border shrink-0">
-            <DialogTitle className="font-heading text-lg uppercase tracking-tight flex items-center gap-2 m-0">
-              <Trophy className="w-4 h-4 text-primary" /> {t("admin.dialogs.createTournament")}
-            </DialogTitle>
+        <DialogContent hideCloseButton className="!flex max-h-[82vh] max-w-2xl flex-col gap-0 overflow-hidden border-cyan-300/18 bg-[#0a1724] p-0 text-white shadow-[0_0_56px_rgba(34,211,238,0.14)] sm:max-w-2xl">
+          <div className="relative flex shrink-0 items-center justify-between overflow-hidden border-b border-cyan-300/14 px-5 pb-4 pt-5">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgba(34,211,238,0.16),transparent_42%),linear-gradient(90deg,rgba(34,211,238,0.08),rgba(255,255,255,0.035),transparent)]" />
+            <div className="relative flex items-center gap-4">
+              <div className="grid h-12 w-11 shrink-0 place-items-center bg-cyan-300/12 ring-1 ring-cyan-300/25"
+                style={{ clipPath: "polygon(14% 0, 100% 0, 86% 100%, 0 100%)" }}>
+                <Trophy className="w-5 h-5 text-cyan-200" />
+              </div>
+              <div>
+                <p className="font-heading text-[10px] font-black uppercase tracking-[0.22em] text-cyan-200/55">Tournament builder</p>
+                <DialogTitle className="mt-1 font-heading text-xl font-black uppercase leading-none tracking-wide text-white">
+                  {t("admin.dialogs.createTournament")}
+                </DialogTitle>
+              </div>
+            </div>
             <button type="button" onClick={() => { setAdminModalStep(1); setCreateTournamentOpen(false); }}
-              className="w-7 h-7 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
-              <X className="w-4 h-4" />
+              className="relative grid h-10 w-10 place-items-center text-cyan-100/60 transition-colors hover:text-white">
+              <X className="w-5 h-5" />
             </button>
           </div>
 
-          {/* Step tabs */}
-          <div className="flex border-b border-border shrink-0 px-6">
+          <div className="flex shrink-0 gap-7 overflow-x-auto border-b border-cyan-300/12 bg-white/[0.035] px-5 pt-3">
             {[
               { n: 1, label: t("admin.dialogs.stepSetup") },
               { n: 2, label: t("admin.dialogs.stepPrizeRules") },
@@ -1938,20 +1950,22 @@ export default function Admin(props) {
             ].map(({ n, label }) => (
               <button key={n} type="button" onClick={() => setAdminModalStep(n)}
                 className={cn(
-                  "pb-3 pt-3 px-4 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors -mb-px",
-                  adminModalStep === n ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+                  "relative inline-flex shrink-0 items-center gap-2 pb-3 font-heading text-[11px] font-black uppercase tracking-[0.16em] transition-colors",
+                  adminModalStep === n ? "text-cyan-100" : "text-white/42 hover:text-white/75"
                 )}>
                 <span className={cn(
-                  "inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] mr-1.5 font-black",
-                  adminModalStep === n ? "bg-primary text-black" : "bg-secondary text-muted-foreground"
+                  "inline-flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-black",
+                  adminModalStep === n ? "bg-cyan-300 text-black" : "bg-white/10 text-white/45"
                 )}>{n}</span>
                 {label}
+                {adminModalStep === n && (
+                  <span className="absolute bottom-0 left-0 h-[2px] w-full bg-cyan-300 shadow-[0_0_12px_rgba(34,211,238,0.7)]" />
+                )}
               </button>
             ))}
           </div>
 
-          {/* Scrollable content */}
-          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain bg-[radial-gradient(circle_at_0%_20%,rgba(34,211,238,0.07),transparent_32%),linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.015))] px-5 py-5">
 
             {/* ── Step 1: Setup ── */}
             {adminModalStep === 1 && (
@@ -1961,11 +1975,14 @@ export default function Admin(props) {
                   <div className="grid grid-cols-2 gap-2">
                     {[{v:"club",label:t("admin.dialogs.clubOption"),sub:t("admin.dialogs.clubOptionSub")},{v:"player",label:t("admin.dialogs.playerOption"),sub:t("admin.dialogs.playerOptionSub")}].map(opt => (
                       <button key={opt.v} type="button" onClick={() => setTournamentForm(f => ({ ...f, participant_type: opt.v }))}
-                        className={cn("text-left px-3 py-2.5 rounded border transition-all",
-                          tournamentForm.participant_type === opt.v ? "border-primary bg-primary/10" : "border-border bg-secondary hover:border-primary/40"
-                        )}>
-                        <p className={cn("text-sm font-bold", tournamentForm.participant_type === opt.v ? "text-primary" : "text-foreground")}>{opt.label}</p>
-                        <p className="text-[10px] mt-0.5 text-muted-foreground">{opt.sub}</p>
+                        className={cn("min-h-[84px] px-5 py-4 text-left transition-all",
+                          tournamentForm.participant_type === opt.v
+                            ? "bg-cyan-300/[0.11] text-white ring-1 ring-cyan-300/45"
+                            : "bg-white/[0.045] text-white/70 ring-1 ring-white/12 hover:bg-cyan-300/[0.06] hover:ring-cyan-300/25"
+                        )}
+                        style={adminDialogClip}>
+                        <p className={cn("font-heading text-lg font-black uppercase tracking-wide", tournamentForm.participant_type === opt.v ? "text-cyan-100" : "text-white/85")}>{opt.label}</p>
+                        <p className="mt-1 text-xs text-white/45">{opt.sub}</p>
                       </button>
                     ))}
                   </div>
@@ -1974,13 +1991,13 @@ export default function Admin(props) {
                 <div>
                   <label className="label-xs">{t("admin.dialogs.name")} <span className="text-destructive">{t("admin.dialogs.required")}</span></label>
                   <input value={tournamentForm.name} onChange={e => setTournamentForm(f => ({ ...f, name: e.target.value }))}
-                    className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" placeholder={t("admin.dialogs.namePlaceholder")} />
+                    className={adminDialogFieldClass} placeholder={t("admin.dialogs.namePlaceholder")} />
                 </div>
 
                 <div>
                   <label className="label-xs">{t("admin.dialogs.descriptionLabel")} <span className="font-normal lowercase text-muted-foreground">{t("admin.dialogs.optional")}</span></label>
                   <Textarea value={tournamentForm.description} onChange={e => setTournamentForm(f => ({ ...f, description: e.target.value }))}
-                    className="bg-secondary border-border" rows={2} placeholder={t("admin.dialogs.descriptionPlaceholder")} />
+                    className={cn(adminDialogFieldClass, "min-h-[96px] py-3")} rows={2} placeholder={t("admin.dialogs.descriptionPlaceholder")} />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -1992,7 +2009,7 @@ export default function Admin(props) {
                         max_teams: Number(getTournamentFormatRule(v).defaultMaxTeams),
                       }));
                     }}>
-                      <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className={adminDialogSelectClass}><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="knockout">{t("admin.dialogs.formats.knockout")}</SelectItem>
                         <SelectItem value="league">{t("admin.dialogs.formats.league")}</SelectItem>
@@ -2004,7 +2021,7 @@ export default function Admin(props) {
                   <div>
                     <label className="label-xs">{t("admin.dialogs.maxTeams")}</label>
                     <Select value={String(tournamentForm.max_teams)} onValueChange={v => setTournamentForm(f => ({ ...f, max_teams: Number(v) }))}>
-                      <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className={adminDialogSelectClass}><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {adminMaxTeamOptions.map(n => <SelectItem key={n} value={String(n)}>{t("admin.dialogs.teamsCount", { count: n })}</SelectItem>)}
                       </SelectContent>
@@ -2017,7 +2034,7 @@ export default function Admin(props) {
                   <div>
                     <label className="label-xs">{t("admin.dialogs.platform")}</label>
                     <Select value={tournamentForm.platform} onValueChange={v => setTournamentForm(f => ({ ...f, platform: v }))}>
-                      <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className={adminDialogSelectClass}><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="PlayStation">{t("admin.dialogs.platforms.playstation")}</SelectItem>
                         <SelectItem value="Xbox">{t("admin.dialogs.platforms.xbox")}</SelectItem>
@@ -2029,14 +2046,14 @@ export default function Admin(props) {
                   <div>
                     <label className="label-xs">{t("admin.dialogs.startDate")} <span className="text-destructive">{t("admin.dialogs.required")}</span></label>
                     <input type="datetime-local" value={tournamentForm.start_date} onChange={e => setTournamentForm(f => ({ ...f, start_date: e.target.value }))}
-                      className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" />
+                      className={adminDialogFieldClass} />
                   </div>
                 </div>
 
                 <div>
                   <label className="label-xs">{t("admin.dialogs.region")}</label>
                   <Select value={tournamentForm.region} onValueChange={v => setTournamentForm(f => ({ ...f, region: v }))}>
-                    <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className={adminDialogSelectClass}><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {[["Global","🌍"],["Europe","🇪🇺"],["North America","🌎"]].map(([v,e]) => (
                         <SelectItem key={v} value={v}>{e} {v}</SelectItem>
@@ -2048,7 +2065,7 @@ export default function Admin(props) {
                 <div>
                   <label className="label-xs">{t("admin.dialogs.countryRestriction")} <span className="text-muted-foreground normal-case font-normal">{t("admin.dialogs.countryOptional")}</span></label>
                   <Select value={tournamentForm.country_code || "none"} onValueChange={v => setTournamentForm(f => ({ ...f, country_code: v === "none" ? "" : v }))}>
-                    <SelectTrigger className="bg-secondary border-border"><SelectValue placeholder={t("admin.dialogs.allCountries")} /></SelectTrigger>
+                    <SelectTrigger className={adminDialogSelectClass}><SelectValue placeholder={t("admin.dialogs.allCountries")} /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">{t("admin.dialogs.allCountriesOpen")}</SelectItem>
                       {COUNTRIES.map(c => <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>)}
@@ -2065,33 +2082,33 @@ export default function Admin(props) {
                 <div>
                   <label className="label-xs">{t("admin.dialogs.entryFee")}</label>
                   <input type="number" min="0" value={tournamentForm.entry_fee_stc || ""} onChange={e => setTournamentForm(f => ({ ...f, entry_fee_stc: e.target.value }))}
-                    className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" placeholder={t("admin.dialogs.stcPerEntry")} />
-                  <div className="mt-3 border border-primary/20 bg-primary/5 rounded p-3 text-sm space-y-2">
-                    <div className="flex justify-between"><span className="text-muted-foreground text-xs">{t("admin.dialogs.entryCost")}</span><span className="font-bold text-xs">{TOURNAMENT_CREDIT_COST} credits + {adminPrizeBreakdown.entryFee.toLocaleString()} STC</span></div>
-                    <div className="flex justify-between"><span className="text-muted-foreground text-xs">{t("admin.dialogs.maxTeamsLabel")}</span><span className="font-bold text-xs">{tournamentForm.max_teams}</span></div>
-                    <div className="h-px bg-primary/20" />
-                    <div className="flex justify-between"><span className="text-xs text-yellow-400 font-bold">{t("admin.dialogs.winner70")}</span><span className="font-black text-warning">{adminPrizeBreakdown.winner.toLocaleString()} STC</span></div>
-                    <div className="flex justify-between"><span className="text-xs text-muted-foreground font-bold">{t("admin.dialogs.runnerUp20")}</span><span className="font-bold text-foreground">{adminPrizeBreakdown.runnerUp.toLocaleString()} STC</span></div>
-                    <div className="flex justify-between"><span className="text-xs text-muted-foreground font-bold">{t("admin.dialogs.thirdPlace10")}</span><span className="font-bold text-foreground">{adminPrizeBreakdown.thirdPlace.toLocaleString()} STC</span></div>
-                    <div className="h-px bg-primary/20" />
-                    <div className="flex justify-between"><span className="text-xs text-warning font-bold">{t("admin.dialogs.prizePoolLabel")}</span><span className="font-black text-warning">{adminPrizeBreakdown.pool.toLocaleString()} STC</span></div>
+                    className={adminDialogFieldClass} placeholder={t("admin.dialogs.stcPerEntry")} />
+                  <div className="mt-3 space-y-2 bg-cyan-300/[0.075] p-4 text-sm ring-1 ring-cyan-300/18" style={adminDialogClip}>
+                    <div className="flex justify-between"><span className="text-xs text-white/45">{t("admin.dialogs.entryCost")}</span><span className="text-xs font-bold text-white/85">{TOURNAMENT_CREDIT_COST} credits + {adminPrizeBreakdown.entryFee.toLocaleString()} STC</span></div>
+                    <div className="flex justify-between"><span className="text-xs text-white/45">{t("admin.dialogs.maxTeamsLabel")}</span><span className="text-xs font-bold text-white/85">{tournamentForm.max_teams}</span></div>
+                    <div className="h-px bg-cyan-300/15" />
+                    <div className="flex justify-between"><span className="text-xs font-bold text-cyan-100/70">{t("admin.dialogs.winner70")}</span><span className="font-black text-cyan-100">{adminPrizeBreakdown.winner.toLocaleString()} STC</span></div>
+                    <div className="flex justify-between"><span className="text-xs font-bold text-white/45">{t("admin.dialogs.runnerUp20")}</span><span className="font-bold text-white/85">{adminPrizeBreakdown.runnerUp.toLocaleString()} STC</span></div>
+                    <div className="flex justify-between"><span className="text-xs font-bold text-white/45">{t("admin.dialogs.thirdPlace10")}</span><span className="font-bold text-white/85">{adminPrizeBreakdown.thirdPlace.toLocaleString()} STC</span></div>
+                    <div className="h-px bg-cyan-300/15" />
+                    <div className="flex justify-between"><span className="text-xs font-bold text-cyan-100/80">{t("admin.dialogs.prizePoolLabel")}</span><span className="font-black text-cyan-100">{adminPrizeBreakdown.pool.toLocaleString()} STC</span></div>
                   </div>
                 </div>
 
                 <div>
                   <label className="label-xs">{t("admin.dialogs.customRules")}</label>
                   <Select value={tournamentForm.rules_template_id || "standard_cup"} onValueChange={value => setTournamentForm(current => ({ ...current, rules_template_id: value }))}>
-                    <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className={adminDialogSelectClass}><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {listTournamentRuleTemplates(language).map(template => (
                         <SelectItem key={template.id} value={template.id}>{template.title}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  <p className="mt-2 text-xs text-muted-foreground">
+                  <p className="mt-2 text-xs text-white/45">
                     {listTournamentRuleTemplates(language).find(template => template.id === (tournamentForm.rules_template_id || "standard_cup"))?.summary}
                   </p>
-                  <div className="mt-3 max-h-56 overflow-y-auto rounded border border-border bg-secondary/40 p-3 text-sm text-foreground">
+                  <div className="mt-3 max-h-56 overflow-y-auto bg-black/25 p-4 text-sm text-white/75 ring-1 ring-cyan-300/15" style={adminDialogClip}>
                     <p className="whitespace-pre-wrap leading-relaxed">{renderTournamentRules(tournamentForm.rules_template_id || "standard_cup", {
                       name: tournamentForm.name,
                       type: tournamentForm.type,
@@ -2106,7 +2123,7 @@ export default function Admin(props) {
                     }, language).body}</p>
                   </div>
                   <div className="mt-2">
-                    <label className="flex items-center justify-center gap-2 h-9 rounded border border-dashed border-border hover:border-primary/40 text-muted-foreground text-xs cursor-pointer transition-colors">
+                    <label className="flex h-10 w-full cursor-pointer items-center justify-center gap-2 border border-dashed border-cyan-300/20 bg-black/20 text-xs text-white/45 transition-colors hover:border-cyan-300/40 hover:text-white/80" style={adminDialogClip}>
                       <Upload className="w-3.5 h-3.5" />
                       {rulesFile ? rulesFile.name : t("admin.dialogs.attachRulesFile")}
                       <input type="file" accept=".pdf,image/*" className="sr-only" onChange={e => setRulesFile(e.target.files[0])} />
@@ -2129,19 +2146,19 @@ export default function Admin(props) {
                   <label className="label-xs">{t("admin.dialogs.trophy")} <span className="font-normal lowercase text-muted-foreground">{t("admin.dialogs.trophyOptional")}</span></label>
                   <p className="text-[10px] text-muted-foreground mb-2">{t("admin.dialogs.selectFromLibrary")}</p>
                   {trophyItems.length > 0 ? (
-                    <div className="border border-border rounded overflow-hidden mb-3">
-                      <div className="grid grid-cols-4 gap-0 divide-x divide-y divide-border max-h-52 overflow-y-auto">
+                    <div className="mb-3 overflow-hidden border border-cyan-300/15 bg-black/20">
+                      <div className="grid max-h-52 grid-cols-4 gap-0 divide-x divide-y divide-cyan-300/10 overflow-y-auto">
                         {trophyItems.map(t => (
                           <button key={t.id} type="button"
                             onClick={() => { setAdminTrophyItemId(t.id); setAdminTrophyFile(null); }}
                             className={cn(
-                              "flex flex-col items-center gap-1 p-3 text-center transition-colors hover:bg-primary/5",
-                              adminTrophyItemId === t.id && "bg-warning/10"
+                              "flex flex-col items-center gap-1 p-3 text-center transition-colors hover:bg-cyan-300/[0.06]",
+                              adminTrophyItemId === t.id && "bg-cyan-300/[0.08]"
                             )}>
                             {t.image_url
                               ? <img src={t.image_url} alt={t.name} className="w-10 h-10 object-contain drop-shadow" />
                               : <Trophy className="w-8 h-8 text-warning/20" />}
-                            <span className="text-[9px] text-muted-foreground leading-tight line-clamp-2 w-full">{t.name}</span>
+                            <span className="line-clamp-2 w-full text-[9px] leading-tight text-white/45">{t.name}</span>
                           </button>
                         ))}
                       </div>
@@ -2151,13 +2168,13 @@ export default function Admin(props) {
                   )}
                   <p className="text-[10px] text-muted-foreground mb-1.5 uppercase tracking-wider">{t("admin.dialogs.uploadNewTrophy")}</p>
                   {adminTrophyFile ? (
-                    <div className="flex items-center gap-3 bg-warning/10 border border-warning/20 rounded-lg p-3">
+                    <div className="flex items-center gap-3 bg-cyan-300/[0.08] p-3 ring-1 ring-cyan-300/20" style={adminDialogClip}>
                       <img src={URL.createObjectURL(adminTrophyFile)} alt="trophy" className="w-10 h-10 object-contain" />
                       <span className="text-xs text-warning flex-1 truncate">{adminTrophyFile.name}</span>
                       <button type="button" onClick={() => setAdminTrophyFile(null)} className="text-muted-foreground hover:text-destructive"><X className="w-3.5 h-3.5" /></button>
                     </div>
                   ) : (
-                    <label className="w-full h-12 rounded-lg border-2 border-dashed border-warning/30 hover:border-warning/60 flex items-center justify-center gap-2 text-warning/60 hover:text-warning transition-colors cursor-pointer">
+                    <label className="flex h-12 w-full cursor-pointer items-center justify-center gap-2 border border-dashed border-cyan-300/20 bg-black/20 text-cyan-100/60 transition-colors hover:border-cyan-300/40 hover:text-cyan-100" style={adminDialogClip}>
                       <Upload className="w-4 h-4" />
                       <span className="text-xs">{t("admin.dialogs.uploadTrophyPng")}</span>
                       <input type="file" accept="image/png,image/*" className="sr-only" onChange={e => { if (e.target.files[0]) { setAdminTrophyFile(e.target.files[0]); setAdminTrophyItemId(""); } }} />
@@ -2170,7 +2187,7 @@ export default function Admin(props) {
 
                 <div>
                   <label className="label-xs">{t("admin.dialogs.tournamentBanner")}</label>
-                  <label className="flex items-center justify-center gap-2 border border-dashed border-border rounded p-4 cursor-pointer hover:border-primary/50 transition-colors mb-3">
+                  <label className="mb-3 flex cursor-pointer items-center justify-center gap-2 border border-dashed border-cyan-300/20 bg-black/20 p-4 text-white/45 transition-colors hover:border-cyan-300/40 hover:text-white/80" style={adminDialogClip}>
                     <Upload className="w-4 h-4 text-muted-foreground" />
                     <span className="text-xs text-muted-foreground">{bannerFile ? bannerFile.name : t("admin.dialogs.uploadBanner")}</span>
                     <input type="file" accept="image/*" className="sr-only" onChange={e => setBannerFile(e.target.files[0])} />
@@ -2202,28 +2219,29 @@ export default function Admin(props) {
           </div>
 
           {/* Sticky footer */}
-          <div className="shrink-0 border-t border-border px-6 py-4 flex items-center justify-between gap-3">
+          <div className="flex shrink-0 items-center justify-between gap-3 border-t border-cyan-300/12 bg-white/[0.04] px-5 py-3">
             <button type="button"
               onClick={() => setAdminModalStep(s => Math.max(1, s - 1))}
               disabled={adminModalStep === 1}
-              className="text-xs text-muted-foreground hover:text-foreground disabled:opacity-30 flex items-center gap-1 transition-colors">
+              className="flex items-center gap-1 text-xs font-bold uppercase tracking-[0.12em] text-white/45 transition-colors hover:text-white disabled:opacity-30">
               <ChevronLeft className="w-3.5 h-3.5" /> {t("admin.actions.back")}
             </button>
             <div className="flex items-center gap-1.5">
               {[1,2,3].map(n => (
-                <div key={n} className={cn("h-1.5 rounded-full transition-all", adminModalStep === n ? "w-5 bg-primary" : "w-1.5 bg-border")} />
+                <div key={n} className={cn("h-1.5 transition-all", adminModalStep === n ? "w-6 bg-cyan-300" : "w-2 bg-white/15")} style={{ clipPath: "polygon(20% 0, 100% 0, 80% 100%, 0 100%)" }} />
               ))}
             </div>
             {adminModalStep < 3 ? (
               <button type="button"
                 onClick={() => setAdminModalStep(s => Math.min(3, s + 1))}
                 disabled={adminModalStep === 1 && !tournamentForm.name}
-                className="text-xs font-bold text-primary hover:text-primary/80 disabled:opacity-30 flex items-center gap-1 transition-colors">
+                className="flex items-center gap-1 text-xs font-black uppercase tracking-[0.12em] text-cyan-200 transition-colors hover:text-cyan-100 disabled:opacity-30">
                 {t("admin.actions.next")} <ChevronRight className="w-3.5 h-3.5" />
               </button>
             ) : (
               <Button onClick={createTournament} disabled={!tournamentForm.name || !tournamentForm.start_date || saving}
-                className="bg-primary text-primary-foreground gap-2 h-9 text-xs font-bold rounded">
+                className="h-10 rounded-none border border-cyan-200/25 bg-cyan-300/90 px-7 font-heading text-xs font-black uppercase tracking-[0.12em] text-black shadow-[0_0_24px_-14px_rgba(0,229,255,0.9)] hover:bg-cyan-200 disabled:opacity-45"
+                style={{ clipPath: "polygon(8% 0, 100% 0, 92% 100%, 0 100%)" }}>
                 <Trophy className="w-3.5 h-3.5" />
                 {saving ? t("admin.actions.creating") : t("admin.dialogs.createTournamentBtn")}
               </Button>
