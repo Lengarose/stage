@@ -18,7 +18,7 @@ import {
   simulateTournamentScore,
   withdrawTournamentClub,
 } from "@/api/tournamentActions";
-import { Trophy, ArrowLeft, Users, Calendar, Shield, Check, Play, AlertTriangle, Flag, BookOpen, Download, Coins, ExternalLink, Image as ImageIcon, Link2 } from "lucide-react";
+import { Trophy, ArrowLeft, Users, Calendar, Shield, Check, Play, Flag, BookOpen, Download, Coins, ExternalLink, Image as ImageIcon, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -29,7 +29,8 @@ import {
   getSwissUclDisplayMatches,
 } from "../lib/tournamentEngine";
 import { COUNTRIES } from "../lib/countries";
-import KnockoutBracket from "../components/KnockoutBracket";
+import TournamentStages from "../components/TournamentStages";
+import { canScheduleTournamentMatch } from "@/lib/tournamentStages";
 import TournamentStandingsTabs from "../components/TournamentStandingsTabs";
 import TournamentLeaderboard from "../components/TournamentLeaderboard";
 import MatchStatsModal from "../components/MatchStatsModal";
@@ -40,7 +41,7 @@ import { swalAlert, swalConfirm } from "@/lib/swal";
 import { getTournamentEntryCost } from "@/lib/subscriptionUtils";
 import { getClubManagerEmails } from "@/lib/scheduleEngine";
 import { createInboxEventId } from "@/lib/inboxEventId";
-import { canOpenTournamentGameDay, tournamentGameDayWebPath } from "@/lib/tournamentGameDay";
+import { tournamentGameDayWebPath } from "@/lib/tournamentGameDay";
 import { useTranslation } from "@/hooks/useTranslation";
 import { resolveTournamentRules } from "@/lib/tournamentRuleTemplates";
 
@@ -146,7 +147,6 @@ export default function TournamentDetail() {
   const [streamMatch, setStreamMatch] = useState(null);
   const [streamDialogOpen, setStreamDialogOpen] = useState(false);
   const [streamUrl, setStreamUrl] = useState("");
-  const [visibleRound, setVisibleRound] = useState(null);
   const [takeoverClub, setTakeoverClub] = useState(null);
   const [activeTab, setActiveTab] = useState("bracket");
   const [autoAdvancingRound, setAutoAdvancingRound] = useState(false);
@@ -564,8 +564,7 @@ export default function TournamentDetail() {
 
   async function proposeSchedule() {
     if (!scheduleMatch || !scheduleDate) return;
-    const isHomeTeam = String(scheduleMatch.home_club_id || "") === String(myClubId || "");
-    if (!isHomeTeam) {
+    if (!canScheduleTournamentMatch(scheduleMatch, tournament, user, myPlayer, allClubs)) {
       await swalAlert("Only the home team can propose the tournament fixture time.");
       return;
     }
@@ -576,14 +575,19 @@ export default function TournamentDetail() {
       return;
     }
 
-    const awayEmails = await getClubManagerEmails(scheduleMatch.away_club_id);
+    const awayPlayer = tournament.participant_type === "player"
+      ? await stageClient.entities.Player.get(scheduleMatch.away_player_id).catch(() => null)
+      : null;
+    const awayEmails = tournament.participant_type === "player"
+      ? [scheduleMatch.away_player_email || awayPlayer?.email].filter(Boolean)
+      : await getClubManagerEmails(scheduleMatch.away_club_id);
     if (!awayEmails.length) {
       await swalAlert("Could not find an away club manager to notify.");
       return;
     }
 
-    const homeName = scheduleMatch.home_club_name || myClub?.name || "Home club";
-    const awayName = scheduleMatch.away_club_name || "Away club";
+    const homeName = scheduleMatch.home_player_name || scheduleMatch.home_club_name || myClub?.name || "Home participant";
+    const awayName = scheduleMatch.away_player_name || scheduleMatch.away_club_name || "Away participant";
     const displayDate = new Date(scheduleDate).toLocaleString();
 
     await stageClient.entities.Match.update(scheduleMatch.id, {
@@ -656,68 +660,6 @@ export default function TournamentDetail() {
     navigate(tournamentGameDayWebPath(match.id));
   }
 
-  function GroupStageVisual({ matches, registeredClubs, numGroups }) {
-  const groups = Array.from({ length: Math.max(1, Number(numGroups) || 2) }, (_, index) => ({
-    index,
-    name: String.fromCharCode(65 + index),
-    clubs: [],
-  }));
-  const clubMap = Object.fromEntries(registeredClubs.map(club => [club.id, club]));
-
-  matches
-    .filter(match => match.group !== undefined && match.group !== null)
-    .forEach(match => {
-      const group = groups[Number(match.group)];
-      if (!group) return;
-      [
-        { id: match.home_club_id, name: match.home_club_name },
-        { id: match.away_club_id, name: match.away_club_name },
-      ].forEach(team => {
-        if (!team.id || group.clubs.some(club => club.id === team.id)) return;
-        group.clubs.push({ ...team, ...clubMap[team.id] });
-      });
-    });
-
-  if (!groups.some(group => group.clubs.length)) return null;
-
-  return (
-    <div className="bg-card border border-border rounded-2xl p-4">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <p className="text-xs font-black uppercase tracking-widest text-foreground">{t("commonPages.tdGroupDraw")}</p>
-          <p className="text-[11px] text-muted-foreground">{t("commonPages.tdGroupDrawDesc")}</p>
-        </div>
-        <span className="text-[10px] font-bold uppercase tracking-widest text-primary border border-primary/30 bg-primary/10 rounded px-2 py-1">
-          {groups.length} groups
-        </span>
-      </div>
-      <div className="grid md:grid-cols-2 gap-3">
-        {groups.map(group => (
-          <div key={group.name} className="rounded-xl border border-border bg-secondary/30 overflow-hidden">
-            <div className="px-3 py-2 border-b border-border flex items-center justify-between">
-              <span className="text-xs font-black uppercase tracking-widest text-primary">Group {group.name}</span>
-              <span className="text-[10px] text-muted-foreground">{group.clubs.length} teams</span>
-            </div>
-            <div className="divide-y divide-border/50">
-              {group.clubs.map((club, index) => (
-                <div key={club.id} className="flex items-center gap-2 px-3 py-2">
-                  <span className="w-5 text-[10px] font-bold text-muted-foreground">{index + 1}</span>
-                  <div className="w-7 h-7 rounded-lg bg-card border border-border overflow-hidden flex items-center justify-center shrink-0">
-                    {club.logo_url
-                      ? <img src={club.logo_url} alt={club.name} className="w-full h-full object-cover" style={{ objectPosition: club.logo_position || "50% 50%" }} />
-                      : <Shield className="w-3.5 h-3.5 text-muted-foreground" />}
-                  </div>
-                  <span className="text-sm font-bold text-foreground truncate">{club.name}</span>
-                  {club.tag && <span className="ml-auto text-[10px] text-muted-foreground font-mono">[{club.tag}]</span>}
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
   async function claimForfeit(match, proofUrl) {
     const claimClubId = myClub?.id || myPlayer?.club_id;
@@ -878,7 +820,6 @@ export default function TournamentDetail() {
   const isOrganizer = String(tournament.organizer_email || "").toLowerCase() === String(user?.email || "").toLowerCase();
   const canManageTournament = isAdmin || isCreator || isOrganizer;
   const canShareInvite = canManageTournament && ["registration", "in_progress"].includes(String(tournament.status || ""));
-  const myClubId = effectiveClubId;
   const isLeagueTournament = tournament.type === "league";
   const isGroupStageTournament = tournament.type === "group_stage";
   const leagueMatches = isLeagueTournament
@@ -933,101 +874,6 @@ export default function TournamentDetail() {
     return pts;
   })();
 
-  // Group rounds
-  const rounds = [...new Set(visibleFixtureMatches.map(m => m.round))].sort((a, b) => a - b);
-
-  // UCL / generic round label helper
-  function getRoundLabel(round, matchType) {
-    if (isLeagueTournament) return t("tournamentDetail.matchday", { round });
-    if (matchType === "ucl_league" || matchType === "league") return t("tournamentDetail.matchday", { round });
-    if (matchType === "ucl_playoff") return t("tournamentDetail.playoffs");
-    if (matchType === "ucl_r16" || matchType === "round_of_16") return t("tournamentDetail.roundOf16");
-    if (matchType === "ucl_qf" || matchType === "quarter_final") return t("tournamentDetail.quarterFinals");
-    if (matchType === "ucl_sf" || matchType === "semi_final") return t("tournamentDetail.semiFinals");
-    if (matchType === "third_place") return t("tournamentDetail.thirdPlace");
-    if (matchType === "final") return t("tournamentDetail.final");
-    if (matchType === "swiss") return t("tournamentDetail.roundN", { round });
-    // Fallback: for generic tournaments infer from total rounds
-    const totalRounds = rounds.length;
-    const roundIndex = rounds.indexOf(round);
-    const remaining = totalRounds - 1 - roundIndex;
-    if (remaining === 0) return t("tournamentDetail.final");
-    if (remaining === 1) return t("tournamentDetail.semiFinals");
-    if (remaining === 2) return t("tournamentDetail.quarterFinals");
-    if (remaining === 3) return t("tournamentDetail.roundOf16");
-    return t("tournamentDetail.roundN", { round });
-  }
-
-  function buildMatchGroup(id, label, groupMatches) {
-    return {
-      id,
-      label,
-      matches: [...groupMatches].sort((a, b) => Number(a.round || 0) - Number(b.round || 0)),
-    };
-  }
-
-  const fixtureGroups = (() => {
-    const withMatches = (groups) => groups.filter(group => group.matches.length > 0);
-
-    if (isLeagueTournament) {
-      const homeMatches = myClubId
-        ? leagueMatches.filter(match => match.home_club_id === myClubId)
-        : leagueMatches.filter(match => Number(match.round) === 1);
-      const awayMatches = myClubId
-        ? leagueMatches.filter(match => match.away_club_id === myClubId)
-        : leagueMatches.filter(match => Number(match.round) === 2);
-      const otherMatches = myClubId
-        ? leagueMatches.filter(match => match.home_club_id !== myClubId && match.away_club_id !== myClubId)
-        : [];
-
-      return withMatches([
-        buildMatchGroup("league-home", "Home Games", homeMatches),
-        buildMatchGroup("league-away", "Away Games", awayMatches),
-        buildMatchGroup("league-other", "Other Fixtures", otherMatches),
-      ]);
-    }
-
-    if (tournament.type === "swiss_ucl") {
-      const uclLeagueMatches = visibleFixtureMatches.filter(match => String(match.type || "").toLowerCase() === "ucl_league");
-      const phaseGroups = myClubId
-        ? [
-            buildMatchGroup("ucl-home", "Home Games", uclLeagueMatches.filter(match => match.home_club_id === myClubId)),
-            buildMatchGroup("ucl-away", "Away Games", uclLeagueMatches.filter(match => match.away_club_id === myClubId)),
-            buildMatchGroup("ucl-other", "Other League Phase", uclLeagueMatches.filter(match => match.home_club_id !== myClubId && match.away_club_id !== myClubId)),
-          ]
-        : [buildMatchGroup("ucl-league", "League Phase", uclLeagueMatches)];
-
-      return withMatches([
-        ...phaseGroups,
-        buildMatchGroup("ucl-playoff", "Playoff Round", visibleFixtureMatches.filter(match => String(match.type || "").toLowerCase() === "ucl_playoff")),
-        buildMatchGroup("ucl-r16", "Round of 16", visibleFixtureMatches.filter(match => String(match.type || "").toLowerCase() === "ucl_r16")),
-        buildMatchGroup("ucl-qf", "Quarter Final", visibleFixtureMatches.filter(match => String(match.type || "").toLowerCase() === "ucl_qf")),
-        buildMatchGroup("ucl-sf", "Semi Final", visibleFixtureMatches.filter(match => String(match.type || "").toLowerCase() === "ucl_sf")),
-        buildMatchGroup("ucl-final", "Final", visibleFixtureMatches.filter(match => String(match.type || "").toLowerCase() === "final")),
-      ]);
-    }
-
-    return rounds.map(round => {
-      const roundMatches = visibleFixtureMatches.filter(match => match.round === round);
-      return buildMatchGroup(round, getRoundLabel(round, roundMatches[0]?.type), roundMatches);
-    });
-  })();
-
-  // Determine the current fixture group to show by default.
-  const activeFixtureGroup = (() => {
-    if (visibleRound !== null) {
-      const requestedGroup = fixtureGroups.find(group => String(group.id) === String(visibleRound));
-      if (requestedGroup) return requestedGroup;
-    }
-    const incomplete = fixtureGroups.find(group => group.matches.some(match => match.status !== "completed" && match.status !== "forfeit"));
-    return incomplete ?? fixtureGroups[fixtureGroups.length - 1] ?? null;
-  })();
-  const activeGroupMatches = activeFixtureGroup?.matches || [];
-  const hasKnockoutTree = tournament.type === "knockout" || tournament.type === "double_elimination"
-    || (tournament.type === "group_stage" && matches.some(m => !["group", "group_stage"].includes(String(m.type || ""))));
-  const bracketMatches = tournament.type === "group_stage"
-    ? matches.filter(m => !["group", "group_stage"].includes(String(m.type || "")))
-    : visibleFixtureMatches;
 
   const TYPE_COLOR = {
     knockout: "#ef4444",
@@ -1042,7 +888,7 @@ export default function TournamentDetail() {
     : { background: `linear-gradient(135deg, ${tournament.banner_color || "#0f1923"} 0%, ${accentColor}22 100%)` };
 
   const tabs = [
-    { value: "bracket", label: "Fixtures" },
+    { value: "bracket", label: "Stages" },
     ...(tournament.type === "group_stage" ? [{ value: "standings", label: t("tournamentDetail.tabGroupStandings") }] : []),
     ...(tournament.type === "league" ? [{ value: "league_standings", label: t("tournamentDetail.tabLeagueTable") }] : []),
     ...(tournament.type === "swiss_ucl" ? [{ value: "ucl_standings", label: t("tournamentDetail.tabSlTable") }] : []),
@@ -1546,225 +1392,16 @@ export default function TournamentDetail() {
           );
         })()}
 
-        {/* ── BRACKET TAB ─── */}
         {activeTab === "bracket" && (
-          visibleFixtureMatches.length === 0 ? (
-            <div className="relative overflow-hidden border border-cyan-200/15 bg-[#07121f]/90 p-10 text-center shadow-[0_0_38px_rgba(148,163,184,0.08)]"
-              style={{ clipPath: "polygon(18px 0, 100% 0, calc(100% - 18px) 100%, 0 100%)" }}>
-              <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-slate-200/55 to-transparent" />
-              <Trophy className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-              {tournament.status === "registration" && canManageTournament && registeredCount >= 2
-                ? <p className="text-muted-foreground text-sm">{t("tournamentDetail.bracketEmptyGeneratePrefix")} <span className="text-primary font-semibold">{t("tournamentDetail.generateDraw")}</span> {t("tournamentDetail.bracketEmptyGenerateSuffix")}</p>
-                : <p className="text-muted-foreground text-sm">{t("tournamentDetail.bracketEmptyWaiting")}</p>
-              }
-            </div>
-          ) : hasKnockoutTree ? (
-            <div className="relative overflow-hidden border border-cyan-200/15 bg-[#07121f]/90 p-6 shadow-[0_0_38px_rgba(148,163,184,0.08)]"
-              style={{ clipPath: "polygon(18px 0, 100% 0, calc(100% - 18px) 100%, 0 100%)" }}>
-              <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-slate-200/55 to-transparent" />
-              {tournament.status === "registration" && visibleFixtureMatches.length > 0 && (
-                <div className="mb-4 border border-cyan-200/15 bg-cyan-300/5 px-3 py-2 text-xs text-cyan-100/80">
-                  {t("tournamentDetail.drawPreview")}
-                </div>
-              )}
-              {tournament.type === "group_stage" && (
-                <div className="mb-5">
-                  <GroupStageVisual matches={matches} registeredClubs={registeredClubs} numGroups={tournament.num_groups || 2} />
-                </div>
-              )}
-              <KnockoutBracket
-                matches={bracketMatches}
-                myClubId={myClubId}
-                onSubmit={openGameDay}
-                onSchedule={(match) => { setScheduleMatch(match); setScheduleDate(toDatetimeLocalValue(match.scheduled_date)); setScheduleDialogOpen(true); }}
-                onViewStats={(match) => { setStatsMatch(match); setStatsModalOpen(true); }}
-              />
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {tournament.status === "registration" && visibleFixtureMatches.length > 0 && (
-                <div className="border border-cyan-200/15 bg-cyan-300/5 px-3 py-2 text-xs text-cyan-100/80">
-                  {t("tournamentDetail.drawPreview")}
-                </div>
-              )}
-
-              {tournament.type === "group_stage" && (
-                <GroupStageVisual matches={matches} registeredClubs={registeredClubs} numGroups={tournament.num_groups || 2} />
-              )}
-
-              {/* Fixture group selector pills */}
-              {fixtureGroups.length > 1 && (
-                <div className="flex flex-wrap gap-2 border-b border-white/10 pb-3">
-                  {fixtureGroups.map(group => {
-                    const isActive = String(group.id) === String(activeFixtureGroup?.id);
-                    const hasMyMatch = group.matches.some(m => m.home_club_id === myClubId || m.away_club_id === myClubId);
-                    const allDone = group.matches.every(m => m.status === "completed" || m.status === "forfeit");
-                    return (
-                      <button type="button" key={group.id} onClick={() => setVisibleRound(group.id)} className={cn(
-                        "relative min-h-9 px-4 py-2 font-heading text-[10px] font-black uppercase tracking-[0.16em] transition-all",
-                        isActive ? "border border-cyan-200/45 bg-cyan-300/12 text-white shadow-[0_0_24px_rgba(103,232,249,0.12)]"
-                          : "border border-cyan-200/10 bg-white/[0.03] text-white/45 hover:border-cyan-200/30 hover:text-white/80",
-                        hasMyMatch && !isActive && "border-cyan-300/30 text-cyan-100/80",
-                        allDone && !isActive && "opacity-50"
-                      )}
-                        style={{ clipPath: "polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)" }}>
-                        {group.label}
-                        {hasMyMatch && !allDone && <span className="ml-1.5 w-1.5 h-1.5 rounded-full bg-primary inline-block align-middle" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Active round matches */}
-              {activeFixtureGroup && (() => {
-                const roundMatches = activeGroupMatches;
-                return (
-                  <div className="relative overflow-hidden border border-cyan-200/15 bg-[#07121f]/90 p-4 shadow-[0_0_38px_rgba(148,163,184,0.08)]"
-                    style={{ clipPath: "polygon(18px 0, 100% 0, calc(100% - 18px) 100%, 0 100%)" }}>
-                    <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-slate-200/55 to-transparent" />
-                    <h3 className="mb-4 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-muted-foreground">
-                      <span className="flex h-7 w-8 items-center justify-center border border-cyan-200/20 bg-cyan-300/8 text-[10px] font-black text-cyan-100"
-                        style={{ clipPath: "polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%)" }}>{roundMatches.length}</span>
-                      {activeFixtureGroup.label}
-                    </h3>
-                    <div className="space-y-2">
-                      {roundMatches.map(match => {
-                        const isMyMatch = match.home_club_id === myClubId || match.away_club_id === myClubId;
-                        const homeClubData = allClubs.find(c => c.id === match.home_club_id);
-                        const awayClubData = allClubs.find(c => c.id === match.away_club_id);
-                        return (
-                          <div key={match.id} className={cn(
-                            "relative border bg-black/24 px-4 py-4 transition-all",
-                            isMyMatch ? "border-cyan-200/30 shadow-[0_0_26px_rgba(103,232,249,0.08)]" : "border-white/10",
-                            match.status === "completed" && "opacity-80"
-                          )}
-                            style={{ clipPath: "polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%)" }}>
-                            {/* EA FC-style match row */}
-                            <div className="grid grid-cols-1 items-center gap-3 sm:grid-cols-[1fr_auto_1fr]">
-                              <div className="flex items-center gap-2.5 min-w-0">
-                                <div className="w-10 h-10 bg-secondary border border-cyan-200/15 overflow-hidden shrink-0"
-                                  style={{ clipPath: "polygon(7px 0, 100% 0, calc(100% - 7px) 100%, 0 100%)" }}>
-                                  {homeClubData?.logo_url
-                                    ? <img src={homeClubData.logo_url} alt={match.home_club_name} className="w-full h-full object-cover" style={{ objectPosition: homeClubData.logo_position || "50% 50%" }} />
-                                    : <Shield className="w-4 h-4 text-muted-foreground m-2.5" />}
-                                </div>
-                                <p className={cn("font-bold text-sm truncate",
-                                  match.status === "completed" && match.winner_club_id === match.home_club_id ? "text-success" :
-                                  match.status === "completed" && match.winner_club_id && match.winner_club_id !== match.home_club_id ? "text-muted-foreground" :
-                                  "text-foreground"
-                                )}>{match.home_club_name}</p>
-                              </div>
-
-                              <div className="shrink-0 text-center min-w-[92px] px-2">
-                                {match.status === "completed" || match.status === "forfeit" ? (
-                                  <span className="font-heading font-black text-2xl tabular-nums text-white/85">{match.home_score} - {match.away_score}</span>
-                                ) : (
-                                  <span className="font-heading text-lg font-black uppercase tracking-widest text-white/35">vs</span>
-                                )}
-                                {match.scheduled_date && match.status === "scheduled" && (
-                                  <p className="text-[10px] text-muted-foreground/60 mt-0.5">{new Date(match.scheduled_date).toLocaleDateString()}</p>
-                                )}
-                              </div>
-
-                              <div className="flex items-center gap-2.5 justify-end min-w-0">
-                                <p className={cn("font-bold text-sm truncate text-right",
-                                  match.status === "completed" && match.winner_club_id === match.away_club_id ? "text-success" :
-                                  match.status === "completed" && match.winner_club_id && match.winner_club_id !== match.away_club_id ? "text-muted-foreground" :
-                                  "text-foreground"
-                                )}>{match.away_club_name}</p>
-                                <div className="w-10 h-10 bg-secondary border border-cyan-200/15 overflow-hidden shrink-0"
-                                  style={{ clipPath: "polygon(7px 0, 100% 0, calc(100% - 7px) 100%, 0 100%)" }}>
-                                  {awayClubData?.logo_url
-                                    ? <img src={awayClubData.logo_url} alt={match.away_club_name} className="w-full h-full object-cover" style={{ objectPosition: awayClubData.logo_position || "50% 50%" }} />
-                                    : <Shield className="w-4 h-4 text-muted-foreground m-2.5" />}
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Status / action strip */}
-                            {match.status === "awaiting_confirmation" && (
-                              <button type="button" onClick={() => openGameDay(match)}
-                                className="mt-2 text-xs text-warning flex items-center gap-1">
-                                <AlertTriangle className="w-3 h-3" /> Awaiting confirmation on GameDay
-                              </button>
-                            )}
-                            {match.status === "disputed" && (
-                              <div className="mt-2 flex items-center gap-2">
-                                <span className="text-xs text-destructive font-bold">⚠️ Score disputed</span>
-                                <Button size="sm" type="button" onClick={() => openGameDay(match)}
-                                  className="bg-primary/10 text-primary text-xs border border-primary/30 h-6 px-2">GameDay</Button>
-                                {isAdmin && (
-                                  <Button size="sm" type="button" onClick={() => { setActiveDispute(match); setDisputeDialogOpen(true); }}
-                                    className="bg-destructive/10 text-destructive text-xs border border-destructive/30 h-6 px-2">{t("commonPages.tdResolve")}</Button>
-                                )}
-                              </div>
-                            )}
-                            {match.status === "forfeit" && (
-                              <div className="mt-2 text-xs text-warning flex items-center gap-1">
-                                <Flag className="w-3 h-3" /> Decided by forfeit
-                              </div>
-                            )}
-
-                            {(canOpenTournamentGameDay(match) || (isMyMatch && match.home_club_id === myClubId && (match.status === "unscheduled" || match.status === "scheduled" || match.status === "in_progress" || match.status === "awaiting_confirmation"))) && (
-                              <div className="mt-3 pt-2.5 border-t border-border/60 flex flex-wrap gap-1.5 justify-end">
-                                {isMyMatch && match.home_club_id === myClubId && (match.status === "unscheduled" || match.status === "scheduled" || match.status === "in_progress" || match.status === "awaiting_confirmation") && (
-                                  match.scheduling_status === "home_proposed" ? (
-                                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                      Proposal sent
-                                    </span>
-                                  ) : (
-                                    <Button size="sm" type="button" variant="outline" onClick={() => { setScheduleMatch(match); setScheduleDate(toDatetimeLocalValue(match.scheduled_date || match.home_proposed_date)); setScheduleDialogOpen(true); }}
-                                      className="border-border text-xs text-muted-foreground h-7">{t("nav.schedule")}</Button>
-                                  )
-                                )}
-                                {canOpenTournamentGameDay(match) && (
-                                  <Button size="sm" type="button" onClick={() => openGameDay(match)}
-                                    className="bg-primary/10 text-primary border border-primary/30 text-xs h-7">
-                                    GameDay
-                                  </Button>
-                                )}
-                              </div>
-                            )}
-
-                            {match.status === "completed" && (
-                              <div className="mt-2.5 pt-2.5 border-t border-border/40 flex items-center justify-between gap-2">
-                                <div className="flex items-center gap-2">
-                                  {match.stream_url && (
-                                    <a href={match.stream_url} target="_blank" rel="noreferrer"
-                                      className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:text-primary/80">
-                                      <span className="w-1.5 h-1.5 rounded-full bg-primary" /> Watch Live
-                                    </a>
-                                  )}
-                                  {match.video_url && (
-                                    <a href={match.video_url} target="_blank" rel="noreferrer"
-                                      className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline">
-                                      <Play className="w-3 h-3" /> Match Video
-                                    </a>
-                                  )}
-                                </div>
-                                <Button size="sm" type="button" variant="outline" onClick={() => { setStatsMatch(match); setStatsModalOpen(true); }}
-                                  className="border-border text-xs text-muted-foreground h-7">📊 Stats</Button>
-                              </div>
-                            )}
-
-                            {isAdmin && match.status !== "completed" && match.status !== "forfeit" && (
-                              <div className="mt-2.5 pt-2.5 border-t border-border/40 flex justify-end">
-                                <Button size="sm" type="button" onClick={() => simulateScore(match)}
-                                  className="bg-accent/10 text-accent border border-accent/30 text-xs h-7">
-                                  Simulate Score
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-          )
+          <TournamentStages
+            tournament={tournament} matches={visibleFixtureMatches} clubs={allClubs} user={user} player={myPlayer} isAdmin={isAdmin}
+            onSchedule={match => { setScheduleMatch(match); setScheduleDate(toDatetimeLocalValue(match.scheduled_date || match.home_proposed_date)); setScheduleDialogOpen(true); }}
+            onGameDay={openGameDay}
+            onStats={match => { setStatsMatch(match); setStatsModalOpen(true); }}
+            onSimulate={simulateScore}
+            onResolve={match => { setActiveDispute(match); setDisputeDialogOpen(true); }}
+            renderStandings={stage => <div className="[&_*]:!rounded-none [&_*]:![clip-path:none]"><TournamentStandingsTabs tournament={tournament} matches={matches} registeredClubs={registeredClubs} groupStandingsData={groupStandingsData} activeTab={stage === "group" ? "standings" : tournament.type === "swiss_ucl" ? "ucl_standings" : "league_standings"} /></div>}
+          />
         )}
 
         {/* ── STANDINGS TABS ─── */}
@@ -1997,7 +1634,7 @@ export default function TournamentDetail() {
             <div className="space-y-4 mt-2">
               <div className="rounded-xl border border-border/70 bg-secondary/30 p-3">
                 <p className="text-sm font-bold text-foreground">
-                  {scheduleMatch.home_club_name} vs {scheduleMatch.away_club_name}
+                  {scheduleMatch.home_player_name || scheduleMatch.home_club_name} vs {scheduleMatch.away_player_name || scheduleMatch.away_club_name}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   Home team proposes the date and time. Away team accepts or declines from their inbox.

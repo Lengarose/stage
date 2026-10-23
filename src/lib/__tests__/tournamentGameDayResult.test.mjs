@@ -19,7 +19,7 @@ test("cup fixtures open GameDay after they are scheduled", () => {
 
 test("tournament page does not ship a second result engine", () => {
   const page = read("src/pages/TournamentDetail.jsx");
-  const bracket = read("src/components/KnockoutBracket.jsx");
+  const bracket = read("src/components/TournamentStages.jsx");
   const gameDay = read("src/pages/GameDay.jsx");
 
   assert.doesNotMatch(page, /TournamentResultDialog/);
@@ -30,7 +30,7 @@ test("tournament page does not ship a second result engine", () => {
   assert.doesNotMatch(page, /MatchPlayerStat\.create/);
   assert.match(page, /openGameDay/);
   assert.match(page, /tournamentGameDayWebPath/);
-  assert.match(page, /onSubmit=\{openGameDay\}/);
+  assert.match(page, /onGameDay=\{openGameDay\}/);
   assert.match(page, /GameDay/);
 
   assert.match(bracket, /canOpenTournamentGameDay/);
