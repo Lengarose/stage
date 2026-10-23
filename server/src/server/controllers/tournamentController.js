@@ -7,6 +7,20 @@ const { TOURNAMENT_CREDIT_COST, normalizeTournamentEconomics } = require('../uti
 const { getUserCredits, spendUserCredits } = require('../services/userCreditsService');
 const { hasStagePlus } = require('../utils/subscriptionAccess');
 
+router.post('/:id/reconcile-progression', async (req, res) => {
+  try {
+    const [admin] = await EXECUTESQL('SELECT id, email, role_id FROM users WHERE id=? LIMIT 1', [req.user?.id]);
+    if (![0, 2].includes(Number(admin?.role_id))) return res.status(403).json({ error: 'Admin only' });
+    const { reconcileTournament } = require('../services/tournamentProgressionService');
+    const dryRun = req.body?.dry_run !== false;
+    const result = dryRun
+      ? await reconcileTournament(req.params.id, { dryRun: true })
+      : await require('../services/competitionEngineService').advanceCommunityTournamentIfReady({ tournament_id: req.params.id, status: 'completed' });
+    if (!dryRun) await EXECUTESQL(`INSERT INTO admin_audit_log (id,admin_user_id,admin_email,action,entity_type,entity_id,old_value,new_value,reason) VALUES (UUID(),?,?,'reconcile_tournament_progression','tournament',?,?,?,?)`, [admin.id, admin.email, req.params.id, null, JSON.stringify(result), req.body.reason || 'Admin requested safe tournament progression reconciliation']);
+    res.json({ success: !result.conflicts?.length, dry_run: dryRun, ...result });
+  } catch (err) { res.status(err.status || 500).json({ error: err.message, code: err.code }); }
+});
+
 function isCommunityTournament(tournament) {
   return Boolean(tournament?.creator_gamertag) || Boolean(tournament?.creator_id);
 }

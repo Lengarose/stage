@@ -1093,7 +1093,7 @@ function applyGoalEventsToPlayerStats(playerStats, goalEvents) {
     const existing = byId.get(id);
     const meta = metaBy.get(id) || {};
     byId.set(id, {
-      rating: 6,
+      rating: null,
       ...meta,
       ...existing,
       player_id: existing?.player_id || meta.player_id,
@@ -1105,7 +1105,7 @@ function applyGoalEventsToPlayerStats(playerStats, goalEvents) {
   }
   for (const [id, assists] of assistsBy.entries()) {
     const existing = byId.get(id) || {
-      rating: 6,
+      rating: null,
       ...(metaBy.get(id) || {}),
       goals: 0,
     };
@@ -1164,6 +1164,7 @@ async function filterEligibleMatchStats(stats) {
 }
 
 async function processMatchCompletion(match, acceptedSubmission, secondarySubmission = null) {
+  await require('../services/tournamentProgressionService').assertTournamentMatchAction(match, { result: true });
   const matchId = match.id;
   const homeScore = Number(acceptedSubmission.home_score || 0);
   const awayScore = Number(acceptedSubmission.away_score || 0);
@@ -1192,7 +1193,7 @@ async function processMatchCompletion(match, acceptedSubmission, secondarySubmis
       : (Array.isArray(secondarySubmission.goal_events) ? secondarySubmission.goal_events : []));
   // Goal events are the source of truth for G/A — re-apply onto submitted rating rows
   // so a missing client derive still credits scorers in career / match_player_stats.
-  const statsWithGoals = applyGoalEventsToPlayerStats(
+  const statsWithGoals = acceptedSubmission.administrative_result ? [] : applyGoalEventsToPlayerStats(
     submittedStats,
     [...homeGoalEvents, ...awayGoalEvents],
   );
@@ -1229,56 +1230,80 @@ async function processMatchCompletion(match, acceptedSubmission, secondarySubmis
   const loserClubName = winnerIsHome ? fresh.away_club_name : winnerIsAway ? fresh.home_club_name : null;
   const officialState = acceptedSubmission.result_state || RESULT_STATES.CONFIRMED;
 
-  await EXECUTESQL(
-    `UPDATE matches SET status='completed', home_score=?, away_score=?,
-       winner_club_id=?, winner_club_name=?, loser_club_id=?, loser_club_name=?,
-       home_goal_events=?, away_goal_events=?,
-       decided_on_penalties=?, penalty_winner_side=?, result_state=?,
-       updated_date=NOW() WHERE id=?`,
-    [
-      homeScore,
-      awayScore,
-      winnerClubId,
-      winnerClubName,
-      loserClubId,
-      loserClubName,
-      JSON.stringify(homeGoalEvents),
-      JSON.stringify(awayGoalEvents),
-      decidedOnPenalties ? 1 : 0,
-      penaltyWinnerSide,
-      officialState,
-      matchId,
-    ]
-  );
-
-  for (const stat of playerStats) {
-    const statId = uuidv4();
-    const statRow = {
-      id: statId,
-      match_id: matchId,
-      tournament_id: fresh.tournament_id || null,
-      club_id: stat.club_id || null,
-      player_id: stat.player_id || null,
-      player_email: stat.player_email || '',
-      player_gamertag: stat.player_gamertag || null,
-      goals: Number(stat.goals || 0),
-      assists: Number(stat.assists || 0),
-      position: stat.position || null,
-      clean_sheet: Number(stat.clean_sheet || 0),
-      is_motm: Number(stat.is_motm || 0),
-      rating: sanitizeMatchRating(stat.rating),
-    };
-    await EXECUTESQL(
-      `INSERT INTO match_player_stats
-       (id, match_id, tournament_id, club_id, player_id, player_email, player_gamertag, goals, assists, position, clean_sheet, is_motm, rating, created_date)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+  const finalizedStats = [];
+  const applied = await withTransaction(async query => {
+    if (match.tournament_id && match.tournament_id !== 'ranked') await query('SELECT id FROM tournaments WHERE id=? FOR UPDATE', [match.tournament_id]);
+    const [locked] = await query('SELECT * FROM matches WHERE id = ? LIMIT 1 FOR UPDATE', [matchId]);
+    if (Number(locked?.report_finalized || 0) === 1 || Number(locked?.stats_processed || 0) === 1) return false;
+    await require('../services/tournamentProgressionService').assertTournamentMatchAction(locked || match, { result: true }, query);
+    if (fresh.home_player_id || fresh.away_player_id) {
+      const winnerPlayerId = winnerIsHome ? fresh.home_player_id : winnerIsAway ? fresh.away_player_id : null;
+      await query('UPDATE matches SET winner_player_id=?, winner_player_name=? WHERE id=?', [winnerPlayerId, winnerIsHome ? fresh.home_player_name : winnerIsAway ? fresh.away_player_name : null, matchId]);
+    }
+    await query(
+      `UPDATE matches SET status='completed', home_score=?, away_score=?,
+         winner_club_id=?, winner_club_name=?, loser_club_id=?, loser_club_name=?,
+         home_goal_events=?, away_goal_events=?,
+         decided_on_penalties=?, penalty_winner_side=?, result_state=?, administrative_result=?,
+         report_finalized=1, updated_date=NOW() WHERE id=?`,
       [
-        statRow.id, statRow.match_id, statRow.tournament_id, statRow.club_id, statRow.player_id,
-        statRow.player_email, statRow.player_gamertag, statRow.goals,
-        statRow.assists, statRow.position, statRow.clean_sheet, statRow.is_motm, statRow.rating,
+        homeScore,
+        awayScore,
+        winnerClubId,
+        winnerClubName,
+        loserClubId,
+        loserClubName,
+        JSON.stringify(homeGoalEvents),
+        JSON.stringify(awayGoalEvents),
+        decidedOnPenalties ? 1 : 0,
+        penaltyWinnerSide,
+        officialState,
+        acceptedSubmission.administrative_result ? 1 : 0,
+        matchId,
       ]
-    ).catch(() => {});
-    broadcastMatchPlayerStat(statRow);
+    );
+
+    for (const stat of playerStats) {
+      const statId = uuidv4();
+      const statRow = {
+        id: statId,
+        match_id: matchId,
+        tournament_id: fresh.tournament_id || null,
+        club_id: stat.club_id || null,
+        player_id: stat.player_id || null,
+        player_email: stat.player_email || '',
+        player_gamertag: stat.player_gamertag || null,
+        goals: Number(stat.goals || 0),
+        assists: Number(stat.assists || 0),
+        position: stat.position || null,
+        clean_sheet: Number(stat.clean_sheet || 0),
+        is_motm: Number(stat.is_motm || 0),
+        rating: stat.rating != null && stat.rating !== '' && Number(stat.rating) >= 1 && Number(stat.rating) <= 10 ? Number(stat.rating) : null,
+        participation_verified: Number(stat.participation_verified) === 1 ? 1 : null,
+        goalkeeper_full_match: Number(stat.goalkeeper_full_match) === 1 && String(stat.position || '').toUpperCase() === 'GK' ? 1 : null,
+      };
+      await query(
+        `INSERT INTO match_player_stats
+         (id, match_id, tournament_id, club_id, player_id, player_email, player_gamertag, goals, assists, position, clean_sheet, is_motm, rating, participation_verified, goalkeeper_full_match, appearance_key, created_date)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+         ON DUPLICATE KEY UPDATE goals=VALUES(goals), assists=VALUES(assists), position=VALUES(position), clean_sheet=VALUES(clean_sheet), is_motm=VALUES(is_motm), rating=VALUES(rating), participation_verified=VALUES(participation_verified), goalkeeper_full_match=VALUES(goalkeeper_full_match)`,
+        [
+          statRow.id, statRow.match_id, statRow.tournament_id, statRow.club_id, statRow.player_id,
+          statRow.player_email, statRow.player_gamertag, statRow.goals,
+          statRow.assists, statRow.position, statRow.clean_sheet, statRow.is_motm, statRow.rating,
+          statRow.participation_verified, statRow.goalkeeper_full_match,
+          statRow.player_id && statRow.club_id ? `${matchId}:${statRow.player_id}:${statRow.club_id}` : null,
+        ]
+      );
+      finalizedStats.push(statRow);
+    }
+    return true;
+  });
+  if (!applied) return { data: { status: 'completed', skipped: true } };
+  for (const row of finalizedStats) broadcastMatchPlayerStat(row);
+  if (fresh.tournament_id && fresh.tournament_id !== 'ranked') {
+    const [official] = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [matchId]);
+    await competitionEngineService.advanceAfterFinalResult(official).catch(err => console.error('[matchKickoff progression]', err.message));
   }
 
   const isClubMatch = fresh.mode === 'club' && fresh.home_club_id && fresh.away_club_id;
@@ -1435,7 +1460,7 @@ async function processMatchCompletion(match, acceptedSubmission, secondarySubmis
   }
 
   const [completedForSourceSync] = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [matchId]);
-  await competitionEngineService.advanceAfterFinalResult(completedForSourceSync).catch((err) => {
+  if (!fresh.tournament_id || fresh.tournament_id === 'ranked') await competitionEngineService.advanceAfterFinalResult(completedForSourceSync).catch((err) => {
     console.error('[matchKickoff progression]', err.message);
   });
 
@@ -3048,6 +3073,25 @@ function buildTournamentDrawMatches(tournament, entries) {
       }
     });
     return { matches, numGroups };
+  }
+
+  if (type === 'swiss_ucl') {
+    // Same circle schedule as the existing UCL engine, persisted server-side.
+    const teams = shuffleTournamentEntries(seeded);
+    if (teams.length % 2) teams.push(null);
+    const fixed = teams[0], circle = teams.slice(1), homes = new Map();
+    for (let round = 1; round <= 8; round++) {
+      const offset = (round - 1) % circle.length;
+      const rotated = [fixed, ...circle.slice(offset), ...circle.slice(0, offset)];
+      for (let i = 0; i < teams.length / 2; i++) {
+        const a = rotated[i], b = rotated[teams.length - 1 - i];
+        if (!a || !b) continue;
+        const [home, away] = (homes.get(a.id) || 0) <= (homes.get(b.id) || 0) ? [a, b] : [b, a];
+        homes.set(home.id, (homes.get(home.id) || 0) + 1);
+        matches.push(makeMatch(home, away, round, 'ucl_league'));
+      }
+    }
+    return { matches, numGroups: null };
   }
 
   const shuffled = shuffleTournamentEntries(seeded);
@@ -4837,7 +4881,7 @@ const HANDLERS = {
 
   async simulateScore({ _auth_user_id, matchId, match_id }) {
     if (!_auth_user_id) throw new Error('not authenticated');
-    await requireAdminUser(_auth_user_id);
+    const admin = await requireAdminUser(_auth_user_id);
     const id = matchId || match_id;
     if (!id) throw new Error('matchId required');
     const rows = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [id]);
@@ -4875,9 +4919,11 @@ const HANDLERS = {
     const result = await processMatchCompletion(match, {
       home_score: homeScore,
       away_score: awayScore,
+      administrative_result: true,
       player_stats: simulatedStats,
       goal_events: [],
     });
+    await createAuditLog({ adminUserId: admin.id, adminEmail: admin.email, action: 'simulate_tournament_result', entityType: 'match', entityId: id, oldValue: match, newValue: { home_score: homeScore, away_score: awayScore, administrative_result: true }, reason: 'Admin simulation; individual performances are not recorded' });
     return { data: { success: true, ...result.data, home_score: homeScore, away_score: awayScore, player_stats: simulatedStats.length } };
   },
 
@@ -5216,359 +5262,18 @@ const HANDLERS = {
   async advanceRound({ _auth_user_id, tournamentId, tournament_id }) {
     if (!_auth_user_id) throw new Error('not authenticated');
     const id = tournamentId || tournament_id;
-    if (!id) throw new Error('tournamentId required');
-
-    const result = await withTransaction(async (query) => {
-      const tournaments = await query('SELECT * FROM tournaments WHERE id = ? LIMIT 1 FOR UPDATE', [id]);
-      if (!tournaments.length) throw new Error('Tournament not found');
-      const tournament = tournaments[0];
-      const actor = await assertTournamentOrganizer(_auth_user_id, tournament);
-      const currentRound = Number(tournament.current_round || 1);
-      const tournamentType = String(tournament.type || '').toLowerCase();
-      const participantType = String(tournament.participant_type || '').toLowerCase() === 'player' ? 'player' : 'club';
-
-      if (tournamentType === 'league') {
-        const leagueMatches = await query(
-          `SELECT * FROM matches
-            WHERE tournament_id = ?
-              AND type = 'league'
-            ORDER BY round ASC, created_date ASC
-            FOR UPDATE`,
-          [id]
-        );
-        if (!leagueMatches.length) throw new Error('No league fixtures found');
-        const incompleteLeagueMatch = leagueMatches.find((m) => !['completed', 'forfeit'].includes(String(m.status || '')));
-        if (incompleteLeagueMatch) throw new Error('All league fixtures must be completed before ending the tournament');
-
-        const standings = calculateTournamentLeagueStandings(leagueMatches, participantType);
-        const winner = standings[0] || null;
-        if (!winner?.id) throw new Error('No league winner found');
-        const finalRound = Math.max(
-          currentRound,
-          ...leagueMatches.map((match) => Number(match.round || 0)).filter(Boolean)
-        );
-
-        if (participantType === 'player') {
-          await query(
-            `UPDATE tournaments SET
-              status = 'completed',
-              winner_club_id = NULL,
-              winner_club_name = NULL,
-              winner_player_id = ?,
-              winner_player_name = ?,
-              current_round = ?,
-              end_date = COALESCE(end_date, NOW()),
-              updated_date = NOW()
-             WHERE id = ?`,
-            [winner.id, winner.name, finalRound, id]
-          );
-          await awardPlayerOnlyTrophy({
-            query,
-            playerId: winner.id,
-            trophyItemId: tournament.trophy_item_id,
-            tournamentId: id,
-            tournament,
-          }).catch((err) => console.error('[league tournament player trophy award]', err.message));
-        } else {
-          await query(
-            `UPDATE tournaments SET
-              status = 'completed',
-              winner_club_id = ?,
-              winner_club_name = ?,
-              winner_player_id = NULL,
-              winner_player_name = NULL,
-              current_round = ?,
-              end_date = COALESCE(end_date, NOW()),
-              updated_date = NOW()
-             WHERE id = ?`,
-            [winner.id, winner.name, finalRound, id]
-          );
-          await awardTournamentTrophyServer(query, tournament, winner.id).catch((err) => {
-            console.error('[league tournament club trophy award]', err.message);
-          });
-        }
-
-        if (actor.isAdmin) {
-          await createAuditLog({
-            adminUserId: actor.user.id,
-            adminEmail: actor.user.email,
-            action: 'end_league_tournament',
-            entityType: 'tournament',
-            entityId: id,
-            entityName: tournament.name,
-            oldValue: {
-              status: tournament.status,
-              winner_club_id: tournament.winner_club_id,
-              winner_player_id: tournament.winner_player_id,
-            },
-            newValue: {
-              status: 'completed',
-              winner_id: winner.id,
-              winner_name: winner.name,
-              type: 'league',
-            },
-            reason: 'League-format tournament ended from final table',
-          }).catch((err) => console.error('[league tournament audit]', err.message));
-        }
-
-        return {
-          completed: true,
-          league: true,
-          current_round: finalRound,
-          winner: { id: winner.id, name: winner.name },
-          standings: standings.slice(0, 3),
-        };
-      }
-
-      if (tournamentType === 'group_stage') {
-        const groupMatches = await query(
-          `SELECT * FROM matches
-            WHERE tournament_id = ?
-              AND type IN ('group', 'group_stage')
-            ORDER BY group_number ASC, created_date ASC
-            FOR UPDATE`,
-          [id]
-        );
-        if (!groupMatches.length) throw new Error('No group matches found');
-        const incompleteGroupMatch = groupMatches.find((m) => !['completed', 'forfeit'].includes(String(m.status || '')));
-        if (incompleteGroupMatch) throw new Error('All group matches must be completed before starting the next round');
-
-        const existingKnockouts = await query(
-          `SELECT * FROM matches
-            WHERE tournament_id = ?
-              AND type NOT IN ('group', 'group_stage')
-            ORDER BY round ASC, group_number ASC, created_date ASC
-            FOR UPDATE`,
-          [id]
-        );
-        if (existingKnockouts.length) {
-          const standings = calculateTournamentGroupStandings(groupMatches, tournament.num_groups || 2);
-          const pairs = buildGroupKnockoutPairs(standings);
-          const qualifiedIds = new Set(pairs.flat().map((team) => String(team.id)));
-          const hasKnockoutResults = existingKnockouts.some((match) => ['completed', 'forfeit'].includes(String(match.status || '')));
-          const expectedMatchCount = pairs.length * 2;
-          const needsRepair = !hasKnockoutResults && (
-            existingKnockouts.length !== expectedMatchCount
-            || existingKnockouts.some((match) => {
-              const homeId = String(match.home_club_id || '');
-              const awayId = String(match.away_club_id || '');
-              return !homeId || !awayId || homeId === awayId || !qualifiedIds.has(homeId) || !qualifiedIds.has(awayId);
-            })
-          );
-          if (needsRepair) {
-            return createGroupStageKnockoutRound(query, tournament, groupMatches, { replaceExisting: true });
-          }
-
-          const nextRoundValue = Number(existingKnockouts[0].round || currentRound + 1);
-          if (currentRound < nextRoundValue) {
-            await query('UPDATE tournaments SET current_round = ?, updated_date = NOW() WHERE id = ?', [nextRoundValue, id]);
-            return { completed: false, current_round: nextRoundValue, created: 0, skipped_existing: true };
-          }
-        }
-        if (!existingKnockouts.length) return createGroupStageKnockoutRound(query, tournament, groupMatches);
-      }
-
-      const currentMatches = await query(
-        'SELECT * FROM matches WHERE tournament_id = ? AND round = ? ORDER BY created_date ASC FOR UPDATE',
-        [id, currentRound]
-      );
-      if (!currentMatches.length) throw new Error('No matches found for current round');
-      const incomplete = currentMatches.find((m) => !['completed', 'forfeit'].includes(String(m.status || '')));
-      if (incomplete) throw new Error('Current round is not complete');
-
-      const twoLegTypes = new Set(['round_of_16', 'quarter_final', 'semi_final']);
-      const currentType = String(currentMatches[0]?.type || '');
-      if (twoLegTypes.has(currentType)) {
-        const nextLegs = await query(
-          'SELECT * FROM matches WHERE tournament_id = ? AND round = ? AND type = ? ORDER BY group_number ASC, created_date ASC FOR UPDATE',
-          [id, currentRound + 1, currentType]
-        );
-        if (nextLegs.length === currentMatches.length) {
-          const nextLegIncomplete = nextLegs.find((m) => !['completed', 'forfeit'].includes(String(m.status || '')));
-          if (nextLegIncomplete) {
-            await query('UPDATE tournaments SET current_round = ?, updated_date = NOW() WHERE id = ?', [currentRound + 1, id]);
-            return { completed: false, current_round: currentRound + 1, created: 0, next_leg: true };
-          }
-          const byTie = new Map();
-          [...currentMatches, ...nextLegs].forEach((match) => {
-            const key = String(match.group_number ?? match.id);
-            if (!byTie.has(key)) byTie.set(key, []);
-            byTie.get(key).push(match);
-          });
-          const tieResults = Array.from(byTie.values()).map(getTwoLegTieResult).filter(Boolean);
-          if (tieResults.length !== currentMatches.length) throw new Error('Could not resolve all two-leg ties');
-          const targetRound = currentRound + 2;
-          const created = await createOrRepairNextRoundFromTieResults(query, id, tieResults, targetRound);
-          await query('UPDATE tournaments SET current_round = ?, updated_date = NOW() WHERE id = ?', [targetRound, id]);
-          return { completed: false, current_round: targetRound, created, aggregate: true, skipped_existing: created === 0 };
-        }
-
-        const previousLegs = await query(
-          'SELECT * FROM matches WHERE tournament_id = ? AND round = ? AND type = ? ORDER BY group_number ASC, created_date ASC FOR UPDATE',
-          [id, currentRound - 1, currentType]
-        );
-        if (previousLegs.length === currentMatches.length) {
-          const byTie = new Map();
-          [...previousLegs, ...currentMatches].forEach((match) => {
-            const key = String(match.group_number ?? match.id);
-            if (!byTie.has(key)) byTie.set(key, []);
-            byTie.get(key).push(match);
-          });
-          const tieResults = Array.from(byTie.values()).map(getTwoLegTieResult).filter(Boolean);
-          if (tieResults.length !== currentMatches.length) throw new Error('Could not resolve all two-leg ties');
-
-          const nextRound = currentRound + 1;
-          const created = await createOrRepairNextRoundFromTieResults(query, id, tieResults, nextRound);
-          await query('UPDATE tournaments SET current_round = ?, updated_date = NOW() WHERE id = ?', [nextRound, id]);
-          return { completed: false, current_round: nextRound, created, aggregate: true, skipped_existing: created === 0 };
-        }
-      }
-
-      const winners = currentMatches
-        .filter((m) => m.winner_club_id)
-        .map((m) => ({
-          id: m.winner_club_id,
-          name: String(m.winner_club_id) === String(m.home_club_id) ? m.home_club_name : m.away_club_name,
-        }));
-      if (winners.length < 1) throw new Error('No winners found for current round');
-
-      const finalMatch = currentMatches.find((m) => String(m.type || '').includes('final'));
-      if (finalMatch?.winner_club_id) {
-        const winnerName = String(finalMatch.winner_club_id) === String(finalMatch.home_club_id)
-          ? finalMatch.home_club_name
-          : finalMatch.away_club_name;
-        return { completed: false, ready_to_officialize: true, winner: { id: finalMatch.winner_club_id, name: winnerName }, created: 0 };
-      }
-
-      if (winners.length === 1) {
-        return { completed: false, ready_to_officialize: true, winner: winners[0], created: 0 };
-      }
-
-      const nextRound = currentRound + 1;
-      const existingNext = await query(
-        'SELECT id FROM matches WHERE tournament_id = ? AND round = ? LIMIT 1',
-        [id, nextRound]
-      );
-      if (existingNext.length) {
-        await query('UPDATE tournaments SET current_round = ?, updated_date = NOW() WHERE id = ?', [nextRound, id]);
-        return { completed: false, current_round: nextRound, created: 0, skipped_existing: true };
-      }
-
-      let created = 0;
-      for (let i = 0; i < winners.length; i += 2) {
-        if (!winners[i + 1]) continue;
-        const isFinalRound = winners.length === 2;
-        await insertTournamentMatch(query, {
-          tournament_id: id,
-          home_club_id: winners[i].id,
-          home_club_name: winners[i].name,
-          away_club_id: winners[i + 1].id,
-          away_club_name: winners[i + 1].name,
-          round: nextRound,
-          type: isFinalRound ? 'final' : 'knockout',
-          status: 'scheduled',
-        });
-        created++;
-        if (isFinalRound) {
-          const loserA = {
-            id: String(winners[i].id) === String(currentMatches[i]?.home_club_id) ? currentMatches[i]?.away_club_id : currentMatches[i]?.home_club_id,
-            name: String(winners[i].id) === String(currentMatches[i]?.home_club_id) ? currentMatches[i]?.away_club_name : currentMatches[i]?.home_club_name,
-          };
-          const loserB = {
-            id: String(winners[i + 1].id) === String(currentMatches[i + 1]?.home_club_id) ? currentMatches[i + 1]?.away_club_id : currentMatches[i + 1]?.home_club_id,
-            name: String(winners[i + 1].id) === String(currentMatches[i + 1]?.home_club_id) ? currentMatches[i + 1]?.away_club_name : currentMatches[i + 1]?.home_club_name,
-          };
-          if (loserA.id && loserB.id) {
-            await insertTournamentMatch(query, {
-              tournament_id: id,
-              home_club_id: loserA.id,
-              home_club_name: loserA.name,
-              away_club_id: loserB.id,
-              away_club_name: loserB.name,
-              round: nextRound,
-              type: 'third_place',
-              status: 'scheduled',
-            });
-            created++;
-          }
-        }
-      }
-      await query('UPDATE tournaments SET current_round = ?, updated_date = NOW() WHERE id = ?', [nextRound, id]);
-      return { completed: false, current_round: nextRound, created };
-    });
-
+    const [tournament] = await EXECUTESQL('SELECT * FROM tournaments WHERE id = ? LIMIT 1', [id]);
+    if (!tournament) throw new Error('Tournament not found');
+    const actor = await assertTournamentOrganizer(_auth_user_id, tournament);
+    const result = await competitionEngineService.advanceCommunityTournamentIfReady({ tournament_id: id, status: 'completed' });
+    if (actor.isAdmin) await createAuditLog({ adminUserId: actor.user.id, adminEmail: actor.user.email, action: 'reconcile_tournament_progression', entityType: 'tournament', entityId: id, oldValue: tournament, newValue: result, reason: 'Explicit tournament reconciliation through existing advance action' });
     const matches = await EXECUTESQL('SELECT * FROM matches WHERE tournament_id = ?', [id]);
-    for (const match of matches) broadcastMatch(match);
-    if (result.completed) {
-      await HANDLERS.distributeTournamentPrizes({ tournament_id: id }).catch((err) => {
-        console.error('[advanceRound prize distribution]', err.message);
-      });
-    }
-    const [tournamentRow] = await EXECUTESQL('SELECT * FROM tournaments WHERE id = ? LIMIT 1', [id]).catch(() => []);
-    if (tournamentRow && (result.phase || result.created || result.ready_to_officialize)) {
-      const entries = registeredCount(tournamentRow);
-      const roundName = phaseLabel(result.phase || (result.ready_to_officialize ? 'final' : ''));
-      await publishTournamentStory(tournamentRow, {
-        title: result.ready_to_officialize
-          ? `${result.winner?.name || 'A side'} reached the final of ${tournamentRow.name}`
-          : `${tournamentRow.name} moves into ${roundName}`,
-        body: result.ready_to_officialize
-          ? `${result.winner?.name || 'A side'} is through to the final of ${tournamentRow.name}. ${entries} sides are in the field.`
-          : `${tournamentRow.name} has ${entries} participating sides. The draw now heads into ${roundName}.`,
-      });
-    }
-    return { data: { success: true, ...result } };
+    const [updated] = await EXECUTESQL('SELECT * FROM tournaments WHERE id = ? LIMIT 1', [id]);
+    return { data: { success: !result.conflicts.length, ...result, tournament: updated, matches } };
   },
 
-  async createFinalAndThirdPlace({ _auth_user_id, tournamentId, tournament_id }) {
-    if (!_auth_user_id) throw new Error('not authenticated');
-    const id = tournamentId || tournament_id;
-    if (!id) throw new Error('tournamentId required');
-
-    const result = await withTransaction(async (query) => {
-      const tournaments = await query('SELECT * FROM tournaments WHERE id = ? LIMIT 1 FOR UPDATE', [id]);
-      if (!tournaments.length) throw new Error('Tournament not found');
-      const tournament = tournaments[0];
-      await assertTournamentOrganizer(_auth_user_id, tournament);
-      if (String(tournament.status || '') !== 'in_progress') {
-        throw new Error('Tournament must be in progress before creating the final');
-      }
-
-      const semiFinals = await query(
-        `SELECT *
-           FROM matches
-          WHERE tournament_id = ?
-            AND type = 'semi_final'
-          ORDER BY round ASC, group_number ASC, created_date ASC
-          FOR UPDATE`,
-        [id]
-      );
-      if (!semiFinals.length) throw new Error('No semi-final matches found');
-      const incomplete = semiFinals.find((match) => !['completed', 'forfeit'].includes(String(match.status || '')));
-      if (incomplete) throw new Error('All semi-final matches must be completed first');
-
-      const byTie = new Map();
-      for (const match of semiFinals) {
-        const key = String(match.group_number ?? match.id);
-        if (!byTie.has(key)) byTie.set(key, []);
-        byTie.get(key).push(match);
-      }
-      const tieGroups = Array.from(byTie.values()).filter((legs) => legs.length >= 1);
-      if (tieGroups.length !== 2) {
-        throw new Error('Exactly two semi-final ties are required to create the final and third-place match');
-      }
-      const tieResults = tieGroups.map(getTwoLegTieResult).filter(Boolean);
-      if (tieResults.length !== 2) throw new Error('Could not resolve both semi-final winners');
-
-      const nextRound = Math.max(...semiFinals.map((match) => Number(match.round || 0)).filter(Boolean)) + 1;
-      const created = await createOrRepairNextRoundFromTieResults(query, id, tieResults, nextRound);
-      await query('UPDATE tournaments SET current_round = ?, updated_date = NOW() WHERE id = ?', [nextRound, id]);
-      return { current_round: nextRound, created, skipped_existing: created === 0 };
-    });
-
-    const matches = await EXECUTESQL('SELECT * FROM matches WHERE tournament_id = ?', [id]);
-    for (const match of matches) broadcastMatch(match);
-    return { data: { success: true, ...result } };
+  async createFinalAndThirdPlace(args) {
+    return HANDLERS.advanceRound(args);
   },
 
   async officializeTournament({ _auth_user_id, tournamentId, tournament_id }) {
@@ -5585,9 +5290,10 @@ const HANDLERS = {
       const matches = await query('SELECT * FROM matches WHERE tournament_id = ? ORDER BY round ASC, created_date ASC FOR UPDATE', [id]);
       const finalMatch = matches.find((match) => String(match.type || '').toLowerCase() === 'final');
       if (!finalMatch) throw new Error('Final match not found');
-      if (!['completed', 'forfeit'].includes(String(finalMatch.status || ''))) {
+      if (!require('../lib/tournamentStatistics').isConfirmedResult(finalMatch)) {
         throw new Error('The final must be completed before officializing the tournament');
       }
+      await require('../services/tournamentProgressionService').assertTournamentMatchAction(finalMatch, { result: true }, query);
 
       const thirdPlaceMatch = matches.find((match) => ['third_place', 'third-place', 'bronze'].includes(String(match.type || '').toLowerCase()));
       if (thirdPlaceMatch && !['completed', 'forfeit'].includes(String(thirdPlaceMatch.status || ''))) {
@@ -5676,6 +5382,8 @@ const HANDLERS = {
 
     if (action === 'resolve_forfeit') {
       const result = await withTransaction(async (query) => {
+        const [source] = await query('SELECT tournament_id FROM matches WHERE id = ? LIMIT 1', [match_id]);
+        if (source?.tournament_id && source.tournament_id !== 'ranked') await query('SELECT id FROM tournaments WHERE id=? FOR UPDATE', [source.tournament_id]);
         const rows = await query('SELECT * FROM matches WHERE id = ? LIMIT 1 FOR UPDATE', [match_id]);
         if (!rows.length) throw new Error('Match not found');
         const match = rows[0];
@@ -5683,6 +5391,7 @@ const HANDLERS = {
 
         let patch;
         if (shouldApprove) {
+          await require('../services/tournamentProgressionService').assertTournamentMatchAction(match, { result: true }, query);
           // Refuse to retroactively forfeit a match whose result is already on
           // the record — approving would silently overwrite the played score
           // and corrupt standings.
@@ -5702,6 +5411,11 @@ const HANDLERS = {
             err.code   = 'NO_FORFEIT_CLAIMANT';
             throw err;
           }
+          if (![match.home_club_id, match.away_club_id].filter(Boolean).map(String).includes(String(winnerId))) {
+            const err = new Error('The forfeit claimant must be a participating club. Reject this invalid claim.');
+            err.status = 422;
+            throw err;
+          }
           const winnerName = String(winnerId) === String(match.home_club_id)
             ? match.home_club_name
             : match.away_club_name;
@@ -5713,7 +5427,7 @@ const HANDLERS = {
           };
           await query(
             `UPDATE matches
-             SET status = ?, forfeit_status = ?, winner_club_id = ?, winner_club_name = ?, updated_date = NOW()
+             SET status = ?, forfeit_status = ?, winner_club_id = ?, winner_club_name = ?, result_state = 'CONFIRMED', administrative_result = 1, updated_date = NOW()
              WHERE id = ?`,
             [patch.status, patch.forfeit_status, patch.winner_club_id, patch.winner_club_name, match_id]
           );
@@ -7621,16 +7335,8 @@ const HANDLERS = {
 
       if (action === 'accepted') {
         if (!proposedDate) throw new Error('Proposed schedule date is missing');
-        await EXECUTESQL(
-          `UPDATE matches
-           SET scheduling_status = 'confirmed',
-               confirmed_date = ?,
-               scheduled_date = ?,
-               status = CASE WHEN status IN ('completed', 'forfeit') THEN status ELSE 'scheduled' END,
-               updated_date = NOW()
-           WHERE id = ?`,
-          [proposedDate, proposedDate, match.id]
-        );
+        await require('../services/tournamentProgressionService').assertTournamentMatchAction(match, { schedule: proposedDate });
+        await require('../services/tournamentProgressionService').updateTournamentSchedule(match, { scheduling_status: 'confirmed', confirmed_date: proposedDate, scheduled_date: proposedDate });
         await broadcastMatchById(match.id);
         const acceptedPayload = { success: true, message: { id: message_id, status: action }, match: { id: match.id, status: 'scheduled', scheduled_date: proposedDate } };
         await finishResponded(acceptedPayload);
@@ -9241,6 +8947,7 @@ const HANDLERS = {
         'home',
         'Only the home team can kick off this match.'
       );
+      await require('../services/tournamentProgressionService').assertTournamentMatchAction(match, { result: true });
 
       await ensureMatchStreamsFromPlayers(match).catch((err) => {
         console.warn('[matchKickoff] stream auto-fill failed:', err.message);
@@ -9304,6 +9011,7 @@ const HANDLERS = {
       const match = settled.match || (await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [match_id]))[0];
       const actor = await resolveMatchActorSide(match, _auth_user_id);
       const isHomeSubmission = actor.side === 'home';
+      await require('../services/tournamentProgressionService').assertTournamentMatchAction(match, { result: true });
       const requestedHomeSide = is_home_team === true || is_home_team === 'true' || is_home_team === 1 || is_home_team === '1';
       if (typeof is_home_team !== 'undefined' && requestedHomeSide !== isHomeSubmission) {
         const err = new Error('Submitted match side does not match your team.');
@@ -9409,8 +9117,16 @@ const HANDLERS = {
       combined.home_score = accepted.home_score;
       combined.away_score = accepted.away_score;
       if (admin_home_score != null || admin_away_score != null) {
+        combined.administrative_result = true;
         combined.home_score = accepted.home_score;
         combined.away_score = accepted.away_score;
+      }
+
+      if (m.tournament_id && ['completed', 'forfeit'].includes(m.status)) {
+        const corrected = await require('../services/tournamentProgressionService').correctTournamentResult(m, { home_score: combined.home_score, away_score: combined.away_score, status: 'completed', reason: explanation || 'Admin resolved corrected tournament score' }, admin);
+        await competitionEngineService.advanceAfterFinalResult(corrected);
+        await broadcastMatchById(match_id);
+        return { data: { status: 'completed', corrected: true } };
       }
 
       const result = await processMatchCompletion(m, combined, null);

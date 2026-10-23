@@ -1,125 +1,71 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { stageClient } from "@/api/stageClient";
-import { Trophy, Target, Zap, Star } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { RefreshCw, Shield, Trophy } from "lucide-react";
+
+const categories = {
+  participants: [
+    { id: "goals", label: "Most Goals Scored", value: "goals" },
+    { id: "conceded", label: "Most Goals Conceded", value: "conceded" },
+    { id: "fewest_conceded", label: "Fewest Goals Conceded", value: "conceded" },
+  ],
+  players: [
+    { id: "goals", label: "Top Scorers", value: "goals" },
+    { id: "assists", label: "Top Assists", value: "assists" },
+    { id: "rating", label: "Highest Average Rating", value: "average_rating", rated: "rated_matches" },
+    { id: "awards", label: "Most Player of the Match Awards", value: "awards" },
+    { id: "appearances", label: "Most Appearances", value: "appearances" },
+  ],
+  goalkeepers: [
+    { id: "clean_sheets", label: "Most Clean Sheets", value: "clean_sheets" },
+    { id: "conceded_per_match", label: "Fewest Goals Conceded per Match", value: "conceded_per_match" },
+    { id: "rating", label: "Highest Average Goalkeeper Rating", value: "goalkeeper_average_rating", rated: "goalkeeper_rated_matches" },
+  ],
+};
 
 export default function TournamentLeaderboard({ tournamentId }) {
-  const [stats, setStats] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState("goals");
-
+  const [stats, setStats] = useState(null);
+  const [group, setGroup] = useState("participants");
+  const [categoryId, setCategoryId] = useState("goals");
+  const [error, setError] = useState("");
+  const [revision, setRevision] = useState(0);
+  useEffect(() => { setStats(null); setGroup("participants"); setCategoryId("goals"); }, [tournamentId]);
   useEffect(() => {
-    async function load() {
-      const data = await stageClient.entities.MatchPlayerStat.filter({ tournament_id: tournamentId });
-      setStats(data);
-      setLoading(false);
+    let stopped = false;
+    let fetching = false;
+    async function refresh() {
+      if (fetching) return;
+      fetching = true;
+      try {
+        const data = await stageClient.http.get(`/public/tournaments/${encodeURIComponent(tournamentId)}/statistics`);
+        if (!stopped) { setStats(data); setError(""); }
+      } catch (err) { if (!stopped) setError(err?.message || "Could not load tournament statistics."); }
+      finally { fetching = false; }
     }
-    load();
-
-    const unsub = stageClient.entities.MatchPlayerStat.subscribe((event) => {
-      if (event.data?._entity === "MatchPlayerStat" && event.data?.tournament_id === tournamentId) {
-        stageClient.entities.MatchPlayerStat.filter({ tournament_id: tournamentId }).then(setStats);
-      }
-    }, { tournament_id: tournamentId });
-
-    return unsub;
-  }, [tournamentId]);
-
-  if (loading) return <div className="flex justify-center py-8"><div className="w-6 h-6 border-2 border-primary/20 border-t-primary rounded-full animate-spin" /></div>;
-
-  // Aggregate per player
-  const playerMap = {};
-  for (const s of stats) {
-    const key = s.player_id || s.player_email || s.player_gamertag;
-    if (!key) continue;
-    if (!playerMap[key]) {
-      playerMap[key] = { email: key, gamertag: s.player_gamertag, goals: 0, assists: 0, matches: 0, rating_sum: 0, rating_count: 0 };
-    }
-    const rating = Number(s.rating);
-    playerMap[key].goals += Number(s.goals || 0);
-    playerMap[key].assists += Number(s.assists || 0);
-    playerMap[key].matches += 1;
-    if (Number.isFinite(rating) && rating > 0) {
-      playerMap[key].rating_sum += rating;
-      playerMap[key].rating_count += 1;
-    }
-  }
-
-  const players = Object.values(playerMap).map(p => ({
-    ...p,
-    avg_rating: p.rating_count > 0 ? (p.rating_sum / p.rating_count).toFixed(1) : "—",
-  }));
-
-  const tabs = [
-    { key: "goals", label: "Top Scorers", icon: Target, sort: (a, b) => b.goals - a.goals },
-    { key: "assists", label: "Top Assists", icon: Zap, sort: (a, b) => b.assists - a.assists },
-    { key: "rating", label: "Best Rating", icon: Star, sort: (a, b) => (Number.parseFloat(b.avg_rating) || 0) - (Number.parseFloat(a.avg_rating) || 0) },
-  ];
-
-  const activeTab = tabs.find(t => t.key === tab);
-  const sorted = [...players].sort(activeTab.sort).slice(0, 10);
-  const panelClip = { clipPath: "polygon(18px 0, 100% 0, calc(100% - 18px) 100%, 0 100%)" };
-  const chipClip = { clipPath: "polygon(9px 0, 100% 0, calc(100% - 9px) 100%, 0 100%)" };
-
-  return (
-    <div className="relative overflow-hidden border border-cyan-200/15 bg-[#07121f]/90 shadow-[0_0_38px_rgba(148,163,184,0.08)]" style={panelClip}>
-      <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-slate-200/55 to-transparent" />
-      <div className="flex items-center gap-2 border-b border-white/10 bg-white/[0.03] px-5 py-4">
-        <Trophy className="w-5 h-5 text-cyan-100" />
-        <span className="font-heading text-sm font-black uppercase tracking-[0.16em] text-foreground">Tournament Leaderboard</span>
-      </div>
-
-      {/* Sub tabs */}
-      <div className="flex overflow-x-auto border-b border-white/10 px-4">
-        {tabs.map(t => {
-          const Icon = t.icon;
-          return (
-            <button
-              type="button"
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={cn(
-                "relative flex min-w-max items-center justify-center gap-1.5 px-4 py-3 font-heading text-[10px] font-black uppercase tracking-[0.16em] transition-colors",
-                tab === t.key ? "text-cyan-100" : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <Icon className="w-3.5 h-3.5" />
-              {t.label}
-              {tab === t.key && (
-                <span className="absolute inset-x-3 bottom-0 h-[2px] bg-gradient-to-r from-cyan-200 via-slate-100 to-transparent" />
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      {sorted.length === 0 ? (
-        <div className="py-10 text-center text-muted-foreground text-sm">No stats recorded yet.</div>
-      ) : (
-        <div className="divide-y divide-white/10">
-          {sorted.map((p, i) => (
-            <div key={p.email} className="flex items-center gap-4 px-5 py-3.5 transition-colors hover:bg-white/[0.025]">
-              <span className={cn(
-                "flex h-8 w-9 shrink-0 items-center justify-center border text-sm font-black leading-relaxed",
-                i === 0 ? "border-amber-200/35 bg-amber-300/10 text-amber-100" :
-                i === 1 ? "border-slate-200/25 bg-slate-200/8 text-slate-100" :
-                i === 2 ? "border-cyan-200/25 bg-cyan-300/8 text-cyan-100" :
-                "border-white/10 bg-white/[0.035] text-muted-foreground"
-              )}
-                style={chipClip}>
-                {i + 1}
-              </span>
-              <p className="min-w-0 flex-1 truncate font-heading text-sm font-black uppercase tracking-wide leading-relaxed text-foreground">{p.gamertag || p.email}</p>
-              <div className="flex items-center gap-4 text-sm shrink-0">
-                <span className="text-muted-foreground text-xs">{p.matches}g</span>
-                {tab === "goals" && <span className="w-8 text-right font-heading text-lg font-black leading-relaxed text-cyan-100">{p.goals}</span>}
-                {tab === "assists" && <span className="w-8 text-right font-heading text-lg font-black leading-relaxed text-cyan-100">{p.assists}</span>}
-                {tab === "rating" && <span className="w-12 text-right font-heading text-lg font-black leading-relaxed text-cyan-100">{p.avg_rating}</span>}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+    void refresh();
+    const interval = window.setInterval(refresh, 15000);
+    window.addEventListener("focus", refresh);
+    const unsubscribe = stageClient.entities.Match.subscribe(() => { void refresh(); });
+    return () => { stopped = true; clearInterval(interval); window.removeEventListener("focus", refresh); unsubscribe(); };
+  }, [tournamentId, revision]);
+  const effectiveGroup = stats?.participant_type === "player" ? "participants" : group;
+  const category = categories[effectiveGroup].find(c => c.id === categoryId) || categories[effectiveGroup][0];
+  const rows = stats?.[effectiveGroup]?.[category.id] || [];
+  const goalkeeper = effectiveGroup === "goalkeepers";
+  const appearances = goalkeeper ? "goalkeeper_appearances" : "appearances";
+  const individual = effectiveGroup !== "participants";
+  const participantLabel = stats?.participant_type === "player" ? "Participants" : "Clubs";
+  return <section className="min-w-0 border border-border bg-card">
+    <div className="flex items-center gap-3 border-b border-border p-4"><Trophy className="h-5 w-5 text-primary" /><h2 className="font-heading text-xl font-bold">Tournament Statistics</h2><button type="button" aria-label="Refresh statistics" title="Refresh statistics" onClick={() => setRevision(v => v + 1)} className="ml-auto p-2 text-muted-foreground hover:text-primary"><RefreshCw className="h-4 w-4" /></button></div>
+    {stats?.participant_type !== "player" && <div className="flex flex-wrap gap-2 border-b border-border p-3" role="group" aria-label="Statistics section">{[["participants", participantLabel], ["players", "Individual Players"], ["goalkeepers", "Goalkeepers"]].map(([id, label]) => <button type="button" key={id} aria-pressed={effectiveGroup === id} onClick={() => { setGroup(id); setCategoryId(categories[id][0].id); }} className={`border px-3 py-2 text-sm ${effectiveGroup === id ? "border-primary text-primary" : "border-border text-muted-foreground"}`}>{label}</button>)}</div>}
+    <div className="p-4"><label className="text-xs font-bold uppercase text-muted-foreground" htmlFor="tournament-statistic">Ranking</label><select id="tournament-statistic" value={category.id} onChange={e => setCategoryId(e.target.value)} className="mt-2 block w-full max-w-lg border border-border bg-background p-2 text-sm">{categories[effectiveGroup].map(c => <option key={c.id} value={c.id}>{c.label}</option>)}</select></div>
+    {goalkeeper && <p className="px-4 pb-3 text-xs text-muted-foreground">Only confirmed full-match goalkeeper appearances are included. Goals conceded use the official full-match score.</p>}
+    {error && <p role="alert" className="p-4 text-sm text-destructive">{error}</p>}
+    {!stats && !error ? <p className="p-8 text-sm text-muted-foreground">Loading statistics…</p> : <>
+      {stats?.confirmed_matches === 0 && <p className="px-4 pb-3 text-sm text-muted-foreground">No confirmed results yet.</p>}
+      {rows.length === 0 ? <p className="p-8 text-center text-sm text-muted-foreground">{goalkeeper ? "No goalkeeper appearances recorded yet." : individual ? "No player statistics recorded yet." : "No confirmed results yet."}</p> : <div className="max-h-[65vh] overflow-auto" role="region" aria-label={category.label} tabIndex={0}>
+        <table className="w-full text-sm"><thead className="sticky top-0 bg-background text-xs text-muted-foreground"><tr><th className="p-3 text-left">Rank</th><th className="p-3 text-left">{individual ? "Player / Club represented" : participantLabel}</th><th className="p-3">{goalkeeper ? "Goalkeeper Appearances" : individual ? "Appearances" : "Matches Played"}</th>{category.rated && <th className="p-3">Rated Matches</th>}{category.id === "conceded_per_match" && <th className="p-3">Goals Conceded</th>}<th className="p-3">{category.label}</th></tr></thead><tbody>{rows.map(row => <tr key={row.id} className="border-t border-border/60 even:bg-secondary/20"><td className="p-3 tabular-nums">{row.rank ?? "—"}</td><td className="p-3"><div className="flex items-center gap-2">{row.avatar ? <img src={row.avatar} alt="" className="h-8 w-8 shrink-0 object-contain" /> : <Shield className="h-5 w-5 shrink-0 text-muted-foreground" />}<div className="min-w-0"><Link className="break-words font-semibold hover:text-primary" to={individual || stats.participant_type === "player" ? `/players/${row.player_id || row.id}` : `/clubs/${row.id}`}>{row.name}</Link>{individual && <Link className="block text-xs text-muted-foreground hover:text-primary" to={`/clubs/${row.club_id}`}>{row.club_name}</Link>}{row[appearances] === 0 && <span className="block text-xs text-muted-foreground">Not played</span>}</div></div></td><td className="p-3 text-center tabular-nums">{row[appearances]}</td>{category.rated && <td className="p-3 text-center">{row[category.rated]}</td>}{category.id === "conceded_per_match" && <td className="p-3 text-center">{row.goalkeeper_conceded}</td>}<td className="p-3 text-center font-bold tabular-nums text-primary">{row[category.value] == null ? "—" : category.rated || category.id === "conceded_per_match" ? Number(row[category.value]).toFixed(2) : row[category.value]}</td></tr>)}</tbody></table>
+      </div>}
+    </>}
+  </section>;
 }

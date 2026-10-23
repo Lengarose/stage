@@ -2,6 +2,13 @@ const express         = require('express');
 const router          = express.Router();
 const MatchPlayerStat = require('../models/matchPlayerStatModel');
 
+// Confirmed statistics are written atomically by the result-report lifecycle.
+// Direct CRUD would allow any logged-in user to alter another player's rankings.
+router.use((req, res, next) => {
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
+  return res.status(403).json({ error: 'Submit or correct player statistics through the match result reporting workflow.' });
+});
+
 // GET /
 router.get('/', async (req, res) => {
   try {

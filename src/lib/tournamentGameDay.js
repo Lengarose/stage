@@ -1,5 +1,5 @@
-const CLOSED_STATUSES = new Set(["completed", "forfeit", "cancelled", "canceled", "deleted"]);
-const DRAW_ONLY_STATUSES = new Set(["unscheduled"]);
+const CLOSED_STATUSES = new Set(["completed", "forfeit", "cancelled", "canceled", "deleted", "voided", "bye"]);
+const DRAW_ONLY_STATUSES = new Set(["unscheduled", "awaiting_qualification"]);
 
 /** Cup fixtures finish on GameDay (`matchKickoff`), not a tournament-page score form. */
 export function canOpenTournamentGameDay(match) {

@@ -236,6 +236,11 @@ CREATE TABLE IF NOT EXISTS clubs (
 
 -- ── matches ───────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS matches (
+  report_finalized       TINYINT(1) NOT NULL DEFAULT 0,
+  administrative_result  TINYINT(1) NOT NULL DEFAULT 0,
+  progression_key       VARCHAR(128) NULL,
+  qualification_sources JSON NULL,
+  UNIQUE KEY idx_matches_progression_key (tournament_id, progression_key),
   id                     VARCHAR(36)  PRIMARY KEY,
   home_club_id           VARCHAR(36),
   away_club_id           VARCHAR(36),
@@ -527,6 +532,11 @@ CREATE TABLE IF NOT EXISTS match_player_stats (
   clean_sheet    TINYINT(1)   DEFAULT 0,
   is_motm        TINYINT(1)   DEFAULT 0,
   rating         DECIMAL(3,1) DEFAULT 0,
+  participation_verified TINYINT(1) NULL,
+  is_superseded TINYINT(1) NOT NULL DEFAULT 0,
+  goalkeeper_full_match TINYINT(1) NULL,
+  appearance_key VARCHAR(128) NULL,
+  UNIQUE KEY idx_mps_appearance_key (appearance_key),
   created_date   DATETIME     DEFAULT CURRENT_TIMESTAMP
 );
 

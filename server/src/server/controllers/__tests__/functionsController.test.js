@@ -25,6 +25,7 @@ function loadFunctionsRouterWithDbMock(executesql, options = {}) {
 
   delete require.cache[controllerPath];
   delete require.cache[legacyFunctionsPath];
+  delete require.cache[path.resolve(__dirname, '../../services/matchResultNegotiationService.js')];
   delete require.cache[identityServicePath];
   delete require.cache[clubOperationsServicePath];
   delete require.cache[clubContactServicePath];
@@ -45,7 +46,19 @@ function loadFunctionsRouterWithDbMock(executesql, options = {}) {
     id: dbPath,
     filename: dbPath,
     loaded: true,
-    exports: { EXECUTESQL: executesql, pool: options.pool || {} },
+    exports: { EXECUTESQL: executesql, pool: options.pool || { promise: () => ({ getConnection: async () => ({ beginTransaction: async () => {}, commit: async () => {}, rollback: async () => {}, release() {}, query: async (sql, values) => [await executesql(sql, values), []] }) }) } },
+  };
+  const tournamentProgressionPath = path.resolve(__dirname, '../../services/tournamentProgressionService.js');
+  require.cache[tournamentProgressionPath] = {
+    id: tournamentProgressionPath, filename: tournamentProgressionPath, loaded: true,
+    // Transaction, dependency and draw rules are covered by the progression service suite.
+    exports: {
+      assertTournamentMatchAction: async () => {},
+      updateTournamentSchedule: async (match, patch) => {
+        await executesql("UPDATE matches SET scheduling_status = 'confirmed', confirmed_date = ?, scheduled_date = ?, status = 'scheduled' WHERE id = ?", [patch.confirmed_date, patch.scheduled_date, match.id]);
+        return { ...match, ...patch, status: 'scheduled' };
+      },
+    },
   };
   require.cache[servicePath] = {
     id: servicePath,
@@ -3325,6 +3338,7 @@ function clubResultSqlMock(match, updates = []) {
       match.home_score = params[0];
       match.away_score = params[1];
       match.result_state = params[10] || match.result_state;
+      match.report_finalized = 1;
       return { affectedRows: 1 };
     }
     if (/UPDATE matches SET/.test(sql)) {
@@ -3420,6 +3434,35 @@ test('matchKickoff completes when both sides submit the same score even if proof
   assert.equal(match.away_score, 2);
   assert.ok(updates.some((call) => /UPDATE clubs SET/.test(call.sql)));
   assert.ok(!updates.some((call) => /status = 'disputed'/.test(call.sql)));
+});
+
+test('confirmed participation persists a zero-goal keeper with no rating and excludes an unused substitute', async () => {
+  const match = {
+    id: 'appearance-result', mode: 'club', status: 'in_progress',
+    home_club_id: 'club-home', away_club_id: 'club-away',
+    result_state: 'AWAITING_AWAY_CONFIRMATION', result_home_submitted: 1,
+    home_submission: JSON.stringify({ home_score: 0, away_score: 0, player_stats: [], goal_events: [] }),
+  };
+  const stored = [];
+  const baseQuery = clubResultSqlMock(match);
+  const router = loadFunctionsRouterWithDbMock(async (sql, params) => {
+    if (/INSERT INTO match_player_stats/.test(sql)) stored.push(params);
+    return baseQuery(sql, params);
+  });
+  const response = makeJsonResponse();
+  await postFunctionHandler(router)({ params: { name: 'matchKickoff' }, user: { id: 'user-1' }, body: {
+    action: 'submit_result', match_id: match.id, is_home_team: false, own_score: 0, opponent_score: 0,
+    proof_url: '/uploads/away-proof.png', participating_player_ids: ['keeper'],
+    player_stats: [
+      { player_id: 'keeper', club_id: 'club-away', goals: 0, assists: 0, rating: null, position: 'GK', goalkeeper_full_match: 1 },
+      { player_id: 'bench', club_id: 'club-away', goals: 0, assists: 0, rating: 9, participation_verified: 1 },
+    ],
+  } }, response);
+  assert.equal(response.statusCode, 200, response.body?.error);
+  assert.equal(stored.length, 1);
+  assert.equal(stored[0][4], 'keeper'); assert.equal(stored[0][12], null);
+  assert.equal(stored[0][13], 1); assert.equal(stored[0][14], 1);
+  assert.equal(stored[0][15], 'appearance-result:keeper:club-away');
 });
 
 test('matchKickoff treats a score disagreement as an away correction, not an admin dispute', async () => {
@@ -3729,7 +3772,7 @@ test('matchKickoff admin_resolve requires admin and validates manual scores', as
     validResponse,
   );
 
-  assert.equal(validResponse.statusCode, 200);
+  assert.equal(validResponse.statusCode, 200, validResponse.body?.error);
   assert.equal(validResponse.body.data.status, 'completed');
   assert.equal(match.home_score, 3);
   assert.equal(match.away_score, 2);
@@ -3757,6 +3800,7 @@ test('adminMatchActions approve forfeit triggers central final-result progressio
     release() {},
     async query(sql, params = []) {
       if (/SELECT \* FROM matches WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[match], []];
+      if (/SELECT tournament_id FROM matches WHERE id = \? LIMIT 1/.test(sql)) return [[{ tournament_id: match.tournament_id }], []];
       if (/UPDATE matches\s+SET status = \?/.test(sql)) {
         match.status = params[0];
         match.forfeit_status = params[1];

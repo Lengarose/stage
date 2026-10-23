@@ -4,7 +4,7 @@ import { buildTournamentStages, stageMatchSections, canScheduleTournamentMatch, 
 
 test("knockout stages include future rounds without inventing participants", () => {
   const stages = buildTournamentStages({ type: "knockout", max_teams: 8 }, [{ id: "one", type: "knockout", round: 1, status: "scheduled" }]);
-  assert.deepEqual(stages.map(s => s.label), ["Quarterfinals", "Semifinals", "Final"]);
+  assert.deepEqual(stages.map(s => s.label), ["Quarterfinals", "Semifinals", "Third-Place Playoff", "Final"]);
   assert.equal(stages[0].matches.length, 1);
   assert.equal(stages[1].matches.length, 0);
 });
@@ -39,9 +39,10 @@ test("group stages and leagues preserve groups and matchdays", () => {
   assert.equal(stageMatchSections(stages[0])[0].label, "Group B · Matchday 2");
   assert.deepEqual(stageMatchSections(stages.find(s => s.id === "qf")).map(s => s.label), ["First leg", "Second leg"]);
   assert.deepEqual(buildTournamentStages({ type: "league", max_teams: 8 }, []).map(s => s.id), ["league"]);
+  assert.deepEqual(buildTournamentStages({ type: "group_stage", knockout_enabled: 0, max_teams: 8 }, []).map(s => s.id), ["group"]);
 });
 test("scheduling belongs to the authenticated home player or home club manager", () => {
-  const match = { status: "scheduled", home_player_id: "p1", home_club_id: "c1" };
+  const match = { status: "scheduled", home_player_id: "p1", away_player_id: "p2", home_club_id: "c1", away_club_id: "c2" };
   const user = { id: "u1" };
   assert.equal(canScheduleTournamentMatch(match, { participant_type: "player" }, user, { id: "p1" }), true);
   assert.equal(canScheduleTournamentMatch(match, { participant_type: "player" }, user, { id: "p2" }), false);

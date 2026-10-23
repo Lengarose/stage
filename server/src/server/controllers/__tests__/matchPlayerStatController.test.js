@@ -8,7 +8,8 @@ const originalLoad = Module._load;
 function makeExpressMock() {
   return {
     Router() {
-      const router = { stack: [] };
+      const router = { stack: [], middleware: [] };
+      router.use = handle => router.middleware.push(handle);
       for (const method of ['get', 'post', 'patch', 'delete']) {
         router[method] = (routePath, handle) => {
           router.stack.push({
@@ -71,6 +72,18 @@ function makeJsonResponse() {
     },
   };
 }
+
+test('confirmed statistics cannot be forged through generic entity mutations', () => {
+  const router = loadMatchPlayerStatRouterWithDbMock(async () => { throw new Error('No database mutation expected'); });
+  for (const method of ['POST', 'PATCH', 'DELETE']) {
+    const response = makeJsonResponse();
+    router.middleware[0]({ method }, response, () => assert.fail('Mutation must not reach CRUD'));
+    assert.equal(response.statusCode, 403);
+  }
+  let next = false;
+  router.middleware[0]({ method: 'GET' }, makeJsonResponse(), () => { next = true; });
+  assert.equal(next, true);
+});
 
 test('GET / filters match-player stats by club_id', async () => {
   let captured = null;

@@ -105,10 +105,20 @@ function declaredFromArgs(args, side) {
 }
 
 function participatingStats(playerStats, participatingIds) {
-  const list = Array.isArray(playerStats) ? playerStats : [];
+  const list = (Array.isArray(playerStats) ? playerStats : []).map(stat => ({ ...stat, participation_verified: null }));
+  const keepers = new Map();
+  for (const stat of list) if (String(stat.position || '').toUpperCase() === 'GK' && Number(stat.goalkeeper_full_match) === 1) {
+    const club = String(stat.club_id || 'reporting_side');
+    if (keepers.has(club) && keepers.get(club) !== String(stat.player_id)) {
+      const error = new Error('Only one full-match goalkeeper can be recorded per club. Leave full-match participation unchecked for substituted goalkeepers.');
+      error.status = 422;
+      throw error;
+    }
+    keepers.set(club, String(stat.player_id));
+  }
   if (!Array.isArray(participatingIds) || !participatingIds.length) return list;
   const allowed = new Set(participatingIds.map(String));
-  return list.filter((stat) => allowed.has(String(stat.player_id)));
+  return list.filter((stat) => allowed.has(String(stat.player_id))).map(stat => ({ ...stat, participation_verified: 1 }));
 }
 
 function buildSubmission({ args, side, scores, penalty, proofOcr }) {
@@ -165,6 +175,7 @@ async function notifyDispute(match, toSide, eventKey) {
 }
 
 async function finalizeOfficial(match, accepted, secondary, resultState) {
+  await require('./tournamentProgressionService').assertTournamentMatchAction(match, { result: true });
   const { processMatchCompletion } = require('../functions/legacyFunctions');
   const result = await processMatchCompletion(match, accepted, secondary || null);
   await patchMatch(match.id, { result_state: resultState });
@@ -201,6 +212,7 @@ function acceptedForMatch(match, homeSub, awaySub, options) {
 }
 
 async function applyTimeoutSettlement(match, decision) {
+  if (decision.autoConfirm) await require('./tournamentProgressionService').assertTournamentMatchAction(match, { result: true });
   const homeSub = parseSubmission(match.home_submission);
   const awaySub = parseSubmission(match.away_submission);
   const useAway = decision.appliedFrom === 'away_correction' || Boolean(decision.useAwayCorrection);

@@ -245,6 +245,8 @@ app.use(errorHandler);
 
 const { runStartupMigrations } = require('./server/migrations/startupMigrations');
 
-runStartupMigrations().catch(err => console.error('[migration] startup error:', err));
+runStartupMigrations()
+  .then(() => require('./server/services/tournamentReconciliationJob').startTournamentReconciliationJob())
+  .catch(err => console.error('[migration] startup error:', err));
 
 server.listen(PORT, () => console.log(`[stage] server running on port ${PORT}`));

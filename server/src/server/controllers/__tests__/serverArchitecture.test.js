@@ -41,7 +41,7 @@ test('server bootstrap delegates startup migrations to a migrations module', () 
   const server = readRepoFile('server/src/server.js');
   const startupMigrations = readRepoFile('server/src/server/migrations/startupMigrations.js');
 
-  assert.match(server, /runStartupMigrations\(\)\.catch/);
+  assert.match(server, /runStartupMigrations\(\)[\s\S]*?\.then\(\(\) => require\('\.\/server\/services\/tournamentReconciliationJob'\)\.startTournamentReconciliationJob\(\)\)[\s\S]*?\.catch/);
   assert.match(server, /require\('\.\/server\/migrations\/startupMigrations'\)/);
   assert.doesNotMatch(server, /async function runStartupMigrations/);
   assert.match(startupMigrations, /async function runStartupMigrations/);

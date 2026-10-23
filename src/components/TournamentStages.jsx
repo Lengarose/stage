@@ -49,7 +49,7 @@ export default function TournamentStages({ tournament, matches, clubs, user, pla
       </div>)}
     </section>);
   }
-  const empty = (s) => stages[0]?.id === s.id ? "Draw not made yet." : "Awaiting qualification from the previous stage.";
+  const empty = (s) => stages[0]?.id === s.id ? "Draw not made yet." : tournament.participant_type === "player" ? "Awaiting qualification from the previous stage." : "Awaiting completion of the previous round before the draw.";
   function tile(category) {
     const rows = category === "Fixtures" ? fixtures(stage) : results(stage);
     return <button type="button" aria-label={`Open ${category.toLowerCase()} for ${stage.label}`} onClick={event => { trigger.current = event.currentTarget; setModal({ category, index: stages.indexOf(stage) }); }} className="w-full border border-border bg-card text-left transition hover:border-primary/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
@@ -63,6 +63,7 @@ export default function TournamentStages({ tournament, matches, clubs, user, pla
     <section className="min-w-0 border border-border bg-card">
       <div className="flex flex-wrap items-center gap-3 border-b border-border p-4"><Trophy className="h-4 w-4 text-primary" /><label htmlFor="tournament-stage" className="text-sm font-bold">Stage</label><select id="tournament-stage" value={stage.id} onChange={e => setSelected(e.target.value)} className="min-w-0 max-w-full border border-border bg-background px-3 py-2 text-sm text-foreground">{stages.map(s => <option value={s.id} key={s.id}>{s.label}</option>)}</select></div>
       <div key={stage.id} tabIndex={0} role="region" aria-label={`${stage.label} matches and standings`} className="max-h-[65vh] min-h-64 overflow-y-auto overscroll-contain">
+        {stage.id === "final" && stages.some(s => s.id === "third") && <p className="border-b border-border p-4 text-sm text-warning">The Final must be scheduled after the Third-Place Playoff. Complete the playoff before reporting the Final.</p>}
         {tournament.status === "registration" && stage.matches.length > 0 && <p className="border-b border-border px-4 py-3 text-xs text-primary">Draw preview — tournament has not started yet.</p>}
         {stage.matches.length ? matchList(stage, stage.matches, true) : <p className="p-8 text-center text-sm text-muted-foreground">{empty(stage)}</p>}
         {["group", "league"].includes(stage.id) && renderStandings(stage.id)}

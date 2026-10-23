@@ -29,6 +29,20 @@ function loadService(executesql) {
   return require(servicePath);
 }
 
+test('linked tournament result submissions reuse the authenticated GameDay lifecycle', async () => {
+  const legacyPath = path.resolve(__dirname, '../../functions/legacyFunctions.js');
+  const previous = require.cache[legacyPath];
+  const received = [];
+  require.cache[legacyPath] = { id: legacyPath, filename: legacyPath, loaded: true, exports: { HANDLERS: { matchKickoff: async args => { received.push(args); return { data: { status: 'awaiting_away_confirmation' } }; } } } };
+  try {
+    const service = loadService(async sql => /FROM competition_fixtures WHERE match_id/.test(sql) ? [{ id: 'linked', legacy_fixture_type: 'tournament_match' }] : assert.fail(`Unexpected SQL: ${sql}`));
+    const result = await service.submitResult({ matchId: 'match', side: 'away', submittedByUserId: 'actor', scoreHome: 3, scoreAway: 1, payloadJson: { _auth_user_id: 'spoofed', action: 'admin_resolve' } });
+    assert.equal(result.status, 'awaiting_away_confirmation');
+    assert.equal(received[0]._auth_user_id, 'actor'); assert.equal(received[0].action, 'submit_result');
+    assert.equal(received[0].own_score, 1); assert.equal(received[0].opponent_score, 3);
+  } finally { if (previous) require.cache[legacyPath] = previous; else delete require.cache[legacyPath]; }
+});
+
 test('createMatchFromFixture creates a match with club and owner snapshots', async () => {
   const calls = [];
   const fixture = {
@@ -502,103 +516,14 @@ test('syncMatchResultToSource does not generate official next phase before all c
   assert.equal(inserts.length, 0);
 });
 
-test('advanceCommunityTournamentIfReady waits for all knockout matches before creating next round', async () => {
-  const inserts = [];
-  const updates = [];
-  const service = loadService(async (sql, params = []) => {
-    if (/SELECT \* FROM tournaments WHERE id = \? LIMIT 1/.test(sql)) {
-      return [{ id: 'tournament-1', name: 'Cup', type: 'knockout', participant_type: 'club', status: 'in_progress', current_round: 1 }];
-    }
-    if (/SELECT \* FROM matches WHERE tournament_id = \? ORDER BY round/.test(sql)) {
-      return [
-        { id: 'm1', tournament_id: 'tournament-1', round: 1, type: 'knockout', status: 'completed', winner_club_id: 'club-1', home_club_id: 'club-1', home_club_name: 'Club 1', away_club_id: 'club-2', away_club_name: 'Club 2' },
-        { id: 'm2', tournament_id: 'tournament-1', round: 1, type: 'knockout', status: 'scheduled', home_club_id: 'club-3', home_club_name: 'Club 3', away_club_id: 'club-4', away_club_name: 'Club 4' },
-      ];
-    }
-    if (/INSERT INTO matches/.test(sql)) {
-      inserts.push(params);
-      return { affectedRows: 1 };
-    }
-    if (/UPDATE tournaments SET/.test(sql)) {
-      updates.push(params);
-      return { affectedRows: 1 };
-    }
-    return [];
-  });
-
-  const result = await service.advanceCommunityTournamentIfReady({ id: 'm1', tournament_id: 'tournament-1', status: 'completed', round: 1 });
-
-  assert.equal(result.advanced, false);
-  assert.equal(result.reason, 'round_not_complete');
-  assert.equal(inserts.length, 0);
-  assert.equal(updates.length, 0);
-});
-
-test('advanceCommunityTournamentIfReady creates next knockout round once current round is complete', async () => {
-  const inserts = [];
-  const updates = [];
-  const service = loadService(async (sql, params = []) => {
-    if (/SELECT \* FROM tournaments WHERE id = \? LIMIT 1/.test(sql)) {
-      return [{ id: 'tournament-1', name: 'Cup', type: 'knockout', participant_type: 'club', status: 'in_progress', current_round: 1 }];
-    }
-    if (/SELECT \* FROM matches WHERE tournament_id = \? ORDER BY round/.test(sql)) {
-      return [
-        { id: 'm1', tournament_id: 'tournament-1', round: 1, type: 'knockout', status: 'completed', winner_club_id: 'club-1', home_club_id: 'club-1', home_club_name: 'Club 1', away_club_id: 'club-2', away_club_name: 'Club 2' },
-        { id: 'm2', tournament_id: 'tournament-1', round: 1, type: 'knockout', status: 'completed', winner_club_id: 'club-3', home_club_id: 'club-3', home_club_name: 'Club 3', away_club_id: 'club-4', away_club_name: 'Club 4' },
-      ];
-    }
-    if (/INSERT INTO matches/.test(sql)) {
-      inserts.push(params);
-      return { affectedRows: 1 };
-    }
-    if (/UPDATE tournaments SET/.test(sql)) {
-      updates.push(params);
-      return { affectedRows: 1 };
-    }
-    return [];
-  });
-
-  const result = await service.advanceCommunityTournamentIfReady({ id: 'm2', tournament_id: 'tournament-1', status: 'completed', round: 1 });
-
-  assert.equal(result.advanced, true);
-  assert.equal(result.next_round, 2);
-  assert.equal(inserts.length, 1);
-  assert.equal(inserts[0][2], 'club-1');
-  assert.equal(inserts[0][3], 'club-3');
-  assert.equal(updates[0][0], 2);
-});
-
-test('advanceCommunityTournamentIfReady creates group-stage knockout ties automatically', async () => {
-  const inserts = [];
-  const updates = [];
-  const service = loadService(async (sql, params = []) => {
-    if (/SELECT \* FROM tournaments WHERE id = \? LIMIT 1/.test(sql)) {
-      return [{ id: 'tournament-1', name: 'Groups Cup', type: 'group_stage', participant_type: 'club', status: 'in_progress', current_round: 1, num_groups: 2 }];
-    }
-    if (/SELECT \* FROM matches WHERE tournament_id = \? ORDER BY round/.test(sql)) {
-      return [
-        { id: 'g1', tournament_id: 'tournament-1', round: 1, group_number: 0, type: 'group', status: 'completed', home_club_id: 'club-1', home_club_name: 'Club 1', away_club_id: 'club-2', away_club_name: 'Club 2', home_score: 2, away_score: 0, winner_club_id: 'club-1' },
-        { id: 'g2', tournament_id: 'tournament-1', round: 1, group_number: 1, type: 'group', status: 'completed', home_club_id: 'club-3', home_club_name: 'Club 3', away_club_id: 'club-4', away_club_name: 'Club 4', home_score: 1, away_score: 0, winner_club_id: 'club-3' },
-      ];
-    }
-    if (/INSERT INTO matches/.test(sql)) {
-      inserts.push(params);
-      return { affectedRows: 1 };
-    }
-    if (/UPDATE tournaments SET/.test(sql)) {
-      updates.push(params);
-      return { affectedRows: 1 };
-    }
-    return [];
-  });
-
-  const result = await service.advanceCommunityTournamentIfReady({ id: 'g2', tournament_id: 'tournament-1', status: 'completed', round: 1 });
-
-  assert.equal(result.advanced, true);
-  assert.equal(result.phase, 'semi_final');
-  assert.equal(result.matches_created, 4);
-  assert.equal(inserts.length, 4);
-  assert.equal(updates[0][0], 2);
+test('advanceCommunityTournamentIfReady delegates to locked tournament reconciliation', async () => {
+  const calls = [];
+  const progressionPath = path.resolve(__dirname, '../tournamentProgressionService.js');
+  require.cache[progressionPath] = { id: progressionPath, filename: progressionPath, loaded: true, exports: { reconcileTournament: async id => { calls.push(id); return { advanced: true, matches_created: 2, completed: false }; } } };
+  const service = loadService(async () => []);
+  const result = await service.advanceCommunityTournamentIfReady({ tournament_id: 'cup', status: 'completed' });
+  assert.deepEqual(calls, ['cup']);
+  assert.equal(result.matches_created, 2);
 });
 
 test('advanceLegacyOfficialCompetitionIfReady creates cross-competition qualification when final completes', async () => {

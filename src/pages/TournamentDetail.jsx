@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import {
@@ -149,9 +149,7 @@ export default function TournamentDetail() {
   const [streamUrl, setStreamUrl] = useState("");
   const [takeoverClub, setTakeoverClub] = useState(null);
   const [activeTab, setActiveTab] = useState("bracket");
-  const [autoAdvancingRound, setAutoAdvancingRound] = useState(false);
   const [inviteBusy, setInviteBusy] = useState(false);
-  const autoAdvanceAttemptsRef = useRef(new Set());
 
   useEffect(() => {
     async function load() {
@@ -244,62 +242,17 @@ export default function TournamentDetail() {
   }, [matches, tournament?.type, tournament?.num_groups]);
 
   useEffect(() => {
-    if (loading || !tournament || autoAdvancingRound) return;
-    if (tournament.status !== "in_progress") return;
-
-    const canManage = isAdmin || isCreator || tournament.organizer_email === user?.email;
-    if (!canManage) return;
-
-    const isFinished = (match) => ["completed", "forfeit"].includes(String(match.status || ""));
-    const tournamentType = String(tournament.type || "").toLowerCase();
-    if (tournamentType === "league") return;
-    const finalMatch = matches.find(match => String(match.type || "").toLowerCase() === "final");
-    const thirdPlaceMatch = matches.find(match => ["third_place", "third-place", "bronze"].includes(String(match.type || "").toLowerCase()));
-    const finalWinnerId = tournament.participant_type === "player" ? finalMatch?.winner_player_id : finalMatch?.winner_club_id;
-    const thirdPlaceWinnerId = tournament.participant_type === "player" ? thirdPlaceMatch?.winner_player_id : thirdPlaceMatch?.winner_club_id;
-    const finalComplete = finalMatch && isFinished(finalMatch) && finalWinnerId;
-    const thirdPlaceComplete = !thirdPlaceMatch || (isFinished(thirdPlaceMatch) && thirdPlaceWinnerId);
-    if (finalComplete && thirdPlaceComplete) return;
-
-    const currentRound = Number(tournament.current_round || 1);
-    const groupMatches = tournamentType === "group_stage"
-      ? matches.filter(match => ["group", "group_stage"].includes(String(match.type || "")))
-      : [];
-    const knockoutMatches = tournamentType === "group_stage"
-      ? matches.filter(match => !["group", "group_stage"].includes(String(match.type || "")))
-      : matches;
-    const groupStageComplete = tournamentType === "group_stage"
-      && groupMatches.length > 0
-      && groupMatches.every(isFinished);
-    const currentRoundMatches = matches.filter(match => Number(match.round || 1) === currentRound);
-    const currentRoundComplete = currentRoundMatches.length > 0 && currentRoundMatches.every(isFinished);
-    const shouldAdvance = tournamentType === "group_stage"
-      ? groupStageComplete && (knockoutMatches.length === 0 || currentRoundComplete)
-      : currentRoundComplete;
-
-    if (!shouldAdvance) return;
-
-    const signature = [
-      tournament.id,
-      currentRound,
-      matches.length,
-      matches.map(match => `${match.id}:${match.status}:${match.winner_club_id || match.winner_player_id || ""}`).join("|"),
-    ].join(":");
-    if (autoAdvanceAttemptsRef.current.has(signature)) return;
-    autoAdvanceAttemptsRef.current.add(signature);
-
-    setAutoAdvancingRound(true);
-    advanceTournamentRound(tournament.id)
-      .then((result) => {
-        if (result.matches) setMatches(result.matches);
-        if (result.tournament) setTournament(result.tournament);
-        setVisibleRound(result.tournament?.current_round ?? null);
-      })
-      .catch((err) => {
-        console.warn("[TournamentDetail.autoAdvanceRound]", err?.data?.error || err?.message || err);
-      })
-      .finally(() => setAutoAdvancingRound(false));
-  }, [autoAdvancingRound, isAdmin, isCreator, loading, matches, tournament, user?.email]);
+    let stopped = false;
+    async function refreshTournament() {
+      try {
+        const [nextTournament, nextMatches] = await Promise.all([fetchTournamentPublic(id), fetchTournamentMatches(id)]);
+        if (!stopped) { setTournament(nextTournament); setMatches(nextMatches); }
+      } catch { /* Keep the last loaded tournament during a transient error. */ }
+    }
+    const timer = window.setInterval(refreshTournament, 15000);
+    window.addEventListener("focus", refreshTournament);
+    return () => { stopped = true; clearInterval(timer); window.removeEventListener("focus", refreshTournament); };
+  }, [id]);
 
   async function registerClub() {
     const effectiveId = takeoverClub ? takeoverClub.id : (myClub?.id || myPlayer?.club_id);
@@ -590,13 +543,18 @@ export default function TournamentDetail() {
     const awayName = scheduleMatch.away_player_name || scheduleMatch.away_club_name || "Away participant";
     const displayDate = new Date(scheduleDate).toLocaleString();
 
-    await stageClient.entities.Match.update(scheduleMatch.id, {
-      scheduling_status: "home_proposed",
-      home_proposed_date: proposedDate,
-      away_proposed_date: null,
-      last_proposed_by: "home",
-      proposal_count: Number(scheduleMatch.proposal_count || 0) + 1,
-    });
+    try {
+      await stageClient.entities.Match.update(scheduleMatch.id, {
+        scheduling_status: "home_proposed",
+        home_proposed_date: proposedDate,
+        away_proposed_date: null,
+        last_proposed_by: "home",
+        proposal_count: Number(scheduleMatch.proposal_count || 0) + 1,
+      });
+    } catch (error) {
+      await swalAlert(error?.message || "This fixture cannot be scheduled yet.");
+      return;
+    }
 
     await Promise.all(awayEmails.map((email) => {
       const event_id = createInboxEventId();
@@ -1313,84 +1271,6 @@ export default function TournamentDetail() {
       {/* ── MAIN CONTENT ──────────────────────────────── */}
       <div className="max-w-7xl mx-auto px-4 lg:px-8 py-6 space-y-5">
 
-        {/* UCL Controls */}
-        {tournament.type === "swiss_ucl" && isOrganizer && tournament.status === "in_progress" && activeTab === "bracket" && (() => {
-          const leagueMatchdays = [...new Set(matches.filter(m => m.type === "ucl_league").map(m => m.round))];
-          const allLeagueDone = leagueMatchdays.length === 8 && matches.filter(m => m.type === "ucl_league").every(m => m.status === "completed" || m.status === "forfeit");
-          const playoffExists = matches.some(m => m.type === "ucl_playoff");
-          const allPlayoffDone = playoffExists && matches.filter(m => m.type === "ucl_playoff").every(m => m.status === "completed" || m.status === "forfeit");
-          const r16Exists = matches.some(m => m.type === "ucl_r16");
-          const allR16Done = r16Exists && matches.filter(m => m.type === "ucl_r16").every(m => m.status === "completed" || m.status === "forfeit");
-          const qfExists = matches.some(m => m.type === "ucl_qf");
-          const allQFDone = qfExists && matches.filter(m => m.type === "ucl_qf").every(m => m.status === "completed" || m.status === "forfeit");
-          const sfExists = matches.some(m => m.type === "ucl_sf");
-          const allSFDone = sfExists && matches.filter(m => m.type === "ucl_sf").every(m => m.status === "completed" || m.status === "forfeit");
-          const finalExists = matches.some(m => m.type === "final");
-          return (
-            <div className="bg-card border border-primary/20 rounded-xl p-4 flex flex-wrap items-center gap-3">
-              <span className="text-xs font-heading uppercase tracking-widest text-primary font-bold">{t("tournamentDetail.uclControls")}</span>
-              {["ucl_playoff","ucl_r16","ucl_qf","ucl_sf"].map(mType => {
-                const byTie = {};
-                matches.filter(m => m.type === mType).forEach(m => {
-                  if (!byTie[m.group]) byTie[m.group] = [];
-                  byTie[m.group].push(m);
-                });
-                return Object.entries(byTie).map(([group, legs]) => {
-                  const sorted = legs.sort((a, b) => a.round - b.round);
-                  const leg1 = sorted[0], leg2 = sorted[1], leg3 = sorted[2];
-                  if (!leg1 || !leg2) return null;
-                  if (leg1.status !== "completed" || leg2.status !== "completed") return null;
-                  if (leg3) return null;
-                  const agg_A = (leg1.home_score||0)+(leg2.away_score||0);
-                  const agg_B = (leg1.away_score||0)+(leg2.home_score||0);
-                  if (agg_A !== agg_B) return null;
-                  const maxRound = Math.max(...matches.map(m => m.round));
-                  return (
-                    <Button key={`${mType}-${group}-leg3`} type="button"
-                      onClick={async () => {
-                        const choice = await swalConfirm(
-                          `Tie on aggregate (${agg_A}-${agg_B}). Pick the host for leg 3.`,
-                          {
-                            title: `${leg1.home_club_name} vs ${leg1.away_club_name}`,
-                            confirmText: `${leg1.home_club_name} hosts`,
-                            cancelText: `${leg1.away_club_name} hosts`,
-                            icon: "question",
-                          }
-                        );
-                        const homeClub = choice ? { id: leg1.home_club_id, name: leg1.home_club_name } : { id: leg1.away_club_id, name: leg1.away_club_name };
-                        const awayClub = choice ? { id: leg1.away_club_id, name: leg1.away_club_name } : { id: leg1.home_club_id, name: leg1.home_club_name };
-                        await stageClient.entities.Match.create({
-                          home_club_id: homeClub.id, home_club_name: homeClub.name,
-                          away_club_id: awayClub.id, away_club_name: awayClub.name,
-                          round: maxRound + 1, type: mType, group: parseInt(group),
-                          status: "scheduled", home_score: 0, away_score: 0, tournament_id: id,
-                        });
-                        const refreshed = await stageClient.entities.Match.filter({ tournament_id: id }, "round");
-                        setMatches(refreshed);
-                      }}
-                      className="bg-warning/10 text-warning border border-warning/30 text-xs animate-pulse">
-                      ⚖️ {leg1.home_club_name} vs {leg1.away_club_name} — Tied! Schedule Leg 3
-                    </Button>
-                  );
-                });
-              })}
-              {(
-                (allLeagueDone && !playoffExists) ||
-                (allPlayoffDone && !r16Exists) ||
-                (allR16Done && !qfExists) ||
-                (allQFDone && !sfExists) ||
-                (allSFDone && !finalExists)
-              ) && (
-                <span className="rounded border border-success/30 bg-success/5 px-2.5 py-1 text-xs font-semibold text-success">
-                  {t("tournamentDetail.uclNextPhaseAuto")}
-                </span>
-              )}
-              <span className="text-xs text-muted-foreground ml-auto">
-                {t("tournamentDetail.phase")}: <strong className="text-foreground capitalize">{tournament.ucl_phase || "league"}</strong>
-              </span>
-            </div>
-          );
-        })()}
 
         {activeTab === "bracket" && (
           <TournamentStages

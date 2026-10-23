@@ -1876,33 +1876,15 @@ async function advanceCommunityTournamentIfReady(match) {
   if (!match?.tournament_id || !isFinishedStatus(match.status)) {
     return { advanced: false, reason: 'not_completed_tournament_match' };
   }
-  const tournamentRows = await EXECUTESQL('SELECT * FROM tournaments WHERE id = ? LIMIT 1', [match.tournament_id]);
-  const tournament = tournamentRows[0];
-  if (!tournament) return { advanced: false, reason: 'tournament_not_found' };
-  const allMatches = await EXECUTESQL(
-    'SELECT * FROM matches WHERE tournament_id = ? ORDER BY round, group_number, scheduled_date, created_date',
-    [match.tournament_id],
-  );
-  const type = String(tournament.type || '').toLowerCase();
-  if (type === 'league') {
-    const leagueMatches = allMatches.filter(row => String(row.type || '') === 'league');
-    if (!leagueMatches.length || leagueMatches.some(row => !isFinishedStatus(row.status))) {
-      return { advanced: false, reason: 'league_not_complete' };
-    }
-    const winner = calculateCommunityStandings(leagueMatches, row => String(row.type || '') === 'league')[0] || null;
-    if (!winner) return { advanced: false, reason: 'winner_missing' };
-    return {
-      advanced: false,
-      ready_to_end: true,
-      reason: 'league_ready_for_manual_end',
-      winner_id: winner.id,
-      winner_name: winner.name,
-    };
+  const { reconcileTournament } = require('./tournamentProgressionService');
+  const result = await reconcileTournament(match.tournament_id);
+  if (result.completed && result.winner) {
+    const player = result.tournament.participant_type === 'player';
+    const winnerMatch = { ...match, [player ? 'winner_player_id' : 'winner_club_id']: result.winner.id, [player ? 'home_player_id' : 'home_club_id']: result.winner.id, [player ? 'home_player_name' : 'home_club_name']: result.winner.name };
+    await completeCommunityTournament(result.tournament, winnerMatch, result.final_round || Number(match.round || 1));
+    await require('../functions/legacyFunctions').HANDLERS.distributeTournamentPrizes({ tournament_id: match.tournament_id }).catch(err => console.error('[tournament prizes]', err.message));
   }
-  if (type === 'group_stage') return advanceCommunityGroupStage(tournament, allMatches);
-  if (type === 'swiss_ucl') return advanceCommunitySwissUcl(tournament, allMatches);
-  if (['knockout', 'double_elimination'].includes(type)) return advanceCommunityKnockoutRounds(tournament, allMatches);
-  return { advanced: false, reason: 'unsupported_tournament_format' };
+  return result;
 }
 
 async function markEngineFixtureCompleted(match) {
@@ -1915,7 +1897,9 @@ async function markEngineFixtureCompleted(match) {
     ? fixture.home_participant_id
     : awayScore > homeScore
       ? fixture.away_participant_id
-      : null;
+      : Number(match.decided_on_penalties) === 1
+        ? match.penalty_winner_side === 'home' ? fixture.home_participant_id : match.penalty_winner_side === 'away' ? fixture.away_participant_id : null
+        : null;
   await EXECUTESQL(
     `UPDATE competition_fixtures
       SET status = 'completed',
@@ -2232,6 +2216,23 @@ async function submitResult({ matchId, side, submittedByUserId, scoreHome, score
     throw err;
   }
   const fixture = fixtureRows[0];
+  if (fixture.legacy_fixture_type === 'tournament_match') {
+    // Linked tournament fixtures must use the same permissions, confirmation,
+    // participation capture and final/playoff dependencies as GameDay.
+    let payload = payloadJson || {};
+    if (typeof payload === 'string') { try { payload = JSON.parse(payload); } catch { payload = {}; } }
+    const result = await require('../functions/legacyFunctions').HANDLERS.matchKickoff({
+      ...payload,
+      _auth_user_id: submittedByUserId,
+      action: 'submit_result',
+      match_id: matchId,
+      is_home_team: side === 'home',
+      own_score: side === 'home' ? scoreHome : scoreAway,
+      opponent_score: side === 'home' ? scoreAway : scoreHome,
+      proof_url: proofUrl || payload.proof_url,
+    });
+    return result.data || result;
+  }
   await model.insertResultSubmission({
     id: uuidv4(),
     fixture_id: fixture.id,

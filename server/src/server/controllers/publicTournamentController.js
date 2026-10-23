@@ -4,6 +4,15 @@ const { EXECUTESQL } = require('../db/database');
 const { HANDLERS } = require('./functionsController');
 const { resolveTournamentRules } = require('../utils/tournamentRuleTemplates');
 const { loadStageCountries } = require('../utils/stageCountries');
+const TournamentStatisticsModel = require('../models/tournamentStatisticsModel');
+
+router.get('/tournaments/:id/statistics', async (req, res) => {
+  try {
+    const result = await new TournamentStatisticsModel().selectByTournament(req.params.id);
+    if (!result) return res.status(404).json({ error: 'Tournament not found' });
+    res.json(result);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
 function attachRenderedRules(tournament, locale) {
   if (locale !== 'fr' && locale !== 'en') return tournament;

@@ -42,20 +42,31 @@ async function runStartupMigrations() {
     }
   };
 
-  const addIndex = async (table, indexName, definition) => {
+  const addIndex = async (table, indexName, definition, unique = false) => {
     try {
       const rows = await EXECUTESQL(
         'SELECT 1 FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = ? AND index_name = ? LIMIT 1',
         [table, indexName]
       );
       if (!rows.length) {
-        await EXECUTESQL(`CREATE INDEX \`${indexName}\` ON \`${table}\` ${definition}`);
+        await EXECUTESQL(`CREATE ${unique ? 'UNIQUE ' : ''}INDEX \`${indexName}\` ON \`${table}\` ${definition}`);
         console.log(`[migration] Added index ${table}.${indexName}`);
       }
     } catch (err) {
       console.error(`[migration] Failed to add index ${table}.${indexName}:`, err.message);
     }
   };
+
+  await addCol('matches', 'progression_key', 'VARCHAR(128) NULL');
+  await addCol('matches', 'report_finalized', 'TINYINT(1) NOT NULL DEFAULT 0');
+  await addCol('matches', 'administrative_result', 'TINYINT(1) NOT NULL DEFAULT 0');
+  await addCol('matches', 'qualification_sources', 'JSON NULL');
+  await addIndex('matches', 'idx_matches_progression_key', '(tournament_id, progression_key)', true);
+  await addCol('match_player_stats', 'participation_verified', 'TINYINT(1) NULL');
+  await addCol('match_player_stats', 'is_superseded', 'TINYINT(1) NOT NULL DEFAULT 0');
+  await addCol('match_player_stats', 'goalkeeper_full_match', 'TINYINT(1) NULL');
+  await addCol('match_player_stats', 'appearance_key', 'VARCHAR(128) NULL');
+  await addIndex('match_player_stats', 'idx_mps_appearance_key', '(appearance_key)', true);
 
   await dropTable('press_articles');
   await dropTable('press_questions');

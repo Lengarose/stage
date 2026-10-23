@@ -66,6 +66,9 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
   const [proofUrl,    setProofUrl]    = useState(null);
   const [uploadingProof, setUploadingProof] = useState(false);
   const [playedIds, setPlayedIds] = useState(() => new Set());
+  const [matchPositions, setMatchPositions] = useState({});
+  const [fullMatchKeepers, setFullMatchKeepers] = useState({});
+  const [motmId, setMotmId] = useState("");
   const [penaltyChoice, setPenaltyChoice] = useState("none");
   const [correcting, setCorrecting] = useState(false);
   const [explanation, setExplanation] = useState("");
@@ -130,6 +133,9 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
         if (stat?.player_id) {
           nextPlayed.add(String(stat.player_id));
           if (stat.rating != null) nextRatings[stat.player_id] = Number(stat.rating);
+          if (stat.position) setMatchPositions(prev => ({ ...prev, [stat.player_id]: stat.position }));
+          if (Number(stat.goalkeeper_full_match) === 1) setFullMatchKeepers(prev => ({ ...prev, [stat.player_id]: true }));
+          if (Number(stat.is_motm) === 1) setMotmId(String(stat.player_id));
         }
       });
       if (nextPlayed.size) setPlayedIds(nextPlayed);
@@ -334,7 +340,7 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
     setSubmitError("");
     try {
       let playerStatsArr = [];
-      const participating = [...playedIds];
+      let participating = [...playedIds];
 
       if (isClubMatch) {
         const derived = derivePlayerStats();
@@ -343,6 +349,7 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
         Object.entries(derived).forEach(([pid, row]) => {
           if ((row.goals || 0) > 0 || (row.assists || 0) > 0) ids.add(String(pid));
         });
+        participating = [...ids];
         playerStatsArr = seatedPlayers
           .filter((p) => ids.has(String(p.id)))
           .map(p => ({
@@ -352,7 +359,10 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
             club_id:         myClub?.id || null,
             goals:           derived[p.id]?.goals   || 0,
             assists:         derived[p.id]?.assists  || 0,
-            rating:          Number(ratings[p.id]    || 6),
+            rating:          ratings[p.id] !== "" && ratings[p.id] != null ? Number(ratings[p.id]) : null,
+            position:        matchPositions[p.id] || null,
+            goalkeeper_full_match: matchPositions[p.id] === "GK" && fullMatchKeepers[p.id] ? 1 : 0,
+            is_motm:         String(p.id) === motmId ? 1 : 0,
           }));
       } else if (myPlayer) {
         playerStatsArr = [{
@@ -712,9 +722,18 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
                     <Star className="w-3 h-3" /> Rating (1–10)
                   </label>
                   <Input type="number" min={1} max={10} step={0.5}
-                    value={ratings[p.id] ?? 6}
+                    value={ratings[p.id] ?? ""}
+                    placeholder="Not rated"
                     onChange={e => setRatings(prev => ({ ...prev, [p.id]: e.target.value }))}
                     className="h-7 text-center text-xs bg-background border-border p-1" />
+                  <label className="mt-2 block text-xs">Position played
+                    <select aria-label={`Position played by ${p.gamertag}`} value={matchPositions[p.id] || ""} onChange={e => setMatchPositions(prev => ({ ...prev, [p.id]: e.target.value }))} className="mt-1 w-full border border-border bg-background p-2">
+                      <option value="">Not recorded</option>
+                      {["GK", "CB", "LB", "RB", "LWB", "RWB", "CDM", "CM", "CAM", "LM", "RM", "LW", "RW", "CF", "ST"].map(pos => <option key={pos}>{pos}</option>)}
+                    </select>
+                  </label>
+                  {matchPositions[p.id] === "GK" && <label className="mt-2 flex items-center gap-2 text-xs"><input type="checkbox" checked={Boolean(fullMatchKeepers[p.id])} onChange={e => setFullMatchKeepers(prev => ({ ...prev, [p.id]: e.target.checked }))} />Goalkeeper for the full match</label>}
+                  <label className="mt-2 flex items-center gap-2 text-xs"><input type="checkbox" checked={motmId === String(p.id)} onChange={e => setMotmId(e.target.checked ? String(p.id) : "")} />Player of the Match award</label>
                 </div>
               </div>
             );

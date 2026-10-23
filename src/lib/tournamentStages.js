@@ -1,6 +1,6 @@
 export const isStageResult = (match) => ["completed", "forfeit", "bye"].includes(String(match.status || "").toLowerCase());
-const labels = { group: "Group Stage", league: "League Phase", playoff: "Knockout Playoff Round", r16: "Round of 16", qf: "Quarterfinals", sf: "Semifinals", final: "Final", third: "Third Place" };
-const aliases = { group_stage: "group", ucl_league: "league", ucl_playoff: "playoff", ucl_r16: "r16", round_of_16: "r16", ucl_qf: "qf", quarter_final: "qf", ucl_sf: "sf", semi_final: "sf", third_place: "third" };
+const labels = { group: "Group Stage", league: "League Phase", playoff: "Knockout Playoff Round", r16: "Round of 16", qf: "Quarterfinals", sf: "Semifinals", final: "Final", third: "Third-Place Playoff" };
+const aliases = { group_stage: "group", ucl_league: "league", ucl_playoff: "playoff", ucl_r16: "r16", round_of_16: "r16", ucl_qf: "qf", quarter_final: "qf", ucl_sf: "sf", semi_final: "sf", third_place: "third", "third-place": "third", bronze: "third" };
 const knockoutKey = (size) => size <= 2 ? "final" : size <= 4 ? "sf" : size <= 8 ? "qf" : size <= 16 ? "r16" : `last-${size}`;
 const stageLabel = (key) => labels[key] || (key.startsWith("last-") ? `Round of ${key.slice(5)}` : key.replace(/_/g, " "));
 
@@ -19,16 +19,19 @@ export function buildTournamentStages(tournament, matches = []) {
     if (type === "group_stage") add("group");
     if (type === "swiss_ucl") {
       ["league", "playoff", "r16", "qf", "sf", "final"].forEach(key => add(key));
-    } else {
+    } else if (!(type === "group_stage" && Number(tournament.knockout_enabled ?? 1) === 0)) {
       const qualifiers = type === "group_stage" ? Math.min(count, Number(tournament.num_groups || 2) * 2) : count;
       for (let size = 2 ** Math.ceil(Math.log2(qualifiers)); size >= 2; size /= 2) add(knockoutKey(size));
     }
   }
   const genericRounds = [...new Set(matches.filter(m => ["knockout", "double_elimination", ""].includes(String(m.type || ""))).map(m => Number(m.round || 1)))].sort((a, b) => a - b);
   const eliminationStages = stages.filter(s => !["group", "league"].includes(s.id));
+  const thirdEligible = ["knockout", "group_stage"].includes(type) && Number(tournament.knockout_enabled ?? 1) !== 0;
+  if (thirdEligible && count >= 4 && stages.some(s => s.id === "sf")) add("third");
   for (const match of [...matches].sort((a, b) => Number(a.round || 1) - Number(b.round || 1))) {
     const matchType = String(match.type || "").toLowerCase();
     let key = aliases[matchType] || matchType;
+    if (key === "third" && !thirdEligible) continue;
     if (type === "league" && (!matchType || matchType === "league")) key = "league";
     if (matchType === "swiss") key = `swiss-${match.round || 1}`;
     if (["knockout", "double_elimination", ""].includes(matchType) && type !== "league") {
@@ -39,6 +42,8 @@ export function buildTournamentStages(tournament, matches = []) {
     add(key, key.startsWith("round-") ? `Round ${match.round || 1}` : stageLabel(key));
     stages.find(s => s.id === key).matches.push(match);
   }
+  const third = stages.findIndex(s => s.id === "third");
+  if (third >= 0) { const [stage] = stages.splice(third, 1); const final = stages.findIndex(s => s.id === "final"); stages.splice(final < 0 ? stages.length : final, 0, stage); }
   return stages;
 }
 
@@ -85,6 +90,8 @@ export function stageAggregate(stage, match) {
 export function canScheduleTournamentMatch(match, tournament, user, player, clubs = []) {
   if (!user || !["unscheduled", "scheduled", "in_progress", "awaiting_confirmation"].includes(match.status) || match.scheduling_status === "home_proposed") return false;
   const same = (a, b) => Boolean(a && b && String(a) === String(b));
+  const kind = tournament.participant_type === "player" ? "player" : "club";
+  if (!match[`home_${kind}_id`] || !match[`away_${kind}_id`]) return false;
   if (tournament.participant_type === "player") return same(match.home_player_id, player?.id);
   const club = clubs.find(c => same(c.id, match.home_club_id));
   return Boolean(club && (same(club.president_user_id, user.id) || same(club.user_id, user.id) || (user.email && String(club.owner_email || "").toLowerCase() === String(user.email).toLowerCase())));

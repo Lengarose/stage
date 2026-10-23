@@ -13,6 +13,8 @@ test("cup fixtures open GameDay after they are scheduled", () => {
   assert.equal(canOpenTournamentGameDay({ id: "m1", status: "awaiting_confirmation" }), true);
   assert.equal(canOpenTournamentGameDay({ id: "m1", status: "disputed" }), true);
   assert.equal(canOpenTournamentGameDay({ id: "m1", status: "unscheduled" }), false);
+  assert.equal(canOpenTournamentGameDay({ id: "m1", status: "awaiting_qualification" }), false);
+  assert.equal(canOpenTournamentGameDay({ id: "m1", status: "bye" }), false);
   assert.equal(canOpenTournamentGameDay({ id: "m1", status: "completed" }), false);
   assert.equal(tournamentGameDayWebPath("cup-9"), "/game-day?match=cup-9");
 });
