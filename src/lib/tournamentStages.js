@@ -1,6 +1,13 @@
-export const isStageResult = (match) => ["completed", "forfeit", "bye"].includes(String(match.status || "").toLowerCase());
+export const isStageResult = (match) => {
+  if (match.status === "bye") return true;
+  if (!["completed","forfeit"].includes(String(match.status || "").toLowerCase())) return false;
+  const state = String(match.result_state || "").toLowerCase();
+  const confirmed = ["confirmed","auto_confirmed_timeout","admin_confirmed","admin_resolved"];
+  if (state && !confirmed.includes(state)) return false;
+  return match.status === "forfeit" || confirmed.includes(state) || Number(match.stats_processed) === 1;
+};
 const labels = { group: "Group Stage", league: "League Phase", playoff: "Knockout Playoff Round", r16: "Round of 16", qf: "Quarterfinals", sf: "Semifinals", final: "Final", third: "Third-Place Playoff" };
-const aliases = { group_stage: "group", ucl_league: "league", ucl_playoff: "playoff", ucl_r16: "r16", round_of_16: "r16", ucl_qf: "qf", quarter_final: "qf", ucl_sf: "sf", semi_final: "sf", third_place: "third", "third-place": "third", bronze: "third" };
+const aliases = { playoff_round: "playoff", knockout_r16: "r16", knockout_qf: "qf", knockout_sf: "sf", knockout_final: "final", group_stage: "group", ucl_league: "league", ucl_playoff: "playoff", ucl_r16: "r16", round_of_16: "r16", ucl_qf: "qf", quarter_final: "qf", ucl_sf: "sf", semi_final: "sf", third_place: "third", "third-place": "third", bronze: "third" };
 const knockoutKey = (size) => size <= 2 ? "final" : size <= 4 ? "sf" : size <= 8 ? "qf" : size <= 16 ? "r16" : `last-${size}`;
 const stageLabel = (key) => labels[key] || (key.startsWith("last-") ? `Round of ${key.slice(5)}` : key.replace(/_/g, " "));
 

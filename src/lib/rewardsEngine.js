@@ -40,6 +40,11 @@ export async function distributeSeasonRewards({
   standings,      // pre-sorted standings array (final_position must be set or position is used)
 }) {
   if (!standings?.length) return { skipped: true, reason: "no standings" };
+  // Settle from server-owned edition data before writing presentation awards.
+  // A newly created trophy must never become evidence for a historical prize.
+  const settlement = await stageClient.functions.invoke("awardClubSeasonPrize", {
+    source_id: sourceId, source_type: sourceType, season_id: seasonId || "",
+  }).catch(error => ({ state: "failed", error: error.message }));
 
   const existingAchievements = await (stageClient.entities.ClubAchievement?.filter(
     { source_id: sourceId, season_number: seasonNumber }, null, 500
@@ -67,7 +72,7 @@ export async function distributeSeasonRewards({
     name: sourceName,
   }, ranked.length);
   defaultRows.forEach(row => {
-    if (!configMap[row.position]) configMap[row.position] = row;
+    if (!configMap[row.position]) configMap[row.position] = { ...row, stc_amount: 0 };
   });
 
   // ── Club achievements + STC payouts ─────────────────────────────────────────
@@ -78,7 +83,7 @@ export async function distributeSeasonRewards({
     if (!pos || !standing.club_id) return;
 
     const config    = configMap[pos];
-    const stcAmount = config?.stc_amount   || 0;
+    const stcAmount = Number(settlement?.obligations?.find(o => o.position === pos && o.recipient_id === standing.club_id)?.expected_amount || 0);
     const posLabel  = config?.position_label || defaultPositionLabel(pos);
     const badge     = config?.badge_type   || defaultBadgeType(pos);
 
@@ -102,56 +107,11 @@ export async function distributeSeasonRewards({
       trophy_image_url: badge === "winner" ? (trophyImageUrl || "") : "",
       awarded_at:       nowIso,
     };
-    const achievement = existingAchievement
-      ? await (stageClient.entities.ClubAchievement?.update(existingAchievement.id, achievementBody) ?? Promise.resolve(existingAchievement)).catch(() => existingAchievement)
-      : await (stageClient.entities.ClubAchievement?.create(achievementBody) ?? Promise.resolve(null)).catch(() => null);
+    if (!existingAchievement) await (stageClient.entities.ClubAchievement?.create(achievementBody) ?? Promise.resolve(null)).catch(() => null);
 
-    if (stcAmount > 0) {
-      const referenceId = achievement?.id || existingAchievement?.id || sourceId;
-      const description = `${posLabel} — ${sourceName} · ${seasonLabel}`;
-      try {
-        const result = await stageClient.functions.invoke("awardClubSeasonPrize", {
-          club_id: standing.club_id,
-          amount: stcAmount,
-          description,
-          reference_id: referenceId,
-          legacy_reference_id: sourceId,
-          position: pos,
-          source_id: sourceId,
-          source_type: sourceType,
-          source_name: sourceName,
-          season_id: seasonId || "",
-          season_number: seasonNumber,
-          category: "competition_reward",
-        });
-        if (result?.skipped) repairedCount += 1;
-        else awardedCount += 1;
-      } catch {
-        await stageClient.entities.Club.filter({ id: standing.club_id }, null, 1)
-          .then(async (arr) => {
-            const club = arr[0];
-            if (!club) return;
-            const nextBalance = Number(club.stc || 0) + stcAmount;
-            await Promise.all([
-              stageClient.entities.Club.update(club.id, {
-                stc:     nextBalance,
-                trophies: badge === "winner" ? (club.trophies || 0) + 1 : (club.trophies || 0),
-              }),
-              stageClient.entities.STCTransaction.create({
-                club_id:      club.id,
-                amount:       stcAmount,
-                balance_after: nextBalance,
-                type:         "income",
-                category:     "competition_reward",
-                description,
-                reference_id: referenceId,
-              }),
-            ]);
-            awardedCount += 1;
-          })
-          .catch(() => {});
-      }
-    }
+    const obligation = settlement?.obligations?.find(o => o.position === pos && o.recipient_id === standing.club_id);
+    if (Number(obligation?.paid_now || 0) > 0) awardedCount += 1;
+    else if (obligation && Number(obligation.missing_amount) === 0) repairedCount += 1;
   }));
 
   // ── Player achievements (fire-and-forget per standing) ─────────────────────
@@ -160,7 +120,7 @@ export async function distributeSeasonRewards({
     seasonId, seasonNumber, seasonLabel, trophyImageUrl, configMap, nowIso,
   }).catch(() => {});
 
-  return { distributed: ranked.length, awarded: awardedCount, already_paid: repairedCount };
+  return { distributed: ranked.length, awarded: awardedCount, already_paid: repairedCount, settlement_state: settlement?.state, settlement_error: settlement?.error };
 }
 
 async function _distributePlayerAchievements({

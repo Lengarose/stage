@@ -7,10 +7,13 @@ import TrophyHistorySection from "@/components/rewards/TrophyHistorySection";
 import FixtureSchedulerPanel from "@/components/schedule/FixtureSchedulerPanel";
 import { cn } from "@/lib/utils";
 import { getCompetitionMeta, sortStandings } from "@/lib/competitionUtils";
+import StandingsIntegrityNotice from '@/components/StandingsIntegrityNotice';
 import { isAppAdminUser } from "@/lib/adminAuth";
 import { createMatchFromFixture } from "@/lib/gameDayIntegration";
 import { swalAlert, swalConfirm } from "@/lib/swal";
 import PageBannerShell from "@/components/PageBannerShell";
+import LeagueCompetitionStages from "@/components/LeagueCompetitionStages";
+import TournamentLeaderboard from "@/components/TournamentLeaderboard";
 
 const PHASE_LABEL = {
   league: "League Phase",
@@ -34,24 +37,18 @@ const STATUS_LABEL = {
   archived: "Archived",
 };
 
-function standingActivityScore(row) {
-  return Number(row?.played || 0) * 1000
-    + Number(row?.points || 0) * 100
-    + Number(row?.wins || 0) * 10
-    + Number(row?.goal_difference || 0);
-}
-
 function dedupeCompetitionStandingsByClub(rows = []) {
   const byClub = new Map();
   for (const row of rows) {
     if (!row?.club_id) continue;
     const key = String(row.club_id);
-    const current = byClub.get(key);
-    if (!current || standingActivityScore(row) > standingActivityScore(current)) {
+    if (!byClub.has(key)) {
       byClub.set(key, row);
+    } else {
+      byClub.set(key, null);
     }
   }
-  return [...byClub.values()];
+  return [...byClub.values()].filter(Boolean);
 }
 
 function FormBadge({ result }) {
@@ -543,7 +540,7 @@ export default function CompetitionDetail() {
     setLoading(true);
     try {
       const [rows, fx, qual] = await Promise.all([
-        stageClient.entities.CompetitionStanding.filter({ season_id: season.id }, null, 100).catch(() => []),
+        stageClient.http.get(`/competition-views/competition_season/${encodeURIComponent(season.id)}`).then(view => view.standings).catch(() => []),
         stageClient.entities.CompetitionFixture.filter({ season_id: season.id }, "matchday", 300).catch(() => []),
         stageClient.entities.QualificationEntry.filter({ target_season_id: season.id }, null, 50).catch(() => []),
       ]);
@@ -631,7 +628,7 @@ export default function CompetitionDetail() {
   const publicTabs = [
     { value: "overview", label: "Overview" },
     { value: "clubs", label: `Clubs (${uniqueStandings.length})` },
-    { value: "fixtures", label: `Fixtures (${fixtures.length})` },
+    { value: "fixtures", label: `Stages (${fixtures.length})` },
     { value: "table", label: "Table" },
     { value: "stats", label: "Stats" },
     { value: "rewards", label: "Rewards" },
@@ -865,6 +862,7 @@ export default function CompetitionDetail() {
               </div>
             )}
 
+            {selectedSeason && <StandingsIntegrityNotice kind="competition_season" editionId={selectedSeason.id} isAdmin={isAdmin} onRefresh={() => loadSeasonData(selectedSeason)} />}
             {activeTab === "table" && (
               <StandingsTable
                 standings={uniqueStandings}
@@ -874,32 +872,8 @@ export default function CompetitionDetail() {
               />
             )}
 
-            {activeTab === "fixtures" && (
-              <FixturesPanel
-                fixtures={fixtures}
-                isAdmin={isAdmin}
-                myClub={myClub}
-                myEmail={myEmail}
-                myGamertag={myGamertag}
-                onRefresh={() => loadSeasonData(selectedSeason)}
-              />
-            )}
-
-            {activeTab === "stats" && (
-              <div className="grid gap-3 md:grid-cols-3">
-                {[
-                  ["Best Attack", sortedRows[0]?.club_name || "—", sortedRows[0]?.goals_for || 0],
-                  ["Best Defence", [...sortedRows].sort((a, b) => (a.goals_against || 0) - (b.goals_against || 0))[0]?.club_name || "—", [...sortedRows].sort((a, b) => (a.goals_against || 0) - (b.goals_against || 0))[0]?.goals_against || 0],
-                  ["Upcoming", "Fixtures", upcomingFixtures.length],
-                ].map(([label, name, value]) => (
-                  <div key={label} className="border border-border bg-card/80 p-4">
-                    <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">{label}</p>
-                    <p className="mt-2 truncate text-sm font-bold text-foreground">{name}</p>
-                    <p className="font-heading text-4xl text-primary">{value}</p>
-                  </div>
-                ))}
-              </div>
-            )}
+            {activeTab === "fixtures" && selectedSeason && <LeagueCompetitionStages kind="competition_season" editionId={selectedSeason.id} myClub={myClub} myEmail={myEmail} myGamertag={myGamertag} renderStandings={()=> <StandingsTable standings={uniqueStandings} />} />}
+            {activeTab === "stats" && selectedSeason && <TournamentLeaderboard tournamentId={selectedSeason.id} title="Season Statistics" statisticsUrl={`/competition-views/competition_season/${encodeURIComponent(selectedSeason.id)}/statistics`} />}
 
             {activeTab === "rewards" && (
               <TrophyHistorySection

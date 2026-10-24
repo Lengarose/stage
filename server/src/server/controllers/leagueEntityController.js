@@ -77,6 +77,7 @@ function serializeVal(v) {
 const AUDITED_ENTITY_TYPES = new Set([
   'competition',
   'competition_season',
+  'competition_fixture',
   'regional_league',
   'regional_league_fixture',
   'regional_league_standing',
@@ -212,7 +213,7 @@ function makeRouter(entityType) {
   router.post('/', async (req, res) => {
     try {
       const body = await stampFixtureTimezone(entityType, req.body || {}, req, { force: true });
-      if (entityType === 'game_day_config' || entityType === 'transfer_room_config') {
+      if (FIXTURE_ENTITY_TYPES.has(entityType) || entityType === 'game_day_config' || entityType === 'transfer_room_config') {
         const admin = await getAdminUser(req).catch(() => null);
         if (!admin) return res.status(403).json({ error: 'Admin access required.' });
       }
@@ -268,6 +269,16 @@ function makeRouter(entityType) {
 
       const current = parseRow(existing[0]);
       const rawBody = req.body || {};
+      if (existing[0].entity_type !== entityType) return res.status(404).json({error:'Not found'});
+      if (FIXTURE_ENTITY_TYPES.has(entityType)) {
+        const admin = await getAdminUser(req);
+        if (admin) await require('../services/leagueCorrectionGuard').assertFixtureCorrectionSafe(current,entityType === 'regional_league_fixture' ? 'regional_league' : 'competition_season',rawBody);
+        if (!admin) {
+          const [actor] = await EXECUTESQL('SELECT id,email FROM users WHERE id=?',[req.user?.id]);
+          const clubs = await EXECUTESQL('SELECT id,president_user_id,user_id,owner_email FROM clubs WHERE id IN (?,?)',[current.home_club_id,current.away_club_id]);
+          require('../lib/leagueSchedulingPermission').validateSchedulePatch(current,rawBody,actor,clubs);
+        }
+      }
       const body = await stampFixtureTimezone(
         entityType,
         rawBody,
@@ -295,19 +306,20 @@ function makeRouter(entityType) {
       await auditLeagueEntity(req, `update_${entityType}`, entityType, id, current, updatedRow, body.reason);
       res.json(updatedRow);
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      res.status(err.status || 500).json({ error: err.message });
     }
   });
 
   // DELETE /:id
   router.delete('/:id', async (req, res) => {
     try {
-      if (entityType === 'game_day_config' || entityType === 'transfer_room_config') {
+      if (FIXTURE_ENTITY_TYPES.has(entityType) || entityType === 'game_day_config' || entityType === 'transfer_room_config') {
         const admin = await getAdminUser(req).catch(() => null);
         if (!admin) return res.status(403).json({ error: 'Admin access required.' });
       }
       const existing = await EXECUTESQL(`SELECT * FROM \`${TABLE}\` WHERE id = ? AND entity_type = ? LIMIT 1`, [req.params.id, entityType]);
       const before = existing.length ? parseRow(existing[0]) : null;
+      if (before && FIXTURE_ENTITY_TYPES.has(entityType) && (before.match_id || before.status === 'played' || require('../lib/tournamentProgression').hasActivity(before))) return res.status(409).json({error:'This fixture has scheduling, reports or results. Use the authorised fixture review workflow; historical activity was preserved.'});
       await EXECUTESQL(`DELETE FROM \`${TABLE}\` WHERE id = ? AND entity_type = ?`, [req.params.id, entityType]);
       await auditLeagueEntity(req, `delete_${entityType}`, entityType, req.params.id, before, null, req.body?.reason);
       res.json({ success: true });

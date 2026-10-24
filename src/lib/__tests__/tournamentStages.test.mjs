@@ -9,7 +9,7 @@ test("knockout stages include future rounds without inventing participants", () 
   assert.equal(stages[1].matches.length, 0);
 });
 test("UCL legs share one stage, including when only second-leg results remain", () => {
-  const matches = [9, 10].map(round => ({ id: String(round), type: "ucl_playoff", round, status: round === 9 ? "completed" : "scheduled" }));
+  const matches = [9, 10].map(round => ({ id: String(round), type: "ucl_playoff", round, result_state: "CONFIRMED", status: round === 9 ? "completed" : "scheduled" }));
   const stages = buildTournamentStages({ type: "swiss_ucl", max_teams: 36 }, matches);
   const stage = stages.find(s => s.id === "playoff");
   assert.equal(stage.matches.length, 2);
@@ -19,7 +19,7 @@ test("UCL legs share one stage, including when only second-leg results remain", 
   assert.equal(isStageResult(matches[1]), false);
 });
 test("aggregate uses recorded legs in participant order and waits for both results", () => {
-  const first = { home_player_id: "a", away_player_id: "b", home_score: 2, away_score: 1, status: "completed" };
+  const first = { home_player_id: "a", away_player_id: "b", home_score: 2, away_score: 1, status: "completed", result_state: "CONFIRMED" };
   const second = { home_player_id: "b", away_player_id: "a", home_score: 3, away_score: 0, status: "forfeit" };
   const stage = { id: "qf", matches: [first, second] };
   assert.deepEqual(stageAggregate(stage, first), [2, 4]);

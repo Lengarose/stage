@@ -1,6 +1,9 @@
 const { v4: uuidv4 } = require('uuid');
 const crypto = require('crypto');
-const { EXECUTESQL } = require('../db/database');
+const database = require('../db/database');
+const { AsyncLocalStorage } = require('node:async_hooks');
+const progressionQueries = new AsyncLocalStorage();
+const EXECUTESQL = (...args) => (progressionQueries.getStore() || database.EXECUTESQL)(...args);
 const CompetitionEngineModel = require('../models/competitionEngineModel');
 const Match = require('../models/matchModel');
 const { penaltiesFlagForCreatedMatch } = require('../lib/matchResultNegotiation');
@@ -215,14 +218,7 @@ function parseFormList(value) {
   return [];
 }
 
-function sortStandingRows(rows) {
-  return [...rows].filter(row => !row.is_excluded).sort((a, b) => {
-    if (Number(b.points || 0) !== Number(a.points || 0)) return Number(b.points || 0) - Number(a.points || 0);
-    if (Number(b.goal_difference || 0) !== Number(a.goal_difference || 0)) return Number(b.goal_difference || 0) - Number(a.goal_difference || 0);
-    if (Number(b.goals_for || 0) !== Number(a.goals_for || 0)) return Number(b.goals_for || 0) - Number(a.goals_for || 0);
-    return String(a.club_name || '').localeCompare(String(b.club_name || ''));
-  });
-}
+const { sortStandingRows } = require('../lib/competitionStandings');
 
 function isFinishedStatus(status, { regional = false } = {}) {
   const finished = regional
@@ -320,16 +316,17 @@ async function selectCompetitionBySlug(slug) {
   return rows.length ? parseLeagueEntityRow(rows[0]) : null;
 }
 
-async function qualificationEntryExists({ clubId, targetCompetitionId }) {
+async function qualificationEntryExists({ clubId, targetCompetitionId, qualificationId }) {
   if (!clubId || !targetCompetitionId) return true;
   const rows = await EXECUTESQL(
     `SELECT * FROM league_entities
       WHERE entity_type = 'qualification_entry'
         AND club_id = ?
+        AND id = ?
         AND status IN ('pending', 'confirmed')
         AND JSON_UNQUOTE(JSON_EXTRACT(data_json, '$.target_competition_id')) = ?
       LIMIT 1`,
-    [clubId, targetCompetitionId],
+    [clubId, qualificationId, targetCompetitionId],
   ).catch(() => []);
   return rows.length > 0;
 }
@@ -684,7 +681,7 @@ async function finalizeAgreedResult(fixture, home, away) {
       : null;
   await EXECUTESQL(
     `UPDATE matches
-     SET status = 'completed', home_score = ?, away_score = ?, stats_processed = 1
+     SET status = 'completed', result_state = 'CONFIRMED', home_score = ?, away_score = ?, stats_processed = 1
      WHERE id = ?`,
     [homeScore, awayScore, fixture.match_id],
   );
@@ -706,6 +703,15 @@ async function finalizeAgreedResult(fixture, home, away) {
   return { status: 'completed', home_score: homeScore, away_score: awayScore, winner_participant_id: winnerParticipantId, progression };
 }
 
+async function assertStandingParticipants(type, column, edition, fixture) {
+  const home = String(fixture.home_club_id || '').trim(), away = String(fixture.away_club_id || '').trim();
+  if (!home || !away || home === away) return 'Invalid standing participants require admin reconciliation';
+  const rows = await EXECUTESQL(`SELECT * FROM league_entities WHERE entity_type = '${type}' AND ${column} = ? AND club_id IN (?,?)`, [edition,home,away]);
+  const parsed = rows.map(parseLeagueEntityRow);
+  if ([home,away].some(id => parsed.filter(r => String(r.club_id) === id).length !== 1)) return 'Missing or duplicate standings require admin reconciliation';
+  return null;
+}
+
 async function syncCompetitionFixtureResult(match, sourceFixtureId) {
   const rows = await EXECUTESQL(
     `SELECT * FROM league_entities
@@ -715,6 +721,7 @@ async function syncCompetitionFixtureResult(match, sourceFixtureId) {
   );
   if (!rows.length) return { synced: false, reason: 'competition_fixture_not_found' };
   const fixture = parseLeagueEntityRow(rows[0]);
+  const integrityWarning = String(fixture.phase || 'league') === 'league' ? await assertStandingParticipants('competition_standing', 'season_id', fixture.season_id, fixture) : null;
   if (fixture.stats_processed === true || Number(fixture.stats_processed || 0) === 1 || String(fixture.stats_processed || '').toLowerCase() === 'true') {
     return { synced: false, reason: 'already_processed' };
   }
@@ -731,6 +738,11 @@ async function syncCompetitionFixtureResult(match, sourceFixtureId) {
     away_score: awayScore,
     winner_club_id: winnerClubId,
     winner_club_name: winnerClubName,
+    result_state: match.result_state || 'CONFIRMED',
+    decided_on_penalties: match.decided_on_penalties || 0,
+    penalty_winner_side: match.penalty_winner_side || null,
+    home_penalties: match.home_penalties ?? null,
+    away_penalties: match.away_penalties ?? null,
     status: 'completed',
     stats_processed: true,
   };
@@ -747,7 +759,7 @@ async function syncCompetitionFixtureResult(match, sourceFixtureId) {
     const parsed = standingRows.map(parseLeagueEntityRow);
     const homeRow = parsed.find(row => String(row.club_id) === String(fixture.home_club_id));
     const awayRow = parsed.find(row => String(row.club_id) === String(fixture.away_club_id));
-    if (homeRow && awayRow) {
+    if (homeRow && awayRow && !integrityWarning) {
       const isDraw = homeScore === awayScore;
       const homeWin = homeScore > awayScore;
       const homeUpdate = buildStandingUpdate(homeRow, homeScore, awayScore, homeWin ? 'W' : isDraw ? 'D' : 'L');
@@ -773,7 +785,7 @@ async function syncCompetitionFixtureResult(match, sourceFixtureId) {
     }
   }
 
-  return { synced: true, source_fixture_type: 'competition_fixture', fixture: nextFixture };
+  return { synced: true, source_fixture_type: 'competition_fixture', fixture: nextFixture, integrity_warning: integrityWarning };
 }
 
 async function syncRegionalLeagueFixtureResult(match, sourceFixtureId) {
@@ -785,6 +797,7 @@ async function syncRegionalLeagueFixtureResult(match, sourceFixtureId) {
   );
   if (!rows.length) return { synced: false, reason: 'regional_league_fixture_not_found' };
   const fixture = parseLeagueEntityRow(rows[0]);
+  const integrityWarning = await assertStandingParticipants('regional_league_standing', 'league_id', fixture.league_id, fixture);
   if (fixture.stats_processed === true || Number(fixture.stats_processed || 0) === 1 || String(fixture.stats_processed || '').toLowerCase() === 'true') {
     return { synced: false, reason: 'already_processed' };
   }
@@ -816,7 +829,7 @@ async function syncRegionalLeagueFixtureResult(match, sourceFixtureId) {
   const parsed = standingRows.map(parseLeagueEntityRow);
   const homeRow = parsed.find(row => String(row.club_id) === String(fixture.home_club_id));
   const awayRow = parsed.find(row => String(row.club_id) === String(fixture.away_club_id));
-  if (homeRow && awayRow) {
+  if (homeRow && awayRow && !integrityWarning) {
     const isDraw = homeScore === awayScore;
     const homeWin = homeScore > awayScore;
     const homeUpdate = buildStandingUpdate(homeRow, homeScore, awayScore, homeWin ? 'W' : isDraw ? 'D' : 'L');
@@ -841,7 +854,7 @@ async function syncRegionalLeagueFixtureResult(match, sourceFixtureId) {
     }
   }
 
-  return { synced: true, source_fixture_type: 'regional_league_fixture', fixture: nextFixture };
+  return { synced: true, source_fixture_type: 'regional_league_fixture', fixture: nextFixture, integrity_warning: integrityWarning };
 }
 
 async function listLegacyCompetitionFixtures(seasonId) {
@@ -1020,47 +1033,20 @@ async function generateLegacyOfficialPlayoffRound(sourceFixture, standings) {
 }
 
 function aggregateClubWinner(legs) {
-  const sorted = [...legs].sort((a, b) => Number(a.leg || 1) - Number(b.leg || 1));
-  const [leg1, leg2] = sorted;
-  if (!leg1) return null;
-  if (!leg2) {
-    const home = Number(leg1.home_score || 0);
-    const away = Number(leg1.away_score || 0);
-    if (leg1.winner_club_id) {
-      return String(leg1.winner_club_id) === String(leg1.home_club_id) ? {
-        club_id: leg1.home_club_id, club_name: leg1.home_club_name, club_logo_url: leg1.home_club_logo_url || '', club_tag: leg1.home_club_tag || '',
-      } : {
-        club_id: leg1.away_club_id, club_name: leg1.away_club_name, club_logo_url: leg1.away_club_logo_url || '', club_tag: leg1.away_club_tag || '',
-      };
-    }
-    if (home === away) return null;
-    return home > away ? {
-      club_id: leg1.home_club_id, club_name: leg1.home_club_name, club_logo_url: leg1.home_club_logo_url || '', club_tag: leg1.home_club_tag || '',
-    } : {
-      club_id: leg1.away_club_id, club_name: leg1.away_club_name, club_logo_url: leg1.away_club_logo_url || '', club_tag: leg1.away_club_tag || '',
-    };
-  }
-  if (leg2.winner_club_id) {
-    return String(leg2.winner_club_id) === String(leg2.home_club_id) ? {
-      club_id: leg2.home_club_id, club_name: leg2.home_club_name, club_logo_url: leg2.home_club_logo_url || '', club_tag: leg2.home_club_tag || '',
-    } : {
-      club_id: leg2.away_club_id, club_name: leg2.away_club_name, club_logo_url: leg2.away_club_logo_url || '', club_tag: leg2.away_club_tag || '',
-    };
-  }
-  const lowerGoals = Number(leg1.home_score || 0) + Number(leg2.away_score || 0);
-  const higherGoals = Number(leg1.away_score || 0) + Number(leg2.home_score || 0);
-  if (lowerGoals === higherGoals) return null;
-  return lowerGoals > higherGoals ? {
-    club_id: leg1.home_club_id, club_name: leg1.home_club_name, club_logo_url: leg1.home_club_logo_url || '', club_tag: leg1.home_club_tag || '',
-  } : {
-    club_id: leg1.away_club_id, club_name: leg1.away_club_name, club_logo_url: leg1.away_club_logo_url || '', club_tag: leg1.away_club_tag || '',
-  };
+  const required = legs[0]?.phase === 'knockout_final' ? 1 : 2;
+  const rows = legs.map(m => ({...m,round:m.leg || m.round,status:m.status === 'played' ? 'completed' : m.status}));
+  const outcome = require('../lib/tournamentProgression').resolvedTie(rows,{participant_type:'club'},required);
+  if (!outcome) return null;
+  const id = outcome.winner.id;
+  const first = legs[0];
+  const side = first.home_club_id === id ? 'home' : 'away';
+  return {club_id:id,club_name:outcome.winner.name,club_logo_url:first[`${side}_club_logo_url`] || '',club_tag:first[`${side}_club_tag`] || ''};
 }
 
 function groupByBracketPosition(fixtures) {
   const groups = new Map();
   for (const fixture of fixtures) {
-    const key = Number(fixture.bracket_position || fixture.group_number || 1);
+    const key = Number(fixture.bracket_position ?? fixture.group_number ?? 1);
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(fixture);
   }
@@ -1165,7 +1151,9 @@ async function generateLegacyOfficialNextKnockout(sourceFixture, fixtures, curre
     created = 1;
   } else {
     const half = Math.floor(winners.length / 2);
-    const pairs = makeSeededPairs(winners.slice(0, half), winners.slice(half).reverse(), previousPairs);
+    const { shuffled } = require('../lib/tournamentProgression');
+    const fixed = sourceFixture.draw_mode === 'fixed' || sourceFixture.fixed_pairings === true;
+    const pairs = makeSeededPairs(fixed ? winners.slice(0,half) : shuffled(winners.slice(0, half)), fixed ? winners.slice(half).reverse() : shuffled(winners.slice(half)), previousPairs);
     for (let index = 0; index < pairs.length; index += 1) {
       const { seeded, unseeded } = pairs[index];
       const tieId = `${nextPhase}-${sourceFixture.season_id}-${index + 1}`;
@@ -1211,11 +1199,13 @@ async function processOfficialSeasonEndQualification(season, standings) {
       clubId: standing.club_id,
       targetCompetitionId: targetCompetition.id,
       sourceType: 'competition_season',
+      qualificationId: deterministicId(`qualification_entry:competition_season:${season.id}:${targetCompetition.id}:${standing.club_id}:${position}`),
     });
     if (exists) continue;
     await createQualificationEntry({
       id: deterministicId(`qualification_entry:competition_season:${season.id}:${targetCompetition.id}:${standing.club_id}:${position}`),
       source_type: 'competition_season',
+      source_season_id: season.id,
       regional_league_id: null,
       regional_league_name: null,
       regional_finish_position: position,
@@ -1254,10 +1244,7 @@ async function completeLegacyOfficialCompetition(sourceFixture, fixtures) {
       winner_club_name: winner?.club_name || season.winner_club_name || null,
     }, { status: 'completed' });
     const standings = await listLegacyCompetitionStandings(sourceFixture.season_id).catch(() => []);
-    qualification = await processOfficialSeasonEndQualification(season, standings).catch((err) => ({
-      qualified: 0,
-      error: err.message,
-    }));
+    qualification = await processOfficialSeasonEndQualification(season, standings);
   }
   return {
     advanced: true,
@@ -1267,7 +1254,7 @@ async function completeLegacyOfficialCompetition(sourceFixture, fixtures) {
   };
 }
 
-async function advanceLegacyOfficialCompetitionIfReady(fixture) {
+async function advanceLegacyOfficialCompetitionUnlocked(fixture) {
   if (!fixture?.season_id || String(fixture.entity_type || fixture.source_fixture_type || '') === 'regional_league_fixture') {
     return { advanced: false, reason: 'unsupported_fixture' };
   }
@@ -1318,6 +1305,7 @@ async function processRegionalDivisionOneEnd(league, standings) {
         clubId: standing.club_id,
         targetCompetitionId: competition.id,
         sourceType: 'regional_league',
+        qualificationId: deterministicId(`qualification_entry:regional_league:${league.id}:${competition.id}:${standing.club_id}:${position}`),
       });
       if (!exists) {
         await createQualificationEntry({
@@ -1431,7 +1419,7 @@ async function processRegionalDivisionTwoEnd(league, standings) {
   return { type: 'div2', promoted, relegated };
 }
 
-async function advanceRegionalLeagueIfReady(fixture) {
+async function advanceRegionalLeagueUnlocked(fixture) {
   if (!fixture?.league_id) return { advanced: false, reason: 'unsupported_fixture' };
   const fixtures = await listLegacyRegionalLeagueFixtures(fixture.league_id);
   if (!fixtures.length) return { advanced: false, reason: 'no_league_fixtures' };
@@ -1459,6 +1447,41 @@ async function advanceRegionalLeagueIfReady(fixture) {
 
   return { advanced: true, ...result };
 }
+
+async function advanceLeagueEdition(kind, fixture, { dryRun = false, admin = null, reason = null } = {}) {
+  const id = kind === 'regional_league' ? fixture.league_id : fixture.season_id;
+  if (!id) return { advanced:false,reason:'unsupported_fixture' };
+  const prizes = require('./competitionPrizeService');
+  if (!dryRun) await prizes.capture(kind,id);
+  const result = await database.withTransaction(async query => {
+    const scope = await new (require('../models/competitionScopeModel').CompetitionScopeModel)().selectOne(kind,id,query,!dryRun);
+    const requestedPhase = fixture.phase || 'league';
+    fixture = {...fixture,...scope.fixtures.find(f=>(f.phase || 'league') === requestedPhase),phase:requestedPhase,draw_mode:scope.root.draw_mode,fixed_pairings:scope.root.fixed_pairings};
+    const readiness = require('../lib/leagueRoundReadiness').roundReadiness(scope,fixture.phase || 'league');
+    if (!readiness.ready || dryRun) return {...readiness,advanced:false};
+    if (scope.root.status === 'completed') return {advanced:false,reason:'already_completed'};
+    if ((fixture.phase || 'league') === 'league') {
+      const integrity = require('../lib/standingIntegrity').reviewStandings(scope);
+      if (integrity.requires_review) return { advanced:false, reason:'Standings integrity requires authorised review', integrity };
+      const ordered = sortStandingRows(scope.standings);
+      if (ordered.some((r,i) => i > 0 && Number(r.points) === Number(ordered[i-1].points) && Number(r.goal_difference) === Number(ordered[i-1].goal_difference) && Number(r.goals_for) === Number(ordered[i-1].goals_for))) return { advanced:false, reason:'Finishing positions or qualification seeding remain tied under sporting criteria; authorised resolution required' };
+    }
+    const progress = await progressionQueries.run(query,async () => {
+      if (kind === 'regional_league') return advanceRegionalLeagueUnlocked(fixture);
+      if (scope.root.format === 'league' || scope.root.type === 'league' || scope.root.league_only === true) {
+        await updateLeagueEntityData('competition_season',id,{...scope.root,status:'completed'},{status:'completed'});
+        return {advanced:true,next_phase:'completed'};
+      }
+      return advanceLegacyOfficialCompetitionUnlocked(fixture);
+    });
+    if (admin) await query(`INSERT INTO admin_audit_log (id,admin_user_id,admin_email,action,entity_type,entity_id,old_value,new_value,reason) VALUES (?,?,?,'reconcile_league_progression',?,?,?,?,?)`,[uuidv4(),admin.id,admin.email,kind,id,JSON.stringify({status:scope.root.status,fixtures:scope.fixtures.map(f=>f.id)}),JSON.stringify(progress),reason]);
+    return progress;
+  });
+  if (!dryRun && (result.next_phase === 'completed' || result.type || result.reason === 'already_completed')) await prizes.review(kind,id,{apply:true});
+  return result;
+}
+async function advanceLegacyOfficialCompetitionIfReady(fixture) { return advanceLeagueEdition('competition_season',fixture); }
+async function advanceRegionalLeagueIfReady(fixture) { return advanceLeagueEdition('regional_league',fixture); }
 
 function communityWinnerFromMatch(match) {
   if (match.winner_club_id) {
@@ -1922,12 +1945,15 @@ async function advanceCommunityTournamentIfReady(match) {
     return { advanced: false, reason: 'not_completed_tournament_match' };
   }
   const { reconcileTournament } = require('./tournamentProgressionService');
+  await require('./competitionPrizeService').capture('tournament',match.tournament_id);
   const result = await reconcileTournament(match.tournament_id);
   if (result.completed && result.winner) {
     const player = result.tournament.participant_type === 'player';
     const winnerMatch = { ...match, [player ? 'winner_player_id' : 'winner_club_id']: result.winner.id, [player ? 'home_player_id' : 'home_club_id']: result.winner.id, [player ? 'home_player_name' : 'home_club_name']: result.winner.name };
     await completeCommunityTournament(result.tournament, winnerMatch, result.final_round || Number(match.round || 1));
-    await require('../functions/legacyFunctions').HANDLERS.distributeTournamentPrizes({ tournament_id: match.tournament_id }).catch(err => console.error('[tournament prizes]', err.message));
+  }
+  if (result.completed || result.tournament?.status === 'completed') {
+    await require('../functions/legacyFunctions').HANDLERS.distributeTournamentPrizes({ tournament_id: match.tournament_id });
   }
   return result;
 }
@@ -2314,5 +2340,6 @@ module.exports = {
   advanceLegacyOfficialCompetitionIfReady,
   advanceRegionalLeagueIfReady,
   advanceCommunityTournamentIfReady,
+  advanceLeagueEdition,
   notifyPhaseReady,
 };

@@ -721,6 +721,12 @@ CREATE TABLE IF NOT EXISTS direct_messages (
 
 -- ── stc_transactions ──────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS stc_transactions (
+  settlement_key VARCHAR(190) NULL,
+  competition_type VARCHAR(50),
+  competition_id VARCHAR(36),
+  edition_id VARCHAR(64),
+  finishing_position INT,
+  UNIQUE KEY idx_stc_settlement (settlement_key),
   id            VARCHAR(36)   PRIMARY KEY,
   player_id     VARCHAR(36)   NULL,
   player_email  VARCHAR(255)  NULL,
@@ -1354,8 +1360,13 @@ CREATE TABLE IF NOT EXISTS competition_phase_states (
 );
 
 CREATE TABLE IF NOT EXISTS competition_payouts (
+  source_type VARCHAR(50),
+  source_id VARCHAR(36),
+  edition_id VARCHAR(64),
+  position_no INT,
+  config_json JSON,
   id                       VARCHAR(36) PRIMARY KEY,
-  competition_instance_id  VARCHAR(36) NOT NULL,
+  competition_instance_id  VARCHAR(36) NULL,
   fixture_id               VARCHAR(36),
   match_id                 VARCHAR(36),
   recipient_type           VARCHAR(20) NOT NULL,
@@ -1369,6 +1380,7 @@ CREATE TABLE IF NOT EXISTS competition_payouts (
   created_date             DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_date             DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY uq_comp_payout_idempotency (idempotency_key),
+  UNIQUE KEY idx_comp_payout_obligation (source_type,source_id,edition_id,position_no),
   INDEX idx_comp_payout_instance (competition_instance_id, status),
   INDEX idx_comp_payout_club (club_id, created_date),
   INDEX idx_comp_payout_player (player_id, created_date)
@@ -1565,7 +1577,7 @@ PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- BEGIN inlined: player_club_tournament_migration.sql
 SET @t='players';
-SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='stc'),'SELECT 1','ALTER TABLE players ADD COLUMN stc BIGINT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='stc'),'ALTER TABLE players MODIFY COLUMN stc DECIMAL(12,2) NULL DEFAULT 0','ALTER TABLE players ADD COLUMN stc DECIMAL(12,2) NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='goals_player'),'SELECT 1','ALTER TABLE players ADD COLUMN goals_player INT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='matches_played'),'SELECT 1','ALTER TABLE players ADD COLUMN matches_played INT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='matches_played_club'),'SELECT 1','ALTER TABLE players ADD COLUMN matches_played_club INT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
@@ -2087,6 +2099,12 @@ CREATE TABLE IF NOT EXISTS fixture_admin_actions (
 
 -- Player wallet ledger — append-only transaction history per player wallet
 CREATE TABLE IF NOT EXISTS player_stc_transactions (
+  settlement_key VARCHAR(190) NULL,
+  competition_type VARCHAR(50),
+  competition_id VARCHAR(36),
+  edition_id VARCHAR(64),
+  finishing_position INT,
+  UNIQUE KEY idx_pst_settlement (settlement_key),
   id            VARCHAR(36)   PRIMARY KEY,
   player_id     VARCHAR(36)   NOT NULL,
   player_email  VARCHAR(255),

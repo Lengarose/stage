@@ -173,12 +173,12 @@ export default function TournamentDetail() {
         const [tData, clubData, matchData] = await Promise.all([
           fetchTournamentPublic(id).then(t => t ? [t] : []).catch(() => []),
           stageClient.entities.Club.list("-rating", 200).catch(() => []),
-          fetchTournamentMatches(id).catch(() => []),
+          fetchTournamentMatches(id).then(rows => ({ rows, error: null })).catch(error => ({ rows: [], error: error.message || 'Could not load the complete tournament fixture feed.' })),
         ]);
         const t = tData[0] || null;
-        setTournament(t);
+        setTournament(t ? { ...t, standings_load_error: matchData.error } : null);
         setAllClubs(clubData);
-        setMatches(matchData);
+        setMatches(matchData.rows);
         if (t) {
           setClubs(clubData.filter(c => t.registered_clubs?.includes(c.id)));
         }
@@ -251,7 +251,9 @@ export default function TournamentDetail() {
       try {
         const [nextTournament, nextMatches] = await Promise.all([fetchTournamentPublic(id), fetchTournamentMatches(id)]);
         if (!stopped) { setTournament(nextTournament); setMatches(nextMatches); }
-      } catch { /* Keep the last loaded tournament during a transient error. */ }
+      } catch (error) {
+        if (!stopped) setTournament(previous => previous ? { ...previous, standings_load_error: error.message || 'Complete fixture feed unavailable' } : previous);
+      }
     }
     const timer = window.setInterval(refreshTournament, 15000);
     window.addEventListener("focus", refreshTournament);

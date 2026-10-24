@@ -116,6 +116,7 @@ async function assertTournamentMatchAction(match, { schedule, result = false, co
   if (!match?.tournament_id || match.tournament_id === 'ranked') return;
   const [t] = await query('SELECT * FROM tournaments WHERE id = ? LIMIT 1', [match.tournament_id]);
   if (!t) return;
+  if (result && ['draft', 'setup', 'registration', 'open', 'cancelled', 'canceled'].includes(t.status)) throw conflict('Start the tournament before reporting an official result. Registration/draw previews cannot produce standings.');
   const rows = await query('SELECT * FROM matches WHERE tournament_id = ? ORDER BY round, created_date', [t.id]);
   const player = t.participant_type === 'player';
   const participants = [match[`home_${player ? 'player' : 'club'}_id`], match[`away_${player ? 'player' : 'club'}_id`]];

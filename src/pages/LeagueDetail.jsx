@@ -5,17 +5,20 @@ import { cn } from "@/lib/utils";
 import { format, isPast } from "@/lib/momentDate";
 import {
   Trophy, ArrowLeft, Calendar, ChevronDown, ChevronRight,
-  AlertTriangle, Check, Clock, Shield, Plus, Zap, ExternalLink
+  Check, Clock, Shield, Zap, ExternalLink
 } from "lucide-react";
 import TrophyHistorySection from "@/components/rewards/TrophyHistorySection";
+import StandingsIntegrityNotice from '@/components/StandingsIntegrityNotice';
 import { Button } from "@/components/ui/button";
 import FixtureSchedulerPanel from "@/components/schedule/FixtureSchedulerPanel";
 import { STAGE_QUALIFICATION_RULES, withCanonicalRegionalLeagueName } from "@/lib/qualificationConfig";
 import { getRegionalLeagueMaxClubs } from "@/lib/regionalLeagueRules";
-import { generateRegionalLeagueFixtures } from "@/lib/competitionUtils";
+import { generateRegionalLeagueFixtures, sortStandings } from "@/lib/competitionUtils";
 import { swalAlert, swalConfirm } from "@/lib/swal";
 import { useTranslation } from "@/hooks/useTranslation";
 import PageBannerShell from "@/components/PageBannerShell";
+import LeagueCompetitionStages from "@/components/LeagueCompetitionStages";
+import TournamentLeaderboard from "@/components/TournamentLeaderboard";
 
 const SCHEDULING_BADGE = {
   open:          { key: "ldStatusAwaiting",  cls: "text-muted-foreground border-border"           },
@@ -99,7 +102,7 @@ export default function LeagueDetail() {
       setPrevSeasons(siblings);
 
       const [leagueStandings, leagueFixtures] = await Promise.all([
-        stageClient.entities.RegionalLeagueStanding.filter({ league_id: found.id }, null, 50).catch(() => []),
+        stageClient.http.get(`/competition-views/regional_league/${encodeURIComponent(found.id)}`).then(view => view.standings).catch(() => []),
         (stageClient.entities.RegionalLeagueFixture
           ?.filter({ league_id: found.id }, null, 500)
           ?? Promise.resolve([])
@@ -111,20 +114,7 @@ export default function LeagueDetail() {
       setStandings(leagueStandings);
       setFixtures(leagueFixtures);
 
-      const matchIds = [...new Set(leagueFixtures.map(f => f.match_id).filter(Boolean))];
-      const stats = matchIds.length
-        ? (await Promise.all(matchIds.map(id =>
-            stageClient.entities.MatchPlayerStat.filter({ match_id: id }, null, 100).catch(() => [])
-          ))).flat()
-        : [];
-      setPlayerStats(stats);
-      const statEmails = [...new Set(stats.map(s => s.player_email).filter(Boolean).map(e => String(e).toLowerCase()))];
-      const playerRows = statEmails.length
-        ? (await Promise.all(statEmails.map(email =>
-            stageClient.entities.Player.filter({ email }, null, 1).catch(() => [])
-          ))).flat()
-        : [];
-      setPlayersByEmail(Object.fromEntries(playerRows.map(p => [String(p.email || "").toLowerCase(), p])));
+
 
       if (u) {
         const { player, club } = await resolveMyPlayerAndClub();
@@ -188,25 +178,12 @@ export default function LeagueDetail() {
   const matchdays = [...new Set(fixtures.map(f => f.matchday))].sort((a, b) => a - b);
 
   // Sort standings
-  const sortedStandings = [...standings].sort((a, b) =>
-    b.points - a.points || (b.goals_for - b.goals_against) - (a.goals_for - a.goals_against)
-  );
+  const sortedStandings = sortStandings(standings);
   const playedFixtures = fixtures.filter(f => f.status === "played" || f.status === "completed");
   const scheduledFixtures = fixtures.filter(f => f.scheduling_status === "confirmed");
   const myFixtures = myClub ? fixtures.filter(f => f.home_club_id === myClub.id || f.away_club_id === myClub.id) : [];
   const leader = sortedStandings[0];
-  const topScorers = buildLeaguePlayerStats(playerStats, playersByEmail).sort((a, b) =>
-    b.goals - a.goals || b.assists - a.assists || b.avg_rating - a.avg_rating || a.name.localeCompare(b.name)
-  );
-  const clubStatsRows = sortedStandings.map(row => ({
-    ...row,
-    winRate: row.played ? Math.round((Number(row.wins || 0) / Number(row.played || 1)) * 1000) / 10 : 0,
-    goalsPerMatch: row.played ? Math.round((Number(row.goals_for || 0) / Number(row.played || 1)) * 100) / 100 : 0,
-    cleanSheets: playedFixtures.filter(f =>
-      (f.home_club_id === row.club_id && Number(f.away_score || 0) === 0) ||
-      (f.away_club_id === row.club_id && Number(f.home_score || 0) === 0)
-    ).length,
-  }));
+
 
   if (loading) {
     return (
@@ -303,12 +280,13 @@ export default function LeagueDetail() {
           </div>
         </section>
 
+        <StandingsIntegrityNotice kind="regional_league" editionId={league.id} isAdmin={user?.role === 'admin'} onRefresh={load} />
         {/* Tabs */}
         <div className="flex gap-7 overflow-x-auto">
           {[
             ["overview", "Overview"],
             ["clubs", `Clubs (${standings.length})`],
-            ["fixtures", `Fixtures (${fixtures.length})`],
+            ["fixtures", `Stages (${fixtures.length})`],
             ["table", "Table"],
             ["stats", "Stats"],
             ["rewards", "Rewards"],
@@ -393,95 +371,10 @@ export default function LeagueDetail() {
           </div>
         )}
 
-        {/* ── Fixtures tab ── */}
-        {tab === "fixtures" && (
-          <div className="space-y-3">
-            {fixtureEntityMissing && (
-              <div className="bg-warning/10 border border-warning/30 rounded-lg px-4 py-3 flex items-start gap-2.5">
-                <AlertTriangle className="w-4 h-4 text-warning shrink-0 mt-0.5" />
-                <div className="space-y-0.5">
-                  <p className="text-xs font-semibold text-warning">{t("commonPages.ldSchemaNotPublished")}</p>
-                  <p className="text-[11px] text-muted-foreground">
-                    Publish <code className="font-mono bg-secondary px-1 rounded">RegionalLeagueFixture</code> on{" "}
-                    <span className="text-foreground">app.stageClient.com</span> to enable fixture generation and scheduling.
-                  </p>
-                </div>
-              </div>
-            )}
-            {fixtures.length === 0 ? (
-              <div className="bg-card border border-border rounded-xl p-12 text-center space-y-3">
-                <Calendar className="w-10 h-10 text-muted-foreground/30 mx-auto" />
-                <p className="text-sm text-muted-foreground">{t("commonPages.ldNoFixtures")}</p>
-                {isAdmin && standings.length >= 2 && (
-                  <Button size="sm" onClick={handleGenerateFixtures} disabled={generating}
-                    className="bg-primary text-primary-foreground gap-1.5 text-xs">
-                    <Plus className="w-3.5 h-3.5" />
-                    {generating ? "Generating…" : "Generate Fixtures"}
-                  </Button>
-                )}
-              </div>
-            ) : (
-              matchdays.map(md => {
-                const mdFixtures = fixtures.filter(f => f.matchday === md);
-                const myFixture  = mdFixtures.find(f =>
-                  f.home_club_id === myClub?.id || f.away_club_id === myClub?.id
-                );
-                const allConfirmed = mdFixtures.every(f => f.scheduling_status === "confirmed" || f.status === "played");
-                const anyExpired   = mdFixtures.some(f => f.scheduling_status === "expired" || f.scheduling_status === "admin_review");
-                const isOpen       = openMd === md;
-
-                return (
-                  <div key={md} className="bg-card border border-border rounded-xl overflow-hidden">
-                    {/* Matchday header */}
-                    <button
-                      onClick={() => setOpenMd(isOpen ? null : md)}
-                      className="w-full flex items-center justify-between px-4 py-3 hover:bg-secondary/30 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm font-bold text-foreground">Matchday {md}</span>
-                        {myFixture && (
-                          <span className="text-[10px] font-semibold text-primary bg-primary/10 border border-primary/20 rounded px-1.5 py-0.5">
-                            Your match
-                          </span>
-                        )}
-                        {allConfirmed && (
-                          <span className="text-[10px] font-semibold text-success bg-success/5 border border-success/20 rounded px-1.5 py-0.5 flex items-center gap-1">
-                            <Check className="w-3 h-3" /> All confirmed
-                          </span>
-                        )}
-                        {anyExpired && (
-                          <span className="text-[10px] font-semibold text-destructive bg-destructive/5 border border-destructive/20 rounded px-1.5 py-0.5 flex items-center gap-1">
-                            <AlertTriangle className="w-3 h-3" /> Issues
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {isOpen ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
-                      </div>
-                    </button>
-
-                    {/* Fixtures list */}
-                    {isOpen && (
-                      <div className="divide-y divide-border border-t border-border">
-                        {mdFixtures.map(f => (
-                          <FixtureRow
-                            key={f.id}
-                            fixture={f}
-                            myClub={myClub}
-                            myEmail={user?.email}
-                            myGamertag={myPlayer?.gamertag}
-                            onUpdate={load}
-                            onOpenGameDay={openGameDayForFixture}
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })
-            )}
-          </div>
-        )}
+        {tab === "fixtures" && <div className="space-y-3">
+          {isAdmin && fixtures.length === 0 && <Button type="button" onClick={handleGenerateFixtures} disabled={generating}>Generate Fixtures</Button>}
+          <LeagueCompetitionStages kind="regional_league" editionId={league.id} myClub={myClub} myEmail={user?.email} myGamertag={myPlayer?.gamertag} />
+        </div>}
 
         {/* ── Club stats tab ── */}
         {tab === "clubs" && (
@@ -500,78 +393,7 @@ export default function LeagueDetail() {
           </div>
         )}
 
-        {tab === "stats" && (
-          <div className="bg-card border border-border rounded-xl overflow-hidden">
-            {clubStatsRows.length === 0 ? (
-              <div className="p-10 text-center text-muted-foreground text-sm">{t("commonPages.ldNoClubStats")}</div>
-            ) : (
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-border bg-secondary/40">
-                    {["Club", "P", "W%", "GF", "GA", "GD", "CS", "G/M"].map((h, i) => (
-                      <th key={h} className={cn("px-3 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold", i === 0 ? "text-left" : "text-center")}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {clubStatsRows.map(row => (
-                    <tr key={row.id}>
-                      <td className="px-3 py-2.5">
-                        <Link to={`/clubs/${row.club_id}`} className="font-semibold text-foreground hover:text-primary">{row.club_name}</Link>
-                      </td>
-                      <td className="text-center px-3 py-2.5">{row.played || 0}</td>
-                      <td className="text-center px-3 py-2.5">{row.winRate}%</td>
-                      <td className="text-center px-3 py-2.5">{row.goals_for || 0}</td>
-                      <td className="text-center px-3 py-2.5">{row.goals_against || 0}</td>
-                      <td className="text-center px-3 py-2.5">{row.goal_difference || 0}</td>
-                      <td className="text-center px-3 py-2.5">{row.cleanSheets}</td>
-                      <td className="text-center px-3 py-2.5">{row.goalsPerMatch}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        )}
-
-        {/* ── Player stats tab ── */}
-        {tab === "stats" && (
-          <div className="bg-card border border-border rounded-xl overflow-hidden">
-            {topScorers.length === 0 ? (
-              <div className="p-10 text-center text-muted-foreground text-sm">{t("commonPages.ldNoPlayerStats")}</div>
-            ) : (
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-border bg-secondary/40">
-                    {["Player", "Club", "M", "G", "A", "CS", "MOTM", "AVG"].map((h, i) => (
-                      <th key={h} className={cn("px-3 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold", i < 2 ? "text-left" : "text-center")}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {topScorers.map(row => (
-                    <tr key={row.key}>
-                      <td className="px-3 py-2.5">
-                        {row.player_id ? (
-                          <Link to={`/players/${row.player_id}`} className="font-semibold text-foreground hover:text-primary">{row.name}</Link>
-                        ) : (
-                          <span className="font-semibold text-foreground">{row.name}</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2.5 text-muted-foreground">{row.club_name || "—"}</td>
-                      <td className="text-center px-3 py-2.5">{row.matches}</td>
-                      <td className="text-center px-3 py-2.5 font-bold text-foreground">{row.goals}</td>
-                      <td className="text-center px-3 py-2.5">{row.assists}</td>
-                      <td className="text-center px-3 py-2.5">{row.clean_sheets}</td>
-                      <td className="text-center px-3 py-2.5">{row.motm}</td>
-                      <td className="text-center px-3 py-2.5">{row.avg_rating || "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        )}
+        {tab === "stats" && <TournamentLeaderboard tournamentId={league.id} title="Season Statistics" statisticsUrl={`/competition-views/regional_league/${encodeURIComponent(league.id)}/statistics`} />}
 
         {/* ── Standings tab ── */}
         {tab === "table" && (
