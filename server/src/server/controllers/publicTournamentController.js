@@ -5,14 +5,31 @@ const { HANDLERS } = require('./functionsController');
 const { resolveTournamentRules } = require('../utils/tournamentRuleTemplates');
 const { loadStageCountries } = require('../utils/stageCountries');
 const TournamentStatisticsModel = require('../models/tournamentStatisticsModel');
+const { pageStatisticsCategory, statisticsCategories } = require('../lib/tournamentStatistics');
+const {
+  getTournamentStages,
+  getTournamentStage,
+  getTournamentStageMatches,
+} = require('./tournamentStageController');
 
-router.get('/tournaments/:id/statistics', async (req, res) => {
+async function getTournamentStatistics(req, res) {
   try {
     const result = await new TournamentStatisticsModel().selectByTournament(req.params.id);
     if (!result) return res.status(404).json({ error: 'Tournament not found' });
-    res.json(result);
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
+    res.json({ ...result, categories: statisticsCategories(result.participant_type) });
+  } catch (err) { res.status(err.status || 500).json({ error: err.message }); }
+}
+
+async function getTournamentStatisticCategory(req, res) {
+  try {
+    const result = await new TournamentStatisticsModel().selectByTournament(req.params.id);
+    if (!result) return res.status(404).json({ error: 'Tournament not found' });
+    res.json({ tournament_id: req.params.id, ...pageStatisticsCategory(result, req.params.category, req.query) });
+  } catch (err) { res.status(err.status || 500).json({ error: err.message }); }
+}
+
+router.get('/tournaments/:id/statistics/:category', getTournamentStatisticCategory);
+router.get('/tournaments/:id/statistics', getTournamentStatistics);
 
 function attachRenderedRules(tournament, locale) {
   if (locale !== 'fr' && locale !== 'en') return tournament;
@@ -41,6 +58,10 @@ router.get('/tournaments/:id', async (req, res) => {
   }
 });
 
+router.get('/tournaments/:id/stages', getTournamentStages);
+router.get('/tournaments/:id/stages/:stageKey/matches', getTournamentStageMatches);
+router.get('/tournaments/:id/stages/:stageKey', getTournamentStage);
+
 router.get('/tournaments/:id/matches', async (req, res) => {
   try {
     const rows = await EXECUTESQL(
@@ -57,3 +78,5 @@ router.get('/tournaments/:id/matches', async (req, res) => {
 });
 
 module.exports = router;
+module.exports.getTournamentStatistics = getTournamentStatistics;
+module.exports.getTournamentStatisticCategory = getTournamentStatisticCategory;

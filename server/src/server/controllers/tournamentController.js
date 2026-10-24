@@ -6,6 +6,15 @@ const { broadcastTournament, broadcastTournamentDeleted } = require('../utils/so
 const { TOURNAMENT_CREDIT_COST, normalizeTournamentEconomics } = require('../utils/tournamentRules');
 const { getUserCredits, spendUserCredits } = require('../services/userCreditsService');
 const { hasStagePlus } = require('../utils/subscriptionAccess');
+const {
+  getTournamentStages,
+  getTournamentStage,
+  getTournamentStageMatches,
+} = require('./tournamentStageController');
+const {
+  getTournamentStatistics,
+  getTournamentStatisticCategory,
+} = require('./publicTournamentController');
 
 router.post('/:id/reconcile-progression', async (req, res) => {
   try {
@@ -249,6 +258,11 @@ async function sendTournamentInviteLink(req, res) {
   }
 }
 
+router.get('/:id/statistics/:category', getTournamentStatisticCategory);
+router.get('/:id/statistics', getTournamentStatistics);
+router.get('/:id/stages', getTournamentStages);
+router.get('/:id/stages/:stageKey/matches', getTournamentStageMatches);
+router.get('/:id/stages/:stageKey', getTournamentStage);
 router.get('/:id/invite-link', sendTournamentInviteLink);
 router.post('/:id/invite-link', sendTournamentInviteLink);
 

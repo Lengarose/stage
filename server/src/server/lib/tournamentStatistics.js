@@ -99,4 +99,79 @@ function aggregateTournamentStatistics(tournament, matchRows, statRows, particip
     goalkeepers: playerTournament ? null : { clean_sheets: ranking(keepers, 'clean_sheets', false, 'goalkeeper_appearances'), conceded_per_match: ranking(keepers, 'conceded_per_match', true, 'goalkeeper_appearances'), rating: ranking(keepers, 'goalkeeper_average_rating', false, 'goalkeeper_appearances') },
   };
 }
-module.exports = { aggregateTournamentStatistics, isConfirmedResult, ranking };
+const CATEGORIES = [
+  { key: 'most_goals_scored', title: 'Most Goals Scored', scope: 'participant', group: 'participants', list: 'goals', types: ['player', 'club'] },
+  { key: 'most_goals_conceded', title: 'Most Goals Conceded', scope: 'participant', group: 'participants', list: 'conceded', types: ['player', 'club'] },
+  { key: 'fewest_goals_conceded', title: 'Fewest Goals Conceded', scope: 'participant', group: 'participants', list: 'fewest_conceded', types: ['player', 'club'] },
+  { key: 'top_scorers', title: 'Top Scorers', scope: 'player', group: 'players', list: 'goals', types: ['club'] },
+  { key: 'top_assists', title: 'Top Assists', scope: 'player', group: 'players', list: 'assists', types: ['club'] },
+  { key: 'highest_average_rating', title: 'Highest Average Rating', scope: 'player', group: 'players', list: 'rating', types: ['club'] },
+  { key: 'most_player_of_the_match', title: 'Most Player of the Match Awards', scope: 'player', group: 'players', list: 'awards', types: ['club'] },
+  { key: 'most_appearances', title: 'Most Appearances', scope: 'player', group: 'players', list: 'appearances', types: ['club'] },
+  { key: 'most_clean_sheets', title: 'Most Clean Sheets', scope: 'goalkeeper', group: 'goalkeepers', list: 'clean_sheets', types: ['club'] },
+  { key: 'fewest_goals_conceded_per_match', title: 'Fewest Goals Conceded per Match', scope: 'goalkeeper', group: 'goalkeepers', list: 'conceded_per_match', types: ['club'] },
+  { key: 'highest_average_goalkeeper_rating', title: 'Highest Average Goalkeeper Rating', scope: 'goalkeeper', group: 'goalkeepers', list: 'rating', types: ['club'] },
+];
+
+function statisticsCategories(participantType) {
+  const type = participantType === 'player' ? 'player' : 'club';
+  return CATEGORIES.filter((category) => category.types.includes(type)).map(({ key, title, scope }) => ({ key, title, scope }));
+}
+
+function dataStatus(row, scope) {
+  if (scope === 'goalkeeper') return row.goalkeeper_appearances > 0 ? 'verified_goalkeeper' : 'no_verified_goalkeeper';
+  if (Number(row.appearances) > 0) return 'recorded';
+  return scope === 'participant' ? 'no_confirmed_matches' : 'no_recorded_statistics';
+}
+
+function parseStatisticsPage(query = {}) {
+  const limit = query.limit === undefined ? 20 : Number(query.limit);
+  const offset = query.offset === undefined ? 0 : Number(query.offset);
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+    const error = new Error('limit must be an integer from 1 to 100');
+    error.status = 400;
+    throw error;
+  }
+  if (!Number.isInteger(offset) || offset < 0) {
+    const error = new Error('offset must be an integer of 0 or more');
+    error.status = 400;
+    throw error;
+  }
+  return { limit, offset };
+}
+
+function pageStatisticsCategory(statistics, categoryKey, query = {}) {
+  const category = CATEGORIES.find((item) => item.key === categoryKey && item.types.includes(statistics.participant_type === 'player' ? 'player' : 'club'));
+  if (!category) {
+    const error = new Error('Unknown statistics category for this tournament');
+    error.status = 400;
+    throw error;
+  }
+  const page = parseStatisticsPage(query);
+  const source = statistics[category.group]?.[category.list] || [];
+  const rows = source.slice(page.offset, page.offset + page.limit).map((row) => ({
+    ...row,
+    badge: row.avatar || null,
+    data_status: dataStatus(row, category.scope),
+    played: Number(row.appearances) > 0,
+  }));
+  return {
+    participant_type: statistics.participant_type,
+    category: { key: category.key, title: category.title, scope: category.scope },
+    order: ['activity', 'value', 'name', 'id'],
+    tie_policy: 'equal_primary_values_share_rank',
+    total: source.length,
+    limit: page.limit,
+    offset: page.offset,
+    has_more: page.offset + rows.length < source.length,
+    rows,
+  };
+}
+
+module.exports = {
+  aggregateTournamentStatistics,
+  isConfirmedResult,
+  ranking,
+  statisticsCategories,
+  pageStatisticsCategory,
+};

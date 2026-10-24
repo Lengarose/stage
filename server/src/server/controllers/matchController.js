@@ -9,6 +9,7 @@ const competitionEngineService = require('../services/competitionEngineService')
 const matchResultNegotiationService = require('../services/matchResultNegotiationService');
 const { createNotificationIfEnabled } = require('../services/messageDeliveryService');
 const { resolveMatchSideEmails } = require('../services/matchNotificationService');
+const { participantCanScheduleMatch } = require('../lib/tournamentStageView');
 
 async function resolveAuthUserTimezone(userId) {
   if (!userId) return DEFAULT_TIMEZONE;
@@ -777,11 +778,10 @@ router.patch('/:id', async (req, res) => {
       if (bodyTouchesSchedule(req.body)) {
         if (!isAdmin && (req.body.confirmed_date || req.body.scheduled_date)) return res.status(403).json({ error: 'Confirm the proposed time through the existing inbox schedule action.' });
         if (!isAdmin && req.body.home_proposed_date) {
-          const homeClub = previous.home_club_id ? (await EXECUTESQL('SELECT * FROM clubs WHERE id=? LIMIT 1', [previous.home_club_id]))[0] : null;
-          const ownsHome = previous.home_player_id
-            ? String(previous.home_player_id) === String(auth.playerId)
-            : homeClub && ([homeClub.president_user_id, homeClub.user_id].filter(Boolean).map(String).includes(String(auth.userId)) || String(homeClub.owner_email || '').toLowerCase() === auth.email);
-          if (!ownsHome) return res.status(403).json({ error: 'Only the home participant or home club president/owner can propose this time.' });
+          const homeClub = previous.home_club_id ? (await EXECUTESQL('SELECT id, president_user_id, user_id, owner_email FROM clubs WHERE id=? LIMIT 1', [previous.home_club_id]))[0] : null;
+          if (!participantCanScheduleMatch({ match: previous, auth, homeClub })) {
+            return res.status(403).json({ error: 'Only the home participant or home club president/owner can propose this time.' });
+          }
         }
         const patch = await stampMatchTimezoneFromAuth(req.body, auth, { force: true });
         const record = await require('../services/tournamentProgressionService').updateTournamentSchedule(previous, patch, isAdmin ? { id: auth.userId, email: auth.email } : null);

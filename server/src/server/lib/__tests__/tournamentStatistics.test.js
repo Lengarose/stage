@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const { aggregateTournamentStatistics: aggregate } = require('../tournamentStatistics');
+const { aggregateTournamentStatistics: aggregate, pageStatisticsCategory, statisticsCategories } = require('../tournamentStatistics');
 const tournament = { id: 'cup', participant_type: 'club', registered_clubs: ['a', 'b', 'c'] };
 const match = { id: 'm1', tournament_id: 'cup', status: 'completed', result_state: 'CONFIRMED', home_club_id: 'a', away_club_id: 'b', home_club_name: 'Historic A', away_club_name: 'B', home_score: 2, away_score: 0 };
 const stat = { id: 's1', match_id: 'm1', player_id: 'p', player_gamertag: 'Player', club_id: 'a', participation_verified: 1, goals: 0, assists: 0, rating: null };
@@ -68,4 +68,26 @@ test('goalkeeper averages, rating samples and explicit awards remain separate', 
   assert.equal(row.conceded_per_match, 1.5); assert.equal(row.clean_sheets, 1);
   assert.equal(row.goalkeeper_average_rating, 8.222); assert.equal(row.goalkeeper_rated_matches, 1);
   assert.equal(result.players.awards[0].awards, 1);
+});
+
+test('category pages keep sporting ties, hide footballer rankings from player tournaments, and mark players who have not played', () => {
+  const player = aggregate({ id: 'cup', participant_type: 'player', registered_players: ['p0', 'p1', 'p2'] }, [
+    { id: 'm1', tournament_id: 'cup', status: 'completed', result_state: 'confirmed', home_player_id: 'p0', away_player_id: 'p1', home_score: 2, away_score: 2 },
+  ], []);
+  assert.deepEqual(statisticsCategories('player').map((category) => category.key), ['most_goals_scored', 'most_goals_conceded', 'fewest_goals_conceded']);
+  const page = pageStatisticsCategory(player, 'fewest_goals_conceded', { limit: 1, offset: 0 });
+  assert.equal(page.category.title, 'Fewest Goals Conceded');
+  assert.equal(page.total, 3);
+  assert.equal(page.has_more, true);
+  assert.equal(page.rows[0].played, true);
+  assert.equal(page.rows[0].data_status, 'recorded');
+  const idle = pageStatisticsCategory(player, 'fewest_goals_conceded', { limit: 10, offset: 2 }).rows[0];
+  assert.equal(idle.data_status, 'no_confirmed_matches');
+  assert.equal(idle.rank, null);
+  assert.throws(() => pageStatisticsCategory(player, 'top_scorers'), /Unknown statistics category/);
+  const club = aggregate(tournament, [match, { ...match, id: 'm2', home_score: 2, away_score: 0 }], [stat, { ...stat, id: 's2', match_id: 'm2', goals: 2 }]);
+  const scorers = pageStatisticsCategory(club, 'top_scorers', {});
+  assert.equal(scorers.category.title, 'Top Scorers');
+  assert.equal(scorers.rows[0].goals, 2);
+  assert.equal(statisticsCategories('club').some((category) => category.key === 'most_clean_sheets'), true);
 });
