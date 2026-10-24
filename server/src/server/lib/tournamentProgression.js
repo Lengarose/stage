@@ -222,4 +222,4 @@ function planTournamentProgression(t, matches, shuffle = shuffled) {
   }
   return plan;
 }
-module.exports = { planTournamentProgression, resolvedTie, eligibleThird, hasActivity, standings, parse };
+module.exports = { planTournamentProgression, resolvedTie, eligibleThird, hasActivity, standings, parse, shuffled };

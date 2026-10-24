@@ -764,137 +764,9 @@ async function generateShirtSalesForMatch(match, stats) {
   return { total_revenue: totalRevenue, total_quantity: totalQuantity };
 }
 
-async function settleActiveClubWager(match, winner) {
-  const wagerEach = Number(match.wager_stc || 0);
-  if (!wagerEach || match.wager_status !== 'active') return { skipped: true };
-  const claim = await EXECUTESQL(
-    "UPDATE matches SET wager_status = 'settling', updated_date = NOW() WHERE id = ? AND wager_status = 'active'",
-    [match.id]
-  ).catch(() => ({ affectedRows: 0 }));
-  if (!claim.affectedRows) return { skipped: true };
-
-  const label = `${match.home_club_name || 'Home'} vs ${match.away_club_name || 'Away'}`;
-  if (winner === 'draw') {
-    if (match.home_club_id) await createClubTx({ clubId: match.home_club_id, amount: wagerEach, type: 'wager_refund', category: 'wager_refund', description: `Wager refunded (draw) — ${label}`, referenceId: match.id }).catch(() => {});
-    if (match.away_club_id) await createClubTx({ clubId: match.away_club_id, amount: wagerEach, type: 'wager_refund', category: 'wager_refund', description: `Wager refunded (draw) — ${label}`, referenceId: match.id }).catch(() => {});
-    await EXECUTESQL("UPDATE matches SET wager_status = 'refunded', updated_date = NOW() WHERE id = ?", [match.id]);
-    return { result: 'refunded' };
-  }
-
-  const pot = wagerEach * 2;
-  const winnerClubId = winner === 'home' ? match.home_club_id : match.away_club_id;
-  const loserClubId = winner === 'home' ? match.away_club_id : match.home_club_id;
-  const winnerName = winner === 'home' ? (match.home_club_name || 'Home') : (match.away_club_name || 'Away');
-  const loserName = winner === 'home' ? (match.away_club_name || 'Away') : (match.home_club_name || 'Home');
-  if (winnerClubId) await createClubTx({ clubId: winnerClubId, amount: pot, type: 'wager_win', category: 'wager_win', description: `Wager won vs ${loserName} — ${label}`, referenceId: match.id }).catch(() => {});
-  if (loserClubId) await createClubTx({ clubId: loserClubId, amount: 0, type: 'wager_loss', category: 'wager_loss', description: `Wager lost vs ${winnerName} — ${label}`, referenceId: match.id }).catch(() => {});
-  await EXECUTESQL("UPDATE matches SET wager_status = 'settled', updated_date = NOW() WHERE id = ?", [match.id]);
-  return { result: 'settled' };
-}
-
-async function settleActiveSoloWager(match) {
-  const wagerEach = Number(match.wager_stc || 0);
-  if (!wagerEach || match.wager_status !== 'active' || !match.wager_home_locked || !match.wager_away_locked) {
-    return { skipped: true };
-  }
-
-  const claim = await EXECUTESQL(
-    "UPDATE matches SET wager_status = 'settling', updated_date = NOW() WHERE id = ? AND wager_status = 'active'",
-    [match.id]
-  ).catch(() => ({ affectedRows: 0 }));
-  if (!claim.affectedRows) return { skipped: true };
-
-  const homeScore = Number(match.home_score ?? 0);
-  const awayScore = Number(match.away_score ?? 0);
-  const label = `${match.home_player_name || 'Home'} vs ${match.away_player_name || 'Away'}`;
-
-  const notifyInbox = async (email, subj, body) => email && EXECUTESQL(
-    `INSERT INTO inbox_messages
-       (id, recipient_email, sender_email, subject, body, message_type, related_entity_id, related_entity_type, is_read, created_date)
-     VALUES (?, ?, 'system@stage.com', ?, ?, 'wager', ?, 'solo_wager', 0, NOW())`,
-    [uuidv4(), email, subj, body, match.id]
-  ).catch(() => {});
-
-  if (homeScore === awayScore) {
-    if (match.home_player_id) {
-      await createPlayerTx({
-        playerId: match.home_player_id,
-        playerEmail: match.home_player_email || null,
-        amount: wagerEach,
-        category: 'wager_refund',
-        source: label,
-        description: `Wager refunded (draw) - ${label}`,
-        referenceId: match.id,
-      }).catch(() => {});
-    }
-    if (match.away_player_id) {
-      await createPlayerTx({
-        playerId: match.away_player_id,
-        playerEmail: match.away_player_email || null,
-        amount: wagerEach,
-        category: 'wager_refund',
-        source: label,
-        description: `Wager refunded (draw) - ${label}`,
-        referenceId: match.id,
-      }).catch(() => {});
-    }
-    await EXECUTESQL("UPDATE matches SET wager_status = 'refunded', updated_date = NOW() WHERE id = ?", [match.id]);
-    await notifyInbox(match.home_player_email, 'Wager Refunded', `Draw in ${label}. Your ${wagerEach.toLocaleString()} STC wager was refunded.`);
-    await notifyInbox(match.away_player_email, 'Wager Refunded', `Draw in ${label}. Your ${wagerEach.toLocaleString()} STC wager was refunded.`);
-    return { result: 'refunded' };
-  }
-
-  const homeWon = homeScore > awayScore;
-  const winnerId = homeWon ? match.home_player_id : match.away_player_id;
-  const loserId = homeWon ? match.away_player_id : match.home_player_id;
-  const winnerEmail = homeWon ? (match.home_player_email || null) : (match.away_player_email || null);
-  const loserEmail = homeWon ? (match.away_player_email || null) : (match.home_player_email || null);
-  const winnerName = homeWon ? (match.home_player_name || 'Home') : (match.away_player_name || 'Away');
-  const loserName = homeWon ? (match.away_player_name || 'Away') : (match.home_player_name || 'Home');
-  const pot = wagerEach * 2;
-
-  if (winnerId) {
-    await createPlayerTx({
-      playerId: winnerId,
-      playerEmail: winnerEmail,
-      amount: pot,
-      category: 'wager_win',
-      source: label,
-      description: `Wager won vs ${loserName} - ${label}`,
-      referenceId: match.id,
-    }).catch(() => {});
-  }
-  if (loserId) {
-    await createPlayerTx({
-      playerId: loserId,
-      playerEmail: loserEmail,
-      amount: 0,
-      type: 'expense',
-      category: 'wager_loss',
-      source: label,
-      description: `Wager lost vs ${winnerName} - ${label}`,
-      referenceId: match.id,
-    }).catch(() => {});
-  }
-
-  await EXECUTESQL("UPDATE matches SET wager_status = 'settled', updated_date = NOW() WHERE id = ?", [match.id]);
-  await notifyInbox(winnerEmail, 'Wager Won', `You won ${pot.toLocaleString()} STC in ${label}.`);
-  await notifyInbox(loserEmail, 'Wager Lost', `${winnerName} won the wager in ${label}.`);
-  return { result: 'settled' };
-}
-
 async function settleCompletedMatchWager(match) {
-  if (!match?.id || !match.wager_stc || match.wager_status !== 'active') return { skipped: true };
-  const winner = Number(match.home_score || 0) === Number(match.away_score || 0)
-    ? 'draw'
-    : Number(match.home_score || 0) > Number(match.away_score || 0)
-      ? 'home'
-      : 'away';
-
-  if (match.mode === 'club' && match.home_club_id && match.away_club_id) {
-    return settleActiveClubWager(match, winner);
-  }
-  return settleActiveSoloWager(match);
+  if (!match?.id || match.wager_status !== 'active') return { skipped: true };
+  return require('../services/wagerSettlementService').settle(match.id);
 }
 
 async function notifyMatchAdmins(match, title, body) {
@@ -7127,67 +6999,13 @@ const HANDLERS = {
     return { data: result };
   },
 
-  async awardClubSeasonPrize({
-    _auth_user_id,
-    club_id,
-    amount,
-    description,
-    reference_id,
-    legacy_reference_id,
-    category = 'competition_reward',
-    position,
-  }) {
-    if (!_auth_user_id) throw new Error('not authenticated');
-    if (!club_id) throw new Error('club_id required');
-    const prize = Number(amount || 0);
-    if (prize <= 0) return { success: true, skipped: true, reason: 'no_prize' };
-
-    const adminRows = await EXECUTESQL('SELECT id, email, role_id FROM users WHERE id = ? LIMIT 1', [_auth_user_id]);
-    const admin = adminRows[0];
-    if (!admin || Number(admin.role_id) !== 0) throw new Error('Admin only');
-
-    const ref = reference_id || uuidv4();
-    const existing = await EXECUTESQL(
-      `SELECT id FROM stc_transactions
-        WHERE club_id = ?
-          AND category = ?
-          AND (reference_id = ? ${legacy_reference_id ? 'OR reference_id = ?' : ''})
-        LIMIT 1`,
-      legacy_reference_id
-        ? [club_id, category, ref, legacy_reference_id]
-        : [club_id, category, ref]
+  async awardClubSeasonPrize({ _auth_user_id, source_id, source_type, season_id }) {
+    const admin = await requireAdminUser(_auth_user_id);
+    return require('../services/competitionPrizeService').review(
+      source_type === 'regional_league' ? 'regional_league' : 'competition_season',
+      source_type === 'regional_league' ? source_id : season_id,
+      { apply: true, admin, reason: 'Season prize reconciliation' },
     );
-    if (existing.length) return { success: true, skipped: true, reason: 'already_paid', transaction_id: existing[0].id };
-
-    const result = await createClubTx({
-      clubId: club_id,
-      amount: prize,
-      type: 'income',
-      category,
-      description: description || 'Competition prize',
-      referenceId: ref,
-      relatedEntityType: 'competition',
-    });
-
-    if (Number(position) === 1) {
-      await EXECUTESQL(
-        'UPDATE clubs SET trophies = COALESCE(trophies, 0) + 1, updated_date = NOW() WHERE id = ?',
-        [club_id]
-      ).catch(() => {});
-    }
-
-    await createAuditLog({
-      adminUserId: admin.id,
-      adminEmail: admin.email,
-      action: 'award_club_season_prize',
-      entityType: 'club',
-      entityId: club_id,
-      oldValue: null,
-      newValue: { amount: prize, category, description, reference_id: ref, position },
-      reason: 'Season reward distribution',
-    });
-
-    return { success: true, ...result };
   },
 
   async resolvePlayerContact({ _auth_user_id, player_id }) {
@@ -7576,7 +7394,7 @@ const HANDLERS = {
       const match = matchRows[0] || null;
       if (action === 'accepted' && match) {
         if (Number(match.wager_stc || 0) > 0 && match.wager_status === 'active') {
-          await HANDLERS.wagerMatchActions({ action: 'cancel_wager', match_id: match.id }).catch(() => {});
+          await HANDLERS.wagerMatchActions({ action: 'cancel_wager', match_id: match.id });
         }
         const patch = applyConfirmedCancelPatch();
         await EXECUTESQL(
@@ -7676,7 +7494,7 @@ const HANDLERS = {
         [payload.id, 'match', JSON.stringify({ ...meta, created_match_id: payload.id }), message_id]
       );
       if (Number(meta.wager_stc || 0) > 0) {
-        await HANDLERS.wagerMatchActions({ action: 'accept_wager', match_id: payload.id }).catch(() => {});
+        await HANDLERS.wagerMatchActions({ action: 'accept_wager', match_id: payload.id });
       }
       const inviteAccepted = { success: true, message: { id: message_id, status: action }, match: { id: payload.id } };
       await finishResponded(inviteAccepted);
@@ -7813,147 +7631,9 @@ const HANDLERS = {
   },
 
   // ── Tournament prize distribution ─────────────────────────────────────────
-  async distributeTournamentPrizes({ tournament_id }) {
-    if (!tournament_id) throw new Error('tournament_id required');
-    const [t] = await EXECUTESQL('SELECT * FROM tournaments WHERE id = ?', [tournament_id]);
-    if (!t) throw new Error('Tournament not found');
-
-    const matches = await EXECUTESQL(
-      "SELECT * FROM matches WHERE tournament_id = ? AND status IN ('completed','forfeit') ORDER BY round DESC, created_date DESC",
-      [tournament_id],
-    );
-
-    const isPlayerTournament = String(t.participant_type || '').toLowerCase() === 'player';
-    const isLeagueTournament = String(t.type || '').toLowerCase() === 'league';
-    const hasWinner = (match) => Boolean(isPlayerTournament ? match?.winner_player_id : match?.winner_club_id);
-    const isFinalMatch = (match) => {
-      const type = String(match?.type || '').toLowerCase();
-      if (type.includes('semi') || type.includes('quarter') || type.includes('third') || type.includes('bronze')) return false;
-      return type === 'final' || type === 'grand_final' || type === 'championship' || type.endsWith('_final');
-    };
-    const leagueStandings = isLeagueTournament
-      ? calculateTournamentLeagueStandings(
-        matches.filter(m => String(m.type || '').toLowerCase() === 'league'),
-        isPlayerTournament ? 'player' : 'club'
-      )
-      : [];
-    const finalMatch = isLeagueTournament
-      ? null
-      : (matches.find(m => isFinalMatch(m) && hasWinner(m))
-        || matches.find(m => (isPlayerTournament ? m.winner_player_id : m.winner_club_id)));
-    const thirdPlaceMatch = matches.find(m => ['third_place', 'third-place', 'placement_third', 'bronze'].includes(String(m.type || '').toLowerCase()) && hasWinner(m));
-
-    const loserOf = (match) => {
-      if (!match) return null;
-      if (isPlayerTournament) {
-        if (!match.winner_player_id) return null;
-        if (String(match.winner_player_id) === String(match.home_player_id)) {
-          return { id: match.away_player_id, name: match.away_player_name };
-        }
-        return { id: match.home_player_id, name: match.home_player_name };
-      }
-      if (!match.winner_club_id) return null;
-      if (String(match.winner_club_id) === String(match.home_club_id)) {
-        return { id: match.away_club_id, name: match.away_club_name };
-      }
-      return { id: match.home_club_id, name: match.home_club_name };
-    };
-
-    const registeredClubs = parseMaybeJson(t.registered_clubs, []);
-    const registeredPlayers = parseMaybeJson(t.registered_players, []);
-    const registeredCount = isPlayerTournament ? registeredPlayers.length : registeredClubs.length;
-    const fallbackPool = Number(t.prize_pool_stc || 0) || Number(t.entry_fee_stc || 0) * registeredCount;
-    const fallbackWinner = fallbackPool > 0 ? Math.round(fallbackPool * 0.7) : 0;
-    const fallbackRunnerUp = fallbackPool > 0 ? Math.round(fallbackPool * 0.2) : 0;
-    const fallbackThirdPlace = fallbackPool > 0 ? Math.max(0, fallbackPool - fallbackWinner - fallbackRunnerUp) : 0;
-
-    const leaguePayoutTarget = (standing) => ({
-      clubId: isPlayerTournament ? null : standing?.id,
-      playerId: isPlayerTournament ? standing?.id : null,
-    });
-
-    const payouts = (isLeagueTournament ? [
-      {
-        label: 'Winner',
-        ...leaguePayoutTarget(leagueStandings[0]),
-        amount: Number(t.prize_winner_stc || 0) || fallbackWinner,
-      },
-      {
-        label: 'Runner-up',
-        ...leaguePayoutTarget(leagueStandings[1]),
-        amount: Number(t.prize_runner_up_stc || 0) || fallbackRunnerUp,
-      },
-      {
-        label: 'Third place',
-        ...leaguePayoutTarget(leagueStandings[2]),
-        amount: Number(t.prize_third_place_stc || t.prize_semi_final_stc || 0) || fallbackThirdPlace,
-      },
-    ] : [
-      {
-        label: 'Winner',
-        clubId: isPlayerTournament ? null : (t.winner_club_id || finalMatch?.winner_club_id),
-        playerId: isPlayerTournament ? (t.winner_player_id || finalMatch?.winner_player_id) : null,
-        amount: Number(t.prize_winner_stc || 0) || fallbackWinner,
-      },
-      {
-        label: 'Runner-up',
-        clubId: isPlayerTournament ? null : loserOf(finalMatch)?.id,
-        playerId: isPlayerTournament ? loserOf(finalMatch)?.id : null,
-        amount: Number(t.prize_runner_up_stc || 0) || fallbackRunnerUp,
-      },
-      {
-        label: 'Third place',
-        clubId: isPlayerTournament ? null : thirdPlaceMatch?.winner_club_id,
-        playerId: isPlayerTournament ? thirdPlaceMatch?.winner_player_id : null,
-        amount: Number(t.prize_third_place_stc || t.prize_semi_final_stc || 0) || fallbackThirdPlace,
-      },
-    ]).filter(p => (p.clubId || p.playerId) && p.amount > 0);
-
-    let paid = 0;
-    let skipped = 0;
-    for (const payout of payouts) {
-      if (payout.playerId) {
-        const existingRows = await EXECUTESQL(
-          "SELECT id FROM player_stc_transactions WHERE reference_id = ? AND category = 'tournament_prize' AND player_id = ? LIMIT 1",
-          [tournament_id, payout.playerId],
-        );
-        if (existingRows.length) {
-          skipped += 1;
-          continue;
-        }
-        await createPlayerTx({
-          playerId: payout.playerId,
-          amount: payout.amount,
-          type: 'income',
-          category: 'tournament_prize',
-          source: 'tournament',
-          description: `${payout.label} prize: ${t.name}`,
-          referenceId: tournament_id,
-        });
-        paid += 1;
-        continue;
-      }
-      const existingRows = await EXECUTESQL(
-        "SELECT id FROM stc_transactions WHERE reference_id = ? AND category = 'tournament_prize' AND club_id = ? LIMIT 1",
-        [tournament_id, payout.clubId],
-      );
-      if (existingRows.length) {
-        skipped += 1;
-        continue;
-      }
-      await createClubTx({
-        clubId: payout.clubId,
-        amount: payout.amount,
-        type: 'income',
-        category: 'tournament_prize',
-        description: `${payout.label} prize: ${t.name}`,
-        referenceId: tournament_id,
-        relatedEntityType: 'tournament',
-      });
-      paid += 1;
-    }
-
-    return { success: true, paid, skipped, payout_count: payouts.length };
+  async distributeTournamentPrizes({ tournament_id, _auth_user_id }) {
+    const admin = _auth_user_id ? await requireAdminUser(_auth_user_id) : null;
+    return require('../services/competitionPrizeService').review('tournament', tournament_id, { apply: true, admin, reason: 'Authoritative tournament prize settlement' });
   },
 
   async getTransferMarket() {
@@ -9353,7 +9033,7 @@ const HANDLERS = {
     if (action === 'confirm_cancel') {
       if (!canConfirmMatchCancel(match, actor)) throw new Error('You cannot confirm this cancel');
       if (Number(match.wager_stc || 0) > 0 && match.wager_status === 'active') {
-        await HANDLERS.wagerMatchActions({ action: 'cancel_wager', match_id: match.id }).catch(() => {});
+        await HANDLERS.wagerMatchActions({ action: 'cancel_wager', match_id: match.id });
       }
       const patch = applyConfirmedCancelPatch();
       await EXECUTESQL(
@@ -9378,179 +9058,34 @@ const HANDLERS = {
     throw new Error(`Unknown match fixture action: ${action}`);
   },
 
-  async wagerMatchActions({ action, match_id }) {
+  async wagerMatchActions({ action, match_id, _auth_user_id }) {
     if (!match_id) throw new Error('match_id required');
     const rows = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [match_id]);
     if (!rows.length) throw new Error('Match not found');
     const m = rows[0];
-    const isClub = m.mode === 'club';
 
     if (action === 'accept_wager') {
-      const wagerEach = Number(m.wager_stc || 0);
-      if (wagerEach <= 0) throw new Error('No wager amount on this match');
-      if (m.wager_status === 'active' && Number(m.wager_home_locked) === 1 && Number(m.wager_away_locked) === 1) {
-        return { success: true, data: { skipped: true, _match_patch: { wager_away_locked: 1, wager_home_locked: 1, wager_status: 'active' } } };
-      }
-      const existingLocks = isClub
-        ? await EXECUTESQL(
-          "SELECT club_id FROM stc_transactions WHERE reference_id = ? AND category = 'wager_stake'",
-          [match_id]
-        ).catch(() => [])
-        : await EXECUTESQL(
-          "SELECT player_id FROM player_stc_transactions WHERE reference_id = ? AND category = 'wager_stake'",
-          [match_id]
-        ).catch(() => []);
-      if (existingLocks.length) throw new Error('Wager is partially locked. Ask an admin to review this match before retrying.');
-      if (wagerEach > 0) {
-        if (isClub) {
-          if (m.home_club_id) {
-            const [hc] = await EXECUTESQL('SELECT stc FROM clubs WHERE id = ? LIMIT 1', [m.home_club_id]);
-            if (!hc || Number(hc.stc || 0) < wagerEach) throw new Error('Home club has insufficient STC for this wager');
-            await createClubTx({ clubId: m.home_club_id, amount: -wagerEach, type: 'wager_stake', category: 'wager_stake', description: `Wager stake locked — match vs ${m.away_club_name || 'Away'}`, referenceId: m.id });
-          }
-          if (m.away_club_id) {
-            const [ac] = await EXECUTESQL('SELECT stc FROM clubs WHERE id = ? LIMIT 1', [m.away_club_id]);
-            if (!ac || Number(ac.stc || 0) < wagerEach) throw new Error('Your club has insufficient STC for this wager');
-            await createClubTx({ clubId: m.away_club_id, amount: -wagerEach, type: 'wager_stake', category: 'wager_stake', description: `Wager stake locked — match vs ${m.home_club_name || 'Home'}`, referenceId: m.id });
-          }
-        } else {
-          if (m.home_player_id) {
-            const [hp] = await EXECUTESQL('SELECT stc, email FROM players WHERE id = ? LIMIT 1', [m.home_player_id]);
-            if (!hp || Number(hp.stc || 0) < wagerEach) throw new Error('Home player has insufficient STC for this wager');
-            await createPlayerTx({ playerId: m.home_player_id, playerEmail: hp.email || null, amount: -wagerEach, category: 'wager_stake', source: `vs ${m.away_player_name || 'Away'}`, description: `Wager stake locked — vs ${m.away_player_name || 'Away'}`, referenceId: m.id });
-          }
-          if (m.away_player_id) {
-            const [ap] = await EXECUTESQL('SELECT stc, email FROM players WHERE id = ? LIMIT 1', [m.away_player_id]);
-            if (!ap || Number(ap.stc || 0) < wagerEach) throw new Error('You have insufficient STC for this wager');
-            await createPlayerTx({ playerId: m.away_player_id, playerEmail: ap.email || null, amount: -wagerEach, category: 'wager_stake', source: `vs ${m.home_player_name || 'Home'}`, description: `Wager stake locked — vs ${m.home_player_name || 'Home'}`, referenceId: m.id });
-          }
-        }
-      }
-      await EXECUTESQL(
-        "UPDATE matches SET wager_away_locked = 1, wager_home_locked = 1, wager_status = 'active', updated_date = NOW() WHERE id = ?",
-        [match_id]
-      );
+      const result = await require('../services/wagerSettlementService').settle(match_id, 'reserve', _auth_user_id);
       await broadcastMatchById(match_id);
-      return { success: true, data: { _match_patch: { wager_away_locked: 1, wager_home_locked: 1, wager_status: 'active' } } };
+      return { success: true, data: { ...result, _match_patch: { wager_away_locked: 1, wager_home_locked: 1, wager_status: 'active' } } };
     }
 
     if (action === 'decline_wager') {
-      await EXECUTESQL(
-        "UPDATE matches SET wager_status = 'declined', wager_stc = 0, wager_home_locked = 0, wager_away_locked = 0, updated_date = NOW() WHERE id = ?",
-        [match_id]
-      );
+      const result = await require('../services/wagerSettlementService').settle(match_id,'decline',_auth_user_id);
       await broadcastMatchById(match_id);
-      return { success: true, data: { _match_patch: { wager_status: 'declined', wager_stc: 0, wager_home_locked: 0, wager_away_locked: 0 } } };
+      return {success:true,data:result};
     }
 
     if (action === 'cancel_wager') {
-      // Refund both sides only if wager was already active (funds were deducted)
-      const wagerEach = Number(m.wager_stc || 0);
-      if (wagerEach > 0 && m.wager_status === 'active') {
-        const matchLabel = isClub
-          ? `${m.home_club_name || 'Home'} vs ${m.away_club_name || 'Away'}`
-          : `${m.home_player_name || 'Home'} vs ${m.away_player_name || 'Away'}`;
-        if (isClub) {
-          if (m.home_club_id) await createClubTx({ clubId: m.home_club_id, amount: wagerEach, type: 'wager_refund', category: 'wager_refund', description: `Wager refunded — match cancelled — ${matchLabel}`, referenceId: m.id });
-          if (m.away_club_id) await createClubTx({ clubId: m.away_club_id, amount: wagerEach, type: 'wager_refund', category: 'wager_refund', description: `Wager refunded — match cancelled — ${matchLabel}`, referenceId: m.id });
-        } else {
-          const [hp] = await EXECUTESQL('SELECT email FROM players WHERE id = ? LIMIT 1', [m.home_player_id]).catch(() => [null]);
-          const [ap] = await EXECUTESQL('SELECT email FROM players WHERE id = ? LIMIT 1', [m.away_player_id]).catch(() => [null]);
-          if (m.home_player_id) await createPlayerTx({ playerId: m.home_player_id, playerEmail: hp?.email || null, amount: wagerEach, category: 'wager_refund', source: matchLabel, description: `Wager stake refunded — match cancelled`, referenceId: m.id }).catch(() => {});
-          if (m.away_player_id) await createPlayerTx({ playerId: m.away_player_id, playerEmail: ap?.email || null, amount: wagerEach, category: 'wager_refund', source: matchLabel, description: `Wager stake refunded — match cancelled`, referenceId: m.id }).catch(() => {});
-        }
-      }
-      const nextStatus = m.status === 'completed' ? m.wager_status : 'cancelled';
-      await EXECUTESQL(
-        "UPDATE matches SET wager_status = ?, wager_stc = 0, wager_home_locked = 0, wager_away_locked = 0, updated_date = NOW() WHERE id = ?",
-        [nextStatus, match_id]
-      );
+      const result = await require('../services/wagerSettlementService').settle(match_id, 'cancel', _auth_user_id);
       await broadcastMatchById(match_id);
-      return { success: true, data: { _match_patch: { wager_status: nextStatus, wager_stc: 0, wager_home_locked: 0, wager_away_locked: 0 } } };
+      return { success: true, data: result };
     }
     throw new Error(`Unknown wager action: ${action}`);
   },
 
-  // Settle wager for solo (player-vs-player) matches on completion
   async processSoloWager({ match_id }) {
-    if (!match_id) throw new Error('match_id required');
-    const rows = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [match_id]);
-    if (!rows.length) throw new Error('Match not found');
-    const m = rows[0];
-    if (m.mode === 'club') return { success: true, data: { skipped: true } };
-    const wagerEach = Number(m.wager_stc || 0);
-    if (!wagerEach || m.wager_status !== 'active' || !m.wager_home_locked || !m.wager_away_locked) {
-      return { success: true, data: { skipped: true } };
-    }
-    // Atomic guard: claim settlement slot by flipping status; if already claimed, skip
-    const claim = await EXECUTESQL(
-      "UPDATE matches SET wager_status = 'settling', updated_date = NOW() WHERE id = ? AND wager_status = 'active'",
-      [match_id]
-    ).catch(() => ({ affectedRows: 0 }));
-    if (!claim.affectedRows) return { success: true, data: { skipped: true } };
-
-    const pot = wagerEach * 2;
-    const homeScore = Number(m.home_score ?? 0);
-    const awayScore = Number(m.away_score ?? 0);
-    const isDraw = homeScore === awayScore;
-    const label = `${m.home_player_name || 'Home'} vs ${m.away_player_name || 'Away'}`;
-
-    const notifyInbox = async (email, subj, body) => email && EXECUTESQL(
-      `INSERT INTO inbox_messages (id, recipient_email, sender_email, subject, body, message_type, related_entity_id, related_entity_type, is_read, created_date)
-       VALUES (?, ?, 'system@stage.com', ?, ?, 'wager', ?, 'solo_wager', 0, NOW())`,
-      [uuidv4(), email, subj, body, match_id]
-    ).catch(() => {});
-
-    if (isDraw) {
-      await EXECUTESQL("UPDATE matches SET wager_status = 'refunded', updated_date = NOW() WHERE id = ?", [match_id]);
-      if (m.home_player_id) await createPlayerTx({ playerId: m.home_player_id, playerEmail: m.home_player_email || null, amount: wagerEach, category: 'wager_refund', source: label, description: `Wager refunded (draw) — ${label}`, referenceId: match_id }).catch(() => {});
-      if (m.away_player_id) await createPlayerTx({ playerId: m.away_player_id, playerEmail: m.away_player_email || null, amount: wagerEach, category: 'wager_refund', source: label, description: `Wager refunded (draw) — ${label}`, referenceId: match_id }).catch(() => {});
-      await notifyInbox(m.home_player_email, '🤝 Wager Refunded', `Draw in ${label}. Your ${wagerEach.toLocaleString()} STC wager was refunded.`);
-      await notifyInbox(m.away_player_email, '🤝 Wager Refunded', `Draw in ${label}. Your ${wagerEach.toLocaleString()} STC wager was refunded.`);
-      return { success: true, data: { result: 'refunded', wagerEach } };
-    }
-
-    const homeWon = homeScore > awayScore;
-    const winnerId = homeWon ? m.home_player_id : m.away_player_id;
-    const winnerEmail = homeWon ? (m.home_player_email || null) : (m.away_player_email || null);
-    const loserEmail = homeWon ? (m.away_player_email || null) : (m.home_player_email || null);
-    const winnerName = homeWon ? (m.home_player_name || 'Home') : (m.away_player_name || 'Away');
-    const loserName = homeWon ? (m.away_player_name || 'Away') : (m.home_player_name || 'Home');
-
-    if (winnerId) {
-      await createPlayerTx({
-        playerId: winnerId,
-        playerEmail: winnerEmail,
-        amount: pot,
-        category: 'wager_win',
-        source: label,
-        description: `Wager won vs ${loserName} — ${label}`,
-        referenceId: match_id,
-      }).catch(() => {});
-    }
-
-    await EXECUTESQL("UPDATE matches SET wager_status = 'settled', updated_date = NOW() WHERE id = ?", [match_id]);
-
-    await notifyInbox(
-      winnerEmail,
-      '🏆 Wager Won',
-      `You won ${pot.toLocaleString()} STC in ${label}.`
-    );
-    await notifyInbox(
-      loserEmail,
-      '💸 Wager Lost',
-      `${winnerName} won the wager in ${label}. Better luck next match.`
-    );
-
-    return {
-      success: true,
-      data: {
-        result: 'settled',
-        winner_player_id: winnerId || null,
-        winner_name: winnerName,
-        amount: pot,
-      },
-    };
+    return { success: true, data: await require('../services/wagerSettlementService').settle(match_id) };
   },
 
   async payMonthlyRent({ _auth_user_id }) {
@@ -9862,71 +9397,10 @@ const HANDLERS = {
     }
 
     if (!match_id) throw new Error('match_id required');
-    const rows = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [match_id]);
-    if (!rows.length) throw new Error('Match not found');
-    const m = rows[0];
-    const isClub = m.mode === 'club';
-    const wagerEach = Number(m.wager_stc || 0);
-    const pot = wagerEach * 2;
-    const matchLabel = isClub
-      ? `${m.home_club_name || 'Home'} vs ${m.away_club_name || 'Away'}`
-      : `${m.home_player_name || 'Home'} vs ${m.away_player_name || 'Away'}`;
-
-    if (action === 'cancel_and_refund') {
-      if (wagerEach > 0 && m.wager_status === 'active') {
-        if (isClub) {
-          if (m.home_club_id) await createClubTx({ clubId: m.home_club_id, amount: wagerEach, type: 'wager_refund', category: 'wager_refund', description: `Admin cancelled wager — ${matchLabel}`, referenceId: m.id }).catch(() => {});
-          if (m.away_club_id) await createClubTx({ clubId: m.away_club_id, amount: wagerEach, type: 'wager_refund', category: 'wager_refund', description: `Admin cancelled wager — ${matchLabel}`, referenceId: m.id }).catch(() => {});
-        } else {
-          const [hp] = await EXECUTESQL('SELECT email FROM players WHERE id = ? LIMIT 1', [m.home_player_id]).catch(() => [null]);
-          const [ap] = await EXECUTESQL('SELECT email FROM players WHERE id = ? LIMIT 1', [m.away_player_id]).catch(() => [null]);
-          if (m.home_player_id) await createPlayerTx({ playerId: m.home_player_id, playerEmail: hp?.email || null, amount: wagerEach, category: 'wager_refund', source: matchLabel, description: `Admin cancelled wager — ${matchLabel}`, referenceId: m.id }).catch(() => {});
-          if (m.away_player_id) await createPlayerTx({ playerId: m.away_player_id, playerEmail: ap?.email || null, amount: wagerEach, category: 'wager_refund', source: matchLabel, description: `Admin cancelled wager — ${matchLabel}`, referenceId: m.id }).catch(() => {});
-        }
-      }
-      await EXECUTESQL(
-        "UPDATE matches SET wager_status = 'cancelled', wager_home_locked = 0, wager_away_locked = 0, updated_date = NOW() WHERE id = ?",
-        [match_id]
-      );
-      return { success: true };
-    }
-
-    if (action === 'force_settle') {
-      if (!winner || !['home', 'away', 'draw'].includes(winner)) throw new Error('winner must be home, away, or draw');
-      if (!['active', 'settling', 'disputed'].includes(m.wager_status) && wagerEach > 0) throw new Error(`Cannot force-settle — wager status is '${m.wager_status}'`);
-      if (!wagerEach) throw new Error('No wager amount on this match');
-      if (winner === 'draw') {
-        if (isClub) {
-          if (m.home_club_id) await createClubTx({ clubId: m.home_club_id, amount: wagerEach, type: 'wager_refund', category: 'wager_refund', description: `Admin settled wager as draw — ${matchLabel}`, referenceId: m.id }).catch(() => {});
-          if (m.away_club_id) await createClubTx({ clubId: m.away_club_id, amount: wagerEach, type: 'wager_refund', category: 'wager_refund', description: `Admin settled wager as draw — ${matchLabel}`, referenceId: m.id }).catch(() => {});
-        } else {
-          const [hp] = await EXECUTESQL('SELECT email FROM players WHERE id = ? LIMIT 1', [m.home_player_id]).catch(() => [null]);
-          const [ap] = await EXECUTESQL('SELECT email FROM players WHERE id = ? LIMIT 1', [m.away_player_id]).catch(() => [null]);
-          if (m.home_player_id) await createPlayerTx({ playerId: m.home_player_id, playerEmail: hp?.email || null, amount: wagerEach, category: 'wager_refund', source: matchLabel, description: `Admin settled wager as draw — ${matchLabel}`, referenceId: m.id }).catch(() => {});
-          if (m.away_player_id) await createPlayerTx({ playerId: m.away_player_id, playerEmail: ap?.email || null, amount: wagerEach, category: 'wager_refund', source: matchLabel, description: `Admin settled wager as draw — ${matchLabel}`, referenceId: m.id }).catch(() => {});
-        }
-        await EXECUTESQL("UPDATE matches SET wager_status = 'refunded', updated_date = NOW() WHERE id = ?", [match_id]);
-      } else {
-        if (isClub) {
-          const winnerClubId = winner === 'home' ? m.home_club_id : m.away_club_id;
-          const loserClubId  = winner === 'home' ? m.away_club_id : m.home_club_id;
-          const winnerName   = winner === 'home' ? (m.home_club_name || 'Home') : (m.away_club_name || 'Away');
-          const loserName    = winner === 'home' ? (m.away_club_name || 'Away') : (m.home_club_name || 'Home');
-          if (winnerClubId) await createClubTx({ clubId: winnerClubId, amount: pot, type: 'wager_win',  category: 'wager_win',  description: `Admin settled — wager won vs ${loserName}${note ? ` (${note})` : ''}`, referenceId: m.id }).catch(() => {});
-          if (loserClubId)  await createClubTx({ clubId: loserClubId,  amount: 0,   type: 'wager_loss', category: 'wager_loss', description: `Admin settled — wager lost vs ${winnerName}${note ? ` (${note})` : ''}`, referenceId: m.id }).catch(() => {});
-        } else {
-          const winnerId    = winner === 'home' ? m.home_player_id  : m.away_player_id;
-          const loserId     = winner === 'home' ? m.away_player_id  : m.home_player_id;
-          const winnerEmail = winner === 'home' ? (m.home_player_email || null) : (m.away_player_email || null);
-          const loserEmail  = winner === 'home' ? (m.away_player_email || null) : (m.home_player_email || null);
-          const winnerName  = winner === 'home' ? (m.home_player_name || 'Home') : (m.away_player_name || 'Away');
-          const loserName   = winner === 'home' ? (m.away_player_name || 'Away') : (m.home_player_name || 'Home');
-          if (winnerId) await createPlayerTx({ playerId: winnerId, playerEmail: winnerEmail, amount: pot, category: 'wager_win',  source: matchLabel, description: `Admin settled — wager won vs ${loserName}${note ? ` (${note})` : ''}`, referenceId: m.id }).catch(() => {});
-          if (loserId)  await createPlayerTx({ playerId: loserId,  playerEmail: loserEmail,  amount: 0,   category: 'wager_loss', source: matchLabel, description: `Admin settled — wager lost vs ${winnerName}${note ? ` (${note})` : ''}`, referenceId: m.id }).catch(() => {});
-        }
-        await EXECUTESQL("UPDATE matches SET wager_status = 'settled', updated_date = NOW() WHERE id = ?", [match_id]);
-      }
-      return { success: true };
+    if (['cancel_and_refund','force_settle'].includes(action)) {
+      const result = await require('../services/wagerSettlementService').settle(match_id,action === 'force_settle' ? 'admin_settle' : 'admin_cancel',_auth_user_id,{winner,reason:note});
+      await broadcastMatchById(match_id);
+      return {success:true,data:result};
     }
 
     throw new Error(`Unknown wagerManagement action: ${action}`);

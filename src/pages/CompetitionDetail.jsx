@@ -11,6 +11,8 @@ import { isAppAdminUser } from "@/lib/adminAuth";
 import { createMatchFromFixture } from "@/lib/gameDayIntegration";
 import { swalAlert, swalConfirm } from "@/lib/swal";
 import PageBannerShell from "@/components/PageBannerShell";
+import LeagueCompetitionStages from "@/components/LeagueCompetitionStages";
+import TournamentLeaderboard from "@/components/TournamentLeaderboard";
 
 const PHASE_LABEL = {
   league: "League Phase",
@@ -631,7 +633,7 @@ export default function CompetitionDetail() {
   const publicTabs = [
     { value: "overview", label: "Overview" },
     { value: "clubs", label: `Clubs (${uniqueStandings.length})` },
-    { value: "fixtures", label: `Fixtures (${fixtures.length})` },
+    { value: "fixtures", label: `Stages (${fixtures.length})` },
     { value: "table", label: "Table" },
     { value: "stats", label: "Stats" },
     { value: "rewards", label: "Rewards" },
@@ -874,32 +876,8 @@ export default function CompetitionDetail() {
               />
             )}
 
-            {activeTab === "fixtures" && (
-              <FixturesPanel
-                fixtures={fixtures}
-                isAdmin={isAdmin}
-                myClub={myClub}
-                myEmail={myEmail}
-                myGamertag={myGamertag}
-                onRefresh={() => loadSeasonData(selectedSeason)}
-              />
-            )}
-
-            {activeTab === "stats" && (
-              <div className="grid gap-3 md:grid-cols-3">
-                {[
-                  ["Best Attack", sortedRows[0]?.club_name || "—", sortedRows[0]?.goals_for || 0],
-                  ["Best Defence", [...sortedRows].sort((a, b) => (a.goals_against || 0) - (b.goals_against || 0))[0]?.club_name || "—", [...sortedRows].sort((a, b) => (a.goals_against || 0) - (b.goals_against || 0))[0]?.goals_against || 0],
-                  ["Upcoming", "Fixtures", upcomingFixtures.length],
-                ].map(([label, name, value]) => (
-                  <div key={label} className="border border-border bg-card/80 p-4">
-                    <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">{label}</p>
-                    <p className="mt-2 truncate text-sm font-bold text-foreground">{name}</p>
-                    <p className="font-heading text-4xl text-primary">{value}</p>
-                  </div>
-                ))}
-              </div>
-            )}
+            {activeTab === "fixtures" && selectedSeason && <LeagueCompetitionStages kind="competition_season" editionId={selectedSeason.id} myClub={myClub} myEmail={myEmail} myGamertag={myGamertag} renderStandings={()=> <StandingsTable standings={uniqueStandings} />} />}
+            {activeTab === "stats" && selectedSeason && <TournamentLeaderboard tournamentId={selectedSeason.id} title="Season Statistics" statisticsUrl={`/competition-views/competition_season/${encodeURIComponent(selectedSeason.id)}/statistics`} />}
 
             {activeTab === "rewards" && (
               <TrophyHistorySection

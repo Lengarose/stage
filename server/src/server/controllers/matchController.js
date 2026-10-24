@@ -6,7 +6,6 @@ const { broadcastMatch, broadcastMatchDeleted } = require('../utils/socketBroadc
 const { v4: uuidv4 } = require('uuid');
 const { normalizeMatchForApi, resolveTimeZone, DEFAULT_TIMEZONE } = require('../utils/datetime');
 const competitionEngineService = require('../services/competitionEngineService');
-const matchResultNegotiationService = require('../services/matchResultNegotiationService');
 const { createNotificationIfEnabled } = require('../services/messageDeliveryService');
 const { resolveMatchSideEmails } = require('../services/matchNotificationService');
 
@@ -704,12 +703,6 @@ router.get('/:id', async (req, res) => {
     if (!isAdmin && !matchTouchesAuthScope(record, auth)) {
       return res.status(403).json({ error: 'Forbidden' });
     }
-    try {
-      const settled = await matchResultNegotiationService.settleMatchDeadlines(record);
-      if (settled?.match) record = settled.match;
-    } catch (err) {
-      console.warn('[matchController] deadline settle failed:', err.message);
-    }
     res.json((await enrichMatchRows([record]))[0]);
   } catch (err) {
     console.error(err);
@@ -760,6 +753,7 @@ router.patch('/:id', async (req, res) => {
       if (!matchTouchesAuthScope(record, auth)) return res.status(403).json({ error: 'Forbidden' });
     }
     const previous = existing[0];
+    if (isAdmin) await require('../services/leagueCorrectionGuard').assertMatchCorrectionSafe(previous,req.body);
     if (req.body.tournament_id && req.body.tournament_id !== 'ranked' && String(req.body.tournament_id) !== String(previous.tournament_id)) return res.status(403).json({ error: 'Tournament assignments can only be created by the server draw workflow.' });
     if (previous.tournament_id && previous.tournament_id !== 'ranked') {
       const { assertTournamentMatchAction, correctTournamentResult } = require('../services/tournamentProgressionService');

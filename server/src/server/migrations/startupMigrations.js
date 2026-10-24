@@ -122,6 +122,8 @@ async function runStartupMigrations() {
   `).catch((err) => console.error('[migration] post_likes backfill:', err.message));
 
   await addCol('players', 'stc', 'DECIMAL(12,2) DEFAULT 0');
+  const playerMoneyColumns = await EXECUTESQL("SELECT DATA_TYPE,NUMERIC_SCALE FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='players' AND column_name='stc'");
+  if (playerMoneyColumns.some(c=>c.DATA_TYPE !== 'decimal' || Number(c.NUMERIC_SCALE) !== 2)) await EXECUTESQL('ALTER TABLE players MODIFY COLUMN stc DECIMAL(12,2) NULL DEFAULT 0');
   await EXECUTESQL("ALTER TABLE players ALTER COLUMN subscription SET DEFAULT 'free'")
     .catch((err) => console.error('[migration] players.subscription default:', err.message));
   await addCol('players', 'subscription_expires_at', 'DATETIME NULL');
@@ -2690,6 +2692,22 @@ async function runStartupMigrations() {
     INDEX idx_prt_user (user_id),
     INDEX idx_prt_expires (expires_at)
   )`).catch((err) => console.error('[migration] password_reset_tokens:', err.message));
+  for (const table of ['stc_transactions','player_stc_transactions']) {
+    await addCol(table,'settlement_key','VARCHAR(190) NULL');
+    await addCol(table,'competition_type','VARCHAR(50) NULL');
+    await addCol(table,'competition_id','VARCHAR(36) NULL');
+    await addCol(table,'edition_id','VARCHAR(64) NULL');
+    await addCol(table,'finishing_position','INT NULL');
+    await addIndex(table,`idx_${table === 'stc_transactions' ? 'stc' : 'pst'}_settlement`,'(settlement_key)',true);
+  }
+  await addCol('competition_payouts','source_type','VARCHAR(50) NULL');
+  await addCol('competition_payouts','source_id','VARCHAR(36) NULL');
+  await addCol('competition_payouts','edition_id','VARCHAR(64) NULL');
+  await addCol('competition_payouts','position_no','INT NULL');
+  await addCol('competition_payouts','config_json','JSON NULL');
+  const payoutInstanceColumns = await EXECUTESQL("SELECT IS_NULLABLE FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='competition_payouts' AND column_name='competition_instance_id'");
+  if (payoutInstanceColumns.some(c=>c.IS_NULLABLE === 'NO')) await EXECUTESQL('ALTER TABLE competition_payouts MODIFY COLUMN competition_instance_id VARCHAR(36) NULL');
+  await addIndex('competition_payouts','idx_comp_payout_obligation','(source_type,source_id,edition_id,position_no)',true);
 }
 
 module.exports = { runStartupMigrations };
