@@ -12,10 +12,13 @@ import { useState, useEffect } from "react";
 import { stageClient } from "@/api/stageClient";
 import { Pencil, Check, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import toast from "react-hot-toast";
 import TrophyCabinetCanvas from "./TrophyCabinetCanvas";
 import TrophyScrollBar from "./TrophyScrollBar";
 
-export default function TrophyCabinetSystem({ ownerId, ownerType, canEdit, wonTournaments = [] }) {
+export default function TrophyCabinetSystem({ ownerId, ownerType, canEdit }) {
+  const [earnedAwards,setEarnedAwards]=useState([]);
+  const [reviewIssues,setReviewIssues]=useState([]);
   const [allTrophies, setAllTrophies] = useState([]);  // TrophyItem library
   const [placements, setPlacements] = useState([]);    // TrophyPlacement records
   const [editMode, setEditMode] = useState(false);
@@ -26,11 +29,17 @@ export default function TrophyCabinetSystem({ ownerId, ownerType, canEdit, wonTo
   // failure in one (e.g. legacy schema, 404) does NOT wipe out the other.
   useEffect(() => {
     if (!ownerId) return;
+    let stopped=false;
+    setPlacements([]);setEarnedAwards([]);setReviewIssues([]);setEditMode(false);setLoading(true);
     async function load() {
-      const [libRes, placedRes] = await Promise.allSettled([
+      const [libRes, placedRes,earnedRes] = await Promise.allSettled([
         stageClient.entities.TrophyItem.list("sort_order", 200),
         stageClient.entities.TrophyPlacement.filter({ owner_id: ownerId, owner_type: ownerType }),
+        stageClient.http.get(`/trophy-placements/entitlements?owner_id=${encodeURIComponent(ownerId)}&owner_type=${encodeURIComponent(ownerType)}`),
       ]);
+      if(stopped)return;
+      setEarnedAwards(earnedRes.status==='fulfilled'?earnedRes.value.awards:[]);
+      setReviewIssues(earnedRes.status==='fulfilled'?earnedRes.value.discrepancies:[{reason:'Verified trophy history is unavailable'}]);
       if (libRes.status === "fulfilled") {
         setAllTrophies(libRes.value || []);
       } else {
@@ -46,10 +55,11 @@ export default function TrophyCabinetSystem({ ownerId, ownerType, canEdit, wonTo
       setLoading(false);
     }
     load();
+    return ()=>{stopped=true;};
   }, [ownerId, ownerType]);
 
   // Determine which trophy_item_ids are unlocked (won via tournaments)
-  const unlockedMap = buildUnlockedMap(wonTournaments, allTrophies);
+  const unlockedMap = buildUnlockedMap(earnedAwards.map(a=>({...a,id:a.source_id})), allTrophies);
   const unlockedIds = new Set(Object.keys(unlockedMap));
 
   // Map trophy_item_id → array of won tournaments (for tooltip)
@@ -68,6 +78,7 @@ export default function TrophyCabinetSystem({ ownerId, ownerType, canEdit, wonTo
   async function handleDrop(trophy, pos) {
     if (!editMode) return;
     setSaving(true);
+    try {
 
     // Check if already placed — if so, just update position
     const existing = placements.find(p => p.trophy_item_id === trophy.id);
@@ -82,8 +93,6 @@ export default function TrophyCabinetSystem({ ownerId, ownerType, canEdit, wonTo
     }
 
     // Create new placement
-    const winCount = unlockedMap[trophy.id]?.length || 1;
-    const wonIds = (unlockedMap[trophy.id] || []).map(t => t.id);
     const newPlacement = await stageClient.entities.TrophyPlacement.create({
       owner_id: ownerId,
       owner_type: ownerType,
@@ -93,11 +102,13 @@ export default function TrophyCabinetSystem({ ownerId, ownerType, canEdit, wonTo
       x_percent: pos.x,
       y_percent: pos.y,
       scale: 1,
-      win_count: winCount,
-      won_tournament_ids: wonIds,
     });
     setPlacements(prev => [...prev, newPlacement]);
-    setSaving(false);
+    } catch(error) {
+      toast.error(error.message || 'Could not place trophy');
+    } finally {
+      setSaving(false);
+    }
   }
 
   // Move during drag — local state only, no DB call
@@ -107,14 +118,18 @@ export default function TrophyCabinetSystem({ ownerId, ownerType, canEdit, wonTo
 
   // Save to DB only when drag ends or scale buttons clicked
   async function handleMovePlacedSave(placementId, changes) {
-    setPlacements(prev => prev.map(p => p.id === placementId ? { ...p, ...changes } : p));
-    await stageClient.entities.TrophyPlacement.update(placementId, changes);
+    try {
+      const updated=await stageClient.entities.TrophyPlacement.update(placementId, changes);
+      setPlacements(prev => prev.map(p => p.id === placementId ? { ...p, ...updated } : p));
+    } catch(error) { toast.error(error.message || 'Could not save trophy position'); }
   }
 
   // Remove a placed trophy
   async function handleRemovePlaced(placementId) {
-    setPlacements(prev => prev.filter(p => p.id !== placementId));
-    await stageClient.entities.TrophyPlacement.delete(placementId);
+    try {
+      await stageClient.entities.TrophyPlacement.delete(placementId);
+      setPlacements(prev => prev.filter(p => p.id !== placementId));
+    } catch(error) { toast.error(error.message || 'Could not remove trophy placement'); }
   }
 
   if (loading) {
@@ -135,7 +150,7 @@ export default function TrophyCabinetSystem({ ownerId, ownerType, canEdit, wonTo
             Trophy Cabinet
           </span>
           <span className="text-xs text-amber-300/60 font-medium">
-            {placements.length} placed
+            {placements.filter(p=>unlockedIds.has(p.trophy_item_id)).length} placed
           </span>
         </div>
         {canEdit && (
@@ -151,9 +166,10 @@ export default function TrophyCabinetSystem({ ownerId, ownerType, canEdit, wonTo
         )}
       </div>
 
+      {reviewIssues.length>0&&<p role="status" className="text-xs text-warning">Some trophy records require review. No earned history has been deleted.</p>}
       {/* Cabinet canvas */}
       <TrophyCabinetCanvas
-        placements={placements}
+        placements={placements.filter(p=>unlockedIds.has(p.trophy_item_id)).map(p=>({...p,win_count:unlockedMap[p.trophy_item_id]?.length||0}))}
         editMode={editMode}
         onDrop={handleDrop}
         onMovePlaced={handleMovePlacedLocal}
@@ -182,6 +198,7 @@ export default function TrophyCabinetSystem({ ownerId, ownerType, canEdit, wonTo
 
 function buildUnlockedMap(wonTournaments, allTrophies) {
   const map = {};
+  const seen=new Set();
   for (const win of wonTournaments) {
     for (const trophy of allTrophies) {
       // Primary: win record directly references this trophy
@@ -189,14 +206,15 @@ function buildUnlockedMap(wonTournaments, allTrophies) {
       // Legacy: trophy back-references the win
       const matchesTournamentId = trophy.tournament_id && trophy.tournament_id === win.id;
       // Legacy: name match
-      const matchesCompetitionName = trophy.competition_name &&
-        trophy.competition_name.trim().toLowerCase() === (win.name || "").trim().toLowerCase();
       // New: linked_source_id — competition trophy links via win.competition_id, league trophy via win.id
       const matchesLinkedSource = trophy.linked_source_id && (
         (trophy.linked_source_type === "competition" && win.competition_id && win.competition_id === trophy.linked_source_id) ||
         (trophy.linked_source_type === "regional_league" && win.id === trophy.linked_source_id)
       );
-      if (matchesTrophyItemId || matchesTournamentId || matchesCompetitionName || matchesLinkedSource) {
+      const contradictory=trophy.tournament_id&&String(trophy.tournament_id)!==String(win.id);
+      const event=[win.source_type||'tournament',win.id,win.edition_id||win.id,trophy.id].join(':');
+      if (!contradictory && (matchesTrophyItemId || matchesTournamentId || matchesLinkedSource) && !seen.has(event)) {
+        seen.add(event);
         if (!map[trophy.id]) map[trophy.id] = [];
         map[trophy.id].push(win);
       }

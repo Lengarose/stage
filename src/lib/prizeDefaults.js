@@ -1,3 +1,4 @@
+import regionalTemplate from '../../server/src/server/lib/regionalRewardTemplate.json' with { type: 'json' };
 const COMPETITION_PRIZES = {
   supreme: {
     winner: 25000000,
@@ -19,23 +20,6 @@ const COMPETITION_PRIZES = {
     semi_finalist: 1000000,
     quarter_finalist: 500000,
     participant: 100000,
-  },
-};
-
-const REGIONAL_PRIZES = {
-  division_1: {
-    winner: 4000000,
-    runner_up: 1500000,
-    semi_finalist: 750000,
-    quarter_finalist: 300000,
-    participant: 75000,
-  },
-  division_2: {
-    winner: 2000000,
-    runner_up: 750000,
-    semi_finalist: 300000,
-    quarter_finalist: 150000,
-    participant: 50000,
   },
 };
 
@@ -83,8 +67,8 @@ export function getCompetitionPrizePreset(source = {}) {
   return COMPETITION_PRIZES.challenger;
 }
 
-export function getRegionalPrizePreset(source = {}) {
-  return Number(source.division || 1) === 1 ? REGIONAL_PRIZES.division_1 : REGIONAL_PRIZES.division_2;
+export function getRegionalPrizePreset() {
+  return regionalTemplate;
 }
 
 export function getPrizePreset(sourceType, source = {}) {
@@ -93,7 +77,12 @@ export function getPrizePreset(sourceType, source = {}) {
     : getCompetitionPrizePreset(source);
 }
 
-export function getDefaultRewardRowsForSource(sourceType, source = {}, maxPositions = 36) {
+export function getDefaultRewardRowsForSource(sourceType, source = {}, maxPositions = sourceType === 'regional_league' ? 20 : 36) {
+  if (sourceType === 'regional_league') {
+    const count = Number(maxPositions);
+    if (!Number.isInteger(count) || count < 1 || count > regionalTemplate.max_clubs) throw new Error('Regional rewards support 1-20 finishing positions.');
+    return Array.from({length:count}, (_,i) => ({ position:i+1, position_label:defaultLeaguePosition(i+1), badge_type:i === 0 ? 'winner' : 'participant', stc_amount:regionalTemplate.first_stc-i*regionalTemplate.step_stc, is_default:true }));
+  }
   const preset = getPrizePreset(sourceType, source);
   const count = Math.max(1, Number(maxPositions) || 1);
   return Array.from({ length: count }, (_, index) => {
@@ -109,7 +98,12 @@ export function getDefaultRewardRowsForSource(sourceType, source = {}, maxPositi
   });
 }
 
-export function calculatePrizePool(sourceType, source = {}, maxPositions = 36) {
+export function defaultLeaguePosition(position) {
+  const suffix = position % 100 >= 11 && position % 100 <= 13 ? 'th' : ({1:'st',2:'nd',3:'rd'}[position % 10] || 'th');
+  return `${position}${suffix} Place`;
+}
+
+export function calculatePrizePool(sourceType, source = {}, maxPositions = sourceType === 'regional_league' ? 20 : 36) {
   return getDefaultRewardRowsForSource(sourceType, source, maxPositions)
     .reduce((sum, row) => sum + Number(row.stc_amount || 0), 0);
 }

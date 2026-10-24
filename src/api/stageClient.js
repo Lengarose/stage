@@ -182,7 +182,7 @@ async function apiFetch(path, opts = {}, _isRetry = false) {
         body: JSON.stringify({ refreshToken }),
       })
         .then(r => r.ok ? r.json() : Promise.reject())
-        .then(({ accessToken }) => storeTokens({ accessToken }))
+        .then(({ accessToken, refreshToken }) => storeTokens({ accessToken, refreshToken }))
         .catch(() => clearTokens())
         .finally(() => { _refreshPromise = null; });
     }
@@ -355,13 +355,17 @@ function makeEntity(name) {
         });
         return row ? [row] : [];
       }
-      const qs = new URLSearchParams({ ...clean, limit: String(limit) }).toString();
+      const qs = new URLSearchParams({
+        ...clean,
+        ...(['Player', 'Club'].includes(name) && orderBy ? { order_by: orderBy } : {}),
+        limit: String(limit),
+      }).toString();
       let data;
       try {
         data = await apiFetch(`${base}?${qs}`);
       } catch (err) {
         // Some legacy pages still reference entities not yet exposed by backend routes.
-        if (err?.status === 404) return [];
+        if (err?.status === 404 && name !== 'PlayerIdentityClaim') return [];
         throw err;
       }
       const arr  = Array.isArray(data) ? data : (data ? [data] : []);
@@ -419,7 +423,7 @@ const ENTITY_NAMES = [
   'Prediction',
   'DirectMessage', 'STCTransaction', 'ShirtSale', 'DressingRoom',
   'JoinRequest', 'Follow', 'LifestyleItem', 'LifestylePurchase',
-  'UserPurchase', 'TrophyItem', 'TrophyPlacement', 'ChatMessage', 'ChatRead',
+  'UserPurchase', 'TrophyItem', 'TrophyPlacement', 'TrophyAward', 'ChatMessage', 'ChatRead',
   'NewsItem', 'LiveMatch',
   // Competition & league stack used by frontend pages
   'Competition', 'CompetitionSeason', 'CompetitionFixture', 'CompetitionStanding',

@@ -5,7 +5,7 @@ import { stageClient } from '@/api/stageClient';
 async function call(endpoint, params = {}) {
   const res = await stageClient.functions.invoke('eafcApi', { endpoint, params });
   if (res.data?.error) throw new Error(res.data.error);
-  return res.data?.data;
+  return res.data;
 }
 
 export function normalizePlatform(platform) {

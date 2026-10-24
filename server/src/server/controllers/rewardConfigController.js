@@ -1,10 +1,9 @@
 /**
  * REST controller for `reward_configs`.
  *
- * Consumed by the admin Rewards tab via `stageClient.entities.RewardConfig`.
- * Defines, per competition / regional league, how STC prize money and badges
- * are distributed across final positions. Achievement rows are written by
- * `rewardsEngine.js` when a season is archived.
+ * Regional/GOST configuration uses the versioned source replacement actions.
+ * Edition snapshots and settlement are server-owned; legacy CRUD remains for
+ * unrelated reward sources only.
  *
  *   GET    /                    list (filter: source_id, source_type)
  *   GET    /:id                 one
@@ -19,6 +18,16 @@ const RewardConfigModel = require('../models/rewardConfigModel');
 const { v4: uuidv4 } = require('uuid');
 
 const FILTER_FIELDS = ['source_id', 'source_type', 'source_name'];
+const configurations = require('../services/rewardConfigurationService');
+const businessSources = new Set(['regional_league','competition']);
+router.get('/source/:type/:sourceId', async(req,res)=>{
+  try {await requireAdmin(req);res.json(await configurations.read(req.params.type,req.params.sourceId));}
+  catch(e){res.status(e.status||500).json({error:e.message});}
+});
+for(const action of ['replace','cleanup'])router.post(`/source/:type/:sourceId/${action}`,async(req,res)=>{
+  try {const admin=await requireAdmin(req);res.json(await configurations[action==='replace'?'save':'cleanup'](req.params.type,req.params.sourceId,req.body,admin));}
+  catch(e){res.status(e.status||500).json({error:e.message});}
+});
 
 async function requireAdmin(req) {
   const rows = await EXECUTESQL('SELECT id, email, role_id FROM users WHERE id = ? LIMIT 1', [req.user?.id || null]);
@@ -97,6 +106,7 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const admin = await requireAdmin(req);
+    if(businessSources.has(req.body.source_type))return res.status(409).json({error:'Use the atomic reward configuration replacement action'});
     const rc = new RewardConfigModel(req.body);
     await rc.create();
     const created = await rc.selectOne(rc.id);
@@ -114,6 +124,7 @@ router.patch('/:id', async (req, res) => {
     const { id } = req.params;
     const existing = await new RewardConfigModel().selectOne(id);
     if (!existing.length) return res.status(404).json({ error: 'Not found' });
+    if(businessSources.has(existing[0].source_type)||businessSources.has(req.body.source_type))return res.status(409).json({error:'Use the atomic reward configuration replacement action'});
     const rc = new RewardConfigModel({ ...existing[0], ...req.body });
     await rc.update(id);
     const updated = await rc.selectOne(id);
@@ -131,6 +142,7 @@ router.delete('/:id', async (req, res) => {
     const { id } = req.params;
     const existing = await new RewardConfigModel().selectOne(id);
     if (!existing.length) return res.status(404).json({ error: 'Not found' });
+    if(businessSources.has(existing[0].source_type))return res.status(409).json({error:'Use the reviewed reward configuration cleanup action'});
     await new RewardConfigModel().delete(id);
     await audit(admin, 'delete_reward_config', id, existing[0], null, req.body?.reason);
     res.json({ success: true });

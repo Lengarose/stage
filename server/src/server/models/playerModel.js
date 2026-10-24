@@ -1,5 +1,7 @@
 const { EXECUTESQL } = require('../db/database');
 const { v4: uuidv4 } = require('uuid');
+const { directoryOrder, containsPattern } = require('../utils/directoryQuery');
+const DIRECTORY_SORT_COLUMNS = ['id', 'gamertag', 'overall_rating', 'goals', 'assists', 'matches_played', 'ranking_points', 'market_value_stc', 'created_date', 'updated_date'];
 
 class Player {
   constructor(body = {}) {
@@ -75,13 +77,16 @@ class Player {
     this.eafc_club_name          = body.eafc_club_name ?? null;
   }
 
-  selectAll({ page = 1, limit = 25, offset } = {}) {
+  selectAll({ page = 1, limit = 25, offset, order_by, search } = {}) {
     const pageSize = Math.max(1, Math.min(Number(limit) || 25, 1000));
     const safePage = Math.max(1, Number(page) || 1);
     const safeOffset = offset !== undefined
       ? Math.max(0, Number(offset) || 0)
       : (safePage - 1) * pageSize;
-    return EXECUTESQL('SELECT * FROM players ORDER BY gamertag ASC LIMIT ? OFFSET ?', [pageSize, safeOffset]);
+    const order = directoryOrder(order_by, DIRECTORY_SORT_COLUMNS, 'gamertag');
+    const where = search ? " WHERE LOWER(gamertag) LIKE ? ESCAPE '!'" : '';
+    const params = search ? [containsPattern(search)] : [];
+    return EXECUTESQL(`SELECT * FROM players${where} ORDER BY ${order} LIMIT ? OFFSET ?`, [...params, pageSize, safeOffset]);
   }
 
   selectOne(id) {
@@ -100,14 +105,8 @@ class Player {
     return EXECUTESQL('SELECT * FROM players WHERE user_id = ?', [user_id]);
   }
 
-  searchByGamertag(search, limit = 50, offset = 0) {
-    const safeLimit = Math.max(1, Math.min(Number(limit) || 50, 1000));
-    const safeOffset = Math.max(0, Number(offset) || 0);
-    const term = `${String(search || '').trim().toLowerCase()}%`;
-    return EXECUTESQL(
-      'SELECT * FROM players WHERE LOWER(gamertag) LIKE ? ORDER BY gamertag ASC LIMIT ? OFFSET ?',
-      [term, safeLimit, safeOffset]
-    );
+  searchByGamertag(search, limit = 50, offset = 0, order_by) {
+    return this.selectAll({ search, limit, offset, order_by });
   }
 
   create() {

@@ -152,6 +152,7 @@ function fixtureClubFields(prefix, club) {
  * circle-method rounds × 2 (home + away). Writes the actual count back.
  */
 export async function generateLeaguePhaseFixtures(season, standings) {
+  await stageClient.http.post(`/competition-views/competition_season/${encodeURIComponent(season.id)}/reconcile`,{action:'capture_rewards',reason:'Capture GOST rewards before fixture generation'});
   const clubs = sortStandings(standings).map(standingToClub);
   if (clubs.length < 4) throw new Error("Need at least 4 clubs to generate fixtures.");
   // Ensure even number for circle method
@@ -798,6 +799,7 @@ export async function processCompetitionSeasonEnd(season, standings, competition
  * fixture; GameDay is created only after the away club accepts.
  */
 export async function generateRegionalLeagueFixtures(league, clubs) {
+  await stageClient.http.post(`/competition-views/regional_league/${encodeURIComponent(league.id)}/reconcile`,{action:'capture_rewards',reason:'Capture regional rewards before fixture generation'});
   if (!stageClient.entities.RegionalLeagueFixture) {
     throw new Error("RegionalLeagueFixture schema not published yet. Publish it on app.stageClient.com to enable fixture generation.");
   }

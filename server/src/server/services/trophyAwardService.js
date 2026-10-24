@@ -18,10 +18,10 @@ function normalizeWonIds(value) {
 
 async function loadTrophyContext({ query, trophyItemId, tournament = {} }) {
   if (!trophyItemId) return null;
-  const rows = await query('SELECT * FROM trophy_items WHERE id = ? LIMIT 1', [trophyItemId]).catch(() => []);
-  const item = rows[0];
-  if (!item) return null;
+  const proof=await require('./trophyEntitlementService').verifiedDesign(tournament._source_type||'tournament',tournament._source_id||tournament.id,trophyItemId,query);
+  const item=proof.item;
   return {
+    proof,
     trophyItemId,
     trophyImageUrl: item.image_url || tournament.trophy_url || null,
     trophyName: item.name || tournament.name || null,
@@ -32,17 +32,20 @@ async function awardPlacement({ query, ownerId, ownerType, context, tournamentId
   if (!ownerId || !ownerType || !context?.trophyItemId) {
     return { awarded: false, reason: 'missing_owner_or_trophy' };
   }
+  const proof=context.proof;
+  const clubWin=proof.scope.root.participant_type!=='player';
+  await new (require('../models/trophyAwardModel'))().create({owner_id:ownerId,owner_type:ownerType,trophy_item_id:context.trophyItemId,source_type:proof.source_type,source_id:proof.source_id,edition_id:proof.edition_id,winning_club_id:clubWin?proof.winner:null},query);
 
   const existingRows = await query(
     `SELECT * FROM trophy_placements
       WHERE owner_id = ? AND owner_type = ? AND trophy_item_id = ?
       LIMIT 1 FOR UPDATE`,
     [ownerId, ownerType, context.trophyItemId]
-  ).catch(() => []);
+  );
   const existing = existingRows[0];
   const wonIds = normalizeWonIds(existing?.won_tournament_ids);
-  const tournamentKey = tournamentId ? String(tournamentId) : null;
-  if (tournamentKey && wonIds.includes(tournamentKey)) {
+  const tournamentKey = proof.source_type==='tournament'?proof.source_id:`${proof.source_type}:${proof.source_id}:${proof.edition_id}`;
+  if (tournamentKey && (wonIds.includes(tournamentKey)||wonIds.includes(String(tournamentId)))) {
     return { awarded: false, skipped: true, reason: 'already_awarded', placement_id: existing?.id || null };
   }
 
@@ -111,8 +114,9 @@ async function awardClubTrophyToClubAndPlayers({
   query = EXECUTESQL,
 }) {
   const resolvedTrophyItemId = trophyItemId || tournament.trophy_item_id;
-  const context = await loadTrophyContext({ query, trophyItemId: resolvedTrophyItemId, tournament });
+  const context = await loadTrophyContext({ query, trophyItemId: resolvedTrophyItemId, tournament:{...tournament,id:tournament.id||tournamentId} });
   if (!context || !clubId) return { awarded: false, reason: 'missing_trophy_or_winner' };
+  if(context.proof.scope.root.participant_type==='player'||String(clubId)!==context.proof.winner)throw Object.assign(new Error('Only the authoritative winning club earns this trophy'),{status:409});
 
   const club = await awardPlacement({
     query,
@@ -149,8 +153,9 @@ async function awardPlayerOnlyTrophy({
   query = EXECUTESQL,
 }) {
   const resolvedTrophyItemId = trophyItemId || tournament.trophy_item_id;
-  const context = await loadTrophyContext({ query, trophyItemId: resolvedTrophyItemId, tournament });
+  const context = await loadTrophyContext({ query, trophyItemId: resolvedTrophyItemId, tournament:{...tournament,id:tournament.id||tournamentId} });
   if (!context || !playerId) return { awarded: false, reason: 'missing_trophy_or_winner' };
+  if(context.proof.scope.root.participant_type!=='player'||String(playerId)!==context.proof.winner)throw Object.assign(new Error('Only the authoritative winning player earns this trophy'),{status:409});
   return awardPlacement({
     query,
     ownerId: playerId,

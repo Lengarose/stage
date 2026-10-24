@@ -1,6 +1,5 @@
 import RewardConfigPanel from "@/components/rewards/RewardConfigPanel";
 import { cn } from "@/lib/utils";
-import { stageClient } from "@/api/stageClient";
 import { OFFICIAL_STAGE_TOURNAMENT_MAX_CLUBS } from "@/lib/qualificationConfig";
 import { getRegionalLeagueMaxClubs } from "@/lib/regionalLeagueRules";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -22,6 +21,7 @@ export default function RewardsTab({
       <p className="text-xs text-muted-foreground">
         {t("admin.rewards.description")}
       </p>
+      <p className="border-l-2 border-primary pl-3 text-sm">Shared regional schedule: 54,000,000 STC for 1st, decreasing by 1,700,000 per position. Total for 20 clubs: 757,000,000 STC. GOST participation and finalist bonuses are configured separately.</p>
 
       <div className="space-y-2">
         <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">{t("admin.rewards.selectSource")}</p>
@@ -45,14 +45,14 @@ export default function RewardsTab({
           </div>
           <div className="space-y-1.5">
             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-primary">Regional Leagues</p>
-            {regionalLeagues.filter(l => l.status !== "archived").map(league => {
+            {regionalLeagues.map(league => {
               const active = rewardSource?.id === league.id;
               return (
                 <button key={league.id} onClick={() => setRewardSource({ id: league.id, type: "regional_league", name: league.name, division: league.division || 1, max_clubs: getRegionalLeagueMaxClubs(league), trophy_image_url: league.trophy_image_url || "" })}
                   className={cn("w-full text-left p-3 rounded border text-xs font-bold transition-all",
                     active ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
                   )}>
-                  {league.name}
+                  {league.name}{league.status==='archived'?' · Archived':''}
                   <span className="block text-[10px] font-normal mt-0.5 opacity-60">
                     {t("admin.rewards.leagueMeta", { division: league.division || 1, season: league.season_number })}
                   </span>
@@ -75,13 +75,6 @@ export default function RewardsTab({
             source={rewardSource}
             maxPositions={rewardSource.type === "regional_league" ? getRegionalLeagueMaxClubs(rewardSource) : OFFICIAL_STAGE_TOURNAMENT_MAX_CLUBS}
             trophyImageUrl={rewardSource.trophy_image_url}
-            onTrophyUrlChange={async (url) => {
-              setRewardSource(s => s ? { ...s, trophy_image_url: url } : s);
-              const entity = rewardSource.type === "competition"
-                ? stageClient.entities.Competition
-                : stageClient.entities.RegionalLeague;
-              await entity?.update(rewardSource.id, { trophy_image_url: url }).catch(() => {});
-            }}
           />
         </div>
       )}

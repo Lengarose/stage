@@ -9,6 +9,7 @@
     "lint": "eslint . --quiet",
     "lint:fix": "eslint . --fix",
     "healthcheck": "node scripts/production-healthcheck.mjs",
+    "test:api": "node scripts/test-all-apis.mjs",
     "typecheck": "tsc -p ./jsconfig.json",
     "test": "node --test \"src/**/__tests__/*.test.mjs\"",
     "test:server": "node --test \"server/src/**/__tests__/*.test.js\"",

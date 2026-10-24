@@ -101,6 +101,6 @@ test('Club selectAll respects directory page size and offset', async () => {
 
   await new Club().selectAll({ page: 3, limit: 25 });
 
-  assert.match(calls[0].sql, /ORDER BY name ASC LIMIT \? OFFSET \?/);
+  assert.match(calls[0].sql, /ORDER BY c\.`name` ASC, c.id ASC LIMIT \? OFFSET \?/);
   assert.deepEqual(calls[0].params, [25, 50]);
 });

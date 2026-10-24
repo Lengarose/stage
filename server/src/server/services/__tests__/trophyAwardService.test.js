@@ -9,6 +9,15 @@ const {
 function ownerFromPlacementSelect(params) {
   return { ownerId: params[0], ownerType: params[1], trophyItemId: params[2] };
 }
+function proofQuery(query,player=false) {
+  return async(sql,params=[])=>{
+    if(/FROM tournaments/.test(sql))return [{id:'tournament-1',name:'Verified Cup',type:'knockout',status:'completed',participant_type:player?'player':'club',trophy_item_id:'trophy-1'}];
+    if(/FROM matches/.test(sql))return [{id:'final',tournament_id:'tournament-1',type:'final',status:'completed',result_state:'CONFIRMED',home_score:2,away_score:1,[player?'home_player_id':'home_club_id']:player?'player-1':'club-1',[player?'away_player_id':'away_club_id']:'opponent'}];
+    if(/FROM (clubs|players) WHERE id IN/.test(sql))return params.map(id=>({id,name:id,gamertag:id}));
+    if(/INSERT INTO trophy_awards/.test(sql))return {affectedRows:1};
+    return query(sql,params);
+  };
+}
 
 test('club trophies unlock for the club and every active squad player', async () => {
   const placementSelects = [];
@@ -34,7 +43,7 @@ test('club trophies unlock for the club and every active squad player', async ()
   };
 
   const result = await awardClubTrophyToClubAndPlayers({
-    query,
+    query:proofQuery(query),
     clubId: 'club-1',
     trophyItemId: 'trophy-1',
     tournamentId: 'tournament-1',
@@ -77,7 +86,7 @@ test('player tournament trophies stay player-only', async () => {
   };
 
   const result = await awardPlayerOnlyTrophy({
-    query,
+    query:proofQuery(query,true),
     playerId: 'player-1',
     trophyItemId: 'trophy-1',
     tournamentId: 'tournament-1',
@@ -114,7 +123,7 @@ test('repeat awards for the same tournament do not inflate win count', async () 
   };
 
   const result = await awardPlayerOnlyTrophy({
-    query,
+    query:proofQuery(query,true),
     playerId: 'player-1',
     trophyItemId: 'trophy-1',
     tournamentId: 'tournament-1',

@@ -139,9 +139,11 @@ test("presidents list page derives public presidents from Player-linked clubs", 
 
 test("search President results use Player president links", () => {
   const search = readRepoFile("src/pages/Search.jsx");
+  const directory = readRepoFile("src/lib/directoryData.js");
 
-  assert.match(search, /buildPlayerPresidentDirectoryRows\(allClubs,\s*allPlayers\)/);
-  assert.match(search, /matchesPlayerPresidentQuery/);
+  assert.match(search, /searchDirectory\(stageClient,/);
+  assert.match(directory, /buildPlayerPresidentDirectoryRows/);
+  assert.match(directory, /matchesPlayerPresidentQuery/);
   assert.match(search, /to=\{`\/players\/\$\{p\.player_id\}`\}/);
   assert.doesNotMatch(search, /entities\.President\.list/);
   assert.doesNotMatch(search, /isPublicPresidentProfile/);

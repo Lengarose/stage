@@ -271,7 +271,7 @@ async function ensureSecondaryPositionColumn() {
 router.get('/', async (req, res) => {
   try {
     await ensureSecondaryPositionColumn();
-    const { id, email, user_id, club_id, gamertag, search, page, limit, offset } = req.query;
+    const { id, email, user_id, club_id, gamertag, search, page, limit, offset, order_by } = req.query;
     const player = new Player();
     let result;
     if (id) result = await player.selectOne(String(id));
@@ -284,12 +284,13 @@ router.get('/', async (req, res) => {
         [String(gamertag)]
       );
     } else if (search) {
-      result = await player.searchByGamertag(search, Number(limit) || 50, Number(offset) || 0);
+      result = await player.searchByGamertag(search, Number(limit) || 50, Number(offset) || 0, order_by);
     } else {
       result = await player.selectAll({
         page: Number(page) || 1,
         limit: Number(limit) || 25,
         offset: offset !== undefined ? Number(offset) : undefined,
+        ...(order_by ? { order_by } : {}),
       });
     }
     res.json(result);

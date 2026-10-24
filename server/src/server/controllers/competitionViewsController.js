@@ -43,6 +43,14 @@ router.post('/:kind/:id/reconcile', wrap(async (req,res) => {
   if (!admin || ![0,2].includes(Number(admin.role_id))) return res.status(403).json({error:'Admin access required'});
   const apply = req.body?.apply === true;
   if (apply && !String(req.body.reason || '').trim()) return res.status(400).json({error:'A reason is required to apply reconciliation'});
+  if(req.body.action==='adopt_reward_configuration')return res.json(await prizes.adoptConfiguration(req.params.kind,req.params.id,{apply,admin,reason:req.body.reason,version:req.body.version}));
+  if(req.body.action==='archive')return res.json(await prizes.archive(req.params.kind,req.params.id,{admin,reason:req.body.reason}));
+  if(req.body.action==='capture_rewards') {
+    if(!['regional_league','competition_season'].includes(req.params.kind))return res.status(400).json({error:'Unsupported reward capture source'});
+    const captured=await prizes.capture(req.params.kind,req.params.id,{admin,reason:req.body.reason});
+    if(!captured.config)return res.status(409).json({error:'Review and save the reward configuration before starting this edition'});
+    return res.json({configuration:captured.config,state:'captured'});
+  }
   if (req.body?.action === 'standings') return res.json(await require('../services/standingIntegrityService').reconcileStandings(req.params.kind, req.params.id, { apply, admin, reason: req.body.reason }));
   if (req.body?.action === 'progression') {
     if (!['regional_league','competition_season'].includes(req.params.kind)) return res.status(400).json({error:'Use tournament progression reconciliation for tournament draws'});

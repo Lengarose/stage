@@ -1,6 +1,7 @@
 #env
 .env
 .env.*
+api-test-*.local.json
 
 # Logs
 /logs

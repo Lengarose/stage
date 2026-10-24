@@ -26,7 +26,7 @@ function placements(scope, config) {
   const results = matches.filter(isConfirmedResult);
   const map = new Map();
   const leagueOnly = scope.source_type === 'regional_league' || ['league','swiss'].includes(root.type) || root.format === 'league' || root.league_only === true;
-  if (root.status !== 'completed') return { map, blocked: 'Competition is not officially completed' };
+  if (!['completed','archived'].includes(root.status)) return { map, blocked: 'Competition is not officially completed' };
   if (['regional_league','competition_season'].includes(scope.source_type)) {
     for (const phase of new Set(matches.map(m=>m.type))) {
       const readiness = require('./leagueRoundReadiness').roundReadiness(scope,phase);
@@ -82,6 +82,7 @@ function placements(scope, config) {
   return { map };
 }
 function planPrizes(scope, config, payments = [], ledgers = []) {
+  if(config?.model)return require('./componentPrizePlan').planComponentPrizes(scope,config,payments,ledgers);
   const blocked = [];
   if (!config) return { state: 'blocked', blocking_reasons: ['Original prize configuration is unavailable; current defaults are not historical evidence'], obligations: [] };
   const positions = new Set();

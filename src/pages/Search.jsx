@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { swalAlert } from "@/lib/swal";
 import { useTranslation } from "@/hooks/useTranslation";
 import { isPublicPlayerProfile } from "@/lib/playerDirectory";
-import { buildPlayerPresidentDirectoryRows, matchesPlayerPresidentQuery } from "@/lib/presidentDirectory";
+import { searchDirectory } from "@/lib/directoryData";
 
 export default function Search() {
   const { t } = useTranslation();
@@ -19,6 +19,7 @@ export default function Search() {
   const [clubs, setClubs] = useState([]);
   const [eafcClubs, setEafcClubs] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [searched, setSearched] = useState(false);
   const [platform, setPlatform] = useState("common-gen5");
   const [user, setUser] = useState(null);
@@ -34,26 +35,23 @@ export default function Search() {
   }, []);
 
   async function doSearch() {
-    if (!query.trim()) return;
+    if (!query.trim() || loading) return;
     setLoading(true);
+    setError("");
     setSearched(true);
-    const q = query.toLowerCase();
-
-    const [allPlayers, allClubs, eafcRes] = await Promise.all([
-      stageClient.entities.Player.list("-overall_rating", 200),
-      stageClient.entities.Club.list("-wins", 200),
-      searchClub(query.trim(), platform).catch(() => null),
-    ]);
-
-    setPlayers(allPlayers.filter(p =>
-      isPublicPlayerProfile(p) && p.gamertag?.toLowerCase().includes(q)
-    ));
-    setPresidents(buildPlayerPresidentDirectoryRows(allClubs, allPlayers).filter((p) =>
-      matchesPlayerPresidentQuery(p, q)
-    ));
-    setClubs(allClubs.filter(c => c.name?.toLowerCase().includes(q) || c.tag?.toLowerCase().includes(q)));
-    setEafcClubs(Array.isArray(eafcRes) ? eafcRes : []);
-    setLoading(false);
+    try {
+      const [directory, eafcRes] = await Promise.all([
+        searchDirectory(stageClient, query.trim()),
+        searchClub(query.trim(), platform).catch(() => []),
+      ]);
+      setPlayers(directory.players.filter(isPublicPlayerProfile));
+      setPresidents(directory.presidents);
+      setClubs(directory.clubs);
+      setEafcClubs(Array.isArray(eafcRes) ? eafcRes : []);
+    } catch (err) {
+      setPlayers([]); setPresidents([]); setClubs([]); setEafcClubs([]);
+      setError(err?.message || 'Search failed. Please try again.');
+    } finally { setLoading(false); }
   }
 
   async function sendChallenge(opponentClubId, opponentClubName) {
@@ -168,6 +166,7 @@ export default function Search() {
         </Button>
       </div>
 
+      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       {!searched ? (
         <div className="bg-card border border-border rounded-2xl p-12 text-center">
           <SearchIcon className="w-12 h-12 text-muted-foreground mx-auto mb-4" />

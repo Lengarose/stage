@@ -219,7 +219,7 @@ async function resolvePresidentPlayerForClub(req, body = {}) {
 // GET /
 router.get('/', async (req, res) => {
   try {
-    const { owner_email, user_id, president_player_id, page, limit, offset, id, name } = req.query;
+    const { owner_email, user_id, president_player_id, page, limit, offset, id, name, search, order_by } = req.query;
     const club = new Club();
     let result;
     if (owner_email) result = await club.selectByOwner(owner_email);
@@ -236,11 +236,13 @@ router.get('/', async (req, res) => {
       page: Number(page) || 1,
       limit: Number(limit) || 25,
       offset: offset !== undefined ? Number(offset) : undefined,
+      ...(search ? { search } : {}),
+      ...(order_by ? { order_by } : {}),
     });
     res.json(result);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message });
+    res.status(err.status || 500).json({ error: err.message });
   }
 });
 

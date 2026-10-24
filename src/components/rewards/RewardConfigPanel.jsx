@@ -1,241 +1,94 @@
-import { useState, useEffect } from "react";
-import { stageClient } from "@/api/stageClient";
-import { saveRewardConfigs, defaultPositionLabel, defaultBadgeType, BADGE_STYLE } from "@/lib/rewardsEngine";
-import { getDefaultRewardRowsForSource, formatStcCompact } from "@/lib/prizeDefaults";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
-import { Plus, Trash2, Check, Trophy, Upload } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { swalAlert } from "@/lib/swal";
+import { useEffect, useState } from 'react';
+import { stageClient } from '@/api/stageClient';
+import { getRewardConfiguration, saveRewardConfigs } from '@/lib/rewardsEngine';
+import { getDefaultRewardRowsForSource } from '@/lib/prizeDefaults';
+import { Save, RotateCcw, Upload } from 'lucide-react';
+import { swalPrompt } from '@/lib/swal';
+import EditionRewardReview from './EditionRewardReview';
+import {useTranslation} from '@/hooks/useTranslation';
 
-const BADGE_OPTIONS = [
-  { value: "winner",        label: "Winner (Gold)"      },
-  { value: "finalist",      label: "Runner-Up (Silver)" },
-  { value: "semi_finalist", label: "Semi-Final (Bronze)"},
-  { value: "top_4",         label: "Top 4"              },
-  { value: "participant",   label: "Participant"        },
-];
-
-function newRow(pos) {
-  return {
-    _key:           Date.now() + pos,
-    position:       pos,
-    position_label: defaultPositionLabel(pos),
-    badge_type:     defaultBadgeType(pos),
-    stc_amount:     0,
-  };
+const labels={participation:'Participation Payment',winner_bonus:"Winner's Additional Prize",runner_up_bonus:"Runner-up's Additional Prize"};
+function exact(value) {
+  if(!/^\d+(\.\d{1,2})?$/.test(String(value)))throw new Error('Use nonnegative STC amounts with at most two decimal places.');
+  const [whole,fraction='']=String(value).split('.');
+  return BigInt(whole)*100n+BigInt(fraction.padEnd(2,'0'));
 }
-
-export default function RewardConfigPanel({ sourceId, sourceType, sourceName, source = null, maxPositions = 36, trophyImageUrl, onTrophyUrlChange }) {
-  const [rows, setRows]       = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving]   = useState(false);
-  const [dirty, setDirty]     = useState(false);
-  const [trophyUrl, setTrophyUrl] = useState(trophyImageUrl || "");
-  const [uploading, setUploading] = useState(false);
-  const trophyFileRef = { current: null };
-
-  useEffect(() => {
-    setTrophyUrl(trophyImageUrl || "");
-  }, [trophyImageUrl]);
-
-  useEffect(() => {
-    if (!sourceId) { setLoading(false); return; }
-    setLoading(true);
-    (stageClient.entities.RewardConfig?.filter({ source_id: sourceId }, null, 20) ?? Promise.resolve([]))
-      .catch(() => [])
-      .then(configs => {
-        const sorted = configs.slice().sort((a, b) => a.position - b.position);
-        const defaults = getDefaultRewardRowsForSource(sourceType, { ...(source || {}), name: sourceName }, maxPositions);
-        const rowsToShow = sorted.length ? sorted : defaults;
-        setRows(rowsToShow.map((c, index) => ({ ...c, _key: c.id || `default-${index}` })));
-        setLoading(false);
-        setDirty(!sorted.length);
-      });
-  }, [sourceId, sourceType, sourceName, source, maxPositions]);
-
-  function addRow() {
-    const maxPos = rows.reduce((m, r) => Math.max(m, Number(r.position) || 0), 0);
-    setRows(prev => [...prev, newRow(maxPos + 1)]);
-    setDirty(true);
+function money(value) {return `${(value/100n).toLocaleString()}.${String(value%100n).padStart(2,'0')} STC`;}
+export default function RewardConfigPanel({sourceId,sourceType,sourceName,maxPositions=36}) {
+  const {t}=useTranslation();
+  const [config,setConfig]=useState(null);
+  const [rows,setRows]=useState([]);
+  const [count,setCount]=useState(maxPositions);
+  const [trophyId,setTrophyId]=useState('');
+  const [trophyUrl,setTrophyUrl]=useState('');
+  const [items,setItems]=useState([]);
+  const [dirty,setDirty]=useState(false);
+  const [busy,setBusy]=useState(false);
+  const [error,setError]=useState('');
+  const regional=sourceType==='regional_league';
+  function accept(data) {
+    setConfig(data);setCount(data.participant_count);
+    const canonical=data.version?data.rows:regional?data.proposed:data.proposed.map(r=>({...r,position_label:labels[r.component_key]}));
+    setRows(canonical);setTrophyId(data.settings.trophy_item_id||data.source.trophy_item_id||'');setTrophyUrl(data.settings.trophy_image_url||data.source.trophy_image_url||'');setDirty(!data.version);
   }
-
-  function removeRow(key) {
-    setRows(prev => prev.filter(r => r._key !== key));
-    setDirty(true);
-  }
-
-  function updateRow(key, field, value) {
-    setRows(prev => prev.map(r => {
-      if (r._key !== key) return r;
-      const updated = { ...r, [field]: value };
-      if (field === "position") {
-        updated.position_label = defaultPositionLabel(Number(value));
-        updated.badge_type     = defaultBadgeType(Number(value));
-      }
-      return updated;
-    }));
-    setDirty(true);
-  }
-
-  async function handleSave() {
-    if (!sourceId) return;
-    setSaving(true);
+  useEffect(()=>{
+    let stopped=false;setConfig(null);setError('');
+    getRewardConfiguration(sourceId,sourceType).then(data=>{if(!stopped)accept(data);}).catch(e=>{if(!stopped)setError(e.message);});
+    stageClient.entities.TrophyItem.list('name',500).then(data=>{if(!stopped)setItems(data);}).catch(()=>{});
+    return ()=>{stopped=true;};
+  },[sourceId,sourceType]);
+  let budget=null,validation='';
+  try {budget=rows.reduce((sum,r)=>sum+exact(r.stc_amount)*BigInt(!regional&&r.component_key==='participation'?count:1),0n);}
+  catch(e){validation=e.message;}
+  async function save() {
+    const reason=await swalPrompt(t('admin.rewards.changeReason','Reason for changing the current reward configuration'));
+    if(!reason)return;
+    setBusy(true);setError('');
     try {
-      const cleaned = rows
-        .filter(r => Number(r.position) > 0)
-        .sort((a, b) => Number(a.position) - Number(b.position));
-      await saveRewardConfigs(sourceId, sourceType, sourceName, cleaned);
-      setDirty(false);
-    } catch (err) {
-      await swalAlert(`Save failed: ${err?.message || "Unknown error."}`);
-    } finally {
-      setSaving(false);
-    }
+      const persisted=await saveRewardConfigs(sourceId,sourceType,sourceName,rows,{version:config.version,revision:config.revision,participant_count:Number(count),trophy_item_id:trophyId||null,trophy_image_url:trophyUrl,reason});
+      accept(persisted);setDirty(false);
+    }catch(e){setError(e.message);}finally{setBusy(false);}
   }
-
-  async function handleTrophyUpload(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    try {
-      const { file_url } = await stageClient.integrations.Core.UploadFile({ file });
-      setTrophyUrl(file_url);
-      if (onTrophyUrlChange) onTrophyUrlChange(file_url);
-    } catch {
-      await swalAlert("Upload failed. Paste the URL manually.");
-    } finally {
-      setUploading(false);
-      e.target.value = "";
-    }
+  async function upload(event) {
+    const file=event.target.files?.[0];if(!file)return;
+    setBusy(true);setError('');
+    try{const result=await stageClient.integrations.Core.UploadFile({file});setTrophyUrl(result.file_url);setDirty(true);}
+    catch(e){setError(e.message);}finally{setBusy(false);}
   }
-
-  if (!sourceId) {
-    return <p className="text-xs text-muted-foreground py-4">Select a competition or league to configure rewards.</p>;
-  }
-
-  if (loading) {
-    return <div className="text-xs text-muted-foreground py-4">Loading reward config…</div>;
-  }
-
-  return (
-    <div className="space-y-5">
-      {/* Trophy image */}
-      <div className="bg-secondary/40 border border-border rounded-lg p-4 space-y-3">
-        <div className="flex items-center gap-2">
-          <Trophy className="w-4 h-4 text-accent shrink-0" />
-          <p className="text-xs font-bold uppercase tracking-wider text-foreground">Trophy Image</p>
-        </div>
-        <div className="flex items-center gap-3">
-          {trophyUrl ? (
-            <img src={trophyUrl} alt="Trophy" className="w-12 h-12 object-contain rounded bg-secondary border border-border shrink-0" />
-          ) : (
-            <div className="w-12 h-12 rounded bg-secondary border border-dashed border-border shrink-0 flex items-center justify-center">
-              <Trophy className="w-5 h-5 text-muted-foreground/30" />
-            </div>
-          )}
-          <div className="flex-1 space-y-1.5">
-            <Input
-              value={trophyUrl}
-              onChange={e => { setTrophyUrl(e.target.value); if (onTrophyUrlChange) onTrophyUrlChange(e.target.value); }}
-              placeholder="https://… trophy image URL"
-              className="h-8 text-xs bg-background border-border"
-            />
-            <label className="cursor-pointer touch-manipulation inline-flex">
-              <input type="file" accept="image/*" className="sr-only" onChange={handleTrophyUpload} disabled={uploading} ref={r => { trophyFileRef.current = r; }} />
-              <span className={`inline-flex h-7 items-center justify-center gap-1.5 px-3 rounded-md border border-border text-[10px] font-medium ${uploading ? "opacity-50 pointer-events-none" : "hover:bg-accent"}`}>
-                <Upload className="w-3 h-3" />
-                {uploading ? "Uploading…" : "Upload PNG"}
-              </span>
-            </label>
-          </div>
-        </div>
-      </div>
-
-      {/* STC reward table */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-foreground">STC Prize Distribution</p>
-            <p className="text-[10px] text-muted-foreground">
-              Default pool: {formatStcCompact(rows.reduce((sum, row) => sum + Number(row.stc_amount || 0), 0))}
-            </p>
-          </div>
-          <Button size="sm" variant="outline" onClick={addRow}
-            className="h-7 text-[10px] gap-1 border-border text-muted-foreground hover:text-foreground">
-            <Plus className="w-3 h-3" /> Add Position
-          </Button>
-        </div>
-
-        {rows.length === 0 ? (
-          <div className="border border-dashed border-border rounded-lg p-6 text-center">
-            <p className="text-xs text-muted-foreground">No reward tiers configured. Add positions to set STC prizes.</p>
-          </div>
-        ) : (
-          <div className="space-y-1.5">
-            {rows.map(row => {
-              const style = BADGE_STYLE[row.badge_type] || BADGE_STYLE.participant;
-              return (
-                <div key={row._key} className="grid grid-cols-[40px_1fr_150px_100px_32px] gap-2 items-center bg-secondary/30 border border-border rounded px-2 py-1.5">
-                  {/* Position */}
-                  <Input
-                    type="number" min={1} max={32}
-                    value={row.position}
-                    onChange={e => updateRow(row._key, "position", e.target.value)}
-                    className="h-7 text-center text-xs bg-background border-border p-1"
-                  />
-                  {/* Label */}
-                  <Input
-                    value={row.position_label}
-                    onChange={e => updateRow(row._key, "position_label", e.target.value)}
-                    placeholder="e.g. Winner"
-                    className="h-7 text-xs bg-background border-border"
-                  />
-                  {/* Badge */}
-                  <Select value={row.badge_type} onValueChange={v => updateRow(row._key, "badge_type", v)}>
-                    <SelectTrigger className="h-7 text-[10px] bg-background border-border">
-                      <span className={cn("px-1.5 py-0.5 rounded text-[9px] font-bold border", style.bg, style.text, style.border)}>
-                        {style.label}
-                      </span>
-                    </SelectTrigger>
-                    <SelectContent className="bg-card border-border text-foreground">
-                      {BADGE_OPTIONS.map(o => (
-                        <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {/* STC */}
-                  <div className="relative">
-                    <Input
-                      type="number" min={0}
-                      value={row.stc_amount}
-                      onChange={e => updateRow(row._key, "stc_amount", e.target.value)}
-                      className="h-7 text-xs bg-background border-border pr-8"
-                    />
-                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-muted-foreground font-bold">STC</span>
-                  </div>
-                  {/* Delete */}
-                  <button onClick={() => removeRow(row._key)} className="text-muted-foreground hover:text-destructive transition-colors">
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {dirty && (
-          <Button size="sm" onClick={handleSave} disabled={saving}
-            className="h-8 text-xs bg-primary text-primary-foreground gap-1.5 w-full sm:w-auto">
-            {saving
-              ? <span className="w-3 h-3 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin inline-block" />
-              : <Check className="w-3.5 h-3.5" />
-            }
-            {saving ? "Saving…" : "Save Reward Config"}
-          </Button>
-        )}
-      </div>
+  if(!config)return <p role={error?'alert':'status'}>{error||t('admin.rewards.loadingConfiguration','Loading reward configuration...')}</p>;
+  const field='min-w-0 border border-border bg-background p-2 text-sm';
+  return <div className="space-y-5">
+    <header className="flex flex-wrap justify-between gap-3 border-b border-border pb-3">
+      <div><h4 className="font-bold">{regional?t('admin.rewards.regionalPositions','Regional Finishing Positions'):t('admin.rewards.gostComponents','GOST Participation And Bonuses')}</h4>
+        <p className="text-xs text-muted-foreground">{dirty?t('admin.rewards.unsavedChanges','Unsaved changes'):t('admin.rewards.configurationVersion','Current configuration v{version}',{version:config.version})} · {t('admin.rewards.separateSnapshots','Edition snapshots remain separate')}</p></div>
+      <button type="button" onClick={save} disabled={busy||!dirty||!!validation} className="inline-flex items-center gap-2 text-primary disabled:opacity-40"><Save size={16}/>{busy?t('admin.rewards.savingConfiguration','Saving...'):t('admin.rewards.saveConfiguration','Save')}</button>
+    </header>
+    {error&&<p role="alert" className="text-destructive">{error}</p>}
+    {config.issues.length>0&&<details className="border-l-2 border-warning pl-3"><summary>Legacy configuration review ({config.issues.length})</summary>
+      {config.issues.map((issue,i)=><p key={i} className="text-xs text-warning">{issue}</p>)}
+      <p className="text-xs">Legacy rows are retained as evidence. Saving creates an explicit canonical version.</p></details>}
+    <div className="grid gap-3 sm:grid-cols-2">
+      <label className="grid gap-1 text-xs">Budgeted Clubs<input aria-label="Budgeted Clubs" className={field} type="number" min="2" max={regional?20:36} value={count} onChange={e=>{
+        const n=Number(e.target.value);setCount(n);setDirty(true);
+        if(regional&&Number.isInteger(n)&&n>=2&&n<=20)setRows(getDefaultRewardRowsForSource('regional_league',{},n));
+      }}/></label>
+      <div className="self-end"><p className="text-xs text-muted-foreground">System-funded effective budget</p><strong>{budget===null?'Incomplete configuration':money(budget)}</strong></div>
     </div>
-  );
+    {!regional&&<p className="text-sm">Every eligible club receives participation. Both finalists also receive their additional prize. Legacy bundled amounts require explicit review.</p>}
+    {regional&&<div className="flex flex-wrap justify-between gap-2 text-xs"><span>Shared default: 54,000,000 STC to 21,700,000 STC · 757,000,000 STC for 20 clubs</span>
+      <button type="button" className="inline-flex items-center gap-1 text-primary" onClick={()=>{try{setRows(getDefaultRewardRowsForSource('regional_league',{},Number(count)));setDirty(true);}catch(e){setError(e.message);}}}><RotateCcw size={14}/>Shared Schedule</button></div>}
+    <div className="divide-y divide-border border-y border-border">
+      {rows.map((row,i)=><div key={row.component_key||row.position} className="grid grid-cols-[minmax(0,1fr)_minmax(140px,220px)] items-center gap-3 py-2">
+        <label htmlFor={`reward-${sourceId}-${i}`} className="text-sm">{regional?row.position_label:t(`admin.rewards.${row.component_key}`,labels[row.component_key])}</label>
+        <div className="flex min-w-0 items-center gap-2"><input id={`reward-${sourceId}-${i}`} inputMode="decimal" className={field+' w-full text-right'} value={row.stc_amount} onChange={e=>{setRows(current=>current.map((r,j)=>j===i?{...r,stc_amount:e.target.value}:r));setDirty(true);}}/><span className="text-xs text-muted-foreground">STC</span></div>
+      </div>)}
+    </div>
+    {validation&&<p role="status" className="text-warning">{validation}</p>}
+    <section className="grid gap-3 border-b border-border pb-4 sm:grid-cols-2">
+      <label className="grid gap-1 text-xs">Cabinet Trophy Design<select aria-label="Cabinet Trophy Design" value={trophyId} className={field} onChange={e=>{setTrophyId(e.target.value);setDirty(true);}}><option value="">Not configured</option>{items.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+      <label className="grid gap-1 text-xs">Trophy Display Image<input aria-label="Trophy Display Image" className={field} value={trophyUrl} onChange={e=>{setTrophyUrl(e.target.value);setDirty(true);}}/></label>
+      <div className="flex items-center gap-3">{trophyUrl&&<img src={trophyUrl} alt="Trophy display" className="h-16 w-16 object-contain"/>}<label className="inline-flex cursor-pointer items-center gap-2 text-xs text-primary"><Upload size={16}/>Upload Image<input type="file" accept="image/*" className="sr-only" onChange={upload} disabled={busy}/></label></div>
+    </section>
+    <EditionRewardReview sourceId={sourceId} sourceType={sourceType} configurationVersion={config.version}/>
+  </div>;
 }

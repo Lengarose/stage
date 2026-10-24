@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { swalAlert } from "@/lib/swal";
 import { useTranslation } from "@/hooks/useTranslation";
+import { loadDirectoryRows } from "@/lib/directoryData";
 
 export default function PlayersRegistered({ overrideTournamentId } = {}) {
   const { t } = useTranslation();
@@ -18,6 +19,7 @@ export default function PlayersRegistered({ overrideTournamentId } = {}) {
   const [allPlayers, setAllPlayers] = useState([]);
   const [selected, setSelected] = useState(new Set());
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
   const [filterCountry, setFilterCountry] = useState("all");
@@ -25,20 +27,26 @@ export default function PlayersRegistered({ overrideTournamentId } = {}) {
   const PAGE_SIZE = 50;
 
   useEffect(() => {
+    let active = true;
     async function load() {
-      const [tData, players] = await Promise.all([
-        stageClient.entities.Tournament.filter({ id }, null, 1),
-        stageClient.entities.Player.list("-overall_rating", 200),
-      ]);
-      const row = tData[0];
-      setTournament(row);
-      setAllPlayers(players);
-      if (row?.registered_players?.length > 0) {
-        setSelected(new Set(row.registered_players));
-      }
-      setLoading(false);
+      setLoading(true);
+      setLoadError("");
+      try {
+        const [tData, players] = await Promise.all([
+          stageClient.entities.Tournament.filter({ id }, null, 1),
+          loadDirectoryRows(stageClient.entities.Player, { orderBy: '-overall_rating' }),
+        ]);
+        if (!active) return;
+        const row = tData[0];
+        setTournament(row);
+        setAllPlayers(players);
+        setSelected(new Set(row?.registered_players || []));
+      } catch (err) {
+        if (active) setLoadError(err?.message || 'Failed to load players. Please try again.');
+      } finally { if (active) setLoading(false); }
     }
     load();
+    return () => { active = false; };
   }, [id]);
 
   const maxTeams = tournament?.max_teams || 0;
@@ -82,6 +90,7 @@ export default function PlayersRegistered({ overrideTournamentId } = {}) {
       <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
     </div>
   );
+  if (loadError) return <p role="alert" className="p-6 text-destructive">{loadError}</p>;
 
   return (
     <div className="p-6 lg:p-10 max-w-5xl mx-auto">

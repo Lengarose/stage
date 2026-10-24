@@ -65,6 +65,7 @@ function registerStageRoutes(app, { verifyToken }) {
   app.use('/api/stage/user-purchases', verifyToken, require('../controllers/userPurchaseController'));
   app.use('/api/stage/trophy-items', verifyToken, require('../controllers/trophyItemController'));
   app.use('/api/stage/trophy-placements', verifyToken, require('../controllers/trophyPlacementController'));
+  app.use('/api/stage/trophy-awards', verifyToken, require('../controllers/trophyAwardController'));
   app.use('/api/stage/chat-messages', verifyToken, require('../controllers/chatMessageController'));
   app.use('/api/stage/chat-reads', verifyToken, require('../controllers/chatReadController'));
   app.use('/api/stage/news-items', verifyToken, require('../controllers/newsItemController'));

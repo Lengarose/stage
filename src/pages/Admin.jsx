@@ -46,7 +46,8 @@ import {
   withCanonicalRegionalLeagueName,
 } from "../lib/qualificationConfig";
 import { swalAlert, swalConfirm, swalPrompt } from "@/lib/swal";
-import { calculatePrizePool, getDefaultRewardRowsForSource } from "@/lib/prizeDefaults";
+import { calculatePrizePool } from "@/lib/prizeDefaults";
+import { ensureDefaultRewardConfigs, getRewardConfiguration } from '@/lib/rewardsEngine';
 import { canResolveDisputeWithScore } from "@/lib/gameDayResultFlow";
 import { toMysqlDateTime } from "@/lib/momentDate";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -609,19 +610,8 @@ export default function Admin(props) {
   }
 
   async function seedDefaultRewardConfig(sourceId, sourceType, sourceName, source, maxPositions) {
-    if (!sourceId || !stageClient.entities.RewardConfig) return;
-    const existing = await stageClient.entities.RewardConfig.filter({ source_id: sourceId }, null, 1).catch(() => []);
-    if (existing.length) return;
-    const rows = getDefaultRewardRowsForSource(sourceType, { ...source, name: sourceName }, maxPositions);
-    await Promise.all(rows.map(row => stageClient.entities.RewardConfig.create({
-      source_id: sourceId,
-      source_type: sourceType,
-      source_name: sourceName,
-      position: row.position,
-      position_label: row.position_label,
-      badge_type: row.badge_type,
-      stc_amount: row.stc_amount,
-    }).catch(() => null)));
+    if (!sourceId) return;
+    await ensureDefaultRewardConfigs(sourceId,sourceType,sourceName,source,maxPositions);
   }
 
   async function seedDefaultRewardConfigsForSources(sources) {
@@ -941,13 +931,15 @@ export default function Admin(props) {
   async function createCompetitionSeason() {
     if (!newSeasonForm.competition_id) { await swalAlert(t("admin.alerts.selectCompetition")); return; }
     setCreatingLeagueSeason(true);
+    try {
     const comp = competitions.find(c => c.id === newSeasonForm.competition_id);
     if (!comp) { setCreatingLeagueSeason(false); return; }
     const existingSeasons = compSeasons.filter(s => s.competition_id === comp.id);
     const nextSeason = existingSeasons.length > 0 ? Math.max(...existingSeasons.map(s => s.season_number)) + 1 : 1;
     const numMatchdays = Number(newSeasonForm.num_league_matchdays) || 8;
     const targetClubs = OFFICIAL_STAGE_TOURNAMENT_MAX_CLUBS;
-    const defaultPrizePool = calculatePrizePool("competition", comp, targetClubs);
+    const rewardConfiguration=await getRewardConfiguration(comp.id,'competition');
+    const defaultPrizePool=rewardConfiguration.version?rewardConfiguration.settings.budget:'0.00';
     await stageClient.entities.CompetitionSeason.create({
       competition_id: comp.id,
       competition_name: comp.name,
@@ -976,6 +968,11 @@ export default function Admin(props) {
     await loadAll();
     setCreatingLeagueSeason(false);
     await swalAlert(t("admin.alerts.seasonCreated", { season: nextSeason, name: comp.name, target: targetClubs }));
+    } catch(error) {
+      await swalAlert(error.message || 'Could not create competition season');
+    } finally {
+      setCreatingLeagueSeason(false);
+    }
   }
 
   async function confirmQualEntry(entry) {

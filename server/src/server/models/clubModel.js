@@ -1,5 +1,7 @@
 const { EXECUTESQL } = require('../db/database');
 const { v4: uuidv4 } = require('uuid');
+const { directoryOrder, containsPattern } = require('../utils/directoryQuery');
+const DIRECTORY_SORT_COLUMNS = ['id', 'name', 'wins', 'rating', 'ranking_points', 'created_date', 'updated_date'];
 
 const CLUB_COLUMNS = [
   'id',
@@ -65,13 +67,18 @@ class Club {
     }
   }
 
-  selectAll({ page = 1, limit = 25, offset } = {}) {
+  selectAll({ page = 1, limit = 25, offset, order_by, search } = {}) {
     const pageSize = Math.max(1, Math.min(Number(limit) || 25, 1000));
     const safePage = Math.max(1, Number(page) || 1);
     const safeOffset = offset !== undefined
       ? Math.max(0, Number(offset) || 0)
       : (safePage - 1) * pageSize;
-    return EXECUTESQL('SELECT * FROM clubs ORDER BY name ASC LIMIT ? OFFSET ?', [pageSize, safeOffset]);
+    const order = directoryOrder(order_by, DIRECTORY_SORT_COLUMNS, 'name', 'c');
+    const columns = ['c.name', 'c.tag', 'c.country_code', 'c.platform', 'p.gamertag', 'p.country_code', 'p.platform'];
+    const join = search ? ' LEFT JOIN players p ON p.id = c.president_player_id' : '';
+    const where = search ? ` WHERE (${columns.map(column => `LOWER(${column}) LIKE ? ESCAPE '!'`).join(' OR ')})` : '';
+    const params = search ? columns.map(() => containsPattern(search)) : [];
+    return EXECUTESQL(`SELECT c.* FROM clubs c${join}${where} ORDER BY ${order} LIMIT ? OFFSET ?`, [...params, pageSize, safeOffset]);
   }
 
   selectOne(id) {

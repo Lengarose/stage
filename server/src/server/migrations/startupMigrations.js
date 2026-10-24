@@ -2028,6 +2028,14 @@ async function runStartupMigrations() {
   await addCol('trophy_placements', 'scale', 'DECIMAL(5,3) NULL DEFAULT 1');
   await addCol('trophy_placements', 'won_tournament_ids', 'JSON NULL');
   await addCol('trophy_placements', 'win_count', 'INT NULL DEFAULT 1');
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS trophy_awards (
+    id VARCHAR(36) PRIMARY KEY, owner_id VARCHAR(36) NOT NULL, owner_type VARCHAR(20) NOT NULL,
+    trophy_item_id VARCHAR(36) NOT NULL, source_type VARCHAR(50) NOT NULL, source_id VARCHAR(36) NOT NULL,
+    edition_id VARCHAR(64) NOT NULL, winning_club_id VARCHAR(36),status VARCHAR(20) NOT NULL DEFAULT 'earned',
+    revoked_reason TEXT,created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY idx_trophy_award_event (owner_type,owner_id,trophy_item_id,source_type,source_id,edition_id),
+    INDEX idx_trophy_award_owner (owner_type,owner_id,status)
+  )`).catch(err=>console.error('[migration] trophy_awards:',err.message));
 
   // Lifestyle purchases expanded schema (v2)
   await addCol('lifestyle_purchases', 'purchase_type',           "VARCHAR(20) DEFAULT 'buy'");
@@ -2704,6 +2712,13 @@ async function runStartupMigrations() {
   await addCol('competition_payouts','source_id','VARCHAR(36) NULL');
   await addCol('competition_payouts','edition_id','VARCHAR(64) NULL');
   await addCol('competition_payouts','position_no','INT NULL');
+  await addCol('competition_payouts','component_key','VARCHAR(80) NULL');
+  await addIndex('competition_payouts','idx_comp_payout_component','(source_type,source_id,edition_id,component_key)',true);
+  await addCol('reward_configs','config_version','INT NULL');
+  await addCol('reward_configs','component_key','VARCHAR(80) NULL');
+  await EXECUTESQL('ALTER TABLE reward_configs MODIFY COLUMN stc_amount DECIMAL(12,2) DEFAULT 0').catch(err=>console.error('[migration] reward amount precision:',err.message));
+  // Legacy rows keep NULL versions/keys: no conflicting historic data is deleted.
+  await addIndex('reward_configs','idx_reward_config_component','(source_type,source_id,config_version,component_key)',true);
   await addCol('competition_payouts','config_json','JSON NULL');
   const payoutInstanceColumns = await EXECUTESQL("SELECT IS_NULLABLE FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='competition_payouts' AND column_name='competition_instance_id'");
   if (payoutInstanceColumns.some(c=>c.IS_NULLABLE === 'NO')) await EXECUTESQL('ALTER TABLE competition_payouts MODIFY COLUMN competition_instance_id VARCHAR(36) NULL');

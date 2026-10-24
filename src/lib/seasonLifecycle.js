@@ -1,5 +1,4 @@
 import { stageClient } from "@/api/stageClient";
-import { sortStandings } from "./competitionUtils";
 import { calculatePrizePool } from "./prizeDefaults";
 import { OFFICIAL_STAGE_TOURNAMENT_MAX_CLUBS, REGIONAL_LEAGUE_MAX_CLUBS } from "./qualificationConfig";
 
@@ -9,76 +8,12 @@ export async function openSeasonRegistration(season) {
   throw new Error(`${season?.competition_name || "This competition"} is qualification-only. Confirm qualified clubs instead of opening public registration.`);
 }
 
-export async function archiveCompetitionSeason(season, competition) {
-  const standings = await (stageClient.entities.CompetitionStanding?.filter(
-    { season_id: season.id }, null, 200
-  ) ?? Promise.resolve([])).catch(() => []);
-
-  if (!standings.length) throw new Error("No standings found — cannot archive an empty season.");
-
-  const sorted = sortStandings(standings);
-  const ops = [];
-
-  // Stamp final positions on any that don't have them
-  sorted.forEach((s, i) => {
-    if (!s.final_position) {
-      ops.push(stageClient.entities.CompetitionStanding.update(s.id, { final_position: i + 1 }));
-    }
-  });
-
-  // Mark promotions / relegations from competition config
-  const promoSpots = competition?.promotion_spots || 0;
-  const relSpots   = competition?.relegation_spots || 0;
-  sorted.slice(0, promoSpots).forEach(s => {
-    ops.push(stageClient.entities.CompetitionStanding.update(s.id, { is_promoted: true }));
-  });
-  sorted.slice(sorted.length - relSpots).forEach(s => {
-    if (relSpots > 0) ops.push(stageClient.entities.CompetitionStanding.update(s.id, { is_relegated: true }));
-  });
-
-  const winner   = sorted[0];
-  const runnerUp = sorted[1] || null;
-
-  const seasonPatch = {
-    status:      "archived",
-    archived_at: new Date().toISOString(),
-  };
-  if (winner)   { seasonPatch.winner_club_id = winner.club_id; seasonPatch.winner_club_name = winner.club_name; }
-  if (runnerUp) { seasonPatch.runner_up_club_id = runnerUp.club_id; seasonPatch.runner_up_club_name = runnerUp.club_name; }
-
-  // Award achievement to winner
-  if (winner?.club_id) {
-    const clubs = await stageClient.entities.Club.filter({ id: winner.club_id }, null, 1).catch(() => []);
-    const club = clubs[0];
-    if (club) {
-      const label = `${season.competition_name} — Season ${season.season_number} Winner`;
-      const current = club.achievements || [];
-      if (!current.includes(label)) {
-        ops.push(stageClient.entities.Club.update(club.id, { achievements: [...current, label] }));
-      }
-    }
-  }
-
-  await Promise.all(ops);
-  await stageClient.entities.CompetitionSeason.update(season.id, seasonPatch);
-
-  // Distribute STC prizes, trophies, and achievements.
-  const { distributeSeasonRewards } = await import("./rewardsEngine");
-  await distributeSeasonRewards({
-      sourceId:       season.competition_id,
-      sourceType:     "competition",
-      sourceName:     season.competition_name || competition?.name || "Competition",
-      sourceSlug:     season.competition_slug || competition?.slug || "",
-      sourceTier:     season.competition_tier || competition?.tier || null,
-      seasonId:       season.id,
-      seasonNumber:   season.season_number,
-      seasonLabel:    season.season_label || `Season ${season.season_number}`,
-      trophyImageUrl: competition?.trophy_image_url || "",
-      standings:      sorted.map((s, i) => ({ ...s, final_position: s.final_position || (i + 1) })),
-    });
+export async function archiveCompetitionSeason(season) {
+  return stageClient.http.post(`/competition-views/competition_season/${encodeURIComponent(season.id)}/reconcile`,{action:'archive',reason:'Admin requested archival after verified season settlement'});
 }
 
 export async function createNextCompetitionSeason(season, competition) {
+  const config=await (await import('./rewardsEngine')).getRewardConfiguration(season.competition_id,'competition');
   const nextNumber = (season.season_number || 1) + 1;
   const created = await stageClient.entities.CompetitionSeason.create({
     competition_id:        season.competition_id,
@@ -99,7 +34,7 @@ export async function createNextCompetitionSeason(season, competition) {
     target_clubs:          OFFICIAL_STAGE_TOURNAMENT_MAX_CLUBS,
     current_matchday:      1,
     status:                "draft",
-    prize_pool_stc:        season.prize_pool_stc || calculatePrizePool("competition", competition || season, OFFICIAL_STAGE_TOURNAMENT_MAX_CLUBS),
+    prize_pool_stc:        config.version ? config.settings.budget : '0.00',
   });
   if (competition) {
     const { ensureDefaultRewardConfigs } = await import("./rewardsEngine");
@@ -123,6 +58,7 @@ export async function openLeagueRegistration(league) {
 }
 
 export async function startLeague(league) {
+  await stageClient.http.post(`/competition-views/regional_league/${encodeURIComponent(league.id)}/reconcile`,{action:'capture_rewards',reason:'Capture the regional reward promise before league start'});
   const now = new Date().toISOString();
   await stageClient.entities.RegionalLeague.update(league.id, {
     status: "in_progress",
@@ -136,57 +72,7 @@ export async function startLeague(league) {
 }
 
 export async function archiveLeague(league) {
-  const standings = await (stageClient.entities.RegionalLeagueStanding?.filter(
-    { league_id: league.id }, null, 50
-  ) ?? Promise.resolve([])).catch(() => []);
-
-  const ops = [];
-  const sorted = standings.slice().sort((a, b) =>
-    (a.final_position || a.position || 99) - (b.final_position || b.position || 99)
-  );
-
-  sorted.forEach((s, i) => {
-    if (!s.final_position) {
-      ops.push(stageClient.entities.RegionalLeagueStanding.update(s.id, { final_position: i + 1 }));
-    }
-  });
-
-  const winner = sorted[0];
-  const patch = {
-    status:      "archived",
-    archived_at: new Date().toISOString(),
-  };
-  if (winner) { patch.winner_club_id = winner.club_id; patch.winner_club_name = winner.club_name; }
-
-  // Award achievement to winner
-  if (winner?.club_id) {
-    const clubs = await stageClient.entities.Club.filter({ id: winner.club_id }, null, 1).catch(() => []);
-    const club = clubs[0];
-    if (club) {
-      const label = `${league.name} — Season ${league.season_number} Winner`;
-      const current = club.achievements || [];
-      if (!current.includes(label)) {
-        ops.push(stageClient.entities.Club.update(club.id, { achievements: [...current, label] }));
-      }
-    }
-  }
-
-  await Promise.all(ops);
-  await stageClient.entities.RegionalLeague.update(league.id, patch);
-
-  // Distribute STC prizes, trophies, and achievements.
-  const { distributeSeasonRewards } = await import("./rewardsEngine");
-  await distributeSeasonRewards({
-      sourceId:       league.id,
-      sourceType:     "regional_league",
-      sourceName:     league.name,
-      sourceDivision: league.division || 1,
-      seasonId:       "",
-      seasonNumber:   league.season_number,
-      seasonLabel:    `Season ${league.season_number}`,
-      trophyImageUrl: league.trophy_image_url || "",
-      standings:      sorted.map((s, i) => ({ ...s, final_position: s.final_position || (i + 1) })),
-    });
+  return stageClient.http.post(`/competition-views/regional_league/${encodeURIComponent(league.id)}/reconcile`,{action:'archive',reason:'Admin requested archival after verified season settlement'});
 }
 
 export async function createNextLeagueSeason(league) {

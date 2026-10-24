@@ -22,6 +22,7 @@ function setup(player=false, sourceType='tournament') {
     if (/FROM competition_payouts/.test(sql)) return state.payouts;
     if (/FROM competition_instances/.test(sql)) return [];
     if (/FROM (player_stc_transactions|stc_transactions)/.test(sql)) return state.ledgers;
+    if (/^UPDATE league_entities SET data_json/.test(sql)) {state.root={...state.root,...JSON.parse(v[0])};return {affectedRows:1};}
     if (/SELECT.*FROM (players|clubs)/.test(sql)) return /WHERE id=\?/.test(sql) ? state.accounts.filter(a=>a.id===v[0]).map(a=>({...a})) : state.accounts.map(a=>({...a,name:a.name || a.id,gamertag:a.gamertag || a.id}));
     if (/^UPDATE (players|clubs)/.test(sql)) {const a=state.accounts.find(a=>a.id===v[1]);a.stc=stc(cents(a.stc)+cents(v[0]));return {affectedRows:1};}
     if (/^INSERT INTO/.test(sql)) {

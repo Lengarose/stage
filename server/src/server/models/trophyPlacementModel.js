@@ -14,12 +14,12 @@ class TrophyPlacementModel {
     return EXECUTESQL(sql, params);
   }
 
-  static async getById(id) {
-    const rows = await EXECUTESQL('SELECT * FROM trophy_placements WHERE id = ?', [id]);
+  static async getById(id,query=EXECUTESQL) {
+    const rows = await query('SELECT * FROM trophy_placements WHERE id = ?', [id]);
     return rows[0] || null;
   }
 
-  static async create(data) {
+  static async create(data,query=EXECUTESQL) {
     const id = uuidv4();
     const ownerId   = data.owner_id || data.player_id || null;
     const ownerType = data.owner_type || (data.player_id ? 'player' : null);
@@ -27,7 +27,7 @@ class TrophyPlacementModel {
     const wonIds    = data.won_tournament_ids
       ? (typeof data.won_tournament_ids === 'string' ? data.won_tournament_ids : JSON.stringify(data.won_tournament_ids))
       : null;
-    await EXECUTESQL(
+    await query(
       `INSERT INTO trophy_placements
         (id, owner_id, owner_type, trophy_item_id,
          trophy_image_url, trophy_name,
@@ -46,10 +46,10 @@ class TrophyPlacementModel {
         position,
       ]
     );
-    return this.getById(id);
+    return this.getById(id,query);
   }
 
-  static async update(id, data) {
+  static async update(id, data,query=EXECUTESQL) {
     const fields = [];
     const params = [];
     const updatable = [
@@ -70,14 +70,14 @@ class TrophyPlacementModel {
         ? data.won_tournament_ids
         : JSON.stringify(data.won_tournament_ids));
     }
-    if (!fields.length) return this.getById(id);
+    if (!fields.length) return this.getById(id,query);
     params.push(id);
-    await EXECUTESQL(`UPDATE trophy_placements SET ${fields.join(', ')} WHERE id = ?`, params);
-    return this.getById(id);
+    await query(`UPDATE trophy_placements SET ${fields.join(', ')} WHERE id = ?`, params);
+    return this.getById(id,query);
   }
 
-  static async delete(id) {
-    return EXECUTESQL('DELETE FROM trophy_placements WHERE id = ?', [id]);
+  static async delete(id,query=EXECUTESQL) {
+    return query('DELETE FROM trophy_placements WHERE id = ?', [id]);
   }
 }
 

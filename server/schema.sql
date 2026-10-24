@@ -1099,6 +1099,22 @@ CREATE TABLE IF NOT EXISTS trophy_items (
 );
 
 -- ── trophy_placements ─────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS trophy_awards (
+  id VARCHAR(36) PRIMARY KEY,
+  owner_id VARCHAR(36) NOT NULL,
+  owner_type VARCHAR(20) NOT NULL,
+  trophy_item_id VARCHAR(36) NOT NULL,
+  source_type VARCHAR(50) NOT NULL,
+  source_id VARCHAR(36) NOT NULL,
+  edition_id VARCHAR(64) NOT NULL,
+  winning_club_id VARCHAR(36),
+  status VARCHAR(20) NOT NULL DEFAULT 'earned',
+  revoked_reason TEXT,
+  created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY idx_trophy_award_event (owner_type,owner_id,trophy_item_id,source_type,source_id,edition_id),
+  INDEX idx_trophy_award_owner (owner_type,owner_id,status)
+);
+
 CREATE TABLE IF NOT EXISTS trophy_placements (
   id            VARCHAR(36) PRIMARY KEY,
   owner_id      VARCHAR(36) NOT NULL,
@@ -1360,6 +1376,7 @@ CREATE TABLE IF NOT EXISTS competition_phase_states (
 );
 
 CREATE TABLE IF NOT EXISTS competition_payouts (
+  component_key VARCHAR(80),
   source_type VARCHAR(50),
   source_id VARCHAR(36),
   edition_id VARCHAR(64),
@@ -1381,6 +1398,7 @@ CREATE TABLE IF NOT EXISTS competition_payouts (
   updated_date             DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY uq_comp_payout_idempotency (idempotency_key),
   UNIQUE KEY idx_comp_payout_obligation (source_type,source_id,edition_id,position_no),
+  UNIQUE KEY idx_comp_payout_component (source_type,source_id,edition_id,component_key),
   INDEX idx_comp_payout_instance (competition_instance_id, status),
   INDEX idx_comp_payout_club (club_id, created_date),
   INDEX idx_comp_payout_player (player_id, created_date)
@@ -1797,8 +1815,11 @@ CREATE TABLE IF NOT EXISTS reward_configs (
   position INT,
   position_label VARCHAR(100),
   badge_type VARCHAR(50) DEFAULT 'participant',
-  stc_amount DECIMAL(10,2) DEFAULT 0,
-  created_date DATETIME DEFAULT CURRENT_TIMESTAMP
+  stc_amount DECIMAL(12,2) DEFAULT 0,
+  config_version INT NULL,
+  component_key VARCHAR(80) NULL,
+  created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY idx_reward_config_component (source_type,source_id,config_version,component_key)
 );
 
 CREATE TABLE IF NOT EXISTS transfer_windows (
