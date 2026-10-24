@@ -90,7 +90,7 @@ test('a premature idle club successor is removed; an active successor requires r
 });
 test('UCL qualification waits for all eight matchdays and never adds a third-place playoff', () => {
   const t = { ...cup, type: 'swiss_ucl' };
-  const league = Array.from({ length: 8 }, (_, r) => Array.from({ length: 18 }, (_, i) => m(r * 18 + i, { type: 'ucl_league', round: r + 1, home_club_id: `c${i * 2}`, away_club_id: `c${i * 2 + 1}` }))).flat();
+  const league = Array.from({ length: 8 }, (_, r) => Array.from({ length: 18 }, (_, i) => m(r * 18 + i, { type: 'ucl_league', round: r + 1, home_club_id: `c${i * 2}`, away_club_id: `c${i * 2 + 1}`, home_score: i + 2 }))).flat();
   assert.equal(plan(t, league.slice(0, 126)).fixtures.length, 0);
   assert.equal(plan(t, [...league.slice(0, -1), { ...league.at(-1), status: 'disputed' }]).fixtures.length, 0);
   const next = plan(t, league);
@@ -100,7 +100,7 @@ test('UCL qualification waits for all eight matchdays and never adds a third-pla
 
 test('a resolved UCL player playoff tie advances independently; the equivalent club phase waits', () => {
   const t = { ...cup, type: 'swiss_ucl', participant_type: 'player' };
-  const league = Array.from({ length: 8 }, (_, r) => Array.from({ length: 18 }, (_, i) => m(r * 18 + i, { type: 'ucl_league', round: r + 1, home_player_id: `p${i * 2}`, away_player_id: `p${i * 2 + 1}` }))).flat();
+  const league = Array.from({ length: 8 }, (_, r) => Array.from({ length: 18 }, (_, i) => m(r * 18 + i, { type: 'ucl_league', round: r + 1, home_player_id: `p${i * 2}`, away_player_id: `p${i * 2 + 1}`, home_score: i + 2 }))).flat();
   const playoffs = plan(t, league).fixtures.map((f, i) => m(200 + i, { type: f.type, round: f.round, group_number: f.group_number, home_player_id: f.home.id, away_player_id: f.away.id, home_score: f.round === 9 ? 2 : 0, away_score: f.round === 9 ? 0 : 1, status: f.group_number === 0 ? 'completed' : 'scheduled' }));
   const next = plan(t, [...league, ...playoffs]);
   assert.equal(next.fixtures.length, 2);

@@ -27,7 +27,7 @@ function loadService(executesql) {
       const standings = await executesql(`SELECT * FROM league_entities WHERE entity_type = '${regional ? 'regional_league_standing' : 'competition_standing'}' AND ${regional ? 'league_id' : 'season_id'} = ?`,[id]);
       const roots = await executesql(regional ? 'SELECT * FROM league_entities WHERE id = ? AND entity_type = ? LIMIT 1' : "SELECT * FROM league_entities WHERE id = ? AND entity_type = 'competition_season' LIMIT 1",regional ? [id,'regional_league'] : [id]);
       const unpack = row=>({...JSON.parse(row.data_json || '{}'),...row});
-      return {source_type:kind,root:roots[0] ? unpack(roots[0]) : {id},fixtures:fixtures.map(unpack),standings:standings.map(unpack),participants:standings.map(unpack).map(s=>({id:s.club_id})),matches:fixtures.map(unpack).map(f=>({...f,fixture_id:f.id,type:f.phase || 'league',round:f.leg || f.round || 1,status:f.status === 'played' ? 'completed' : f.status}))};
+      return {source_type:kind,root:roots[0] ? unpack(roots[0]) : {id},fixtures:fixtures.map(unpack),standings:standings.map(unpack),participants:standings.map(unpack).map(s=>({id:s.club_id,name:s.club_name})),matches:fixtures.map(unpack).map(f=>({...f,tournament_id:id,fixture_id:f.id,type:f.phase || 'league',round:f.leg || f.round || 1,status:f.status === 'played' ? 'completed' : f.status}))};
     }
   }}};
   require.cache[socketPath] = {
@@ -392,7 +392,7 @@ test('syncMatchResultToSource marks legacy official phase ready when all fixture
   assert.equal(notificationWrites[0][1], 'admin@example.test');
 });
 
-test('syncMatchResultToSource automatically generates official playoff fixtures when league phase completes', async () => {
+test('a completed phase cannot seed playoffs from unverifiable registration and fabricated standing totals', async () => {
   const inserts = [];
   const updates = [];
   const standings = Array.from({ length: 24 }, (_, index) => {
@@ -487,12 +487,9 @@ test('syncMatchResultToSource automatically generates official playoff fixtures 
     away_score: 1,
   });
 
-  assert.equal(result.advance.advanced, true,JSON.stringify(result.advance));
-  assert.equal(result.advance.next_phase, 'playoff_round');
-  assert.equal(inserts.length, 16);
-  assert.equal(inserts[0].data.phase, 'playoff_round');
-  assert.equal(inserts[0].data.home_club_id, 'club-24');
-  assert.equal(inserts[0].data.away_club_id, 'club-9');
+  assert.equal(result.advance.advanced, false);
+  assert.equal(result.advance.reason, 'Standings integrity requires authorised review');
+  assert.equal(inserts.length, 0);
   assert.ok(updates.some(update => update.params.includes('fixture-legacy') && update.data.status === 'completed'));
 });
 
@@ -646,19 +643,24 @@ test('advanceRegionalLeagueIfReady processes completed division one qualificatio
       league_id: 'league-1',
       club_id: `club-${index + 1}`,
       club_name: `Club ${index + 1}`,
-      points: 20 - index,
-      goal_difference: 0,
-      goals_for: 0,
+      points: 6 * (19 - index),
+      goal_difference: 38 - 4 * index,
+      goals_for: 2 * (19 - index),
+      goals_against: 2 * index,
+      played: 38,
+      wins: 2 * (19 - index),
+      draws: 0,
+      losses: 2 * index,
       region: 'EU',
       platform: 'PS5',
     }),
   }));
   const service = loadService(async (sql, params = []) => {
     if (/entity_type = 'regional_league_fixture'\s+AND league_id = \?/.test(sql)) {
-      return standings.flatMap((a,i)=>standings.filter((_,j)=>j!==i).map(b=>({id:`${a.club_id}-${b.club_id}`,entity_type:'regional_league_fixture',status:'played',data_json:JSON.stringify({league_id:'league-1',status:'played',home_club_id:a.club_id,away_club_id:b.club_id,home_score:1,away_score:0,stats_processed:true})})));
+      return standings.flatMap((a,i)=>standings.filter((_,j)=>j!==i).map(b=>({id:`${a.club_id}-${b.club_id}`,entity_type:'regional_league_fixture',status:'played',data_json:JSON.stringify({league_id:'league-1',status:'played',home_club_id:a.club_id,away_club_id:b.club_id,home_score:i < standings.indexOf(b) ? 1 : 0,away_score:i < standings.indexOf(b) ? 0 : 1,stats_processed:true})})));
     }
     if (/WHERE id = \? AND entity_type = \? LIMIT 1/.test(sql) && params[1] === 'regional_league') {
-      return [{ id: 'league-1', entity_type: 'regional_league', data_json: JSON.stringify({ id: 'league-1', name: 'EU Division 1', division: 1, status: 'in_progress', linked_league_slug: 'eu-div-2' }) }];
+      return [{ id: 'league-1', entity_type: 'regional_league', data_json: JSON.stringify({ id: 'league-1', name: 'EU Division 1', registered_club_ids: standings.map(s=>s.club_id), division: 1, status: 'in_progress', linked_league_slug: 'eu-div-2' }) }];
     }
     if (params.includes('eu-div-2')) {
       return [{

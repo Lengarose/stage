@@ -1,6 +1,7 @@
 'use strict';
 const crypto = require('crypto');
 const { isConfirmedResult } = require('./tournamentStatistics');
+const { calculateStandings } = require('./standingsCore');
 const parse = (v, fallback = []) => { try { return typeof v === 'string' ? JSON.parse(v) : v || fallback; } catch { return fallback; } };
 const thirds = new Set(['third_place', 'third-place', 'bronze']);
 const twoLegTypes = new Set(['ucl_playoff', 'ucl_r16', 'ucl_qf', 'ucl_sf', 'round_of_16', 'quarter_final', 'semi_final']);
@@ -34,14 +35,11 @@ function resolvedTie(rows, t, requiredLegs = 1) {
   return String(winnerId) === String(a.id) ? { winner: a, loser: b } : { winner: b, loser: a };
 }
 function standings(rows, player) {
-  const map = new Map();
-  for (const m of rows) for (const side of ['home', 'away']) {
-    const p = team(m, side, player); if (!p) continue;
-    if (!map.has(String(p.id))) map.set(String(p.id), { ...p, points: 0, gf: 0, ga: 0 });
-    const row = map.get(String(p.id)); const own = Number(m[`${side}_score`]), opp = Number(m[`${side === 'home' ? 'away' : 'home'}_score`]);
-    row.gf += own; row.ga += opp; row.points += own > opp ? 3 : own === opp ? 1 : 0;
-  }
-  return [...map.values()].sort((a, b) => b.points - a.points || (b.gf - b.ga) - (a.gf - a.ga) || b.gf - a.gf || String(a.id).localeCompare(String(b.id)));
+  const type = rows[0]?.type;
+  const phase = ['group','group_stage'].includes(type) ? 'group' : ['ucl_league','swiss_ucl'].includes(type) ? 'ucl_league' : 'league';
+  const snapshots = new Map();
+  for (const m of rows) for (const side of ['home','away']) { const p = team(m,side,player); if (p && !snapshots.has(String(p.id))) snapshots.set(String(p.id),p); }
+  return calculateStandings(rows, { participant_type: player ? 'player' : 'club', phase }).rows.map(r => ({ ...snapshots.get(r.id), ...r, points: r.Pts, gf: r.GF, ga: r.GA }));
 }
 function shuffled(list) {
   const out = [...list];
@@ -53,6 +51,27 @@ function planTournamentProgression(t, matches, shuffle = shuffled) {
   const player = t.participant_type === 'player';
   const plan = { fixtures: [], remove: [], conflicts: [], completed: false };
   if (!['in_progress', 'completed'].includes(t.status)) return plan;
+  const registeredKey = player ? 'registered_players' : 'registered_clubs';
+  if (['league','swiss_ucl','group_stage'].includes(t.type) && t[registeredKey] != null) {
+    const registered = parse(t[registeredKey]);
+    const kind = player ? 'player' : 'club';
+    const participants = registered.map(id => {
+      const snapshot = matches.flatMap(m => ['home','away'].map(side => ({ id: m[`${side}_${kind}_id`], name: m[`${side}_${kind}_name`] }))).find(p => String(p.id) === String(id));
+      return { ...snapshot, id };
+    });
+    const phaseName = t.type === 'group_stage' ? 'group' : t.type === 'swiss_ucl' ? 'ucl_league' : 'league';
+    const calculation = calculateStandings(matches, { participants, participant_type: kind, phase: phaseName });
+    if (calculation.issues.some(i => i.code !== 'missing_profile')) {
+      plan.conflicts.push('Standings contain invalid or contradictory results; authorised review is required.');
+      return plan;
+    }
+    if (t.type === 'swiss_ucl' && (participants.length !== 36 || Number(t.league_phase_rounds || 8) !== 8)) {
+      plan.conflicts.push('Swiss UCL requires 36 registered participants and eight league-phase rounds.');
+      return plan;
+    }
+    const games = t.type === 'league' ? 2 * (calculation.rows.length - 1) : 8;
+    if (t.type !== 'group_stage' && calculation.rows.some(row => row.P !== games)) return plan;
+  }
   const badThird = !eligibleThird(t) ? matches.filter(m => thirds.has(m.type)) : [];
   for (const row of badThird) {
     if (hasActivity(row)) plan.conflicts.push(`Third-Place Playoff ${row.id} has activity and requires admin resolution.`);
@@ -95,13 +114,21 @@ function planTournamentProgression(t, matches, shuffle = shuffled) {
   const phase = type => rows.filter(m => m.type === type);
   if (t.type === 'league') {
     const league = phase('league');
-    if (complete(league)) { plan.completed = true; plan.winner = standings(league, player)[0]; }
+    if (complete(league)) {
+      const table = standings(league, player);
+      if (table.length < 2 || table[1].rank === 1) plan.conflicts.push('League finishing positions remain tied under points, goal difference and goals scored; authorised sporting resolution is required.');
+      else { plan.completed = true; plan.winner = table[0]; }
+    }
     return plan;
   }
   if (t.type === 'group_stage' && !rows.some(m => !['group', 'group_stage'].includes(m.type))) {
     const groups = rows.filter(m => ['group', 'group_stage'].includes(m.type));
     if (!complete(groups)) return plan;
     const tables = Array.from({ length: Number(t.num_groups || 2) }, (_, g) => standings(groups.filter(m => Number(m.group_number ?? m.group ?? 0) === g), player));
+    if (tables.some(table => table.slice(1, 3).some((row, i) => row.rank === table[i].rank))) {
+      plan.conflicts.push('Group qualification/seeding remains tied under the configured sporting criteria. Authorised resolution is required.');
+      return plan;
+    }
     const pairs = [];
     if (tables.length === 1 && tables[0].length >= 2) pairs.push([tables[0][0], tables[0][1]]);
     for (let g = 0; g < tables.length; g += 2) {
@@ -117,6 +144,10 @@ function planTournamentProgression(t, matches, shuffle = shuffled) {
     const league = phase('ucl_league');
     if (!complete(league) || new Set(league.map(m => Number(m.round))).size < Number(t.league_phase_rounds || 8)) return plan;
     const table = standings(league, player);
+    if (table.some((row, i) => i > 0 && i < 24 && row.rank === table[i - 1].rank)) {
+      plan.conflicts.push('UCL qualification/seeding remains tied under the configured sporting criteria. Authorised resolution is required.');
+      return plan;
+    }
     if (!phase('ucl_playoff').length) {
       if (table.length < 24) return plan;
       for (let i = 0; i < 8; i++) add(table[23 - i], table[8 + i], 9, 'ucl_playoff', i, league.map(m => m.id), 2);

@@ -1,27 +1,36 @@
 import { cn } from "@/lib/utils";
 import { Trophy } from "lucide-react";
 import UCLStandings from "./UCLStandings";
-import { calculateLeagueStandings } from "../lib/tournamentEngine";
+import { calculateStandings } from "../lib/standingsCore";
+import StandingsWarnings from './StandingsWarnings';
+import { useTranslation } from '@/hooks/useTranslation';
 
-export default function TournamentStandingsTabs({ tournament, matches, registeredClubs, groupStandingsData, activeTab }) {
+export default function TournamentStandingsTabs({ tournament, matches, registeredClubs = [], groupStandingsData, activeTab }) {
+  const { t } = useTranslation();
   const type = tournament?.type;
+  const player = tournament?.participant_type === 'player';
+  const ids = tournament?.[player ? 'registered_players' : 'registered_clubs'] || [];
+  const participants = ids.map(id => tournament?.standing_participants?.find(p => String(p.id) === String(id)) || registeredClubs.find(c => String(c.id) === String(id)) || { id });
+  const options = { ...tournament, tournament_id: tournament.id, participants };
   const panelClip = { clipPath: "polygon(18px 0, 100% 0, calc(100% - 18px) 100%, 0 100%)" };
 
   // ── League Standings ──────────────────────────────────────────────────────
   const LeagueStandings = () => {
-    const standings = calculateLeagueStandings(matches);
+    const { rows: standings, issues } = calculateStandings(matches, options);
     if (standings.length === 0) return (
       <div className="bg-card border border-border rounded-xl p-8 text-center">
         <Trophy className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-        <p className="text-muted-foreground text-sm">Standings will appear as matches are completed.</p>
+        <p className="text-muted-foreground text-sm">No registered participants yet.</p>
       </div>
     );
-    const allDone = matches.length > 0 && matches.every(m => m.status === "completed" || m.status === "forfeit");
+    const allDone = tournament.status === 'completed' && !issues.length && standings.every(r => r.rank !== 1 || r.id === standings[0].id);
     const total = standings.length;
     const relegZone = total >= 6 ? 3 : total >= 4 ? 2 : total >= 3 ? 1 : 0;
     return (
       <div className="relative overflow-hidden border border-cyan-200/15 bg-[#07121f]/90 p-4 shadow-[0_0_38px_rgba(148,163,184,0.08)]" style={panelClip}>
         <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-slate-200/55 to-transparent" />
+        <StandingsWarnings issues={issues} />
+        {tournament.status === 'completed' && standings.some((row,i) => i > 0 && row.rank === standings[i-1].rank) && <p role="status" className="mb-3 text-warning">{t('tournamentDetail.standingsTied', 'Finishing positions remain tied under the sporting criteria. Qualification and paid positions require review.')}</p>}
         {allDone && (
           <div className="mb-3 flex flex-wrap gap-2">
             <div className="border border-amber-200/25 bg-amber-300/10 px-3 py-1 text-xs font-medium text-amber-100">#1 · Champion</div>
@@ -33,7 +42,7 @@ export default function TournamentStandingsTabs({ tournament, matches, registere
             <thead>
               <tr className="border-b border-white/10 bg-white/[0.035] text-xs text-muted-foreground uppercase tracking-wider">
                 <th className="text-left px-2 py-2.5">#</th>
-                <th className="text-left px-2 py-2.5">Club</th>
+                <th className="text-left px-2 py-2.5">{player ? t('competitionFlow.player', 'Player') : t('competitionFlow.club', 'Club')}</th>
                 <th className="px-1.5 py-2.5 text-center">P</th>
                 <th className="px-1.5 py-2.5 text-center">W</th>
                 <th className="px-1.5 py-2.5 text-center">D</th>
@@ -56,10 +65,11 @@ export default function TournamentStandingsTabs({ tournament, matches, registere
                     isElim && "bg-red-400/5 border-l-2 border-l-red-300/50",
                     isBoundary && "border-b-2 border-b-red-300/30"
                   )}>
-                    <td className="px-2 py-2 text-muted-foreground">{i + 1}</td>
+                    <td className="px-2 py-2 text-muted-foreground">{row.rank}</td>
                     <td className="px-2 py-2 font-medium text-foreground">
                       <div className="flex items-center gap-1.5">
                         {isChamp && <Trophy className="w-3 h-3 text-warning shrink-0" />}
+                        {row.avatar_url && <img src={row.avatar_url} alt="" className="h-6 w-6 object-cover" />}
                         <span className="truncate">{row.name}</span>
                       </div>
                     </td>
@@ -160,9 +170,10 @@ export default function TournamentStandingsTabs({ tournament, matches, registere
 
   return (
     <>
-      {type === "league" && activeTab === "league_standings" && <LeagueStandings />}
-      {type === "swiss_ucl" && activeTab === "ucl_standings" && (
-        <UCLStandings matches={matches} registeredClubs={registeredClubs} />
+      {tournament.standings_load_error && <p role="alert" className="mb-3 text-warning">{t('tournamentDetail.standingsUnavailable', 'Standings are unavailable because the complete fixture feed could not be loaded.')}</p>}
+      {!tournament.standings_load_error && type === "league" && activeTab === "league_standings" && <LeagueStandings />}
+      {!tournament.standings_load_error && type === "swiss_ucl" && activeTab === "ucl_standings" && (
+        <UCLStandings matches={matches} registeredClubs={participants} tournament={tournament} />
       )}
       {type === "group_stage" && activeTab === "standings" && <GroupStandings />}
     </>

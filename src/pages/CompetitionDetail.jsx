@@ -7,6 +7,7 @@ import TrophyHistorySection from "@/components/rewards/TrophyHistorySection";
 import FixtureSchedulerPanel from "@/components/schedule/FixtureSchedulerPanel";
 import { cn } from "@/lib/utils";
 import { getCompetitionMeta, sortStandings } from "@/lib/competitionUtils";
+import StandingsIntegrityNotice from '@/components/StandingsIntegrityNotice';
 import { isAppAdminUser } from "@/lib/adminAuth";
 import { createMatchFromFixture } from "@/lib/gameDayIntegration";
 import { swalAlert, swalConfirm } from "@/lib/swal";
@@ -36,24 +37,18 @@ const STATUS_LABEL = {
   archived: "Archived",
 };
 
-function standingActivityScore(row) {
-  return Number(row?.played || 0) * 1000
-    + Number(row?.points || 0) * 100
-    + Number(row?.wins || 0) * 10
-    + Number(row?.goal_difference || 0);
-}
-
 function dedupeCompetitionStandingsByClub(rows = []) {
   const byClub = new Map();
   for (const row of rows) {
     if (!row?.club_id) continue;
     const key = String(row.club_id);
-    const current = byClub.get(key);
-    if (!current || standingActivityScore(row) > standingActivityScore(current)) {
+    if (!byClub.has(key)) {
       byClub.set(key, row);
+    } else {
+      byClub.set(key, null);
     }
   }
-  return [...byClub.values()];
+  return [...byClub.values()].filter(Boolean);
 }
 
 function FormBadge({ result }) {
@@ -545,7 +540,7 @@ export default function CompetitionDetail() {
     setLoading(true);
     try {
       const [rows, fx, qual] = await Promise.all([
-        stageClient.entities.CompetitionStanding.filter({ season_id: season.id }, null, 100).catch(() => []),
+        stageClient.http.get(`/competition-views/competition_season/${encodeURIComponent(season.id)}`).then(view => view.standings).catch(() => []),
         stageClient.entities.CompetitionFixture.filter({ season_id: season.id }, "matchday", 300).catch(() => []),
         stageClient.entities.QualificationEntry.filter({ target_season_id: season.id }, null, 50).catch(() => []),
       ]);
@@ -867,6 +862,7 @@ export default function CompetitionDetail() {
               </div>
             )}
 
+            {selectedSeason && <StandingsIntegrityNotice kind="competition_season" editionId={selectedSeason.id} isAdmin={isAdmin} onRefresh={() => loadSeasonData(selectedSeason)} />}
             {activeTab === "table" && (
               <StandingsTable
                 standings={uniqueStandings}

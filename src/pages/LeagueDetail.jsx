@@ -8,11 +8,12 @@ import {
   Check, Clock, Shield, Zap, ExternalLink
 } from "lucide-react";
 import TrophyHistorySection from "@/components/rewards/TrophyHistorySection";
+import StandingsIntegrityNotice from '@/components/StandingsIntegrityNotice';
 import { Button } from "@/components/ui/button";
 import FixtureSchedulerPanel from "@/components/schedule/FixtureSchedulerPanel";
 import { STAGE_QUALIFICATION_RULES, withCanonicalRegionalLeagueName } from "@/lib/qualificationConfig";
 import { getRegionalLeagueMaxClubs } from "@/lib/regionalLeagueRules";
-import { generateRegionalLeagueFixtures } from "@/lib/competitionUtils";
+import { generateRegionalLeagueFixtures, sortStandings } from "@/lib/competitionUtils";
 import { swalAlert, swalConfirm } from "@/lib/swal";
 import { useTranslation } from "@/hooks/useTranslation";
 import PageBannerShell from "@/components/PageBannerShell";
@@ -101,7 +102,7 @@ export default function LeagueDetail() {
       setPrevSeasons(siblings);
 
       const [leagueStandings, leagueFixtures] = await Promise.all([
-        stageClient.entities.RegionalLeagueStanding.filter({ league_id: found.id }, null, 50).catch(() => []),
+        stageClient.http.get(`/competition-views/regional_league/${encodeURIComponent(found.id)}`).then(view => view.standings).catch(() => []),
         (stageClient.entities.RegionalLeagueFixture
           ?.filter({ league_id: found.id }, null, 500)
           ?? Promise.resolve([])
@@ -177,9 +178,7 @@ export default function LeagueDetail() {
   const matchdays = [...new Set(fixtures.map(f => f.matchday))].sort((a, b) => a - b);
 
   // Sort standings
-  const sortedStandings = [...standings].sort((a, b) =>
-    b.points - a.points || (b.goals_for - b.goals_against) - (a.goals_for - a.goals_against)
-  );
+  const sortedStandings = sortStandings(standings);
   const playedFixtures = fixtures.filter(f => f.status === "played" || f.status === "completed");
   const scheduledFixtures = fixtures.filter(f => f.scheduling_status === "confirmed");
   const myFixtures = myClub ? fixtures.filter(f => f.home_club_id === myClub.id || f.away_club_id === myClub.id) : [];
@@ -281,6 +280,7 @@ export default function LeagueDetail() {
           </div>
         </section>
 
+        <StandingsIntegrityNotice kind="regional_league" editionId={league.id} isAdmin={user?.role === 'admin'} onRefresh={load} />
         {/* Tabs */}
         <div className="flex gap-7 overflow-x-auto">
           {[

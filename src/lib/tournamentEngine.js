@@ -1,3 +1,4 @@
+import { calculateStandings } from './standingsCore.js';
 // Tournament Engine — auto-generate matches for any format
 
 export function shuffleArray(arr) {
@@ -95,23 +96,8 @@ export function getSwissUclDisplayMatches(matches) {
 }
 
 // League standings from all league matches
-export function calculateLeagueStandings(matches) {
-  const table = {};
-  matches
-    .filter(m => m.type === "league" && (m.status === "completed" || m.status === "forfeit"))
-    .forEach(m => {
-      if (!table[m.home_club_id]) table[m.home_club_id] = { id: m.home_club_id, name: m.home_club_name, P: 0, W: 0, D: 0, L: 0, GF: 0, GA: 0, GD: 0, Pts: 0 };
-      if (!table[m.away_club_id]) table[m.away_club_id] = { id: m.away_club_id, name: m.away_club_name, P: 0, W: 0, D: 0, L: 0, GF: 0, GA: 0, GD: 0, Pts: 0 };
-      const h = table[m.home_club_id], a = table[m.away_club_id];
-      h.P++; a.P++;
-      h.GF += m.home_score || 0; h.GA += m.away_score || 0;
-      a.GF += m.away_score || 0; a.GA += m.home_score || 0;
-      h.GD = h.GF - h.GA; a.GD = a.GF - a.GA;
-      if (m.winner_club_id === m.home_club_id) { h.W++; h.Pts += 3; a.L++; }
-      else if (m.winner_club_id === m.away_club_id) { a.W++; a.Pts += 3; h.L++; }
-      else { h.D++; h.Pts++; a.D++; a.Pts++; }
-    });
-  return Object.values(table).sort((a, b) => b.Pts - a.Pts || b.GD - a.GD || b.GF - a.GF);
+export function calculateLeagueStandings(matches, options = {}) {
+  return calculateStandings(matches, { ...options, phase: 'league' }).rows;
 }
 
 // Group Stage: split clubs into groups, round-robin within each group
@@ -514,6 +500,7 @@ export function calculateGroupStandings(matches, numGroups, participantType = "c
 // 36 teams, 8 matchday rounds (4H 4A each), then playoff (9-24), then knockout
 
 export function generateUCLLeaguePhase(clubs) {
+  if (clubs.length !== 36) throw new Error('Swiss UCL requires 36 registered participants.');
   if (clubs.length < 2) return [];
   const shuffled = shuffleArray([...clubs]);
   const n = shuffled.length;
@@ -554,23 +541,8 @@ export function generateUCLLeaguePhase(clubs) {
 }
 
 // Calculate UCL league standings from ucl_league matches
-export function calculateUCLStandings(matches) {
-  const table = {};
-  matches
-    .filter(m => m.type === "ucl_league" && (m.status === "completed" || m.status === "forfeit"))
-    .forEach(m => {
-      if (!table[m.home_club_id]) table[m.home_club_id] = { id: m.home_club_id, name: m.home_club_name, P: 0, W: 0, D: 0, L: 0, GF: 0, GA: 0, GD: 0, Pts: 0 };
-      if (!table[m.away_club_id]) table[m.away_club_id] = { id: m.away_club_id, name: m.away_club_name, P: 0, W: 0, D: 0, L: 0, GF: 0, GA: 0, GD: 0, Pts: 0 };
-      const h = table[m.home_club_id], a = table[m.away_club_id];
-      h.P++; a.P++;
-      h.GF += m.home_score || 0; h.GA += m.away_score || 0;
-      a.GF += m.away_score || 0; a.GA += m.home_score || 0;
-      h.GD = h.GF - h.GA; a.GD = a.GF - a.GA;
-      if (m.winner_club_id === m.home_club_id) { h.W++; h.Pts += 3; a.L++; }
-      else if (m.winner_club_id === m.away_club_id) { a.W++; a.Pts += 3; h.L++; }
-      else { h.D++; h.Pts++; a.D++; a.Pts++; }
-    });
-  return Object.values(table).sort((a, b) => b.Pts - a.Pts || b.GD - a.GD || b.GF - a.GF);
+export function calculateUCLStandings(matches, options = {}) {
+  return calculateStandings(matches, { ...options, phase: 'ucl_league' }).rows;
 }
 
 // Generate UCL Playoff draw (teams ranked 9-24, 2 legs each)

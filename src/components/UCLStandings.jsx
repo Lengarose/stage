@@ -1,5 +1,8 @@
 import { cn } from "@/lib/utils";
 import { Trophy } from "lucide-react";
+import { calculateStandings } from '@/lib/standingsCore';
+import StandingsWarnings from './StandingsWarnings';
+import { useTranslation } from '@/hooks/useTranslation';
 
 // Zones:  top 8 = auto qualify (green), 9-24 = playoff (amber), 25-36 = eliminated (red)
 const ZONE_CONFIG = [
@@ -12,33 +15,15 @@ function getZone(rank) {
   return ZONE_CONFIG.find(z => rank >= z.from && rank <= z.to) || ZONE_CONFIG[2];
 }
 
-export default function UCLStandings({ matches, registeredClubs }) {
-  const leagueMatches = matches.filter(m => m.type === "swiss_ucl" || m.type === "ucl_league");
-  const leagueRounds = [...new Set(leagueMatches.map(m => m.round))];
-  const allRoundsDone = leagueRounds.length >= 8 && leagueMatches.every(m => m.status === "completed" || m.status === "forfeit");
-  const showZones = allRoundsDone;
-
-  const table = {};
-  registeredClubs.forEach(c => {
-    table[c.id] = { id: c.id, name: c.name, P: 0, W: 0, D: 0, L: 0, GF: 0, GA: 0, GD: 0, Pts: 0 };
-  });
-
-  matches
-    .filter(m => (m.type === "swiss_ucl" || m.type === "ucl_league") && (m.status === "completed" || m.status === "forfeit"))
-    .forEach(m => {
-      if (!table[m.home_club_id]) table[m.home_club_id] = { id: m.home_club_id, name: m.home_club_name, P: 0, W: 0, D: 0, L: 0, GF: 0, GA: 0, GD: 0, Pts: 0 };
-      if (!table[m.away_club_id]) table[m.away_club_id] = { id: m.away_club_id, name: m.away_club_name, P: 0, W: 0, D: 0, L: 0, GF: 0, GA: 0, GD: 0, Pts: 0 };
-      const h = table[m.home_club_id], a = table[m.away_club_id];
-      h.P++; a.P++;
-      h.GF += m.home_score || 0; h.GA += m.away_score || 0;
-      a.GF += m.away_score || 0; a.GA += m.home_score || 0;
-      h.GD = h.GF - h.GA; a.GD = a.GF - a.GA;
-      if (m.winner_club_id === m.home_club_id) { h.W++; h.Pts += 3; a.L++; }
-      else if (m.winner_club_id === m.away_club_id) { a.W++; a.Pts += 3; h.L++; }
-      else { h.D++; h.Pts++; a.D++; a.Pts++; }
-    });
-
-  const sorted = Object.values(table).sort((a, b) => b.Pts - a.Pts || b.GD - a.GD || b.GF - a.GF);
+export default function UCLStandings({ matches, registeredClubs, tournament }) {
+  const { t } = useTranslation();
+  const { rows: sorted, issues } = calculateStandings(matches, { ...tournament, tournament_id: tournament?.id, participants: registeredClubs, phase: 'ucl_league' });
+  // The existing draw engine defines 36 entrants, eight games each and 8/16 zones.
+  // Nonstandard historical configurations remain visible, without invented zones.
+  const standard = sorted.length === 36 && Number(tournament?.league_phase_rounds || 8) === 8;
+  const showZones = standard && !issues.length && sorted.every(r => r.P === 8)
+    && sorted.every((r, i) => i === 0 || i >= 24 || r.rank === i + 1)
+    && matches.some(m => ['ucl_playoff','ucl_r16','ucl_qf','ucl_sf','final'].includes(m.type));
   const panelClip = { clipPath: "polygon(18px 0, 100% 0, calc(100% - 18px) 100%, 0 100%)" };
 
   return (
@@ -54,16 +39,17 @@ export default function UCLStandings({ matches, registeredClubs }) {
         </div>
       ) : (
         <div className="text-xs text-muted-foreground px-1">
-          Zone highlighting will appear once all 8 rounds are completed ({leagueRounds.length}/8 rounds played).
+          {standard ? 'Qualification zones await all confirmed league-phase results and resolved qualifying ties.' : 'This roster does not match the supported 36-participant, eight-round UCL configuration. Qualification requires review.'}
         </div>
       )}
+      <StandingsWarnings issues={issues} />
 
       <div className="overflow-x-auto border border-white/10 bg-black/20">
         <table className="w-full text-xs">
           <thead>
             <tr className="border-b border-white/10 bg-white/[0.035] text-xs text-muted-foreground uppercase tracking-wider">
               <th className="px-2 py-2 text-left w-7">#</th>
-              <th className="px-2 py-2 text-left">Club</th>
+              <th className="px-2 py-2 text-left">{tournament?.participant_type === 'player' ? t('competitionFlow.player', 'Player') : t('competitionFlow.club', 'Club')}</th>
               <th className="px-1.5 py-2 text-center">P</th>
               <th className="px-1.5 py-2 text-center">W</th>
               <th className="px-1.5 py-2 text-center">D</th>
@@ -75,8 +61,8 @@ export default function UCLStandings({ matches, registeredClubs }) {
             </tr>
           </thead>
           <tbody>
-            {sorted.map((row, i) => {
-              const rank = i + 1;
+            {sorted.map((row) => {
+              const rank = row.rank;
               const zone = getZone(rank);
               const isZoneBoundary = rank === 8 || rank === 24;
               return (
@@ -100,6 +86,7 @@ export default function UCLStandings({ matches, registeredClubs }) {
                     )}
                   </td>
                   <td className="px-2 py-1.5">
+                    {row.avatar_url && <img src={row.avatar_url} alt="" className="mr-2 inline-block h-6 w-6 object-cover" />}
                     <span className="font-semibold text-foreground">{row.name}</span>
                   </td>
                   <td className="px-1.5 py-1.5 text-center text-muted-foreground">{row.P}</td>
@@ -119,7 +106,7 @@ export default function UCLStandings({ matches, registeredClubs }) {
               <tr>
                 <td colSpan={10} className="px-4 py-8 text-center text-muted-foreground text-sm">
                   <Trophy className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                  Standings will appear as matches are played.
+                  No registered participants yet.
                 </td>
               </tr>
             )}

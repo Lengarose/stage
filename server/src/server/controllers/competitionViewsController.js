@@ -27,17 +27,23 @@ router.get('/:kind/:id/statistics', wrap(async (req,res) => {
 }));
 router.get('/:kind/:id', wrap(async (req,res) => {
   const scope = await model.selectOne(req.params.kind,req.params.id);
+  if (req.query.review === 'standings') {
+    if (!['regional_league','competition_season'].includes(req.params.kind)) return res.status(400).json({error:'Unsupported standings edition'});
+    const report = require('../lib/standingIntegrity').reviewStandings(scope);
+    return res.json(pick(report,['competition_id','edition_id','missing','duplicates','invalid','mismatches','conflicts','repairable','requires_review','expected']));
+  }
   const ids = scope.participants.map(p => p.id);
   const clubs = ids.length ? await EXECUTESQL(`SELECT id,president_user_id,user_id,owner_email FROM clubs WHERE id IN (${ids.map(() => '?').join(',')})`,ids) : [];
   const [user] = await EXECUTESQL('SELECT id,email FROM users WHERE id=?',[req.user.id]);
   const allowed = clubs.filter(c => c.president_user_id === user?.id || c.user_id === user?.id || (user?.email && String(c.owner_email || '').toLowerCase() === user.email.toLowerCase())).map(c=>c.id);
-  res.json({ root:pick(scope.root,['id','name','type','format','league_only','status','season_number','competition_id']),edition_id:scope.edition_id,participants:scope.participants.map(p=>pick(p,['id','name','gamertag','logo_url','avatar_url'])),matches:scope.matches.map(m=>({...pick(m,matchFields),can_schedule:allowed.includes(m.home_club_id)})),standings:scope.standings.map(s=>pick(s,['id','club_id','club_name','club_logo_url','played','won','drawn','lost','points','goals_for','goals_against','goal_difference','final_position'])) });
+  res.json({ root:pick(scope.root,['id','name','type','format','league_only','status','season_number','competition_id']),edition_id:scope.edition_id,participants:scope.participants.map(p=>pick(p,['id','name','gamertag','logo_url','avatar_url'])),matches:scope.matches.map(m=>({...pick(m,matchFields),can_schedule:allowed.includes(m.home_club_id)})),standings:scope.standings.map(s=>pick(s,['id','club_id','club_name','club_logo_url','club_tag','played','won','drawn','lost','wins','draws','losses','points','goals_for','goals_against','goal_difference','final_position','position','is_excluded','form','season_number','league_id','season_id','region','platform'])) });
 }));
 router.post('/:kind/:id/reconcile', wrap(async (req,res) => {
   const [admin] = await EXECUTESQL('SELECT id,email,role_id FROM users WHERE id=?',[req.user.id]);
   if (!admin || ![0,2].includes(Number(admin.role_id))) return res.status(403).json({error:'Admin access required'});
   const apply = req.body?.apply === true;
   if (apply && !String(req.body.reason || '').trim()) return res.status(400).json({error:'A reason is required to apply reconciliation'});
+  if (req.body?.action === 'standings') return res.json(await require('../services/standingIntegrityService').reconcileStandings(req.params.kind, req.params.id, { apply, admin, reason: req.body.reason }));
   if (req.body?.action === 'progression') {
     if (!['regional_league','competition_season'].includes(req.params.kind)) return res.status(400).json({error:'Use tournament progression reconciliation for tournament draws'});
     const scope = await model.selectOne(req.params.kind,req.params.id);

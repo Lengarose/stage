@@ -74,12 +74,11 @@ function normalizeMatch(row) {
 }
 
 export async function fetchTournamentMatches(tournamentId) {
-  try {
-    const rows = await stageClient.http.get(`/public/tournaments/${encodeURIComponent(tournamentId)}/matches`);
-    return Array.isArray(rows) ? rows.map(normalizeMatch) : [];
-  } catch (error) {
-    return stageClient.entities.Match.filter({ tournament_id: tournamentId }, "round");
-  }
+  // The private Match route is restricted to the viewer's own fixtures. It is
+  // not a complete competition feed and must never be used as a table fallback.
+  const rows = await stageClient.http.get(`/public/tournaments/${encodeURIComponent(tournamentId)}/matches`);
+  if (!Array.isArray(rows)) throw new Error('The complete tournament fixture feed is unavailable.');
+  return rows.filter(row => String(row.tournament_id) === String(tournamentId)).map(normalizeMatch);
 }
 
 export async function fetchTournamentPublic(tournamentId) {

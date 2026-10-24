@@ -41,11 +41,14 @@ export function getCompetitionMeta(slug) {
 }
 
 export function sortStandings(standings) {
-  return [...standings].filter(s => !s.is_excluded).sort((a, b) => {
-    if (b.points !== a.points) return b.points - a.points;
-    if (b.goal_difference !== a.goal_difference) return b.goal_difference - a.goal_difference;
-    if (b.goals_for !== a.goals_for) return b.goals_for - a.goals_for;
-    return a.club_name.localeCompare(b.club_name);
+  const counts = new Map();
+  for (const row of standings) if (row.club_id != null && String(row.club_id).trim()) counts.set(String(row.club_id), (counts.get(String(row.club_id)) || 0) + 1);
+  return [...standings].filter(s => !s.is_excluded && counts.get(String(s.club_id)) === 1).sort((a, b) => {
+    return Number(b.points || 0) - Number(a.points || 0)
+      || Number(b.goal_difference || 0) - Number(a.goal_difference || 0)
+      || Number(b.goals_for || 0) - Number(a.goals_for || 0)
+      || String(a.club_name || '').localeCompare(String(b.club_name || ''))
+      || String(a.club_id).localeCompare(String(b.club_id));
   });
 }
 

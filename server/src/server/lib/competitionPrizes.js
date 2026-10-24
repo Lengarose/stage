@@ -1,6 +1,6 @@
 'use strict';
 const { isConfirmedResult } = require('./tournamentStatistics');
-const { standings, resolvedTie, parse } = require('./tournamentProgression');
+const { resolvedTie, parse } = require('./tournamentProgression');
 function cents(value) {
   const text = String(value ?? '0');
   if (!/^\d+(\.\d{1,2})?$/.test(text)) throw new Error('STC amounts must be nonnegative decimals with at most two decimal places');
@@ -36,7 +36,17 @@ function placements(scope, config) {
   if (matches.some(m => m.status !== 'bye' && !isConfirmedResult(m))) return { map, blocked: 'Required fixtures remain unconfirmed, missing a decision, cancelled or voided' };
   if (leagueOnly) {
     const officialLeague = ['regional_league','competition_season'].includes(scope.source_type);
-    const table = officialLeague ? require('./competitionStandings').sortStandingRows(scope.standings) : standings(results, player);
+    if (officialLeague && require('./standingIntegrity').reviewStandings(scope).requires_review) return { map, blocked:'Final standings integrity requires authorised historical review before settlement' };
+    const registration = root[player ? 'registered_players' : 'registered_clubs'];
+    const roster = registration != null ? parse(registration).map(id => participants.find(p => String(p.id) === String(id)) || {id}) : participants;
+    const calculated = !officialLeague ? require('./standingsCore').calculateStandings(results, { participant_type: player ? 'player' : 'club', participants: roster, tournament_id: root.id, phase: 'league' }) : null;
+    if (calculated?.issues.some(i => i.code !== 'missing_profile')) return { map, blocked: 'Standings integrity errors require authorised review' };
+    if (calculated && registration != null && calculated.rows.some(row => row.P !== 2 * (roster.length - 1))) return { map, blocked: 'Required registered participant results are incomplete' };
+    const table = officialLeague ? require('./competitionStandings').sortStandingRows(scope.standings) : calculated.rows;
+    const tied = (a,b) => officialLeague
+      ? Number(a.points) === Number(b.points) && Number(a.goal_difference) === Number(b.goal_difference) && Number(a.goals_for) === Number(b.goals_for)
+      : a.rank === b.rank;
+    if (table.some((row, i) => i > 0 && tied(table[i - 1], row) && config.some(c => c.position === i || c.position === i + 1))) return { map, blocked: 'Paid finishing positions remain tied under sporting criteria; authorised resolution required' };
     if (officialLeague && new Set(scope.standings.map(s=>s.club_id)).size !== participants.length) return {map,blocked:'Final standings are incomplete'};
     table.forEach((row, i) => map.set(i + 1, officialLeague ? row.club_id : row.id));
     return { map };

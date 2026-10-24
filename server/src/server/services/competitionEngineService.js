@@ -703,6 +703,15 @@ async function finalizeAgreedResult(fixture, home, away) {
   return { status: 'completed', home_score: homeScore, away_score: awayScore, winner_participant_id: winnerParticipantId, progression };
 }
 
+async function assertStandingParticipants(type, column, edition, fixture) {
+  const home = String(fixture.home_club_id || '').trim(), away = String(fixture.away_club_id || '').trim();
+  if (!home || !away || home === away) return 'Invalid standing participants require admin reconciliation';
+  const rows = await EXECUTESQL(`SELECT * FROM league_entities WHERE entity_type = '${type}' AND ${column} = ? AND club_id IN (?,?)`, [edition,home,away]);
+  const parsed = rows.map(parseLeagueEntityRow);
+  if ([home,away].some(id => parsed.filter(r => String(r.club_id) === id).length !== 1)) return 'Missing or duplicate standings require admin reconciliation';
+  return null;
+}
+
 async function syncCompetitionFixtureResult(match, sourceFixtureId) {
   const rows = await EXECUTESQL(
     `SELECT * FROM league_entities
@@ -712,6 +721,7 @@ async function syncCompetitionFixtureResult(match, sourceFixtureId) {
   );
   if (!rows.length) return { synced: false, reason: 'competition_fixture_not_found' };
   const fixture = parseLeagueEntityRow(rows[0]);
+  const integrityWarning = String(fixture.phase || 'league') === 'league' ? await assertStandingParticipants('competition_standing', 'season_id', fixture.season_id, fixture) : null;
   if (fixture.stats_processed === true || Number(fixture.stats_processed || 0) === 1 || String(fixture.stats_processed || '').toLowerCase() === 'true') {
     return { synced: false, reason: 'already_processed' };
   }
@@ -749,7 +759,7 @@ async function syncCompetitionFixtureResult(match, sourceFixtureId) {
     const parsed = standingRows.map(parseLeagueEntityRow);
     const homeRow = parsed.find(row => String(row.club_id) === String(fixture.home_club_id));
     const awayRow = parsed.find(row => String(row.club_id) === String(fixture.away_club_id));
-    if (homeRow && awayRow) {
+    if (homeRow && awayRow && !integrityWarning) {
       const isDraw = homeScore === awayScore;
       const homeWin = homeScore > awayScore;
       const homeUpdate = buildStandingUpdate(homeRow, homeScore, awayScore, homeWin ? 'W' : isDraw ? 'D' : 'L');
@@ -775,7 +785,7 @@ async function syncCompetitionFixtureResult(match, sourceFixtureId) {
     }
   }
 
-  return { synced: true, source_fixture_type: 'competition_fixture', fixture: nextFixture };
+  return { synced: true, source_fixture_type: 'competition_fixture', fixture: nextFixture, integrity_warning: integrityWarning };
 }
 
 async function syncRegionalLeagueFixtureResult(match, sourceFixtureId) {
@@ -787,6 +797,7 @@ async function syncRegionalLeagueFixtureResult(match, sourceFixtureId) {
   );
   if (!rows.length) return { synced: false, reason: 'regional_league_fixture_not_found' };
   const fixture = parseLeagueEntityRow(rows[0]);
+  const integrityWarning = await assertStandingParticipants('regional_league_standing', 'league_id', fixture.league_id, fixture);
   if (fixture.stats_processed === true || Number(fixture.stats_processed || 0) === 1 || String(fixture.stats_processed || '').toLowerCase() === 'true') {
     return { synced: false, reason: 'already_processed' };
   }
@@ -818,7 +829,7 @@ async function syncRegionalLeagueFixtureResult(match, sourceFixtureId) {
   const parsed = standingRows.map(parseLeagueEntityRow);
   const homeRow = parsed.find(row => String(row.club_id) === String(fixture.home_club_id));
   const awayRow = parsed.find(row => String(row.club_id) === String(fixture.away_club_id));
-  if (homeRow && awayRow) {
+  if (homeRow && awayRow && !integrityWarning) {
     const isDraw = homeScore === awayScore;
     const homeWin = homeScore > awayScore;
     const homeUpdate = buildStandingUpdate(homeRow, homeScore, awayScore, homeWin ? 'W' : isDraw ? 'D' : 'L');
@@ -843,7 +854,7 @@ async function syncRegionalLeagueFixtureResult(match, sourceFixtureId) {
     }
   }
 
-  return { synced: true, source_fixture_type: 'regional_league_fixture', fixture: nextFixture };
+  return { synced: true, source_fixture_type: 'regional_league_fixture', fixture: nextFixture, integrity_warning: integrityWarning };
 }
 
 async function listLegacyCompetitionFixtures(seasonId) {
@@ -1449,6 +1460,12 @@ async function advanceLeagueEdition(kind, fixture, { dryRun = false, admin = nul
     const readiness = require('../lib/leagueRoundReadiness').roundReadiness(scope,fixture.phase || 'league');
     if (!readiness.ready || dryRun) return {...readiness,advanced:false};
     if (scope.root.status === 'completed') return {advanced:false,reason:'already_completed'};
+    if ((fixture.phase || 'league') === 'league') {
+      const integrity = require('../lib/standingIntegrity').reviewStandings(scope);
+      if (integrity.requires_review) return { advanced:false, reason:'Standings integrity requires authorised review', integrity };
+      const ordered = sortStandingRows(scope.standings);
+      if (ordered.some((r,i) => i > 0 && Number(r.points) === Number(ordered[i-1].points) && Number(r.goal_difference) === Number(ordered[i-1].goal_difference) && Number(r.goals_for) === Number(ordered[i-1].goals_for))) return { advanced:false, reason:'Finishing positions or qualification seeding remain tied under sporting criteria; authorised resolution required' };
+    }
     const progress = await progressionQueries.run(query,async () => {
       if (kind === 'regional_league') return advanceRegionalLeagueUnlocked(fixture);
       if (scope.root.format === 'league' || scope.root.type === 'league' || scope.root.league_only === true) {

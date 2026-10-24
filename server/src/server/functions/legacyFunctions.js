@@ -2961,6 +2961,7 @@ function buildTournamentDrawMatches(tournament, entries) {
   }
 
   if (type === 'swiss_ucl') {
+    if (seeded.length !== 36 || Number(tournament.league_phase_rounds || 8) !== 8) throw new Error('Swiss UCL requires 36 registered participants and eight league-phase rounds.');
     // Same circle schedule as the existing UCL engine, persisted server-side.
     const teams = shuffleTournamentEntries(seeded);
     if (teams.length % 2) teams.push(null);

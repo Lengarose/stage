@@ -6,7 +6,7 @@ function setup(player=false, sourceType='tournament') {
   let state={root:{id:'cup',name:'Local Cup',type:'knockout',participant_type:kind,status:'completed',prize_winner_stc:'10.01',prize_runner_up_stc:'2.50',prize_semi_final_stc:0},matches:[{id:'final',tournament_id:'cup',type:'final',status:'completed',result_state:'CONFIRMED',home_score:2,away_score:0,[`home_${kind}_id`]:'a',[`away_${kind}_id`]:'b'}],accounts:[{id:'a',stc:'100.00',email:'a@example.test'},{id:'b',stc:'100.00',email:'b@example.test'}],ledgers:[],payouts:[],metadata:[],audits:[]};
   let fail=false;
   if (sourceType !== 'tournament') {
-    Object.assign(state.root,{participant_type:'club',format:'league',season_number:1,num_league_matchdays:2,competition_id:'parent',reward_snapshot:[{position:1,stc_amount:'10.01'},{position:2,stc_amount:'2.50'}]});
+    Object.assign(state.root,{participant_type:'club',format:'league',registered_club_ids:['a','b'],season_number:1,num_league_matchdays:2,competition_id:'parent',reward_snapshot:[{position:1,stc_amount:'10.01'},{position:2,stc_amount:'2.50'}]});
     state.matches=[{id:'one',type:'league',status:'completed',result_state:'CONFIRMED',home_club_id:'a',away_club_id:'b',home_score:2,away_score:0},{id:'two',type:'league',status:'completed',result_state:'CONFIRMED',home_club_id:'b',away_club_id:'a',home_score:0,away_score:1}];
   }
   async function query(sql,v=[]) {
@@ -15,14 +15,14 @@ function setup(player=false, sourceType='tournament') {
     if (/FROM league_entities/.test(sql)) {
       if(v[1]===sourceType && v[0]==='cup') return [{...state.root,entity_type:sourceType,data_json:JSON.stringify(state.root)}];
       if(['competition_fixture','regional_league_fixture'].includes(v[0])) return state.matches.map(m=>({...m,phase:'league',match_id:m.id,data_json:JSON.stringify({...m,phase:'league',match_id:m.id,stats_processed:1})}));
-      if(['competition_standing','regional_league_standing'].includes(v[0])) return state.accounts.map((a,i)=>({id:`standing-${a.id}`,club_id:a.id,data_json:JSON.stringify({points:i===0 ? 6:0,goals_for:i===0 ? 3:0,goals_against:i===0 ? 0:3})}));
+      if(['competition_standing','regional_league_standing'].includes(v[0])) return state.accounts.map((a,i)=>({id:`standing-${a.id}`,club_id:a.id,data_json:JSON.stringify({played:2,wins:i===0 ? 2:0,draws:0,losses:i===0 ? 0:2,points:i===0 ? 6:0,goals_for:i===0 ? 3:0,goals_against:i===0 ? 0:3,goal_difference:i===0 ? 3:-3})}));
       return state.metadata.filter(m=>m.id===v[0]);
     }
     if (/FROM club_achievements/.test(sql)) return [];
     if (/FROM competition_payouts/.test(sql)) return state.payouts;
     if (/FROM competition_instances/.test(sql)) return [];
     if (/FROM (player_stc_transactions|stc_transactions)/.test(sql)) return state.ledgers;
-    if (/SELECT.*FROM (players|clubs)/.test(sql)) return /WHERE id=\?/.test(sql) ? state.accounts.filter(a=>a.id===v[0]).map(a=>({...a})) : state.accounts.map(a=>({...a}));
+    if (/SELECT.*FROM (players|clubs)/.test(sql)) return /WHERE id=\?/.test(sql) ? state.accounts.filter(a=>a.id===v[0]).map(a=>({...a})) : state.accounts.map(a=>({...a,name:a.name || a.id,gamertag:a.gamertag || a.id}));
     if (/^UPDATE (players|clubs)/.test(sql)) {const a=state.accounts.find(a=>a.id===v[1]);a.stc=stc(cents(a.stc)+cents(v[0]));return {affectedRows:1};}
     if (/^INSERT INTO/.test(sql)) {
       if (fail && /INSERT INTO (stc_transactions|player_stc_transactions)/.test(sql)) throw new Error('Injected ledger failure');

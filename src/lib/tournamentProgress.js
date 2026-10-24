@@ -48,55 +48,6 @@ function winnerId(match, participantType) {
   return participantType === "player" ? match.winner_player_id : match.winner_club_id;
 }
 
-function homeId(match, participantType) {
-  return participantType === "player" ? match.home_player_id : match.home_club_id;
-}
-
-function awayId(match, participantType) {
-  return participantType === "player" ? match.away_player_id : match.away_club_id;
-}
-
-function calculateGenericLeagueStandings(matches, participantType) {
-  const table = {};
-  matches
-    .filter((m) => String(m.type || "").toLowerCase() === "league" && isFinished(m))
-    .forEach((m) => {
-      const hId = homeId(m, participantType);
-      const aId = awayId(m, participantType);
-      if (!hId || !aId) return;
-      const hName = participantType === "player" ? m.home_player_name : m.home_club_name;
-      const aName = participantType === "player" ? m.away_player_name : m.away_club_name;
-      if (!table[hId]) table[hId] = { id: hId, name: hName, P: 0, W: 0, D: 0, L: 0, GF: 0, GA: 0, GD: 0, Pts: 0 };
-      if (!table[aId]) table[aId] = { id: aId, name: aName, P: 0, W: 0, D: 0, L: 0, GF: 0, GA: 0, GD: 0, Pts: 0 };
-      const h = table[hId];
-      const a = table[aId];
-      h.P++;
-      a.P++;
-      h.GF += m.home_score || 0;
-      h.GA += m.away_score || 0;
-      a.GF += m.away_score || 0;
-      a.GA += m.home_score || 0;
-      h.GD = h.GF - h.GA;
-      a.GD = a.GF - a.GA;
-      const w = winnerId(m, participantType);
-      if (w === hId) {
-        h.W++;
-        h.Pts += 3;
-        a.L++;
-      } else if (w === aId) {
-        a.W++;
-        a.Pts += 3;
-        h.L++;
-      } else {
-        h.D++;
-        a.D++;
-        h.Pts++;
-        a.Pts++;
-      }
-    });
-  return Object.values(table).sort((a, b) => b.Pts - a.Pts || b.GD - a.GD || b.GF - a.GF);
-}
-
 function calculateGenericGroupStandings(matches, numGroups, participantType) {
   return calculateGroupStandings(matches, numGroups, participantType);
 }
@@ -144,9 +95,10 @@ export function computeTournamentProgress(tournament, matches, participant) {
   }
 
   if (type === "league") {
-    const table = participantType === "club"
-      ? calculateLeagueStandings(matches)
-      : calculateGenericLeagueStandings(matches, participantType);
+    const table = calculateLeagueStandings(matches, {
+      participant_type: participantType, tournament_id: tournament.id,
+      participants: parseJsonList(tournament[participantType === 'player' ? 'registered_players' : 'registered_clubs']).map(id => ({ id })),
+    });
     const idx = table.findIndex((row) => row.id === participant.id);
     if (idx >= 0) {
       return {

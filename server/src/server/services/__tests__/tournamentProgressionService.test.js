@@ -45,6 +45,14 @@ function setup(participantType = 'club') {
   return { service: require(service), rows, tournament, query, audit, queries };
 }
 
+test('registration previews cannot be completed; starting the tournament unlocks result reporting', async () => {
+  const { service, tournament, rows, query } = setup('player');
+  tournament.status = 'registration';
+  await assert.rejects(service.assertTournamentMatchAction(rows[0], {result:true}, query), /Start the tournament/);
+  tournament.status = 'in_progress';
+  await service.assertTournamentMatchAction(rows[0], {result:true}, query);
+});
+
 test('the final required club confirmation creates one draw despite concurrent retries', async () => {
   const { service, rows } = setup();
   for (const row of rows.slice(0, 3)) { row.status = 'completed'; row.result_state = 'CONFIRMED'; }

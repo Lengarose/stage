@@ -18,9 +18,9 @@ class CompetitionScopeModel {
       fixtures = matches;
     } else {
       fixtures = (await query(`SELECT * FROM league_entities WHERE entity_type=? AND ${spec[3]}=?${lock ? ' FOR UPDATE' : ''}`, [spec[1], id])).map(unpack);
-      standingRows = (await query(`SELECT * FROM league_entities WHERE entity_type=? AND ${spec[3]}=?`, [spec[2], id])).map(unpack);
+      standingRows = (await query(`SELECT * FROM league_entities WHERE entity_type=? AND ${spec[3]}=?${lock ? ' FOR UPDATE' : ''}`, [spec[2], id])).map(unpack);
       const ids = fixtures.map(f => f.id), explicitIds = fixtures.map(f => f.match_id).filter(Boolean);
-      const related = ids.length ? await query(`SELECT m.*, cf.legacy_fixture_id AS mapped_fixture_id FROM matches m LEFT JOIN competition_fixtures cf ON cf.match_id=m.id WHERE m.source_fixture_id IN (${ids.map(() => '?').join(',')})${explicitIds.length ? ` OR m.id IN (${explicitIds.map(() => '?').join(',')})` : ''} OR cf.legacy_fixture_id IN (${ids.map(() => '?').join(',')}) ORDER BY m.updated_date DESC, m.id`, [...ids, ...explicitIds, ...ids]) : [];
+      const related = ids.length ? await query(`SELECT m.*, cf.legacy_fixture_id AS mapped_fixture_id FROM matches m LEFT JOIN competition_fixtures cf ON cf.match_id=m.id WHERE m.source_fixture_id IN (${ids.map(() => '?').join(',')})${explicitIds.length ? ` OR m.id IN (${explicitIds.map(() => '?').join(',')})` : ''} OR cf.legacy_fixture_id IN (${ids.map(() => '?').join(',')}) ORDER BY m.updated_date DESC, m.id${lock ? ' FOR UPDATE' : ''}`, [...ids, ...explicitIds, ...ids]) : [];
       matches = fixtures.map(f => {
         const m = related.find(m => m.id === f.match_id || m.source_fixture_id === f.id || m.mapped_fixture_id === f.id);
         const legacyConfirmed = ['played','completed','forfeit'].includes(f.status) && (Number(f.stats_processed) === 1 || f.stats_processed === true) && !['DISPUTED','VOIDED','AWAITING_AWAY_CONFIRMATION','AWAITING_HOME_REVIEW'].includes(f.result_state);
@@ -29,7 +29,7 @@ class CompetitionScopeModel {
     }
     if (spec && !root.name) root.name = root.competition_name || fixtures.find(f=>f.competition_name || f.league_name)?.competition_name || fixtures.find(f=>f.league_name)?.league_name;
     const kindName = root.participant_type === 'player' ? 'player' : 'club';
-    const ids = [...new Set([...parse(root[kindName === 'player' ? 'registered_players' : 'registered_clubs']), ...standingRows.map(s => s.club_id), ...matches.flatMap(m => [m[`home_${kindName}_id`],m[`away_${kindName}_id`]])].filter(Boolean))];
+    const ids = [...new Set([...parse(root.registered_club_ids), ...parse(root[kindName === 'player' ? 'registered_players' : 'registered_clubs']), ...standingRows.map(s => s.club_id), ...matches.flatMap(m => [m[`home_${kindName}_id`],m[`away_${kindName}_id`]])].filter(Boolean))];
     const participants = ids.length ? await query(`SELECT id, ${kindName === 'player' ? 'gamertag, avatar_url' : 'name, logo_url'} FROM ${kindName === 'player' ? 'players' : 'clubs'} WHERE id IN (${ids.map(() => '?').join(',')})`, ids) : [];
     const edition = kind === 'tournament' ? String(root.edition_id || root.id) : kind === 'regional_league' ? `${root.id}:${root.season_number || 1}` : root.id;
     return { source_type: kind, root, edition_id: edition, fixtures, matches, participants, standings: standingRows, legacy_references: [id], config_source_id: kind === 'competition_season' ? root.competition_id : id };
