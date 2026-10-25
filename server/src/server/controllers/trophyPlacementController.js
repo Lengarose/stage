@@ -16,6 +16,34 @@ router.post('/review/:ownerType/:ownerId',wrap(async(req,res)=>{
   if(!admin||![0,2].includes(Number(admin.role_id)))throw deny('Admin access required');
   res.json(req.body.apply===true?await entitlement.repair(req.params.ownerId,req.params.ownerType,req.body,admin):await entitlement.review(req.params.ownerId,req.params.ownerType));
 }));
+router.post('/confirm/:ownerType/:ownerId',wrap(async(req,res)=>{
+  const result=await withTransaction(async query=>{
+    const {ownerType,ownerId}=req.params;
+    const actor=await entitlement.assertCabinetOwner(req.user.id,ownerId,ownerType,query);
+    await query(`SELECT id FROM ${ownerType==='club'?'clubs':'players'} WHERE id=? FOR UPDATE`,[ownerId]);
+    const report=await entitlement.review(ownerId,ownerType,query);
+    const ids=req.body.placement_ids;
+    if(!Array.isArray(ids)||!ids.length||new Set(ids).size!==ids.length)throw Object.assign(new Error('Select exact draft placement IDs'),{status:400});
+    for(const id of ids) {
+      const p=report.placements.find(row=>row.id===id);
+      if(!p||!p.award_id||!report.awards.some(a=>a.id===p.award_id&&a.persisted))throw deny('Every selected placement requires its exact earned award');
+      if(!p.locked_at)await query('UPDATE trophy_placements SET locked_at=NOW() WHERE id=?',[id]);
+    }
+    if([0,2].includes(Number(actor.role_id)))await require('../services/rewardConfigurationService').audit(query,actor,'confirm_permanent_trophies','cabinet',ownerId,report.placements,{placement_ids:ids},'Admin confirmed draft placements');
+    return entitlement.review(ownerId,ownerType,query);
+  });res.json(result);
+}));
+router.post('/correct/:id',wrap(async(req,res)=>{
+  const result=await withTransaction(async query=>{
+    const [admin]=await query('SELECT id,email,role_id FROM users WHERE id=?',[req.user.id]);
+    if(!admin||![0,2].includes(Number(admin.role_id))||!String(req.body.reason||'').trim())throw deny('Admin identity and correction reason required');
+    const before=await Model.getById(req.params.id,query);if(!before)throw Object.assign(new Error('Not found'),{status:404});
+    await query(`SELECT id FROM ${before.owner_type==='club'?'clubs':'players'} WHERE id=? FOR UPDATE`,[before.owner_id]);
+    await query('UPDATE trophy_placements SET locked_at=NULL WHERE id=?',[before.id]);
+    await require('../services/rewardConfigurationService').audit(query,admin,'unlock_trophy_correction','trophy_placement',before.id,before,{...before,locked_at:null},req.body.reason);
+    return Model.getById(before.id,query);
+  });res.json(result);
+}));
 router.get('/',wrap(async(req,res)=>res.json(await Model.getAll(req.query))));
 router.get('/:id',wrap(async(req,res)=>{const row=await Model.getById(req.params.id);res.status(row?200:404).json(row||{error:'Not found'});}));
 router.post('/',wrap(async(req,res)=>{
@@ -26,12 +54,11 @@ router.post('/',wrap(async(req,res)=>{
     const actor=await entitlement.assertCabinetOwner(req.user.id,ownerId,ownerType,query);
     await query(`SELECT id FROM ${ownerType==='club'?'clubs':'players'} WHERE id=? FOR UPDATE`,[ownerId]);
     const report=await entitlement.review(ownerId,ownerType,query);
-    const earned=report.awards.filter(a=>String(a.trophy_item_id)===String(body.trophy_item_id));
-    if(!earned.length)throw deny('This owner has not earned the event trophy');
-    const existing=report.placements.find(p=>String(p.trophy_item_id)===String(body.trophy_item_id));
+    const earned=report.awards.find(a=>a.id===body.award_id&&a.persisted&&a.trophy_item_id);
+    if(!earned)throw deny('Select one exact earned award copy; a design ID alone is not entitlement');
+    const existing=report.placements.find(p=>p.award_id===earned.id);
     if(existing)return existing;
-    const [item]=await query('SELECT * FROM trophy_items WHERE id = ? LIMIT 1',[body.trophy_item_id]);
-    const created=await Model.create({owner_id:ownerId,owner_type:ownerType,trophy_item_id:item.id,trophy_image_url:item.image_url,trophy_name:item.name,win_count:earned.length,won_tournament_ids:earned.map(a=>`${a.source_type}:${a.source_id}:${a.edition_id}`),...visual(body)},query);
+    const created=await Model.create({owner_id:ownerId,owner_type:ownerType,award_id:earned.id,trophy_item_id:earned.trophy_item_id,trophy_image_url:earned.image_url,trophy_name:earned.display_name||earned.name,win_count:1,won_tournament_ids:[`${earned.source_type}:${earned.source_id}:${earned.edition_id}`],...visual(body)},query);
     if([0,2].includes(Number(actor.role_id)))await require('../services/rewardConfigurationService').audit(query,actor,'place_earned_trophy','trophy_placement',created.id,null,created,'Admin cabinet arrangement');
     return created;
   });
@@ -41,9 +68,11 @@ router.patch('/:id',wrap(async(req,res)=>{
   const updated=await withTransaction(async query=>{
   const previous=await Model.getById(req.params.id,query);if(!previous)throw Object.assign(new Error('Not found'),{status:404});
   const actor=await entitlement.assertCabinetOwner(req.user.id,previous.owner_id,previous.owner_type,query);
+  await query(`SELECT id FROM ${previous.owner_type==='club'?'clubs':'players'} WHERE id=? FOR UPDATE`,[previous.owner_id]);
+  const locked=await Model.getById(req.params.id,query);if(locked.locked_at)throw deny('Permanent placement cannot be moved or resized');
   if(Object.keys(req.body).some(k=>!['x_percent','y_percent','scale','position','slot_index'].includes(k)))throw deny('Cabinet edits cannot change ownership, trophy identity or earned history');
   const report=await entitlement.review(previous.owner_id,previous.owner_type,query);
-  if(!report.awards.some(a=>a.trophy_item_id===previous.trophy_item_id))throw deny('No verified entitlement for this placement');
+  if(!report.awards.some(a=>previous.award_id?a.id===previous.award_id:a.trophy_item_id===previous.trophy_item_id))throw deny('No verified entitlement for this placement');
   const record=await Model.update(req.params.id,visual(req.body),query);
   if([0,2].includes(Number(actor.role_id)))await require('../services/rewardConfigurationService').audit(query,actor,'move_earned_trophy','trophy_placement',previous.id,previous,record,'Admin cabinet arrangement');
   return record;
@@ -54,6 +83,8 @@ router.delete('/:id',wrap(async(req,res)=>{
   await withTransaction(async query=>{
   const previous=await Model.getById(req.params.id,query);if(!previous)throw Object.assign(new Error('Not found'),{status:404});
   const actor=await entitlement.assertCabinetOwner(req.user.id,previous.owner_id,previous.owner_type,query);
+  await query(`SELECT id FROM ${previous.owner_type==='club'?'clubs':'players'} WHERE id=? FOR UPDATE`,[previous.owner_id]);
+  const locked=await Model.getById(req.params.id,query);if(locked.locked_at)throw deny('Permanent placement cannot be removed');
   await Model.delete(req.params.id,query);
   if([0,2].includes(Number(actor.role_id)))await require('../services/rewardConfigurationService').audit(query,actor,'remove_visual_trophy_placement','trophy_placement',previous.id,previous,null,'Admin removed a visual placement; earned history retained');
   });

@@ -31,9 +31,9 @@ class TrophyPlacementModel {
       `INSERT INTO trophy_placements
         (id, owner_id, owner_type, trophy_item_id,
          trophy_image_url, trophy_name,
-         x_percent, y_percent, scale,
+         x_percent, y_percent, scale, award_id,
          won_tournament_ids, win_count, position)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id, ownerId, ownerType, data.trophy_item_id,
         data.trophy_image_url || null,
@@ -41,6 +41,7 @@ class TrophyPlacementModel {
         data.x_percent ?? 50,
         data.y_percent ?? 50,
         data.scale ?? 1,
+        data.award_id || null,
         wonIds,
         data.win_count ?? 1,
         position,

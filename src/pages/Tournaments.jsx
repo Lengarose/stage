@@ -29,6 +29,7 @@ import {
   renderTournamentRules,
 } from "@/lib/tournamentRuleTemplates";
 import { useTranslation } from "@/hooks/useTranslation";
+import TournamentArchive from '@/components/TournamentArchive';
 
 const TYPE_LABEL = {
   knockout: "KNOCKOUT", league: "LEAGUE", group_stage: "GROUP STAGE",
@@ -55,6 +56,7 @@ function cleanCountryName(name) {
 export default function Tournaments() {
   const { t, language } = useTranslation();
   const [tournaments, setTournaments] = useState([]);
+  const [archiveView,setArchiveView]=useState(false);
   const [trophyItems, setTrophyItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -255,6 +257,8 @@ export default function Tournaments() {
         </div>
 
         {/* ── Trophy Showcase ─────────────────────────────────── */}
+        <nav aria-label="Tournament views" className="flex gap-6"><button type="button" aria-pressed={!archiveView} className={!archiveView?'text-primary':'text-muted-foreground'} onClick={()=>setArchiveView(false)}>Tournaments</button><button type="button" aria-pressed={archiveView} className={archiveView?'text-primary':'text-muted-foreground'} onClick={()=>setArchiveView(true)}>Archive</button></nav>
+        {archiveView?<TournamentArchive/>:<>
         {trophyShowcase.length > 0 && (
           <TrophyShowcase tournaments={trophyShowcase} trophyItems={trophyItems} />
         )}
@@ -302,7 +306,7 @@ export default function Tournaments() {
             ))}
           </Tabs>
         </section>
-
+        </>}
       </div>
 
       {/* ── Create Tournament Dialog ─────────────────────────── */}

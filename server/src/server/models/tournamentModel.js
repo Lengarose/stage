@@ -171,7 +171,7 @@ class Tournament {
   }
 
   delete(id) {
-    return EXECUTESQL('DELETE FROM tournaments WHERE id = ?', [id]);
+    return EXECUTESQL("DELETE FROM tournaments WHERE id = ? AND status NOT IN ('completed','archived')", [id]);
   }
 }
 

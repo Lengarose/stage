@@ -43,7 +43,7 @@ test('reward configuration, snapshots, settlement/archive and entitlement-protec
     r=await request(edition,'POST',{action:'archive',reason:'Archive verified settled season'});assert.equal(r.status,200);assert.equal(env.root.status,'archived');
     r=await request('/cabinet/entitlements?owner_id=club-1&owner_type=club');assert.equal(r.status,200);assert.equal(r.data.awards.length,1);
     r=await request('/cabinet/entitlements?owner_id=club-2&owner_type=club');assert.equal(r.data.awards.length,0);
-    let placement=env.state.placements[0];assert.ok(placement);
+    r=await request('/cabinet','POST',{owner_id:'club-1',owner_type:'club',award_id:env.state.awards[0].id},'user-club-1');assert.equal(r.status,201);let placement=r.data;
     r=await request(`/cabinet/${placement.id}`,'PATCH',{x_percent:20},'intruder');assert.equal(r.status,403);
     r=await request(`/cabinet/${placement.id}`,'PATCH',{win_count:900},'user-club-1');assert.equal(r.status,403);
     r=await request(`/cabinet/${placement.id}`,'PATCH',{trophy_item_id:'wrong'},'user-club-1');assert.equal(r.status,403);
@@ -51,7 +51,7 @@ test('reward configuration, snapshots, settlement/archive and entitlement-protec
     r=await request(`/cabinet/${placement.id}`,'DELETE',null,'user-club-1');assert.equal(r.status,200);assert.equal(env.state.awards.length,1);
     r=await request('/cabinet','POST',{owner_id:'club-1',owner_type:'club',trophy_item_id:'trophy',win_count:2},'user-club-1');assert.equal(r.status,403);
     r=await request('/cabinet','POST',{owner_id:'club-2',owner_type:'club',trophy_item_id:'trophy'},'user-club-2');assert.equal(r.status,403);
-    r=await request('/cabinet','POST',{owner_id:'club-1',owner_type:'club',trophy_item_id:'trophy',x_percent:35,y_percent:45},'user-club-1');assert.equal(r.status,201,JSON.stringify(r.data));assert.equal(r.data.win_count,1);assert.equal(env.state.awards.length,1);
+    r=await request('/cabinet','POST',{owner_id:'club-1',owner_type:'club',award_id:env.state.awards[0].id,x_percent:35,y_percent:45},'user-club-1');assert.equal(r.status,201,JSON.stringify(r.data));assert.equal(r.data.win_count,1);assert.equal(env.state.awards.length,1);
     r=await request('/cabinet/review/club/club-1','POST',{});assert.equal(r.status,200);
     r=await request('/cabinet/review/club/club-1','POST',{apply:true,action:'materialize',reason:'Verify historical provenance'});assert.equal(r.status,200);assert.equal(env.state.awards.length,1);
     r=await request('/awards?owner_id=club-1&owner_type=club');assert.equal(r.status,200);assert.equal(r.data.length,1);

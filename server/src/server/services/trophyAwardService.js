@@ -1,87 +1,35 @@
 const { EXECUTESQL } = require('../db/database');
-const { v4: uuidv4 } = require('uuid');
+const {snapshot}=require('../lib/trophyHistory');
 
-function parseMaybeJson(value, fallback) {
-  if (value === undefined || value === null || value === '') return fallback;
-  if (Array.isArray(value)) return value;
-  try {
-    return JSON.parse(value);
-  } catch {
-    return fallback;
+async function loadTrophyContext({query,trophyItemId,tournament={}}) {
+  const kind=tournament._source_type||'tournament',id=tournament._source_id||tournament.id;
+  const service=require('./trophyEntitlementService');
+  let proof;
+  if(trophyItemId) proof=await service.verifiedDesign(kind,id,trophyItemId,query);
+  else {
+    const {scope,winner}=await service.outcome(kind,id,query);
+    proof={scope,winner,item:null,source_type:kind,source_id:id,edition_id:scope.edition_id};
   }
+  let rankingEligible=kind!=='tournament'||(!proof.scope.root.creator_id&&!proof.scope.root.creator_gamertag);
+  if(kind==='tournament'&&!rankingEligible) {
+    const root=proof.scope.root;
+    const admins=await query('SELECT id FROM users WHERE role_id IN (0,2) AND email IN (?,?)',[root.creator_email||'',root.organizer_email||'']);
+    rankingEligible=admins.length>0;
+  }
+  return {proof,trophyItemId:proof.item?.id||null,rankingEligible};
 }
 
-function normalizeWonIds(value) {
-  const parsed = parseMaybeJson(value, []);
-  return Array.isArray(parsed) ? parsed.map(String) : [];
-}
-
-async function loadTrophyContext({ query, trophyItemId, tournament = {} }) {
-  if (!trophyItemId) return null;
-  const proof=await require('./trophyEntitlementService').verifiedDesign(tournament._source_type||'tournament',tournament._source_id||tournament.id,trophyItemId,query);
-  const item=proof.item;
-  return {
-    proof,
-    trophyItemId,
-    trophyImageUrl: item.image_url || tournament.trophy_url || null,
-    trophyName: item.name || tournament.name || null,
-  };
-}
-
-async function awardPlacement({ query, ownerId, ownerType, context, tournamentId }) {
-  if (!ownerId || !ownerType || !context?.trophyItemId) {
-    return { awarded: false, reason: 'missing_owner_or_trophy' };
-  }
-  const proof=context.proof;
-  const clubWin=proof.scope.root.participant_type!=='player';
-  await new (require('../models/trophyAwardModel'))().create({owner_id:ownerId,owner_type:ownerType,trophy_item_id:context.trophyItemId,source_type:proof.source_type,source_id:proof.source_id,edition_id:proof.edition_id,winning_club_id:clubWin?proof.winner:null},query);
-
-  const existingRows = await query(
-    `SELECT * FROM trophy_placements
-      WHERE owner_id = ? AND owner_type = ? AND trophy_item_id = ?
-      LIMIT 1 FOR UPDATE`,
-    [ownerId, ownerType, context.trophyItemId]
-  );
-  const existing = existingRows[0];
-  const wonIds = normalizeWonIds(existing?.won_tournament_ids);
-  const tournamentKey = proof.source_type==='tournament'?proof.source_id:`${proof.source_type}:${proof.source_id}:${proof.edition_id}`;
-  if (tournamentKey && (wonIds.includes(tournamentKey)||wonIds.includes(String(tournamentId)))) {
-    return { awarded: false, skipped: true, reason: 'already_awarded', placement_id: existing?.id || null };
-  }
-
-  const nextWonIds = tournamentKey ? JSON.stringify([...wonIds, tournamentKey]) : (existing?.won_tournament_ids || null);
-
-  if (existing) {
-    await query(
-      `UPDATE trophy_placements
-          SET win_count = IFNULL(win_count, 0) + 1,
-              won_tournament_ids = ?,
-              trophy_image_url = COALESCE(trophy_image_url, ?),
-              trophy_name = COALESCE(trophy_name, ?),
-              updated_date = NOW()
-        WHERE id = ?`,
-      [nextWonIds, context.trophyImageUrl, context.trophyName, existing.id]
-    );
-    return { awarded: true, placement_id: existing.id, updated: true };
-  }
-
-  const placementId = uuidv4();
-  await query(
-    `INSERT INTO trophy_placements
-      (id, owner_id, owner_type, trophy_item_id, trophy_image_url, trophy_name,
-       x_percent, y_percent, scale, win_count, won_tournament_ids, position, created_date, updated_date)
-     VALUES (?, ?, ?, ?, ?, ?, 50, 50, 1, 1, ?, 0, NOW(), NOW())`,
-    [
-      placementId,
-      ownerId,
-      ownerType,
-      context.trophyItemId,
-      context.trophyImageUrl,
-      context.trophyName,
-      nextWonIds,
-    ]
-  );
-  return { awarded: true, placement_id: placementId, created: true };
+async function awardPlacement({query,ownerId,ownerType,context}) {
+  if(!ownerId||!context)return {awarded:false,reason:'missing_owner'};
+  const proof=context.proof,clubWin=proof.scope.root.participant_type!=='player';
+  const role=ownerType==='club'?'club_champion':clubWin?'associated_player':'player_champion';
+  const id=await new (require('../models/trophyAwardModel'))().create({
+    owner_id:ownerId,owner_type:ownerType,trophy_item_id:context.trophyItemId,
+    source_type:proof.source_type,source_id:proof.source_id,edition_id:proof.edition_id,
+    winning_club_id:clubWin?proof.winner:null,award_role:role,
+    metadata_json:{...snapshot(proof,role,context.rankingEligible),...(role==='club_champion'?{honoured_player_ids:context.playerIds||[],associated_history_unavailable:!!context.historicalBackfill}: {})}
+  },query);
+  return {awarded:true,award_id:id};
 }
 
 async function selectActiveClubPlayerIds({ query, clubId }) {
@@ -102,7 +50,7 @@ async function selectActiveClubPlayerIds({ query, clubId }) {
          OR cm.id IS NOT NULL
          OR pc.id IS NOT NULL`,
     [clubId, clubId, clubId]
-  ).catch(() => []);
+  );
   return [...new Set(rows.map(row => row.id).filter(Boolean).map(String))];
 }
 
@@ -117,6 +65,11 @@ async function awardClubTrophyToClubAndPlayers({
   const context = await loadTrophyContext({ query, trophyItemId: resolvedTrophyItemId, tournament:{...tournament,id:tournament.id||tournamentId} });
   if (!context || !clubId) return { awarded: false, reason: 'missing_trophy_or_winner' };
   if(context.proof.scope.root.participant_type==='player'||String(clubId)!==context.proof.winner)throw Object.assign(new Error('Only the authoritative winning club earns this trophy'),{status:409});
+  const previous=await new (require('../models/trophyAwardModel'))().selectAll({owner_id:clubId,owner_type:'club',source_type:context.proof.source_type,source_id:context.proof.source_id,edition_id:context.proof.edition_id},query);
+  if(previous.some(a=>a.status==='revoked'&&(a.award_key||String(a.revoked_reason||'').startsWith('[history-reset]'))))return {awarded:false,reason:'revoked_history'};
+  const historic=previous.find(a=>require('../lib/trophyHistory').durable(a));
+  context.historicalBackfill=!!tournament._historical_backfill&&!historic;
+  context.playerIds=historic?require('../lib/trophyHistory').parse(historic.metadata_json).honoured_player_ids||[]:context.historicalBackfill?(await new (require('../models/trophyAwardModel'))().selectAll({owner_type:'player',source_type:context.proof.source_type,source_id:context.proof.source_id,edition_id:context.proof.edition_id,status:'earned'},query)).filter(a=>a.winning_club_id===clubId).map(a=>a.owner_id):await selectActiveClubPlayerIds({query,clubId});
 
   const club = await awardPlacement({
     query,
@@ -125,7 +78,7 @@ async function awardClubTrophyToClubAndPlayers({
     context,
     tournamentId: tournamentId || tournament.id,
   });
-  const playerIds = await selectActiveClubPlayerIds({ query, clubId });
+  const playerIds = context.playerIds;
   const players = [];
   for (const playerId of playerIds) {
     players.push(await awardPlacement({
@@ -137,6 +90,7 @@ async function awardClubTrophyToClubAndPlayers({
     }));
   }
 
+  await require('./competitionHistoryResetService').refreshCaches(query,clubId);
   return {
     awarded: Boolean(club.awarded || players.some(result => result.awarded)),
     club,

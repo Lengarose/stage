@@ -358,6 +358,9 @@ CREATE TABLE IF NOT EXISTS matches (
 
 -- ── tournaments ───────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS tournaments (
+  completed_at DATETIME NULL,
+  archived_at DATETIME NULL,
+  archive_review_required TINYINT DEFAULT 0,
   id                  VARCHAR(36)  PRIMARY KEY,
   name                VARCHAR(200) NOT NULL,
   status              VARCHAR(50)  DEFAULT 'open',
@@ -1103,16 +1106,21 @@ CREATE TABLE IF NOT EXISTS trophy_awards (
   id VARCHAR(36) PRIMARY KEY,
   owner_id VARCHAR(36) NOT NULL,
   owner_type VARCHAR(20) NOT NULL,
-  trophy_item_id VARCHAR(36) NOT NULL,
+  trophy_item_id VARCHAR(36) NULL,
   source_type VARCHAR(50) NOT NULL,
   source_id VARCHAR(36) NOT NULL,
   edition_id VARCHAR(64) NOT NULL,
   winning_club_id VARCHAR(36),
   status VARCHAR(20) NOT NULL DEFAULT 'earned',
   revoked_reason TEXT,
+  revoked_at DATETIME NULL,
+  award_key VARCHAR(64) NULL,
+  award_role VARCHAR(30) NULL,
+  metadata_json JSON NULL,
   created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY idx_trophy_award_event (owner_type,owner_id,trophy_item_id,source_type,source_id,edition_id),
-  INDEX idx_trophy_award_owner (owner_type,owner_id,status)
+  INDEX idx_trophy_award_owner (owner_type,owner_id,status),
+  UNIQUE KEY idx_trophy_award_key (award_key)
 );
 
 CREATE TABLE IF NOT EXISTS trophy_placements (
@@ -1120,6 +1128,9 @@ CREATE TABLE IF NOT EXISTS trophy_placements (
   owner_id      VARCHAR(36) NOT NULL,
   owner_type    VARCHAR(100),
   trophy_item_id VARCHAR(36),
+  award_id VARCHAR(36) NULL,
+  locked_at DATETIME NULL,
+  UNIQUE KEY idx_trophy_placement_award (award_id),
   position      INT         DEFAULT 0,
   created_date  DATETIME    DEFAULT CURRENT_TIMESTAMP,
   updated_date  DATETIME    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP

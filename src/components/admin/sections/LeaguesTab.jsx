@@ -344,13 +344,16 @@ export default function LeaguesTab({
   }
 
   async function resetLeagueCompetitionData(scope) {
+    let preview;
+    try {const response=await stageClient.functions.invoke('adminResetLeagueCompetitionData',{scope,dry_run:true});preview=response?.data||response;}
+    catch(error){await swalAlert(`Could not review reset scope: ${error.message}`);return;}
     const label = scope === "gost"
       ? "GOST"
       : scope === "regional"
         ? "Regional League"
         : "Regional League and GOST";
     const ok = await swalConfirm(
-      `This will permanently clear generated ${label} fixtures, standings, season rows, qualification/registration entries, old league achievements, availability rows, and linked engine rows.\n\nReward configs, trophy items, clubs, and players will stay available.\n\nDo you want to continue?`,
+      `This resets all ${label} history in the selected scope: ${preview.editions?.length||0} editions, ${preview.award_count||0} honours, ${preview.placement_count||0} placements, ${preview.club_achievement_count||0} club achievements and ${preview.player_achievement_count||0} player achievements. Title counts are recalculated for ${preview.affected_owners?.length||0} affected owners. Unrelated honours and confirmed financial history stay intact.\n\nReward configs, trophy designs, clubs and players stay available. Continue?`,
       {
         title: `Reset ${label} data?`,
         confirmText: "Continue",
@@ -379,6 +382,7 @@ export default function LeaguesTab({
       const response = await stageClient.functions.invoke("adminResetLeagueCompetitionData", {
         scope,
         confirmation,
+        review_revision: preview.revision,
         reason: `Fresh-start reset for ${label}`,
       });
       const summary = response?.data || response || {};

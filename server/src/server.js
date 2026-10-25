@@ -279,6 +279,7 @@ const { runStartupMigrations } = require('./server/migrations/startupMigrations'
 runStartupMigrations()
   .then(() => require('./server/services/tournamentReconciliationJob').startTournamentReconciliationJob())
   .then(() => require('./server/services/competitionPrizeService').startPrizeSettlementJob())
+  .then(() => require('./server/services/tournamentArchiveService').start())
   .catch(err => console.error('[migration] startup error:', err));
 
 server.listen(PORT, () => console.log(`[stage] server running on port ${PORT}`));

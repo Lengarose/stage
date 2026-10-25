@@ -100,7 +100,7 @@ export default function TrophyCabinetCanvas({
         <PlacedTrophy
           key={p.id}
           placement={p}
-          editMode={editMode}
+          editMode={editMode && !p.locked_at && !!p.award_id}
           cabinetRef={cabinetRef}
           cabinetSize={cabinetSize}
           onMove={onMovePlaced}

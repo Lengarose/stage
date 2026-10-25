@@ -2255,9 +2255,10 @@ function resetLeagueHistoryFields(row) {
 }
 
 function getLeagueResetScope(scope) {
-  const normalized = String(scope || 'all').toLowerCase();
+  const normalized = String(scope ?? 'all').toLowerCase();
   if (normalized === 'gost' || normalized === 'regional') return normalized;
-  return 'all';
+  if(normalized==='all')return 'all';
+  throw Object.assign(new Error('Choose an explicit regional, GOST or all history reset scope'),{status:400});
 }
 
 function uniqueLeagueResetEntityTypes(scope) {
@@ -2809,6 +2810,8 @@ async function seedAdminSelectedTournamentMatchPreparation(tournament) {
 }
 
 async function deleteTournamentRecords(query, tournamentId) {
+  const [existing]=await query('SELECT * FROM tournaments WHERE id=? FOR UPDATE',[tournamentId]);
+  if(existing&&['completed','archived'].includes(existing.status))return {...await require('../services/tournamentArchiveService').archive(tournamentId,{query}),matches:0};
   const matches = await query('SELECT id FROM matches WHERE tournament_id = ?', [tournamentId]);
   const matchIds = matches.map((row) => row.id).filter(Boolean);
   if (matchIds.length) {
@@ -5339,7 +5342,7 @@ const HANDLERS = {
       if (isPlayerTournament) {
         await query(
           `UPDATE tournaments
-              SET status = 'completed', winner_player_id = ?, winner_player_name = ?, updated_date = NOW()
+              SET status = 'completed', completed_at=COALESCE(completed_at,NOW()), winner_player_id = ?, winner_player_name = ?, updated_date = NOW()
             WHERE id = ?`,
           [winnerId, winnerName || 'Winner', id]
         );
@@ -5355,7 +5358,7 @@ const HANDLERS = {
       } else {
         await query(
           `UPDATE tournaments
-              SET status = 'completed', winner_club_id = ?, winner_club_name = ?, updated_date = NOW()
+              SET status = 'completed', completed_at=COALESCE(completed_at,NOW()), winner_club_id = ?, winner_club_name = ?, updated_date = NOW()
             WHERE id = ?`,
           [winnerId, winnerName || 'Winner', id]
         );
@@ -6709,9 +6712,12 @@ const HANDLERS = {
     scope = 'all',
     confirmation,
     reason,
+    dry_run = false,
+    review_revision,
   }) {
     const admin = await requireAdminUser(_auth_user_id);
     if (Number(admin.role_id) !== 0) throw new Error('Super admin only');
+    if(dry_run)return {data:await require('../services/competitionHistoryResetService').preview(getLeagueResetScope(scope))};
     if (String(confirmation || '').trim() !== LEAGUE_RESET_CONFIRMATION) {
       throw new Error(`Type "${LEAGUE_RESET_CONFIRMATION}" to reset league data`);
     }
@@ -6721,6 +6727,9 @@ const HANDLERS = {
     const placeholders = entityTypes.map(() => '?').join(',');
 
     const result = await withTransaction(async (query) => {
+      const reviewed=await require('../services/competitionHistoryResetService').preview(resetScope,query,true);
+      if(review_revision!==reviewed.revision)throw Object.assign(new Error('History changed or has not been reviewed. Preview the reset scope again before applying.'),{status:409});
+      const honours=await require('../services/competitionHistoryResetService').revoke(resetScope,query,admin,reason||'Explicit league history reset');
       const beforeRows = await query(
         `SELECT entity_type, COUNT(*) AS count
            FROM league_entities
@@ -6939,6 +6948,7 @@ const HANDLERS = {
           const league = parseLeagueEntityRow(row);
           const nextLeague = {
             ...resetLeagueHistoryFields(league),
+            edition_id: uuidv4(),
             season_number: 1,
             registered_club_ids: [],
             registered_clubs: [],
@@ -6964,6 +6974,7 @@ const HANDLERS = {
       const summary = {
         success: true,
         scope: resetScope,
+        honours,
         cleared_entity_types: entityTypes,
         before_counts: beforeCounts,
         deleted_league_entities: Number(deleteEntitiesResult?.affectedRows || 0),
@@ -6977,22 +6988,8 @@ const HANDLERS = {
         reset_regional_leagues: resetRegionalLeagues,
       };
 
-      await createAuditLog({
-        adminUserId: admin.id,
-        adminEmail: admin.email,
-        action: 'reset_league_competition_data',
-        entityType: 'league_system',
-        entityId: resetScope,
-        entityName: resetScope === 'all' ? 'Regional Leagues and GOST' : resetScope.toUpperCase(),
-        oldValue: {
-          scope: resetScope,
-          before_counts: beforeCounts,
-          instance_ids: instanceIds,
-          legacy_fixture_ids: legacyFixtureIds,
-        },
-        newValue: summary,
-        reason: reason || 'Fresh league/GOST reset from admin panel',
-      });
+      await require('../services/competitionHistoryResetService').refreshCaches(query);
+      await require('../services/rewardConfigurationService').audit(query,admin,'reset_league_competition_data','league_system',resetScope,{scope:resetScope,before_counts:beforeCounts,instance_ids:instanceIds,legacy_fixture_ids:legacyFixtureIds,reviewed_revision:reviewed.revision},summary,reason||'Fresh league/GOST reset from admin panel');
 
       return summary;
     });
@@ -12737,6 +12734,7 @@ const HANDLERS = {
         === String(user.email || '').toLowerCase();
 
       if (!isAdmin && !isOrganizer) return fail('Only the organizer or an admin can cancel this tournament');
+      if(['completed','archived'].includes(tournament.status))return {data:await require('../services/tournamentArchiveService').archive(tournament_id,{query,admin:isAdmin?user:null})};
       if (String(tournament.status || '') === 'cancelled') return fail('Tournament is already cancelled');
 
       const entryFee    = Number(tournament.entry_fee_stc || 0);
@@ -12855,6 +12853,10 @@ const HANDLERS = {
       if (!rows.length) throw new Error('Tournament not found');
       const tournament = rows[0];
       const status = String(tournament.status || '').toLowerCase();
+      if(['completed','archived'].includes(status)) {
+        const archived=await require('../services/tournamentArchiveService').archive(tournament_id,{query,admin,reason});
+        return {tournament,deleted:{...archived,matches:0}};
+      }
       const waitMs = completedTournamentDeleteWaitMs(tournament);
       if (waitMs > 0) {
         const days = Math.ceil(waitMs / (24 * 60 * 60 * 1000));
@@ -12873,6 +12875,7 @@ const HANDLERS = {
       return { tournament, deleted };
     });
 
+    if(result.deleted.archived)return {data:{success:true,archived:true,deleted:false}};
     await createAuditLog({
       adminUserId: admin.id,
       adminEmail: admin.email,

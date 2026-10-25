@@ -31,7 +31,7 @@ class CompetitionScopeModel {
     const kindName = root.participant_type === 'player' ? 'player' : 'club';
     const ids = [...new Set([...parse(root.registered_club_ids), ...parse(root[kindName === 'player' ? 'registered_players' : 'registered_clubs']), ...standingRows.map(s => s.club_id), ...matches.flatMap(m => [m[`home_${kindName}_id`],m[`away_${kindName}_id`]])].filter(Boolean))];
     const participants = ids.length ? await query(`SELECT id, ${kindName === 'player' ? 'gamertag, avatar_url' : 'name, logo_url'} FROM ${kindName === 'player' ? 'players' : 'clubs'} WHERE id IN (${ids.map(() => '?').join(',')})`, ids) : [];
-    const edition = kind === 'tournament' ? String(root.edition_id || root.id) : kind === 'regional_league' ? `${root.id}:${root.season_number || 1}` : root.id;
+    const edition = String(root.edition_id || (kind==='regional_league'?`${root.id}:${root.season_number||1}`:root.id));
     return { source_type: kind, root, edition_id: edition, fixtures, matches, participants, standings: standingRows, legacy_references: [id], config_source_id: kind === 'competition_season' ? root.competition_id : id };
   }
   async statistics(scope, query = EXECUTESQL) {

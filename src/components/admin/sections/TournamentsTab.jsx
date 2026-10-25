@@ -184,14 +184,10 @@ export default function TournamentsTab({
   const [testPackBusy, setTestPackBusy] = useState(null);
   const [simulatingTournamentId, setSimulatingTournamentId] = useState(null);
   const [deletingTournamentId, setDeletingTournamentId] = useState(null);
+  const [archiveView,setArchiveView]=useState(false);
 
   function deleteLockDays(tournament) {
-    if (String(tournament.status || "").toLowerCase() !== "completed") return 0;
-    if (!tournament.creator_gamertag && !tournament.creator_id) return 0;
-    const completedAt = new Date(tournament.end_date || tournament.updated_date || tournament.created_date).getTime();
-    if (!Number.isFinite(completedAt)) return 7;
-    const waitMs = completedAt + 7 * 24 * 60 * 60 * 1000 - Date.now();
-    return waitMs > 0 ? Math.ceil(waitMs / (24 * 60 * 60 * 1000)) : 0;
+    return 0;
   }
 
   async function handleDeleteTournament(tournament) {
@@ -300,7 +296,8 @@ export default function TournamentsTab({
           className="w-full bg-secondary border border-border rounded pl-9 pr-3 py-2 text-sm text-foreground outline-none focus:border-primary/50"
           placeholder={t("admin.tournaments.searchPlaceholder")} />
       </div>
-      {tournaments.length === 0 ? (
+      <nav aria-label="Admin tournament views" className="flex gap-6 py-3"><button type="button" aria-pressed={!archiveView} onClick={()=>setArchiveView(false)}>Tournaments</button><button type="button" aria-pressed={archiveView} onClick={()=>setArchiveView(true)}>Archive</button></nav>
+      {archiveView?<TournamentArchive/>:tournaments.length === 0 ? (
         <EmptyState icon={Trophy} text={t("admin.tournaments.noActive")} />
       ) : (
         <div className="space-y-3">
@@ -345,7 +342,7 @@ export default function TournamentsTab({
                     title={lockDays > 0 ? t("admin.tournaments.deleteInDays", { days: lockDays }) : t("admin.tournaments.deletePermanently")}
                     className="border-destructive/30 text-destructive hover:bg-destructive/10 text-xs gap-1"
                   >
-                    <Trash2 className="w-3.5 h-3.5" /> {status === "completed" ? t("admin.tournaments.endAndDelete") : t("admin.actions.delete")}
+                    <Trash2 className="w-3.5 h-3.5" /> {status === "completed" ? 'Archive' : t("admin.actions.delete")}
                   </Button>
                 ) : (
                   <Button size="sm" variant="outline" onClick={() => cancelTournament(tournament.id)} className="border-destructive/30 text-destructive hover:bg-destructive/10 text-xs gap-1">
@@ -367,3 +364,4 @@ export default function TournamentsTab({
     </>
   );
 }
+import TournamentArchive from '@/components/TournamentArchive';

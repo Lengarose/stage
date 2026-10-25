@@ -41,6 +41,8 @@ router.patch('/:id', async (req, res) => {
 
 router.delete('/:id', async (req, res) => {
   try {
+    const refs=await require('../db/database').EXECUTESQL('SELECT id FROM trophy_awards WHERE trophy_item_id=? LIMIT 1',[req.params.id]);
+    if(refs.length)return res.status(409).json({error:'This design is referenced by historical awards and cannot be deleted.'});
     await TrophyItemModel.delete(req.params.id);
     res.json({ success: true });
   } catch (err) {

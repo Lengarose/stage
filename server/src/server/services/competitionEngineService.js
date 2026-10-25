@@ -1240,6 +1240,7 @@ async function completeLegacyOfficialCompetition(sourceFixture, fixtures) {
     await updateLeagueEntityData('competition_season', sourceFixture.season_id, {
       ...season,
       status: 'completed',
+      completed_at: season.completed_at || new Date().toISOString(),
       winner_club_id: winner?.club_id || season.winner_club_id || null,
       winner_club_name: winner?.club_name || season.winner_club_name || null,
     }, { status: 'completed' });
@@ -1443,6 +1444,7 @@ async function advanceRegionalLeagueUnlocked(fixture) {
   await updateLeagueEntityData('regional_league', league.id, {
     ...league,
     status: 'completed',
+    completed_at: league.completed_at || new Date().toISOString(),
   }, { status: 'completed' });
 
   return { advanced: true, ...result };
@@ -1459,7 +1461,7 @@ async function advanceLeagueEdition(kind, fixture, { dryRun = false, admin = nul
     fixture = {...fixture,...scope.fixtures.find(f=>(f.phase || 'league') === requestedPhase),phase:requestedPhase,draw_mode:scope.root.draw_mode,fixed_pairings:scope.root.fixed_pairings};
     const readiness = require('../lib/leagueRoundReadiness').roundReadiness(scope,fixture.phase || 'league');
     if (!readiness.ready || dryRun) return {...readiness,advanced:false};
-    if (scope.root.status === 'completed') return {advanced:false,reason:'already_completed'};
+    if (['completed','archived'].includes(scope.root.status)) return {advanced:false,reason:'already_completed'};
     if ((fixture.phase || 'league') === 'league') {
       const integrity = require('../lib/standingIntegrity').reviewStandings(scope);
       if (integrity.requires_review) return { advanced:false, reason:'Standings integrity requires authorised review', integrity };
@@ -1469,7 +1471,7 @@ async function advanceLeagueEdition(kind, fixture, { dryRun = false, admin = nul
     const progress = await progressionQueries.run(query,async () => {
       if (kind === 'regional_league') return advanceRegionalLeagueUnlocked(fixture);
       if (scope.root.format === 'league' || scope.root.type === 'league' || scope.root.league_only === true) {
-        await updateLeagueEntityData('competition_season',id,{...scope.root,status:'completed'},{status:'completed'});
+        await updateLeagueEntityData('competition_season',id,{...scope.root,status:'completed',completed_at:scope.root.completed_at||new Date().toISOString()},{status:'completed'});
         return {advanced:true,next_phase:'completed'};
       }
       return advanceLegacyOfficialCompetitionUnlocked(fixture);
@@ -1692,6 +1694,7 @@ async function completeCommunityTournament(tournament, match, currentRound) {
   await EXECUTESQL(
     `UPDATE tournaments SET
       status = 'completed',
+      completed_at = COALESCE(completed_at, NOW()),
       winner_club_id = ?,
       winner_club_name = ?,
       winner_player_id = ?,

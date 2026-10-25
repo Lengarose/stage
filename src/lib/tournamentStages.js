@@ -95,6 +95,7 @@ export function stageAggregate(stage, match) {
 }
 
 export function canScheduleTournamentMatch(match, tournament, user, player, clubs = []) {
+  if(['completed','archived'].includes(tournament.status))return false;
   if (!user || !["unscheduled", "scheduled", "in_progress", "awaiting_confirmation"].includes(match.status) || match.scheduling_status === "home_proposed") return false;
   const same = (a, b) => Boolean(a && b && String(a) === String(b));
   const kind = tournament.participant_type === "player" ? "player" : "club";

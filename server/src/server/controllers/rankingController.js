@@ -300,36 +300,24 @@ async function getClubs() {
 }
 
 async function getTitleBonuses() {
-  const rows = [];
-  const addRows = (items, sourceType) => {
-    for (const item of items) {
-      if (item.winner_club_id) rows.push({ club_id: item.winner_club_id, points: 300, source_type: sourceType });
-      if (item.runner_up_club_id) rows.push({ club_id: item.runner_up_club_id, points: 160, source_type: sourceType });
+  const rows=[];
+  const clubs=await query("SELECT owner_id AS id FROM trophy_awards WHERE owner_type='club' UNION SELECT winner_club_id AS id FROM tournaments WHERE status IN ('completed','archived') AND winner_club_id IS NOT NULL UNION SELECT JSON_UNQUOTE(JSON_EXTRACT(data_json,'$.winner_club_id')) AS id FROM league_entities WHERE entity_type IN ('regional_league','competition_season') AND status IN ('completed','archived') AND JSON_EXTRACT(data_json,'$.winner_club_id') IS NOT NULL");
+  for(const club of clubs) {
+    if(!club.id||club.id==='null')continue;
+    const report=await require('../services/trophyEntitlementService').review(club.id,'club',EXECUTESQL);
+    const seen=new Set();
+    for(const award of report.awards) {
+      const data=require('../lib/trophyHistory').parse(award.metadata_json);
+      const key=[award.source_type,award.source_id,award.edition_id].join(':');
+      if(!data.ranking_eligible||data.award_role!=='club_champion'||seen.has(key))continue;
+      seen.add(key);rows.push({club_id:club.id,points:300,source_type:award.source_type});
     }
-  };
-  addRows(await query(
-    `SELECT t.winner_club_id, t.runner_up_club_id
-       FROM tournaments t
-       LEFT JOIN users creator_user ON LOWER(creator_user.email) = LOWER(t.creator_email)
-       LEFT JOIN users organizer_user ON LOWER(organizer_user.email) = LOWER(t.organizer_email)
-      WHERE t.winner_club_id IS NOT NULL
-        AND (
-          creator_user.role_id IN (0, 2)
-          OR organizer_user.role_id IN (0, 2)
-          OR (t.creator_gamertag IS NULL AND t.creator_id IS NULL)
-        )`
-  ), 'tournament');
-
-  const entitySeasons = await query(
-    `SELECT data_json FROM league_entities
-      WHERE entity_type IN ('competition_season','regional_league')
-        AND JSON_EXTRACT(data_json, '$.winner_club_id') IS NOT NULL`
-  );
-  for (const row of entitySeasons) {
-    const data = parseJson(row.data_json);
-    if (data.winner_club_id) rows.push({ club_id: data.winner_club_id, points: 300, source_type: 'competition' });
-    if (data.runner_up_club_id) rows.push({ club_id: data.runner_up_club_id, points: 160, source_type: 'competition' });
   }
+  // Runner-up bonuses are not championship titles; retain their existing policy.
+  const runners=await query("SELECT t.runner_up_club_id FROM tournaments t LEFT JOIN users creator_user ON LOWER(creator_user.email)=LOWER(t.creator_email) LEFT JOIN users organizer_user ON LOWER(organizer_user.email)=LOWER(t.organizer_email) WHERE t.status IN ('completed','archived') AND t.runner_up_club_id IS NOT NULL AND (creator_user.role_id IN (0,2) OR organizer_user.role_id IN (0,2) OR (t.creator_id IS NULL AND t.creator_gamertag IS NULL))");
+  for(const row of runners)rows.push({club_id:row.runner_up_club_id,points:160,source_type:'tournament'});
+  const editions=await query("SELECT data_json FROM league_entities WHERE entity_type IN ('competition_season','regional_league') AND status IN ('completed','archived')");
+  for(const row of editions){const data=parseJson(row.data_json);if(data.runner_up_club_id)rows.push({club_id:data.runner_up_club_id,points:160,source_type:'competition'});}
   return rows;
 }
 

@@ -66,18 +66,17 @@ async function review(kind,id,{ apply = false, admin = null, reason = null } = {
       const report = { source_type: kind, source_id: id, competition_name:ctx.scope.root.name || ctx.scope.root.competition_name || null, edition_id: ctx.scope.edition_id, configuration:ctx.config, dry_run: !apply, ...ctx.plan };
       if (!apply) return report;
       const mayPay = !ctx.plan.blocking_reasons.length && !ctx.plan.obligations.some(o=>o.blocking_reasons.length) && ['completed','archived'].includes(ctx.scope.root.status);
-      if(mayPay && kind!=='tournament') {
+      if(['completed','archived'].includes(ctx.scope.root.status) && kind!=='tournament') {
         const placed=require('../lib/competitionPrizes').placements(ctx.scope,[{position:1,amount:'0.00'},{position:2,amount:'0.00'}]);
         const winner=placed.map.get(1);
         if(winner) {
           const root={...ctx.scope.root,winner_club_id:winner,runner_up_club_id:placed.map.get(2)||null};
           await query('UPDATE league_entities SET data_json=?,updated_date=NOW() WHERE id=? AND entity_type=?',[JSON.stringify(root),id,kind]);
           const trophyId=ctx.config?.trophy_item_id||root.trophy_item_id;
-          if(trophyId)try {
+          try {
             await require('./trophyAwardService').awardClubTrophyToClubAndPlayers({clubId:winner,trophyItemId:trophyId,tournamentId:id,tournament:{...root,_source_type:kind,_source_id:id},query});
-            ctx.trophyState='awarded';
+            ctx.trophyState=trophyId?'awarded':'unconfigured';
           }catch(e){ctx.trophyState='blocked';report.trophy_error=e.message;}
-          else ctx.trophyState='unconfigured';
         }
       }
       for (const obligation of ctx.plan.obligations) {

@@ -1,224 +1,60 @@
-/**
- * TrophyCabinetSystem — main entry point.
- * Used by both Club Profile and Player Profile.
- *
- * Props:
- *   ownerId    — club.id or player.id
- *   ownerType  — "club" | "player"
- *   canEdit    — true if current user owns this profile
- *   wonTournaments — array of Tournament records the owner has won
- */
-import { useState, useEffect } from "react";
-import { stageClient } from "@/api/stageClient";
-import { Pencil, Check, Trophy } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import toast from "react-hot-toast";
-import TrophyCabinetCanvas from "./TrophyCabinetCanvas";
-import TrophyScrollBar from "./TrophyScrollBar";
+import {useState,useEffect,useRef} from 'react';
+import {stageClient} from '@/api/stageClient';
+import {swalConfirm} from '@/lib/swal';
+import {useTranslation} from '@/hooks/useTranslation';
+import toast from 'react-hot-toast';
+import {Pencil,Check,Trophy} from 'lucide-react';
+import TrophyCabinetCanvas from './TrophyCabinetCanvas';
 
-export default function TrophyCabinetSystem({ ownerId, ownerType, canEdit }) {
-  const [earnedAwards,setEarnedAwards]=useState([]);
-  const [reviewIssues,setReviewIssues]=useState([]);
-  const [allTrophies, setAllTrophies] = useState([]);  // TrophyItem library
-  const [placements, setPlacements] = useState([]);    // TrophyPlacement records
-  const [editMode, setEditMode] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-
-  // Load trophy library + existing placements. Each call is independent so a
-  // failure in one (e.g. legacy schema, 404) does NOT wipe out the other.
-  useEffect(() => {
-    if (!ownerId) return;
-    let stopped=false;
-    setPlacements([]);setEarnedAwards([]);setReviewIssues([]);setEditMode(false);setLoading(true);
-    async function load() {
-      const [libRes, placedRes,earnedRes] = await Promise.allSettled([
-        stageClient.entities.TrophyItem.list("sort_order", 200),
-        stageClient.entities.TrophyPlacement.filter({ owner_id: ownerId, owner_type: ownerType }),
-        stageClient.http.get(`/trophy-placements/entitlements?owner_id=${encodeURIComponent(ownerId)}&owner_type=${encodeURIComponent(ownerType)}`),
-      ]);
-      if(stopped)return;
-      setEarnedAwards(earnedRes.status==='fulfilled'?earnedRes.value.awards:[]);
-      setReviewIssues(earnedRes.status==='fulfilled'?earnedRes.value.discrepancies:[{reason:'Verified trophy history is unavailable'}]);
-      if (libRes.status === "fulfilled") {
-        setAllTrophies(libRes.value || []);
-      } else {
-        console.error("[TrophyCabinet] failed to load trophy library:", libRes.reason);
-        setAllTrophies([]);
-      }
-      if (placedRes.status === "fulfilled") {
-        setPlacements(placedRes.value || []);
-      } else {
-        console.error("[TrophyCabinet] failed to load placements:", placedRes.reason);
-        setPlacements([]);
-      }
-      setLoading(false);
-    }
-    load();
-    return ()=>{stopped=true;};
-  }, [ownerId, ownerType]);
-
-  // Determine which trophy_item_ids are unlocked (won via tournaments)
-  const unlockedMap = buildUnlockedMap(earnedAwards.map(a=>({...a,id:a.source_id})), allTrophies);
-  const unlockedIds = new Set(Object.keys(unlockedMap));
-
-  // Map trophy_item_id → array of won tournaments (for tooltip)
-  const wonTournamentsMap = {};
-  for (const [trophyItemId, tournaments] of Object.entries(unlockedMap)) {
-    wonTournamentsMap[trophyItemId] = tournaments;
+export default function TrophyCabinetSystem({ownerId,ownerType,canEdit}) {
+  const {t}=useTranslation();
+  const [report,setReport]=useState({awards:[],placements:[],discrepancies:[],titles:{all_time:0,official_ranking:0}});
+  const [editMode,setEditMode]=useState(false),[loading,setLoading]=useState(true),[pending,setPending]=useState(0),[error,setError]=useState('');
+  const identity=ownerType+':'+ownerId,active=useRef(identity);active.current=identity;
+  useEffect(()=>{let stopped=false;setReport({awards:[],placements:[],discrepancies:[],titles:{all_time:0,official_ranking:0}});setEditMode(false);setLoading(true);setError('');
+    stageClient.http.get('/trophy-placements/entitlements?'+new URLSearchParams({owner_id:ownerId,owner_type:ownerType})).then(data=>{if(!stopped)setReport(data);}).catch(e=>{if(!stopped)setError(e.message);}).finally(()=>{if(!stopped)setLoading(false);});
+    return()=>{stopped=true;};
+  },[ownerId,ownerType]);
+  async function mutate(action) {
+    setPending(n=>n+1);
+    try{await action();if(active.current===identity)setReport(await stageClient.http.get('/trophy-placements/entitlements?'+new URLSearchParams({owner_id:ownerId,owner_type:ownerType})));}
+    catch(e){toast.error(e.message||'Cabinet change failed');}
+    finally{setPending(n=>Math.max(0,n-1));}
   }
-
-  // Drag start from scroll bar
-  function handleDragStart(e, trophy) {
-    e.dataTransfer.setData("trophy", JSON.stringify(trophy));
-    e.dataTransfer.effectAllowed = "copy";
+  const awards=report.awards||[];
+  const placements=(report.placements||[]).filter(p=>awards.some(a=>p.award_id?a.id===p.award_id:!a.persisted&&a.trophy_item_id===p.trophy_item_id)).map(p=>{
+    const award=awards.find(a=>p.award_id?a.id===p.award_id:a.trophy_item_id===p.trophy_item_id);
+    return {...p,award,trophy_name:award?.display_name||award?.name||p.trophy_name,trophy_image_url:award?.image_url||p.trophy_image_url,win_count:1};
+  });
+  const available=awards.filter(a=>a.id&&a.persisted&&a.trophy_item_id&&!placements.some(p=>p.award_id===a.id));
+  async function place(award,pos) {
+    if(!editMode||!canEdit||!available.some(a=>a.id===award.id))return;
+    pos=pos||[40,70].flatMap(y=>[20,40,60,80].map(x=>({x,y}))).find(spot=>placements.every(p=>Math.abs(Number(p.x_percent)-spot.x)>12||Math.abs(Number(p.y_percent)-spot.y)>15))||{x:50,y:50};
+    await mutate(()=>stageClient.entities.TrophyPlacement.create({owner_id:ownerId,owner_type:ownerType,award_id:award.id,x_percent:pos.x,y_percent:pos.y,scale:1}));
   }
-
-  // Drop new trophy onto cabinet
-  async function handleDrop(trophy, pos) {
-    if (!editMode) return;
-    setSaving(true);
-    try {
-
-    // Check if already placed — if so, just update position
-    const existing = placements.find(p => p.trophy_item_id === trophy.id);
-    if (existing) {
-      const updated = await stageClient.entities.TrophyPlacement.update(existing.id, {
-        x_percent: pos.x,
-        y_percent: pos.y,
-      });
-      setPlacements(prev => prev.map(p => p.id === existing.id ? { ...p, x_percent: pos.x, y_percent: pos.y } : p));
-      setSaving(false);
-      return;
-    }
-
-    // Create new placement
-    const newPlacement = await stageClient.entities.TrophyPlacement.create({
-      owner_id: ownerId,
-      owner_type: ownerType,
-      trophy_item_id: trophy.id,
-      trophy_image_url: trophy.image_url,
-      trophy_name: trophy.name,
-      x_percent: pos.x,
-      y_percent: pos.y,
-      scale: 1,
-    });
-    setPlacements(prev => [...prev, newPlacement]);
-    } catch(error) {
-      toast.error(error.message || 'Could not place trophy');
-    } finally {
-      setSaving(false);
-    }
+  async function done() {
+    const drafts=placements.filter(p=>p.award_id&&!p.locked_at);
+    if(!drafts.length){setEditMode(false);return;}
+    const ok=await swalConfirm(t('trophy.confirmPermanent','Permanently place these {count} draft trophies? You will no longer be able to move, resize, remove or replace them. Previously locked trophies are unchanged.',{count:drafts.length}));
+    if(!ok)return;
+    await mutate(async()=>{await stageClient.http.post('/trophy-placements/confirm/'+ownerType+'/'+ownerId,{placement_ids:drafts.map(p=>p.id)});if(active.current===identity)setEditMode(false);});
   }
-
-  // Move during drag — local state only, no DB call
-  function handleMovePlacedLocal(placementId, changes) {
-    setPlacements(prev => prev.map(p => p.id === placementId ? { ...p, ...changes } : p));
-  }
-
-  // Save to DB only when drag ends or scale buttons clicked
-  async function handleMovePlacedSave(placementId, changes) {
-    try {
-      const updated=await stageClient.entities.TrophyPlacement.update(placementId, changes);
-      setPlacements(prev => prev.map(p => p.id === placementId ? { ...p, ...updated } : p));
-    } catch(error) { toast.error(error.message || 'Could not save trophy position'); }
-  }
-
-  // Remove a placed trophy
-  async function handleRemovePlaced(placementId) {
-    try {
-      await stageClient.entities.TrophyPlacement.delete(placementId);
-      setPlacements(prev => prev.filter(p => p.id !== placementId));
-    } catch(error) { toast.error(error.message || 'Could not remove trophy placement'); }
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-16">
-        <div className="w-6 h-6 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-3">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Trophy className="w-4 h-4 text-amber-400" />
-          <span className="font-heading text-base font-black text-amber-300 uppercase tracking-widest">
-            Trophy Cabinet
-          </span>
-          <span className="text-xs text-amber-300/60 font-medium">
-            {placements.filter(p=>unlockedIds.has(p.trophy_item_id)).length} placed
-          </span>
-        </div>
-        {canEdit && (
-          <Button
-            size="sm"
-            variant={editMode ? "default" : "outline"}
-            className="h-7 px-3 text-xs gap-1"
-            onClick={() => setEditMode(m => !m)}
-            disabled={saving}
-          >
-            {editMode ? <><Check className="w-3 h-3" /> Done</> : <><Pencil className="w-3 h-3" /> Edit</>}
-          </Button>
-        )}
-      </div>
-
-      {reviewIssues.length>0&&<p role="status" className="text-xs text-warning">Some trophy records require review. No earned history has been deleted.</p>}
-      {/* Cabinet canvas */}
-      <TrophyCabinetCanvas
-        placements={placements.filter(p=>unlockedIds.has(p.trophy_item_id)).map(p=>({...p,win_count:unlockedMap[p.trophy_item_id]?.length||0}))}
-        editMode={editMode}
-        onDrop={handleDrop}
-        onMovePlaced={handleMovePlacedLocal}
-        onMovePlacedSave={handleMovePlacedSave}
-        onRemovePlaced={handleRemovePlaced}
-        wonTournamentsMap={wonTournamentsMap}
-      />
-
-      {/* Trophy scroll bar — always rendered so visitors see the collection
-          section, even when no trophies are unlocked yet. */}
-      <TrophyScrollBar
-        allTrophies={allTrophies}
-        unlockedIds={unlockedIds}
-        onDragStart={handleDragStart}
-      />
-
-
-      {editMode && (
-        <p className="text-[10px] text-muted-foreground">
-          Drag an unlocked trophy onto the cabinet to place it. Use the controls to resize or remove.
-        </p>
-      )}
-    </div>
-  );
+  if(loading)return <p role="status">Loading trophy history...</p>;
+  return <section className="space-y-4">
+    <header className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><Trophy size={18}/><h3 className="font-heading">{t('trophy.cabinet','Trophy Cabinet')}</h3><span className="text-xs text-muted-foreground">{report.titles?.all_time||0} all-time honours · {report.titles?.official_ranking||0} official titles</span></div>
+    {canEdit&&<button type="button" disabled={pending>0} onClick={()=>editMode?done():setEditMode(true)} className="inline-flex items-center gap-2 text-primary disabled:opacity-40">{editMode?<Check size={16}/>:<Pencil size={16}/>} {editMode?t('trophy.done','Done'):t('trophy.edit','Edit')}</button>}</header>
+    {error&&<p role="alert" className="text-destructive">{error}</p>}
+    {!!report.discrepancies?.length&&<p role="status" className="text-xs text-warning">Some legacy records need admin review before permanent placement. Historical evidence is preserved.</p>}
+    <TrophyCabinetCanvas placements={placements} editMode={editMode&&canEdit} onDrop={place} onMovePlaced={()=>{}} onMovePlacedSave={(id,changes)=>mutate(()=>stageClient.entities.TrophyPlacement.update(id,changes))} onRemovePlaced={id=>mutate(()=>stageClient.entities.TrophyPlacement.delete(id))} wonTournamentsMap={{}}/>
+    <div className="flex flex-wrap gap-4">{available.map(award=><button type="button" key={award.id} disabled={!editMode||pending>0} className="w-32 border border-border p-2 text-left disabled:opacity-60" draggable={editMode} onDragStart={e=>e.dataTransfer.setData('trophy',JSON.stringify(award))} onClick={()=>place(award)} title={award.display_name||award.name}>{award.image_url?<img src={award.image_url} alt="" className="mx-auto h-16 w-16 object-contain"/>:<Trophy size={32}/>}<span className="block break-words text-xs">{award.display_name||award.name}</span></button>)}</div>
+  </section>;
 }
 
-function buildUnlockedMap(wonTournaments, allTrophies) {
-  const map = {};
-  const seen=new Set();
-  for (const win of wonTournaments) {
-    for (const trophy of allTrophies) {
-      // Primary: win record directly references this trophy
-      const matchesTrophyItemId = win.trophy_item_id && win.trophy_item_id === trophy.id;
-      // Legacy: trophy back-references the win
-      const matchesTournamentId = trophy.tournament_id && trophy.tournament_id === win.id;
-      // Legacy: name match
-      // New: linked_source_id — competition trophy links via win.competition_id, league trophy via win.id
-      const matchesLinkedSource = trophy.linked_source_id && (
-        (trophy.linked_source_type === "competition" && win.competition_id && win.competition_id === trophy.linked_source_id) ||
-        (trophy.linked_source_type === "regional_league" && win.id === trophy.linked_source_id)
-      );
-      const contradictory=trophy.tournament_id&&String(trophy.tournament_id)!==String(win.id);
-      const event=[win.source_type||'tournament',win.id,win.edition_id||win.id,trophy.id].join(':');
-      if (!contradictory && (matchesTrophyItemId || matchesTournamentId || matchesLinkedSource) && !seen.has(event)) {
-        seen.add(event);
-        if (!map[trophy.id]) map[trophy.id] = [];
-        map[trophy.id].push(win);
-      }
-    }
+export function buildUnlockedMap(wonTournaments,allTrophies) {
+  const map={};
+  for(const win of wonTournaments)for(const trophy of allTrophies)if(win.trophy_item_id===trophy.id&&(!trophy.tournament_id||trophy.tournament_id===win.id)){
+    if(!map[trophy.id])map[trophy.id]=[];
+    if(!map[trophy.id].some(w=>w.source_id===win.source_id&&w.edition_id===win.edition_id))map[trophy.id].push(win);
   }
   return map;
 }

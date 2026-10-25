@@ -48,6 +48,7 @@ async function reconcileTournament(tournamentId, { dryRun = false } = {}) {
   const result = await withTransaction(async query => {
     const [t] = await query('SELECT * FROM tournaments WHERE id = ? LIMIT 1 FOR UPDATE', [tournamentId]);
     if (!t) throw new Error('Tournament not found');
+    if(t.status==='archived')return {advanced:false,completed:false,tournament:t,conflicts:[],reason:'Archived history is read-only'};
     let rows = await lockedMatches(query, tournamentId);
     const report = { advanced: false, matches_created: 0, matches_updated: 0, removed: [], conflicts: [], completed: false, tournament: t };
     for (let step = 0; step < 32; step++) {
@@ -87,7 +88,7 @@ async function reconcileTournament(tournamentId, { dryRun = false } = {}) {
       }
       if (plan.completed && plan.winner) {
         const player = t.participant_type === 'player';
-        await query(`UPDATE tournaments SET status='completed', winner_${player ? 'player' : 'club'}_id=?, winner_${player ? 'player' : 'club'}_name=?, end_date=COALESCE(end_date,NOW()), updated_date=NOW() WHERE id=?`, [plan.winner.id, plan.winner.name, t.id]);
+        await query(`UPDATE tournaments SET status='completed', completed_at=COALESCE(completed_at,NOW()), winner_${player ? 'player' : 'club'}_id=?, winner_${player ? 'player' : 'club'}_name=?, end_date=COALESCE(end_date,NOW()), updated_date=NOW() WHERE id=?`, [plan.winner.id, plan.winner.name, t.id]);
         report.completed = true; report.winner = plan.winner; report.final_round = Math.max(1, ...rows.map(m => Number(m.round || 1)));
         t.status = 'completed'; t[player ? 'winner_player_id' : 'winner_club_id'] = plan.winner.id; t[player ? 'winner_player_name' : 'winner_club_name'] = plan.winner.name; progress = true;
       }
@@ -116,6 +117,7 @@ async function assertTournamentMatchAction(match, { schedule, result = false, co
   if (!match?.tournament_id || match.tournament_id === 'ranked') return;
   const [t] = await query('SELECT * FROM tournaments WHERE id = ? LIMIT 1', [match.tournament_id]);
   if (!t) return;
+  if(t.status==='archived')throw conflict('Archived tournament results and schedules are read-only.');
   if (result && ['draft', 'setup', 'registration', 'open', 'cancelled', 'canceled'].includes(t.status)) throw conflict('Start the tournament before reporting an official result. Registration/draw previews cannot produce standings.');
   const rows = await query('SELECT * FROM matches WHERE tournament_id = ? ORDER BY round, created_date', [t.id]);
   const player = t.participant_type === 'player';
@@ -145,7 +147,7 @@ async function correctTournamentResult(match, patch, admin) {
     if (!source) throw conflict('Match no longer exists.');
     const affected = downstreamMatches(rows, source);
     if (affected.some(hasActivity)) throw conflict('Downstream matches have scheduling, reports or results. Resolve those dependencies through admin before correcting this result.');
-    if (t.status === 'completed') throw conflict('This tournament has awarded its final placement. An admin must resolve the awarded tournament before changing its result.');
+    if (['completed','archived'].includes(t.status)) throw conflict('This tournament has awarded its final placement. An admin must resolve the awarded tournament before changing its result.');
     const status = patch.status || source.status;
     if (!['completed', 'forfeit', 'scheduled', 'unscheduled', 'in_progress', 'disputed', 'cancelled', 'voided'].includes(status)) throw conflict('Unsupported result correction status.');
     if (['completed', 'forfeit'].includes(status)) await assertTournamentMatchAction(source, { result: true }, query);

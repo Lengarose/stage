@@ -47,26 +47,34 @@ function setup(kind='regional_league',count=20,{legacyRewardPosition=false}={}) 
         if(/entity_type IN/.test(sql))rows=rows.filter(r=>['regional_league','competition_season'].includes(r.entity_type));
       }
       let index=0;
-      for(const match of sql.matchAll(/(?:\b|`)(id|source_id|source_type|edition_id|entity_type|league_id|season_id|owner_id|owner_type|trophy_item_id|status|winner_club_id|winner_player_id|linked_source_type|linked_source_id)\s*=\s*\?/g)){const key=match[1],value=v[index++];rows=rows.filter(r=>String(r[key])===String(value));}
+      for(const match of sql.matchAll(/(?:\b|`)(id|tournament_id|source_id|source_type|edition_id|entity_type|league_id|season_id|owner_id|owner_type|trophy_item_id|award_key|award_id|status|winner_club_id|winner_player_id|linked_source_type|linked_source_id)\s*=\s*\?/g)){const key=match[1],value=v[index++];rows=rows.filter(r=>String(r[key])===String(value));}
+      if(/source_type IN/.test(sql))rows=rows.filter(r=>v.includes(r.source_type));
+      if(/status='earned'/.test(sql))rows=rows.filter(r=>r.status==='earned');
+      if(/status='archived'/.test(sql))rows=rows.filter(r=>r.status==='archived');
+      if(/status='completed'/.test(sql))rows=rows.filter(r=>r.status==='completed');
       if(/WHERE id IN/.test(sql))rows=rows.filter(r=>v.includes(r.id));
       if(/club_id IN/.test(sql))rows=rows.filter(r=>v.includes(r.club_id));
       if(/JSON_UNQUOTE/.test(sql))rows=rows.filter(r=>JSON.parse(r.data_json||'{}').winner_club_id===v[0]);
+      if(/COUNT\(\*\) AS total/.test(sql))return [{total:rows.length}];
       return rows;
     }
+    if(/^UPDATE players SET ranking_competition_wins/.test(sql)){const p=state.players.find(p=>p.id===v[1]);if(p)p.ranking_competition_wins=v[0];return {affectedRows:1};}
     if(/^UPDATE (clubs|players)/.test(sql)){const account=rowsFor(sql.match(/^UPDATE (\w+)/)[1]).find(r=>r.id===v[1]);account.stc=stc(cents(account.stc)+cents(v[0]));return {affectedRows:1};}
     if(/^UPDATE league_entities/.test(sql)) {
       const data=JSON.parse(v[0]),row=state.entities.find(r=>r.id===(sql.includes('status=?')?v[2]:v[1]));
       Object.assign(row,data,{data_json:v[0]});return {affectedRows:1};
     }
-    if(/^UPDATE trophy_placements/.test(sql)) {const row=state.placements.find(r=>r.id===v.at(-1));if(/win_count/.test(sql)){row.win_count++;row.won_tournament_ids=v[0];}else {let i=0;for(const k of sql.matchAll(/(x_percent|y_percent|scale|position) = \?/g))row[k[1]]=v[i++];}return {affectedRows:1};}
+    if(/^UPDATE trophy_placements/.test(sql)) {const row=state.placements.find(r=>r.id===v.at(-1));if(/locked_at=NOW/.test(sql))row.locked_at='2026-10-25 12:00:00';else if(/locked_at=NULL/.test(sql))row.locked_at=null;else if(/award_id=\?/.test(sql))row.award_id=v[0];else if(/win_count/.test(sql)){row.win_count++;row.won_tournament_ids=v[0];}else {let i=0;for(const k of sql.matchAll(/(x_percent|y_percent|scale|position) = \?/g))row[k[1]]=v[i++];}return {affectedRows:1};}
     if(/^UPDATE trophy_awards/.test(sql)){Object.assign(state.awards.find(r=>r.id===v[2]),{status:v[0],revoked_reason:v[1]});return {affectedRows:1};}
+    if(/^UPDATE tournaments/.test(sql)){const row=state.tournaments.find(r=>r.id===v.at(-1));if(/status='archived'/.test(sql)){row.status='archived';row.archived_at='2026-10-25 12:00:00';}if(/archive_review_required=1/.test(sql))row.archive_review_required=1;return {affectedRows:1};}
     if(/^INSERT INTO/.test(sql)) {
       const table=sql.match(/^INSERT INTO (\w+)/)[1],target=rowsFor(table);
       const cols=sql.match(/\(([^)]+)\)/)[1].split(',').map(c=>c.trim());
       const expressions=sql.match(/VALUES\s*\(([^)]+)\)/i)[1].split(',').map(c=>c.trim());
       let i=0;const row={};cols.forEach((col,j)=>{const e=expressions[j];row[col]=e==='?'?v[i++]:e?.startsWith("'")?e.slice(1,-1):/^\d+$/.test(e||'')?Number(e):null;});
       if(table==='reward_configs' && legacyRewardPosition && row.position==null)throw new Error("Column 'position' cannot be null");
-      const old=target.find(r=>r.id===row.id);
+      const old=target.find(r=>r.id===row.id||(table==='trophy_awards'&&row.award_key&&r.award_key===row.award_key));
+      if(old&&table==='trophy_awards'&&!old.metadata_json){old.metadata_json=row.metadata_json;old.award_key=row.award_key;old.award_role=row.award_role;}
       if(old && table!=='trophy_awards')Object.assign(old,row);else if(!old)target.push(row);
       return {affectedRows:old?0:1};
     }
@@ -76,7 +84,7 @@ function setup(kind='regional_league',count=20,{legacyRewardPosition=false}={}) 
   let queue=Promise.resolve();
   const withTransaction=fn=>{const result=queue.then(async()=>{const snapshot=structuredClone(state);try{return await fn(query);}catch(e){state=snapshot;throw e;}});queue=result.catch(()=>{});return result;};
   const db=path.resolve(__dirname,'../../db/database.js');require.cache[db]={id:db,filename:db,loaded:true,exports:{EXECUTESQL:query,withTransaction}};
-  for(const f of ['../competitionPrizeService.js','../rewardConfigurationService.js','../trophyAwardService.js','../trophyEntitlementService.js','../../models/competitionScopeModel.js','../../models/trophyAwardModel.js','../../models/trophyPlacementModel.js'])delete require.cache[path.resolve(__dirname,f)];
+  for(const f of ['../competitionPrizeService.js','../rewardConfigurationService.js','../trophyAwardService.js','../trophyEntitlementService.js','../tournamentArchiveService.js','../competitionHistoryResetService.js','../../models/competitionScopeModel.js','../../models/trophyAwardModel.js','../../models/trophyPlacementModel.js'])delete require.cache[path.resolve(__dirname,f)];
   const config=require('../rewardConfigurationService'),prizes=require('../competitionPrizeService');
   return {query,withTransaction,config,prizes,kind,sourceId,ids,get state(){return state;},get root(){return JSON.parse(state.entities.find(r=>r.id==='edition').data_json);},setRoot(patch){const r=state.entities.find(r=>r.id==='edition');const next={...JSON.parse(r.data_json),...patch};Object.assign(r,next,{data_json:JSON.stringify(next)});},setFailure(text,after=0){failOn=text;failAfter=after;},entity};
 }

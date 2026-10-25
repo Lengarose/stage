@@ -800,7 +800,8 @@ export default function Admin(props) {
   }
 
   async function deleteTournament(tournamentId) {
-    if (!(await swalConfirm(t("admin.alerts.deleteTournamentConfirm")))) return;
+    const existing=tournaments.find(item=>item.id===tournamentId);
+    if (!(await swalConfirm(['completed','archived'].includes(existing?.status)?'Archive this completed tournament? Honours, results and finances stay intact.':t("admin.alerts.deleteTournamentConfirm")))) return;
     try {
       const res = await stageClient.functions.invoke("adminDeleteTournament", {
         tournament_id: tournamentId,

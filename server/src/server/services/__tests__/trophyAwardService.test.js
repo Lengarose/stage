@@ -1,135 +1,44 @@
-const assert = require('node:assert/strict');
-const test = require('node:test');
-
-const {
-  awardClubTrophyToClubAndPlayers,
-  awardPlayerOnlyTrophy,
-} = require('../trophyAwardService');
-
-function ownerFromPlacementSelect(params) {
-  return { ownerId: params[0], ownerType: params[1], trophyItemId: params[2] };
+const assert=require('node:assert/strict');
+const test=require('node:test');
+function harness(player=false) {
+  const awards=[],placements=[];let roster=['p1','p2'];
+  const query=async(sql,v=[])=>{
+    if(/FROM tournaments/.test(sql))return [{id:'t',name:'October Cup',type:'knockout',status:'completed',completed_at:'2026-10-25 10:00:00',participant_type:player?'player':'club',trophy_item_id:'design'}];
+    if(/FROM matches/.test(sql))return [{id:'final',type:'final',status:'completed',result_state:'CONFIRMED',home_score:2,away_score:1,[player?'home_player_id':'home_club_id']:player?'winner-player':'winner-club',[player?'away_player_id':'away_club_id']:'opponent'}];
+    if(/FROM (clubs|players) WHERE id IN/.test(sql))return v.map(id=>({id,name:id,gamertag:id}));
+    if(/FROM trophy_items/.test(sql))return [{id:'design',image_url:'/uploads/cup.png',name:'Catalogue Design'}];
+    if(/SELECT DISTINCT p.id/.test(sql))return roster.map(id=>({id}));
+    if(/SELECT id,club_id FROM players/.test(sql))return [];
+    if(/SELECT.*FROM trophy_awards/.test(sql)) {
+      let rows=awards;
+      let i=0;for(const m of sql.matchAll(/(owner_id|owner_type|source_id|source_type|edition_id|award_key)=\?/g)){const value=v[i++];rows=rows.filter(r=>r[m[1]]===value);}
+      return rows;
+    }
+    if(/INSERT INTO trophy_awards/.test(sql)) {
+      const row={id:v[0],owner_id:v[1],owner_type:v[2],trophy_item_id:v[3],source_type:v[4],source_id:v[5],edition_id:v[6],winning_club_id:v[7],status:'earned',award_key:v[8],award_role:v[9],metadata_json:v[10]};
+      if(!awards.some(a=>a.award_key===row.award_key))awards.push(row);return {affectedRows:1};
+    }
+    if(/trophy_placements/.test(sql)){placements.push(sql);throw new Error('Earning a win must not arrange a cabinet');}
+    throw new Error('Unexpected SQL: '+sql);
+  };
+  return {query,awards,placements,setRoster:ids=>{roster=ids;}};
 }
-function proofQuery(query,player=false) {
-  return async(sql,params=[])=>{
-    if(/FROM tournaments/.test(sql))return [{id:'tournament-1',name:'Verified Cup',type:'knockout',status:'completed',participant_type:player?'player':'club',trophy_item_id:'trophy-1'}];
-    if(/FROM matches/.test(sql))return [{id:'final',tournament_id:'tournament-1',type:'final',status:'completed',result_state:'CONFIRMED',home_score:2,away_score:1,[player?'home_player_id':'home_club_id']:player?'player-1':'club-1',[player?'away_player_id':'away_club_id']:'opponent'}];
-    if(/FROM (clubs|players) WHERE id IN/.test(sql))return params.map(id=>({id,name:id,gamertag:id}));
-    if(/INSERT INTO trophy_awards/.test(sql))return {affectedRows:1};
-    return query(sql,params);
-  };
-}
-
-test('club trophies unlock for the club and every active squad player', async () => {
-  const placementSelects = [];
-  const inserts = [];
-  const query = async (sql, params = []) => {
-    if (/FROM trophy_items/.test(sql)) {
-      assert.deepEqual(params, ['trophy-1']);
-      return [{ id: 'trophy-1', image_url: '/uploads/cup.png', name: 'Community Cup' }];
-    }
-    if (/SELECT DISTINCT p\.id/.test(sql)) {
-      assert.deepEqual(params, ['club-1', 'club-1', 'club-1']);
-      return [{ id: 'player-1' }, { id: 'player-2' }, { id: 'player-1' }];
-    }
-    if (/FROM trophy_placements/.test(sql)) {
-      placementSelects.push(ownerFromPlacementSelect(params));
-      return [];
-    }
-    if (/INSERT INTO trophy_placements/.test(sql)) {
-      inserts.push({ sql, params });
-      return { affectedRows: 1 };
-    }
-    throw new Error(`Unexpected SQL: ${sql}`);
-  };
-
-  const result = await awardClubTrophyToClubAndPlayers({
-    query:proofQuery(query),
-    clubId: 'club-1',
-    trophyItemId: 'trophy-1',
-    tournamentId: 'tournament-1',
-    tournament: { id: 'tournament-1', name: 'Fallback Name', trophy_item_id: 'trophy-1' },
-  });
-
-  assert.equal(result.awarded, true);
-  assert.equal(result.player_count, 2);
-  assert.deepEqual(placementSelects, [
-    { ownerId: 'club-1', ownerType: 'club', trophyItemId: 'trophy-1' },
-    { ownerId: 'player-1', ownerType: 'player', trophyItemId: 'trophy-1' },
-    { ownerId: 'player-2', ownerType: 'player', trophyItemId: 'trophy-1' },
-  ]);
-  assert.equal(inserts.length, 3);
-  assert.deepEqual(inserts.map(write => write.params.slice(1, 4)), [
-    ['club-1', 'club', 'trophy-1'],
-    ['player-1', 'player', 'trophy-1'],
-    ['player-2', 'player', 'trophy-1'],
-  ]);
-  assert.ok(inserts.every(write => write.params[4] === '/uploads/cup.png'));
-  assert.ok(inserts.every(write => write.params[5] === 'Community Cup'));
-  assert.ok(inserts.every(write => write.params[6] === JSON.stringify(['tournament-1'])));
+test('club championship and associated player honours are durable, not visual placements',async()=>{
+  const env=harness();const result=await require('../trophyAwardService').awardClubTrophyToClubAndPlayers({query:env.query,clubId:'winner-club',trophyItemId:'design',tournamentId:'t'});
+  assert.equal(result.player_count,2);assert.equal(env.awards.length,3);assert.equal(env.placements.length,0);
+  assert.deepEqual(env.awards.map(a=>a.award_role),['club_champion','associated_player','associated_player']);
+  const details=JSON.parse(env.awards[0].metadata_json);assert.equal(details.display_name,'October Cup Trophy — 2026');assert.equal(details.participant_count,2);assert.equal(details.image_url,'/uploads/cup.png');
 });
-
-test('player tournament trophies stay player-only', async () => {
-  const placementSelects = [];
-  const inserts = [];
-  const query = async (sql, params = []) => {
-    if (/FROM trophy_items/.test(sql)) return [{ id: 'trophy-1', image_url: '/uploads/player-cup.png', name: 'Solo Cup' }];
-    if (/SELECT DISTINCT p\.id/.test(sql)) throw new Error('player-only trophies must not load a club squad');
-    if (/FROM trophy_placements/.test(sql)) {
-      placementSelects.push(ownerFromPlacementSelect(params));
-      return [];
-    }
-    if (/INSERT INTO trophy_placements/.test(sql)) {
-      inserts.push({ sql, params });
-      return { affectedRows: 1 };
-    }
-    throw new Error(`Unexpected SQL: ${sql}`);
-  };
-
-  const result = await awardPlayerOnlyTrophy({
-    query:proofQuery(query,true),
-    playerId: 'player-1',
-    trophyItemId: 'trophy-1',
-    tournamentId: 'tournament-1',
-    tournament: { id: 'tournament-1', participant_type: 'player', trophy_item_id: 'trophy-1' },
-  });
-
-  assert.equal(result.awarded, true);
-  assert.deepEqual(placementSelects, [
-    { ownerId: 'player-1', ownerType: 'player', trophyItemId: 'trophy-1' },
-  ]);
-  assert.equal(inserts.length, 1);
-  assert.deepEqual(inserts[0].params.slice(1, 4), ['player-1', 'player', 'trophy-1']);
+test('player tournaments award only their winning player',async()=>{
+  const env=harness(true);await require('../trophyAwardService').awardPlayerOnlyTrophy({query:env.query,playerId:'winner-player',trophyItemId:'design',tournamentId:'t'});
+  assert.equal(env.awards.length,1);assert.equal(env.awards[0].award_role,'player_champion');
 });
-
-test('repeat awards for the same tournament do not inflate win count', async () => {
-  const updates = [];
-  const query = async (sql, params = []) => {
-    if (/FROM trophy_items/.test(sql)) return [{ id: 'trophy-1', image_url: '/uploads/cup.png', name: 'Cup' }];
-    if (/FROM trophy_placements/.test(sql)) {
-      return [{
-        id: 'placement-1',
-        owner_id: params[0],
-        owner_type: params[1],
-        trophy_item_id: params[2],
-        won_tournament_ids: JSON.stringify(['tournament-1']),
-        win_count: 1,
-      }];
-    }
-    if (/UPDATE trophy_placements/.test(sql)) {
-      updates.push({ sql, params });
-      return { affectedRows: 1 };
-    }
-    throw new Error(`Unexpected SQL: ${sql}`);
-  };
-
-  const result = await awardPlayerOnlyTrophy({
-    query:proofQuery(query,true),
-    playerId: 'player-1',
-    trophyItemId: 'trophy-1',
-    tournamentId: 'tournament-1',
-  });
-
-  assert.equal(result.skipped, true);
-  assert.equal(result.reason, 'already_awarded');
-  assert.equal(updates.length, 0);
+test('retries cannot inflate awards or give a later transfer the old winning-club honour',async()=>{
+  const env=harness(),service=require('../trophyAwardService'),input={query:env.query,clubId:'winner-club',trophyItemId:'design',tournamentId:'t'};
+  await service.awardClubTrophyToClubAndPlayers(input);env.setRoster(['new-transfer']);await service.awardClubTrophyToClubAndPlayers(input);
+  assert.equal(env.awards.length,3);assert.ok(!env.awards.some(a=>a.owner_id==='new-transfer'));
+});
+test('historical materialization cannot infer past player honours from the current squad',async()=>{
+  const env=harness();await require('../trophyAwardService').awardClubTrophyToClubAndPlayers({query:env.query,clubId:'winner-club',trophyItemId:'design',tournamentId:'t',tournament:{_historical_backfill:true}});
+  assert.equal(env.awards.length,1);assert.equal(env.awards[0].owner_type,'club');assert.equal(JSON.parse(env.awards[0].metadata_json).associated_history_unavailable,true);
 });

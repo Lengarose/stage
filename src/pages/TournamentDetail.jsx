@@ -705,7 +705,7 @@ export default function TournamentDetail() {
   }
 
   async function deleteTournament() {
-    if (!(await swalConfirm(t("tournamentDetail.deleteConfirm")))) return;
+    if (!(await swalConfirm(['completed','archived'].includes(tournament.status)?'Archive this tournament? Results, honours and financial history will be preserved.':t("tournamentDetail.deleteConfirm")))) return;
     try {
       const res = await deleteTournamentById(id);
       if (!res?.data?.success) {
@@ -814,7 +814,7 @@ export default function TournamentDetail() {
   );
   const showRulesConsentPanel = showRegistrationConsent && rules?.body && !hasSavedRulesAcceptance;
   const isOrganizer = isTournamentOwner(tournament, user, myPlayer);
-  const canManageTournament = isAdmin || isCreator || isOrganizer;
+  const canManageTournament = tournament.status!=='archived' && (isAdmin || isCreator || isOrganizer);
   const canShareInvite = isGostOfficialTournament(tournament)
     ? isAdmin && String(tournament.status || "").toLowerCase() !== "cancelled"
     : isOrganizer && String(tournament.status || "").toLowerCase() !== "cancelled";
@@ -1260,7 +1260,7 @@ export default function TournamentDetail() {
             {isAdmin && ["cancelled", "registration", "completed"].includes(tournament.status) && (
               <Button type="button" onClick={deleteTournament} size="sm" variant="outline" className="h-9 rounded-none border-red-300/35 bg-transparent text-xs text-red-200 hover:bg-red-400/10"
                 style={{ clipPath: "polygon(9px 0, 100% 0, calc(100% - 9px) 100%, 0 100%)" }}>
-                {tournament.status === "completed" ? t("tournamentDetail.endAndDelete") : t("tournamentDetail.delete")}
+                {['completed','archived'].includes(tournament.status) ? 'Archive' : t("tournamentDetail.delete")}
               </Button>
             )}
           </div>

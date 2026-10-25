@@ -6,6 +6,7 @@ const { broadcastTournament, broadcastTournamentDeleted } = require('../utils/so
 const { TOURNAMENT_CREDIT_COST, normalizeTournamentEconomics } = require('../utils/tournamentRules');
 const { getUserCredits, spendUserCredits } = require('../services/userCreditsService');
 const { hasStagePlus } = require('../utils/subscriptionAccess');
+router.get('/archive',async(req,res)=>{try{res.json(await require('../services/tournamentArchiveService').list(req.query));}catch(e){res.status(500).json({error:e.message});}});
 const {
   getTournamentStages,
   getTournamentStage,
@@ -46,26 +47,34 @@ function placeholders(items) {
   return items.map(() => '?').join(',');
 }
 
-async function deleteTournamentRecords(id) {
-  const matches = await EXECUTESQL('SELECT id FROM matches WHERE tournament_id = ?', [id]);
+async function deleteTournamentRecords(id,admin) {
+  return require('../db/database').withTransaction(async query=>{
+    const [t]=await query('SELECT * FROM tournaments WHERE id=? FOR UPDATE',[id]);
+    if(!t)throw Object.assign(new Error('Tournament not found'),{status:404});
+    if(['completed','archived'].includes(t.status))return {...await require('../services/tournamentArchiveService').archive(id,{admin,query}),matches:0};
+    if(!['registration','cancelled'].includes(t.status))throw Object.assign(new Error('Tournament status changed; review before removing it'),{status:409});
+  const matches = await query('SELECT id FROM matches WHERE tournament_id = ?', [id]);
   const matchIds = matches.map(row => row.id).filter(Boolean);
   if (matchIds.length) {
     const inMatches = placeholders(matchIds);
-    await EXECUTESQL(`DELETE FROM match_player_stats WHERE match_id IN (${inMatches})`, matchIds).catch(() => {});
-    await EXECUTESQL('DELETE FROM match_player_stats WHERE tournament_id = ?', [id]).catch(() => {});
-    await EXECUTESQL(`DELETE FROM dressing_rooms WHERE match_id IN (${inMatches})`, matchIds).catch(() => {});
-    await EXECUTESQL(`DELETE FROM predictions WHERE live_match_id IN (SELECT id FROM live_matches WHERE match_id IN (${inMatches}))`, matchIds).catch(() => {});
-    await EXECUTESQL(`DELETE FROM live_matches WHERE match_id IN (${inMatches})`, matchIds).catch(() => {});
-    await EXECUTESQL(`DELETE FROM matches WHERE id IN (${inMatches})`, matchIds);
+    await query(`DELETE FROM match_player_stats WHERE match_id IN (${inMatches})`, matchIds).catch(() => {});
+    await query('DELETE FROM match_player_stats WHERE tournament_id = ?', [id]).catch(() => {});
+    await query(`DELETE FROM dressing_rooms WHERE match_id IN (${inMatches})`, matchIds).catch(() => {});
+    await query(`DELETE FROM predictions WHERE live_match_id IN (SELECT id FROM live_matches WHERE match_id IN (${inMatches}))`, matchIds).catch(() => {});
+    await query(`DELETE FROM live_matches WHERE match_id IN (${inMatches})`, matchIds).catch(() => {});
+    await query(`DELETE FROM matches WHERE id IN (${inMatches})`, matchIds);
   }
-  await EXECUTESQL(
+  await query(
     `DELETE FROM league_entities
       WHERE entity_type = 'tournament_entrance_link'
         AND JSON_UNQUOTE(JSON_EXTRACT(data_json, '$.tournament_id')) = ?`,
     [id],
   ).catch(() => {});
-  await EXECUTESQL('DELETE FROM tournaments WHERE id = ?', [id]);
+  await query('DELETE FROM tournaments WHERE id = ?', [id]);
+  await require('../services/rewardConfigurationService').audit(query,admin,'delete_unstarted_tournament','tournament',id,t,{deleted:true},'Admin removed an unstarted/cancelled tournament');
   return { matches: matchIds.length };
+
+  });
 }
 
 // GET /
@@ -182,6 +191,7 @@ router.patch('/:id', async (req, res) => {
     const { id } = req.params;
     const existing = await new Tournament().selectOne(id);
     if (!existing.length) return res.status(404).json({ error: 'Not found' });
+    if(['completed','archived'].includes(existing[0].status))return res.status(409).json({error:'Completed history is read-only. Use archive or explicit audited history review.'});
     const shouldNormalize = ['type', 'max_teams', 'entry_fee_stc'].some(key => req.body[key] !== undefined);
     const merged = { ...existing[0], ...req.body };
     const tournament = new Tournament(shouldNormalize ? normalizeTournamentEconomics(merged, { allowDisabled: true }) : merged);
@@ -208,6 +218,7 @@ router.delete('/:id', async (req, res) => {
     const existing = await new Tournament().selectOne(id);
     if (!existing.length) return res.status(404).json({ error: 'Not found' });
     const tournament = existing[0];
+    if(['completed','archived'].includes(tournament.status))return res.json(await require('../services/tournamentArchiveService').archive(id,{admin}));
     const waitMs = completedTournamentDeleteWaitMs(tournament);
     if (waitMs > 0) {
       const days = Math.ceil(waitMs / (24 * 60 * 60 * 1000));
@@ -223,7 +234,8 @@ router.delete('/:id', async (req, res) => {
         code: 'TOURNAMENT_DELETE_STATUS_BLOCKED',
       });
     }
-    const deleted = await deleteTournamentRecords(id);
+    const deleted = await deleteTournamentRecords(id,admin);
+    if(deleted.archived)return res.json(deleted);
     await EXECUTESQL(
       `INSERT INTO admin_audit_log
          (id, admin_user_id, admin_email, action, entity_type, entity_id, entity_name, old_value, new_value, reason, created_date)

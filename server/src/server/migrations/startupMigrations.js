@@ -2048,6 +2048,22 @@ async function runStartupMigrations() {
     UNIQUE KEY idx_trophy_award_event (owner_type,owner_id,trophy_item_id,source_type,source_id,edition_id),
     INDEX idx_trophy_award_owner (owner_type,owner_id,status)
   )`).catch(err=>console.error('[migration] trophy_awards:',err.message));
+  await addCol('trophy_awards','revoked_at','DATETIME NULL');
+  await addCol('trophy_awards','award_key','VARCHAR(64) NULL');
+  await addCol('trophy_awards','award_role','VARCHAR(30) NULL');
+  await addCol('trophy_awards','metadata_json','JSON NULL');
+  await EXECUTESQL('ALTER TABLE trophy_awards MODIFY COLUMN trophy_item_id VARCHAR(36) NULL');
+  const duplicateAwardKeys=await EXECUTESQL('SELECT award_key,COUNT(*) AS count FROM trophy_awards WHERE award_key IS NOT NULL GROUP BY award_key HAVING COUNT(*)>1');
+  if(duplicateAwardKeys.length)throw new Error('Duplicate award identities require explicit history review before migration');
+  await addIndex('trophy_awards','idx_trophy_award_key','(award_key)',true);
+  await addCol('trophy_placements','award_id','VARCHAR(36) NULL');
+  await addCol('trophy_placements','locked_at','DATETIME NULL');
+  const duplicatePlacementAwards=await EXECUTESQL('SELECT award_id,COUNT(*) AS count FROM trophy_placements WHERE award_id IS NOT NULL GROUP BY award_id HAVING COUNT(*)>1');
+  if(duplicatePlacementAwards.length)throw new Error('Duplicate earned-copy placements require explicit history review before migration');
+  await addIndex('trophy_placements','idx_trophy_placement_award','(award_id)',true);
+  await addCol('tournaments','completed_at','DATETIME NULL');
+  await addCol('tournaments','archived_at','DATETIME NULL');
+  await addCol('tournaments','archive_review_required','TINYINT DEFAULT 0');
 
   // Lifestyle purchases expanded schema (v2)
   await addCol('lifestyle_purchases', 'purchase_type',           "VARCHAR(20) DEFAULT 'buy'");

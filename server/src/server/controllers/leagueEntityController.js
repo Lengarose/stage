@@ -268,6 +268,7 @@ function makeRouter(entityType) {
       if (!existing.length) return res.status(404).json({ error: 'Not found' });
 
       const current = parseRow(existing[0]);
+      if(['regional_league','competition_season'].includes(entityType)&&['completed','archived'].includes(current.status))return res.status(409).json({error:'Completed edition history is read-only; use archive or audited history reset.'});
       const rawBody = req.body || {};
       if (existing[0].entity_type !== entityType) return res.status(404).json({error:'Not found'});
       if (FIXTURE_ENTITY_TYPES.has(entityType)) {
@@ -319,6 +320,7 @@ function makeRouter(entityType) {
       }
       const existing = await EXECUTESQL(`SELECT * FROM \`${TABLE}\` WHERE id = ? AND entity_type = ? LIMIT 1`, [req.params.id, entityType]);
       const before = existing.length ? parseRow(existing[0]) : null;
+      if(before&&['regional_league','competition_season'].includes(entityType)&&['completed','archived'].includes(before.status))return res.status(409).json({error:'Completed editions must be archived, not deleted. Use explicit history reset to revoke honours.'});
       if (before && FIXTURE_ENTITY_TYPES.has(entityType) && (before.match_id || before.status === 'played' || require('../lib/tournamentProgression').hasActivity(before))) return res.status(409).json({error:'This fixture has scheduling, reports or results. Use the authorised fixture review workflow; historical activity was preserved.'});
       await EXECUTESQL(`DELETE FROM \`${TABLE}\` WHERE id = ? AND entity_type = ?`, [req.params.id, entityType]);
       await auditLeagueEntity(req, `delete_${entityType}`, entityType, req.params.id, before, null, req.body?.reason);

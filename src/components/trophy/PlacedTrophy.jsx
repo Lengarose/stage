@@ -10,11 +10,13 @@
  */
 import { useState, useRef, useEffect } from "react";
 import { Move, Trophy, X, ZoomIn, ZoomOut } from "lucide-react";
+import {Dialog,DialogContent,DialogHeader,DialogTitle} from '@/components/ui/dialog';
+import {Link} from 'react-router-dom';
 
 // scale=1 → 12% of cabinet width
 const BASE_SIZE_RATIO = 0.12;
 
-export default function PlacedTrophy({ placement, editMode, cabinetRef, cabinetSize, onMove, onMoveSave, onRemove, wonTournaments }) {
+export default function PlacedTrophy({ placement, editMode, cabinetRef, cabinetSize, onMove, onMoveSave, onRemove }) {
   const [tooltip, setTooltip] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [draftPosition, setDraftPosition] = useState(null);
@@ -23,6 +25,7 @@ export default function PlacedTrophy({ placement, editMode, cabinetRef, cabinetS
   const dragCleanup = useRef(null);
   const scaleDraftRef = useRef(null);
   const frameRef = useRef(null);
+  const detailsRef = useRef(null);
 
   const xPercent = draftPosition?.x_percent ?? placement.x_percent;
   const yPercent = draftPosition?.y_percent ?? placement.y_percent;
@@ -136,9 +139,16 @@ export default function PlacedTrophy({ placement, editMode, cabinetRef, cabinetS
   // Responsive size: always proportional to current cabinet width
   const cabinetWidth = cabinetSize?.width || 400;
   const size = Math.round(cabinetWidth * BASE_SIZE_RATIO * scale);
+  const award=placement.award||{};
+  const details=[award.competition_name,award.edition_label,award.winning_name,award.format,`${award.participant_count??'Unknown'} ${award.participant_type||'participants'}`,award.completed_at?new Date(award.completed_at).toLocaleDateString():'Completion date unavailable'].filter(Boolean).join('\n');
 
   return (
     <div
+      role={editMode?'group':'button'}
+      tabIndex={0}
+      aria-label={placement.trophy_name||'Earned trophy details'}
+      title={details}
+      onKeyDown={e=>{if(e.target!==e.currentTarget)return;if(!editMode&&['Enter',' '].includes(e.key)){e.preventDefault();setTooltip(true);}if(editMode&&['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)){e.preventDefault();onMoveSave(placement.id,{x_percent:Math.max(5,Math.min(95,Number(xPercent)+(e.key==='ArrowRight'?1:e.key==='ArrowLeft'?-1:0))),y_percent:Math.max(5,Math.min(95,Number(yPercent)+(e.key==='ArrowDown'?1:e.key==='ArrowUp'?-1:0)))});}}}
       className="absolute group"
       style={{
         left: `${xPercent}%`,
@@ -197,7 +207,7 @@ export default function PlacedTrophy({ placement, editMode, cabinetRef, cabinetS
           >
             <Move className="w-3.5 h-3.5" />
           </button>
-          <button type="button" onClick={(e) => { e.stopPropagation(); scaleBy(-0.15); }} className="text-white hover:text-primary p-0.5"><ZoomOut className="w-3.5 h-3.5" /></button>
+          <button type="button" aria-label="Shrink trophy" title="Shrink trophy" onClick={(e) => { e.stopPropagation(); scaleBy(-0.15); }} className="text-white hover:text-primary p-0.5"><ZoomOut className="w-3.5 h-3.5" /></button>
           <input
             aria-label="Resize trophy"
             type="range"
@@ -210,40 +220,21 @@ export default function PlacedTrophy({ placement, editMode, cabinetRef, cabinetS
             onBlur={handleScaleCommit}
             className="w-24 accent-cyan-300"
           />
-          <button type="button" onClick={(e) => { e.stopPropagation(); scaleBy(0.15); }} className="text-white hover:text-primary p-0.5"><ZoomIn className="w-3.5 h-3.5" /></button>
+          <button type="button" aria-label="Enlarge trophy" title="Enlarge trophy" onClick={(e) => { e.stopPropagation(); scaleBy(0.15); }} className="text-white hover:text-primary p-0.5"><ZoomIn className="w-3.5 h-3.5" /></button>
           <span className="min-w-9 text-center text-[10px] font-bold text-white/70">{Math.round(scale * 100)}%</span>
-          <button type="button" onClick={(e) => { e.stopPropagation(); onRemove(placement.id); }} className="text-white hover:text-destructive p-0.5"><X className="w-3.5 h-3.5" /></button>
+          <button type="button" aria-label="Remove draft trophy" title="Remove draft trophy" onClick={(e) => { e.stopPropagation(); onRemove(placement.id); }} className="text-white hover:text-destructive p-0.5"><X className="w-3.5 h-3.5" /></button>
         </div>
       )}
 
-      {/* Tooltip on click (view mode) */}
-      {tooltip && !editMode && (
-        <div
-          className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-black/90 border border-amber-500/30 rounded-xl p-3 text-left shadow-2xl z-50"
-          style={{ minWidth: 160, maxWidth: 220 }}
-          onClick={e => e.stopPropagation()}
-        >
-          <p className="font-bold text-amber-300 text-xs mb-1">{placement.trophy_name}</p>
-          {placement.win_count > 1 && (
-            <p className="text-[10px] text-amber-400 font-semibold mb-1">Won ×{placement.win_count}</p>
-          )}
-          {(wonTournaments || []).map(t => (
-            <div key={t.id} className="text-[9px] text-foreground/70 border-t border-border/40 pt-1 mt-1">
-              <p className="font-medium">{t.name}</p>
-              {t.season && <p className="text-muted-foreground">{t.season}</p>}
-              <p className="text-muted-foreground">
-                {t.end_date ? new Date(t.end_date).getFullYear() : new Date(t.updated_date).getFullYear()}
-              </p>
-            </div>
-          ))}
-          <button
-            className="absolute top-1 right-1 text-muted-foreground hover:text-foreground"
-            onClick={() => setTooltip(false)}
-          >
-            <X className="w-3 h-3" />
-          </button>
-        </div>
-      )}
+      <Dialog open={tooltip&&!editMode} onOpenChange={setTooltip}>
+        <DialogContent ref={detailsRef} onOpenAutoFocus={e=>{e.preventDefault();detailsRef.current?.focus();}} onKeyDown={e=>{if(e.key==='Escape'){e.stopPropagation();setTooltip(false);}}} onClick={e=>e.stopPropagation()} onPointerDown={e=>e.stopPropagation()} className="max-h-[80vh] overflow-y-auto rounded-none">
+          <DialogHeader><DialogTitle>{placement.trophy_name||'Earned Trophy'}</DialogTitle></DialogHeader>
+          <dl className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3 text-sm">
+            {[['Competition',award.competition_name],['Edition',award.edition_label],['Winner',award.winning_name],['Format',award.format],['Participants',award.participant_count==null?'Unavailable':award.participant_count+' '+award.participant_type],['Completed',award.completed_at?new Date(award.completed_at).toLocaleDateString():'Completion date unavailable'],['Placement',placement.locked_at?'Permanent':'Draft']].map(([label,value])=><div key={label} className="min-w-0 break-words"><dt className="text-muted-foreground">{label}</dt><dd>{value||'Unavailable'}</dd></div>)}
+          </dl>
+          {award.archive_path&&<Link to={award.archive_path} className="text-primary">View competition history</Link>}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
