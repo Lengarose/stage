@@ -1,6 +1,6 @@
 const path=require('node:path');
 const {cents,stc}=require('../../lib/competitionPrizes');
-function setup(kind='regional_league',count=20) {
+function setup(kind='regional_league',count=20,{legacyRewardPosition=false}={}) {
   const sourceId=kind==='regional_league'?'edition':'gost';
   const standingType=kind==='regional_league'?'regional_league_standing':'competition_standing';
   const fixtureType=kind==='regional_league'?'regional_league_fixture':'competition_fixture';
@@ -33,6 +33,8 @@ function setup(kind='regional_league',count=20) {
   for(const id of ids)state.entities.push(entity(`standing-${id}`,standingType,{[column]:'edition',club_id:id,club_name:id,...totals.get(id)}));
   function rowsFor(table){return table==='league_entities'?state.entities:table==='reward_configs'?state.configs:table==='competition_payouts'?state.payouts:table==='stc_transactions'?state.ledgers:table==='trophy_awards'?state.awards:table==='trophy_placements'?state.placements:table==='trophy_items'?state.items:table==='clubs'?state.clubs:table==='players'?state.players:table==='tournaments'?state.tournaments:table==='matches'?state.matches:table==='admin_audit_log'?state.audits:[];}
   async function query(sql,v=[]) {
+    if (/information_schema.columns/.test(sql) && v[0]==='reward_configs' && v[1]==='position') return [{IS_NULLABLE:legacyRewardPosition?'NO':'YES'}];
+    if (sql==='ALTER TABLE reward_configs MODIFY COLUMN position INT NULL') {legacyRewardPosition=false;return {affectedRows:0};}
     if(failOn&&sql.includes(failOn)){if(failAfter--<=0)throw new Error('Injected transaction failure');}
     if(/FROM users/.test(sql))return [{id:v[0],email:`${v[0]}@example.test`,role_id:v[0]==='admin'?2:1}];
     if(/FROM (club_achievements|competition_instances|competition_fixtures)/.test(sql))return [];
@@ -63,6 +65,7 @@ function setup(kind='regional_league',count=20) {
       const cols=sql.match(/\(([^)]+)\)/)[1].split(',').map(c=>c.trim());
       const expressions=sql.match(/VALUES\s*\(([^)]+)\)/i)[1].split(',').map(c=>c.trim());
       let i=0;const row={};cols.forEach((col,j)=>{const e=expressions[j];row[col]=e==='?'?v[i++]:e?.startsWith("'")?e.slice(1,-1):/^\d+$/.test(e||'')?Number(e):null;});
+      if(table==='reward_configs' && legacyRewardPosition && row.position==null)throw new Error("Column 'position' cannot be null");
       const old=target.find(r=>r.id===row.id);
       if(old && table!=='trophy_awards')Object.assign(old,row);else if(!old)target.push(row);
       return {affectedRows:old?0:1};

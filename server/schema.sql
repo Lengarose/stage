@@ -1812,7 +1812,7 @@ CREATE TABLE IF NOT EXISTS reward_configs (
   source_id VARCHAR(36),
   source_type VARCHAR(50),
   source_name VARCHAR(255),
-  position INT,
+  position INT NULL,
   position_label VARCHAR(100),
   badge_type VARCHAR(50) DEFAULT 'participant',
   stc_amount DECIMAL(12,2) DEFAULT 0,

@@ -2,6 +2,18 @@
 const { EXECUTESQL } = require('../db/database');
 const { v4: uuidv4 } = require('uuid');
 
+async function migrateRewardConfigPosition(query = EXECUTESQL) {
+  const columns = await query(
+    'SELECT IS_NULLABLE FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?',
+    ['reward_configs', 'position'],
+  );
+  if (columns.some(column => column.IS_NULLABLE === 'NO')) {
+    // GOST components have no finishing position; regional positions stay
+    // mandatory through rewardPolicy validation, rather than a shared DB constraint.
+    await query('ALTER TABLE reward_configs MODIFY COLUMN position INT NULL');
+  }
+}
+
 async function runStartupMigrations() {
   const dropTable = async (table) => {
     try {
@@ -2716,6 +2728,7 @@ async function runStartupMigrations() {
   await addIndex('competition_payouts','idx_comp_payout_component','(source_type,source_id,edition_id,component_key)',true);
   await addCol('reward_configs','config_version','INT NULL');
   await addCol('reward_configs','component_key','VARCHAR(80) NULL');
+  await migrateRewardConfigPosition().catch(err=>console.error('[migration] reward position nullability:',err.message));
   await EXECUTESQL('ALTER TABLE reward_configs MODIFY COLUMN stc_amount DECIMAL(12,2) DEFAULT 0').catch(err=>console.error('[migration] reward amount precision:',err.message));
   // Legacy rows keep NULL versions/keys: no conflicting historic data is deleted.
   await addIndex('reward_configs','idx_reward_config_component','(source_type,source_id,config_version,component_key)',true);
@@ -2725,4 +2738,4 @@ async function runStartupMigrations() {
   await addIndex('competition_payouts','idx_comp_payout_obligation','(source_type,source_id,edition_id,position_no)',true);
 }
 
-module.exports = { runStartupMigrations };
+module.exports = { runStartupMigrations, migrateRewardConfigPosition };

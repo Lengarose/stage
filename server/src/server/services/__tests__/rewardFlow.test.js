@@ -9,6 +9,21 @@ async function configure(env) {
   const rows=type==='regional_league'?regionalRows(env.ids.length):[{component_key:'participation',stc_amount:'10.00'},{component_key:'winner_bonus',stc_amount:'30.00'},{component_key:'runner_up_bonus',stc_amount:'20.00'}];
   return env.config.save(type,env.sourceId,{version:config.version,revision:config.revision,rows,participant_count:env.ids.length,trophy_item_id:'trophy',reason:'Controlled explicit configuration'},admin);
 }
+test('legacy NOT NULL reward positions are migrated before saving GOST components',async()=>{
+  const env=setup('competition_season',36,{legacyRewardPosition:true});
+  await assert.rejects(configure(env),/Column 'position' cannot be null/);
+  assert.equal(env.state.configs.length,0,'failed save must roll back');
+  const {migrateRewardConfigPosition}=require('../../migrations/startupMigrations');
+  let alterations=0;
+  const query=async(sql,values)=>{if(sql.startsWith('ALTER TABLE'))alterations++;return env.query(sql,values);};
+  await migrateRewardConfigPosition(query);
+  const saved=await configure(env);
+  assert.equal(saved.rows.length,3);
+  assert.ok(saved.rows.every(row=>row.position===null));
+  assert.deepEqual(saved.rows.map(row=>row.component_key).sort(),['participation','runner_up_bonus','winner_bonus']);
+  await migrateRewardConfigPosition(query);
+  assert.equal(alterations,1,'repeat startup must not alter an already-nullable column');
+});
 test('all regional amounts, labels and smaller budgets are exact; unsupported counts fail',()=>{
   const rows=regionalRows(20);assert.equal(validateConfiguration('regional_league',rows,20).budget,'757000000.00');
   assert.equal(validateConfiguration('regional_league',regionalRows(2),2).budget,'106300000.00');
