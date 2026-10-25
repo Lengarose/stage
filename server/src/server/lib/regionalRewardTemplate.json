@@ -1,6 +1,8 @@
 {
-  "version": "regional-positions-v1",
-  "first_stc": 54000000,
   "step_stc": 1700000,
-  "max_clubs": 20
+  "max_clubs": 20,
+  "divisions": {
+    "1": { "version": "regional-division-1-v1", "first_stc": 54000000 },
+    "2": { "version": "regional-division-2-v1", "first_stc": 33000000 }
+  }
 }

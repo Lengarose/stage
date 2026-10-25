@@ -33,9 +33,10 @@ async function editionConfiguration(scope,query) {
   const settings=await require('./rewardConfigurationService').read(type,scope.config_source_id,query);
   const roster=require('../lib/componentPrizePlan').eligibleClubIds(scope);
   if(!settings.version && (settings.rows.length || type==='competition'))return null;
-  const rows=settings.version?settings.rows:type==='regional_league'?require('../lib/rewardPolicy').regionalRows(roster.length):[];
+  const policy=require('../lib/rewardPolicy');
+  const rows=settings.version?settings.rows:type==='regional_league'?policy.regionalRows(roster.length,scope.root):[];
   const configuration=require('../lib/rewardPolicy').validateConfiguration(type,type==='regional_league'?rows.filter(r=>Number(r.position)<=roster.length):rows,roster.length);
-  return {...configuration,source_id:scope.config_source_id,source_type:type,edition_id:scope.edition_id,version:settings.version||'regional-positions-v1',roster,trophy_item_id:settings.settings.trophy_item_id||scope.root.trophy_item_id||null};
+  return {...configuration,...(type==='regional_league'?{division:scope.root.division??null,template_version:policy.regionalPreset(scope.root).version}:{}),source_id:scope.config_source_id,source_type:type,edition_id:scope.edition_id,version:settings.version||policy.regionalPreset(scope.root).version,roster,trophy_item_id:settings.settings.trophy_item_id||scope.root.trophy_item_id||null};
 }
 async function saveState(query, ctx, state, reason = null) {
   const data = { ...ctx.saved, source_type: ctx.scope.source_type, source_id: ctx.scope.root.id, edition_id: ctx.scope.edition_id, config: ctx.config, obligations:ctx.plan.obligations, sporting_completion:['completed','archived'].includes(ctx.scope.root.status), archived:ctx.scope.root.status==='archived', trophy_state:ctx.trophyState||ctx.saved.trophy_state||'pending', state, blocking_reason: reason, updated_at: new Date().toISOString() };

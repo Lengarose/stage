@@ -2,11 +2,16 @@
 const template = require('./regionalRewardTemplate.json');
 const { cents, stc } = require('./competitionPrizes');
 const components = ['participation','winner_bonus','runner_up_bonus'];
-function regionalRows(count=20) {
+function regionalPreset(source={}) {
+  const division=Number(source.division)===2?2:1;
+  return {...template,...template.divisions[division],division};
+}
+function regionalRows(count=20,source={}) {
+  const preset=regionalPreset(source);
   if (!Number.isInteger(count) || count < 1 || count > template.max_clubs) throw Object.assign(new Error('Regional rewards support 1-20 finishing positions'),{status:400});
   return Array.from({length:count},(_,i)=>{
     const p=i+1, suffix=p>=11&&p<=13?'th':({1:'st',2:'nd',3:'rd'}[p%10]||'th');
-    return {position:p,component_key:`position:${p}`,position_label:`${p}${suffix} Place`,badge_type:p===1?'winner':'participant',stc_amount:stc(BigInt(template.first_stc-i*template.step_stc)*100n)};
+    return {position:p,component_key:`position:${p}`,position_label:`${p}${suffix} Place`,badge_type:p===1?'winner':'participant',stc_amount:stc(BigInt(preset.first_stc-i*preset.step_stc)*100n)};
   });
 }
 function validateConfiguration(type,rows,count) {
@@ -38,4 +43,4 @@ function diagnoseLegacy(rows,type,count) {
   else if(rows.length && !rows.every(r=>components.includes(r.component_key))) issues.push('Legacy bundled GOST prizes require explicit review; finalist bonuses cannot be inferred');
   return issues;
 }
-module.exports={regionalRows,validateConfiguration,diagnoseLegacy,components,template};
+module.exports={regionalRows,regionalPreset,validateConfiguration,diagnoseLegacy,components,template};

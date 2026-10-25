@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { stageClient } from '@/api/stageClient';
 import { getRewardConfiguration, saveRewardConfigs } from '@/lib/rewardsEngine';
-import { getDefaultRewardRowsForSource } from '@/lib/prizeDefaults';
+import { getDefaultRewardRowsForSource, getRegionalPrizePreset, calculatePrizePool } from '@/lib/prizeDefaults';
 import { Save, RotateCcw, Upload } from 'lucide-react';
 import { swalPrompt } from '@/lib/swal';
 import EditionRewardReview from './EditionRewardReview';
@@ -57,9 +57,11 @@ export default function RewardConfigPanel({sourceId,sourceType,sourceName,maxPos
   }
   if(!config)return <p role={error?'alert':'status'}>{error||t('admin.rewards.loadingConfiguration','Loading reward configuration...')}</p>;
   const field='min-w-0 border border-border bg-background p-2 text-sm';
+  const preset=regional?getRegionalPrizePreset(config.source):null;
   return <div className="space-y-5">
     <header className="flex flex-wrap justify-between gap-3 border-b border-border pb-3">
       <div><h4 className="font-bold">{regional?t('admin.rewards.regionalPositions','Regional Finishing Positions'):t('admin.rewards.gostComponents','GOST Participation And Bonuses')}</h4>
+        {regional&&<p className="text-xs">Division {config.source.division??'not specified'} · {config.source.region} · {config.source.platform}</p>}
         <p className="text-xs text-muted-foreground">{dirty?t('admin.rewards.unsavedChanges','Unsaved changes'):t('admin.rewards.configurationVersion','Current configuration v{version}',{version:config.version})} · {t('admin.rewards.separateSnapshots','Edition snapshots remain separate')}</p></div>
       <button type="button" onClick={save} disabled={busy||!dirty||!!validation} className="inline-flex items-center gap-2 text-primary disabled:opacity-40"><Save size={16}/>{busy?t('admin.rewards.savingConfiguration','Saving...'):t('admin.rewards.saveConfiguration','Save')}</button>
     </header>
@@ -70,13 +72,13 @@ export default function RewardConfigPanel({sourceId,sourceType,sourceName,maxPos
     <div className="grid gap-3 sm:grid-cols-2">
       <label className="grid gap-1 text-xs">Budgeted Clubs<input aria-label="Budgeted Clubs" className={field} type="number" min="2" max={regional?20:36} value={count} onChange={e=>{
         const n=Number(e.target.value);setCount(n);setDirty(true);
-        if(regional&&Number.isInteger(n)&&n>=2&&n<=20)setRows(getDefaultRewardRowsForSource('regional_league',{},n));
+        if(regional&&Number.isInteger(n)&&n>=2&&n<=20)setRows(getDefaultRewardRowsForSource('regional_league',config.source,n));
       }}/></label>
       <div className="self-end"><p className="text-xs text-muted-foreground">System-funded effective budget</p><strong>{budget===null?'Incomplete configuration':money(budget)}</strong></div>
     </div>
     {!regional&&<p className="text-sm">Every eligible club receives participation. Both finalists also receive their additional prize. Legacy bundled amounts require explicit review.</p>}
-    {regional&&<div className="flex flex-wrap justify-between gap-2 text-xs"><span>Shared default: 54,000,000 STC to 21,700,000 STC · 757,000,000 STC for 20 clubs</span>
-      <button type="button" className="inline-flex items-center gap-1 text-primary" onClick={()=>{try{setRows(getDefaultRewardRowsForSource('regional_league',{},Number(count)));setDirty(true);}catch(e){setError(e.message);}}}><RotateCcw size={14}/>Shared Schedule</button></div>}
+    {regional&&<div className="flex flex-wrap justify-between gap-2 text-xs"><span>Shared Division {preset.division} default: {preset.first_stc.toLocaleString()} STC for 1st · {calculatePrizePool('regional_league',config.source,20).toLocaleString()} STC for 20 clubs</span>
+      <button type="button" className="inline-flex items-center gap-1 text-primary" onClick={()=>{try{setRows(getDefaultRewardRowsForSource('regional_league',config.source,Number(count)));setDirty(true);}catch(e){setError(e.message);}}}><RotateCcw size={14}/>Shared Division {preset.division} Schedule</button></div>}
     <div className="divide-y divide-border border-y border-border">
       {rows.map((row,i)=><div key={row.component_key||row.position} className="grid grid-cols-[minmax(0,1fr)_minmax(140px,220px)] items-center gap-3 py-2">
         <label htmlFor={`reward-${sourceId}-${i}`} className="text-sm">{regional?row.position_label:t(`admin.rewards.${row.component_key}`,labels[row.component_key])}</label>

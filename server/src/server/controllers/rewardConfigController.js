@@ -20,6 +20,10 @@ const { v4: uuidv4 } = require('uuid');
 const FILTER_FIELDS = ['source_id', 'source_type', 'source_name'];
 const configurations = require('../services/rewardConfigurationService');
 const businessSources = new Set(['regional_league','competition']);
+router.post('/regional-division-two',async(req,res)=>{
+  try {const admin=await requireAdmin(req);res.json(await configurations.divisionTwo(req.body,admin));}
+  catch(error){res.status(error.status||500).json({error:error.message});}
+});
 router.get('/source/:type/:sourceId', async(req,res)=>{
   try {await requireAdmin(req);res.json(await configurations.read(req.params.type,req.params.sourceId));}
   catch(e){res.status(e.status||500).json({error:e.message});}

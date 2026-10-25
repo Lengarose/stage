@@ -67,8 +67,9 @@ export function getCompetitionPrizePreset(source = {}) {
   return COMPETITION_PRIZES.challenger;
 }
 
-export function getRegionalPrizePreset() {
-  return regionalTemplate;
+export function getRegionalPrizePreset(source = {}) {
+  const division = Number(source.division) === 2 ? 2 : 1;
+  return {...regionalTemplate, ...regionalTemplate.divisions[division], division};
 }
 
 export function getPrizePreset(sourceType, source = {}) {
@@ -79,9 +80,10 @@ export function getPrizePreset(sourceType, source = {}) {
 
 export function getDefaultRewardRowsForSource(sourceType, source = {}, maxPositions = sourceType === 'regional_league' ? 20 : 36) {
   if (sourceType === 'regional_league') {
+    const preset = getRegionalPrizePreset(source);
     const count = Number(maxPositions);
     if (!Number.isInteger(count) || count < 1 || count > regionalTemplate.max_clubs) throw new Error('Regional rewards support 1-20 finishing positions.');
-    return Array.from({length:count}, (_,i) => ({ position:i+1, position_label:defaultLeaguePosition(i+1), badge_type:i === 0 ? 'winner' : 'participant', stc_amount:regionalTemplate.first_stc-i*regionalTemplate.step_stc, is_default:true }));
+    return Array.from({length:count}, (_,i) => ({ position:i+1, position_label:defaultLeaguePosition(i+1), badge_type:i === 0 ? 'winner' : 'participant', stc_amount:preset.first_stc-i*preset.step_stc, is_default:true }));
   }
   const preset = getPrizePreset(sourceType, source);
   const count = Math.max(1, Number(maxPositions) || 1);

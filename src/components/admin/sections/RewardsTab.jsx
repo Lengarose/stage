@@ -1,4 +1,6 @@
 import RewardConfigPanel from "@/components/rewards/RewardConfigPanel";
+import DivisionTwoRewardReview from '@/components/rewards/DivisionTwoRewardReview';
+import {useState} from 'react';
 import { cn } from "@/lib/utils";
 import { OFFICIAL_STAGE_TOURNAMENT_MAX_CLUBS } from "@/lib/qualificationConfig";
 import { getRegionalLeagueMaxClubs } from "@/lib/regionalLeagueRules";
@@ -12,6 +14,7 @@ export default function RewardsTab({
   setRewardSource,
 }) {
   const { t } = useTranslation();
+  const [configurationRefresh,setConfigurationRefresh]=useState(0);
 
   return (
     <div className="max-w-2xl space-y-5">
@@ -21,7 +24,8 @@ export default function RewardsTab({
       <p className="text-xs text-muted-foreground">
         {t("admin.rewards.description")}
       </p>
-      <p className="border-l-2 border-primary pl-3 text-sm">Shared regional schedule: 54,000,000 STC for 1st, decreasing by 1,700,000 per position. Total for 20 clubs: 757,000,000 STC. GOST participation and finalist bonuses are configured separately.</p>
+      <p className="border-l-2 border-primary pl-3 text-sm">Shared regional schedules: Division 1 starts at 54,000,000 STC (757,000,000 total); Division 2 starts at 33,000,000 STC (337,000,000 total). Both decrease by 1,700,000 per position, for up to 20 clubs. GOST is configured separately.</p>
+      <DivisionTwoRewardReview onApplied={()=>setConfigurationRefresh(v=>v+1)}/>
 
       <div className="space-y-2">
         <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">{t("admin.rewards.selectSource")}</p>
@@ -68,7 +72,7 @@ export default function RewardsTab({
         <div className="bg-card border border-border rounded p-5 space-y-4">
           <p className="text-sm font-bold text-foreground">{rewardSource.name}</p>
           <RewardConfigPanel
-            key={rewardSource.id}
+            key={`${rewardSource.type}:${rewardSource.id}:${rewardSource.division??''}:${configurationRefresh}`}
             sourceId={rewardSource.id}
             sourceType={rewardSource.type}
             sourceName={rewardSource.name}

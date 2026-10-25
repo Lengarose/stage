@@ -4,6 +4,21 @@ const express=require('express');
 const path=require('node:path');
 const {setup}=require('../../services/__tests__/rewardFlowFixture.cjs');
 const {regionalRows}=require('../../lib/rewardPolicy');
+test('Division 2 review/apply HTTP action is admin-only, versioned and idempotent',async()=>{
+  const env=setup();env.setRoot({division:2,status:'draft'});
+  const app=express();app.use(express.json());app.use((req,res,next)=>{req.user={id:req.headers.authorization==='Bearer admin'?'admin':'intruder'};next();});
+  delete require.cache[path.resolve(__dirname,'../rewardConfigController.js')];app.use('/config',require('../rewardConfigController'));
+  const server=await new Promise(resolve=>{const s=app.listen(0,'127.0.0.1',()=>resolve(s));});
+  const url=`http://127.0.0.1:${server.address().port}/config/regional-division-two`;
+  async function post(body,actor='admin'){const response=await fetch(url,{method:'POST',headers:{Authorization:`Bearer ${actor}`,'Content-Type':'application/json'},body:JSON.stringify(body)});return {status:response.status,data:await response.json()};}
+  try {
+    assert.equal((await post({},'intruder')).status,403);
+    const review=await post({});assert.equal(review.status,200);assert.equal(review.data.sources[0].proposed_budget,'337000000.00');
+    const input={apply:true,sources:review.data.sources,reason:'Local reviewed Division 2 configuration'};
+    let response=await post(input);assert.equal(response.status,200);assert.equal(response.data.results[0].changed,true);assert.equal(env.root.prize_pool_stc,'337000000.00');
+    response=await post(input);assert.equal(response.status,200);assert.equal(response.data.results[0].changed,false);assert.equal(env.state.configs.length,20);assert.equal(env.state.ledgers.length,0);
+  }finally{await new Promise(resolve=>server.close(resolve));}
+});
 test('reward configuration, snapshots, settlement/archive and entitlement-protected cabinet APIs',async()=>{
   const env=setup();
   const app=express();app.use(express.json());app.use((req,res,next)=>{req.user={id:req.headers.authorization?.replace('Bearer ','')||'intruder'};next();});
