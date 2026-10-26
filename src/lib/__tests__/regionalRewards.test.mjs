@@ -45,9 +45,7 @@ test('a safely completed archived regional edition remains eligible for its esta
   const result=placements(scope,[{position:1,amount:'10.00'}]);
   assert.equal(result.blocked,undefined);assert.equal(result.map.get(1),'a');
 });
-test('a trophy explicitly linked to another event is not unlocked by a shared name',()=>{
-  const source=readFileSync(new URL('../../components/trophy/TrophyCabinetSystem.jsx',import.meta.url),'utf8');
-  const start=source.indexOf('function buildUnlockedMap(');
-  const build=new Function(`${source.slice(start)}; return buildUnlockedMap;`)();
-  assert.deepEqual(build([{id:'won',name:'Premier Cup',trophy_item_id:'correct'}],[{id:'wrong',tournament_id:'other',competition_name:'Premier Cup'}]),{});
+test('a trophy explicitly linked to another event is not unlocked by a shared name',async()=>{
+  const {buildUnlockedMap}=await import('../trophyCollection.js');
+  assert.deepEqual(buildUnlockedMap([{id:'won',name:'Premier Cup',trophy_item_id:'correct'}],[{id:'wrong',tournament_id:'other',competition_name:'Premier Cup'}]),{});
 });

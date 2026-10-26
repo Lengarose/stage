@@ -27,7 +27,15 @@ router.post('/confirm/:ownerType/:ownerId',wrap(async(req,res)=>{
     for(const id of ids) {
       const p=report.placements.find(row=>row.id===id);
       if(!p||!p.award_id||!report.awards.some(a=>a.id===p.award_id&&a.persisted))throw deny('Every selected placement requires its exact earned award');
-      if(!p.locked_at)await query('UPDATE trophy_placements SET locked_at=NOW() WHERE id=?',[id]);
+      const [locked]=await query('SELECT id, award_id, locked_at, owner_id, owner_type FROM trophy_placements WHERE id=? FOR UPDATE',[id]);
+      if(!locked||String(locked.owner_id)!==String(ownerId)||locked.owner_type!==ownerType||String(locked.award_id)!==String(p.award_id))throw deny('Draft placement is no longer available for this cabinet');
+      if(!locked.locked_at) {
+        const result=await query('UPDATE trophy_placements SET locked_at=NOW() WHERE owner_id=? AND owner_type=? AND award_id=? AND locked_at IS NULL AND id=?',[ownerId,ownerType,p.award_id,id]);
+        if(!result?.affectedRows) {
+          const [again]=await query('SELECT locked_at FROM trophy_placements WHERE id=?',[id]);
+          if(!again?.locked_at)throw deny('Could not permanently lock this draft placement');
+        }
+      }
     }
     if([0,2].includes(Number(actor.role_id)))await require('../services/rewardConfigurationService').audit(query,actor,'confirm_permanent_trophies','cabinet',ownerId,report.placements,{placement_ids:ids},'Admin confirmed draft placements');
     return entitlement.review(ownerId,ownerType,query);

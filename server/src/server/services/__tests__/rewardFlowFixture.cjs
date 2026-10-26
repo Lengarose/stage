@@ -64,7 +64,20 @@ function setup(kind='regional_league',count=20,{legacyRewardPosition=false}={}) 
       const data=JSON.parse(v[0]),row=state.entities.find(r=>r.id===(sql.includes('status=?')?v[2]:v[1]));
       Object.assign(row,data,{data_json:v[0]});return {affectedRows:1};
     }
-    if(/^UPDATE trophy_placements/.test(sql)) {const row=state.placements.find(r=>r.id===v.at(-1));if(/locked_at=NOW/.test(sql))row.locked_at='2026-10-25 12:00:00';else if(/locked_at=NULL/.test(sql))row.locked_at=null;else if(/award_id=\?/.test(sql))row.award_id=v[0];else if(/win_count/.test(sql)){row.win_count++;row.won_tournament_ids=v[0];}else {let i=0;for(const k of sql.matchAll(/(x_percent|y_percent|scale|position) = \?/g))row[k[1]]=v[i++];}return {affectedRows:1};}
+    if(/^UPDATE trophy_placements/.test(sql)) {
+      const row=state.placements.find(r=>r.id===v.at(-1));
+      if(!row)return {affectedRows:0};
+      if(/locked_at=NOW/.test(sql)) {
+        if(/locked_at IS NULL/.test(sql)&&row.locked_at)return {affectedRows:0};
+        row.locked_at='2026-10-25 12:00:00';
+        return {affectedRows:1};
+      }
+      if(/locked_at=NULL/.test(sql)){row.locked_at=null;return {affectedRows:1};}
+      if(/SET award_id=\?/.test(sql)){row.award_id=v[0];return {affectedRows:1};}
+      if(/win_count/.test(sql)){row.win_count++;row.won_tournament_ids=v[0];return {affectedRows:1};}
+      let i=0;for(const k of sql.matchAll(/(x_percent|y_percent|scale|position) = \?/g))row[k[1]]=v[i++];
+      return {affectedRows:1};
+    }
     if(/^UPDATE trophy_awards/.test(sql)){Object.assign(state.awards.find(r=>r.id===v[2]),{status:v[0],revoked_reason:v[1]});return {affectedRows:1};}
     if(/^UPDATE tournaments/.test(sql)){const row=state.tournaments.find(r=>r.id===v.at(-1));if(/status='archived'/.test(sql)){row.status='archived';row.archived_at='2026-10-25 12:00:00';}if(/archive_review_required=1/.test(sql))row.archive_review_required=1;return {affectedRows:1};}
     if(/^INSERT INTO/.test(sql)) {
