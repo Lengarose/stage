@@ -12,7 +12,7 @@ import { stageClient, clearNeedsOnboarding, clearOAuthReturnState, userNeedsOnbo
 import { ensureAdminPanelMode, isAppAdminUser, isEffectiveAdmin, isAdminGlobalRoute } from '@/lib/adminAuth';
 import { getOwnedClubId } from '@/lib/userIdentityFields';
 import {
-  clearEntranceTournament,
+  clearEntranceTournament, 
   entranceTournamentPath,
   finishTournamentEntranceSession,
   readEntranceTournament,
