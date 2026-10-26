@@ -11,6 +11,7 @@ import {
   buildUnlockedMap,
   findOpenSpot,
 } from '@/lib/trophyCollection';
+import { normalizePlacementCoords } from '@/lib/trophyCabinetLayout';
 import TrophyCabinetCanvas from './TrophyCabinetCanvas';
 import TrophyScrollBar from './TrophyScrollBar';
 
@@ -33,6 +34,7 @@ export default function TrophyCabinetSystem({ ownerId, ownerType, canEdit }) {
   const [loadingMore, setLoadingMore] = useState(false);
   const [catalogueOffset, setCatalogueOffset] = useState(0);
   const [copyPicker, setCopyPicker] = useState(null);
+  const [pointerDrag, setPointerDrag] = useState(null);
   const identity = `${ownerType}:${ownerId}`;
   const active = useRef(identity);
   active.current = identity;
@@ -178,13 +180,16 @@ export default function TrophyCabinetSystem({ ownerId, ownerType, canEdit }) {
       return;
     }
     const spot = pos || findOpenSpot(placements);
+    const coords = normalizePlacementCoords({
+      x_percent: spot.x,
+      y_percent: spot.y,
+      scale: 1,
+    });
     await mutate(() => stageClient.entities.TrophyPlacement.create({
       owner_id: ownerId,
       owner_type: ownerType,
       award_id: award.id,
-      x_percent: spot.x,
-      y_percent: spot.y,
-      scale: 1,
+      ...coords,
     }));
   }
 
@@ -197,13 +202,51 @@ export default function TrophyCabinetSystem({ ownerId, ownerType, canEdit }) {
     if (entry.availableAwards[0]) await placeAward(entry.availableAwards[0], pos);
   }
 
+  function dragPayloadForEntry(entry) {
+    if (entry.availableAwards.length === 1) return entry.availableAwards[0];
+    return { id: entry.id, trophy_item_id: entry.id, needs_copy_pick: true };
+  }
+
   function handleDragStart(e, entry) {
     if (entry.state !== 'available' || !editMode) return;
-    const payload = entry.availableAwards.length === 1
-      ? entry.availableAwards[0]
-      : { id: entry.id, trophy_item_id: entry.id, needs_copy_pick: true };
+    const payload = dragPayloadForEntry(entry);
     e.dataTransfer.setData('trophy', JSON.stringify(payload));
     e.dataTransfer.effectAllowed = 'copy';
+    try {
+      e.dataTransfer.setDragImage(e.currentTarget, 40, 40);
+    } catch {
+      // Optional visual; browsers may reject custom drag images.
+    }
+  }
+
+  function handlePointerDragStart(e, entry) {
+    if (entry.state !== 'available' || !editMode || !canEdit) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const payload = dragPayloadForEntry(entry);
+    window.__stageTrophyPointerDrag = payload;
+    setPointerDrag({
+      payload,
+      entry,
+      x: e.clientX,
+      y: e.clientY,
+    });
+
+    const onMove = (event) => {
+      setPointerDrag((prev) => (prev ? { ...prev, x: event.clientX, y: event.clientY } : prev));
+    };
+    const onEnd = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onEnd);
+      window.removeEventListener('pointercancel', onEnd);
+      window.removeEventListener('stage-trophy-pointer-drag-end', onEnd);
+      window.__stageTrophyPointerDrag = null;
+      setPointerDrag(null);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onEnd);
+    window.addEventListener('pointercancel', onEnd);
+    window.addEventListener('stage-trophy-pointer-drag-end', onEnd);
   }
 
   async function handleDrop(payload, pos) {
@@ -217,16 +260,18 @@ export default function TrophyCabinetSystem({ ownerId, ownerType, canEdit }) {
   }
 
   function handleMoveLocal(id, changes) {
+    const normalized = normalizePlacementCoords(changes);
     setReport((prev) => ({
       ...prev,
-      placements: (prev.placements || []).map((p) => (p.id === id ? { ...p, ...changes } : p)),
+      placements: (prev.placements || []).map((p) => (p.id === id ? { ...p, ...normalized } : p)),
     }));
   }
 
   async function handleMoveSave(id, changes) {
-    handleMoveLocal(id, changes);
+    const normalized = normalizePlacementCoords(changes);
+    handleMoveLocal(id, normalized);
     try {
-      await mutate(() => stageClient.entities.TrophyPlacement.update(id, changes), { refresh: true });
+      await mutate(() => stageClient.entities.TrophyPlacement.update(id, normalized), { refresh: true });
     } catch {
       // mutate already toasts + reloads last persisted entitlements
     }
@@ -330,6 +375,7 @@ export default function TrophyCabinetSystem({ ownerId, ownerType, canEdit }) {
         onMovePlacedSave={handleMoveSave}
         onRemovePlaced={handleRemove}
         wonTournamentsMap={wonTournamentsMap}
+        dropActive={Boolean(pointerDrag)}
       />
 
       <TrophyScrollBar
@@ -345,14 +391,33 @@ export default function TrophyCabinetSystem({ ownerId, ownerType, canEdit }) {
         hasMore={hasMoreCatalogue}
         loadingMore={loadingMore}
         onDragStart={handleDragStart}
+        onPointerDragStart={handlePointerDragStart}
         onPlace={(entry) => placeEntry(entry)}
         onSelect={(entry) => setCopyPicker({ entry, position: null })}
       />
 
       {editMode ? (
         <p className="text-[10px] text-muted-foreground">
-          Drag an available copy onto the cabinet, or use Place. Done permanently locks draft copies only after confirmation.
+          Drag an available copy onto the cabinet, then drag draft trophies around inside it. Use Place if drag is unavailable. Done permanently locks drafts after confirmation.
         </p>
+      ) : canEdit ? (
+        <p className="text-[10px] text-muted-foreground">
+          Tap Edit to place unlocked trophies and rearrange drafts inside the cabinet.
+        </p>
+      ) : null}
+
+      {pointerDrag ? (
+        <div
+          aria-hidden
+          className="pointer-events-none fixed z-[80] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-amber-300/40 bg-black/70 p-2 shadow-2xl"
+          style={{ left: pointerDrag.x, top: pointerDrag.y }}
+        >
+          {pointerDrag.entry.image_url ? (
+            <img src={pointerDrag.entry.image_url} alt="" className="h-14 w-14 object-contain" />
+          ) : (
+            <Trophy className="h-14 w-14 text-amber-300" />
+          )}
+        </div>
       ) : null}
 
       {copyPicker ? (

@@ -23,6 +23,7 @@ export default function TrophyScrollBar({
   hasMore = false,
   loadingMore = false,
   onDragStart,
+  onPointerDragStart,
   onPlace,
   onSelect,
 }) {
@@ -65,9 +66,15 @@ export default function TrophyScrollBar({
                 entry.state === 'locked' && 'border-border/40 bg-secondary/30 opacity-50 grayscale',
                 unlocked && 'cursor-grab active:cursor-grabbing hover:scale-105',
               )}
-              style={{ width: 88 }}
+              style={{ width: 88, touchAction: unlocked ? 'none' : undefined }}
               draggable={unlocked}
               onDragStart={unlocked ? (e) => onDragStart?.(e, entry) : undefined}
+              onPointerDown={unlocked ? (e) => {
+                // Touch / pointer fallback — HTML5 DnD is unreliable on mobile browsers.
+                if (e.pointerType === 'touch' || e.pointerType === 'pen') {
+                  onPointerDragStart?.(e, entry);
+                }
+              } : undefined}
               title={`${entry.name} — ${entry.statusLabel}`}
             >
               <div

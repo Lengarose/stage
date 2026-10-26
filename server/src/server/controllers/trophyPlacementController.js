@@ -7,7 +7,12 @@ const wrap=fn=>async(req,res)=>{try{await fn(req,res);}catch(e){res.status(e.sta
 const deny=message=>Object.assign(new Error(message),{status:403});
 function visual(data) {
   const result={};
-  for(const [key,min,max] of [['x_percent',0,100],['y_percent',0,100],['scale',0.1,3],['position',0,100],['slot_index',0,100]])if(data[key]!=null){const n=Number(data[key]);if(!Number.isFinite(n)||n<min||n>max)throw Object.assign(new Error(`Invalid ${key}`),{status:400});result[key]=n;}
+  for(const [key,min,max,digits] of [['x_percent',0,100,2],['y_percent',0,100,2],['scale',0.1,3,3],['position',0,100,2],['slot_index',0,100,0]])if(data[key]!=null){
+    const n=Number(data[key]);
+    if(!Number.isFinite(n)||n<min||n>max)throw Object.assign(new Error(`Invalid ${key}`),{status:400});
+    const factor=10**(digits||0);
+    result[key]=Math.round(n*factor)/factor;
+  }
   return result;
 }
 router.get('/entitlements',wrap(async(req,res)=>res.json(await entitlement.review(req.query.owner_id,req.query.owner_type))));

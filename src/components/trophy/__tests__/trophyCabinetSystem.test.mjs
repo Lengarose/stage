@@ -41,4 +41,6 @@ test('local draft movement is wired through to persist and reconcile', () => {
   assert.match(system, /onMovePlaced=\{handleMoveLocal\}/);
   assert.match(system, /onMovePlacedSave=\{handleMoveSave\}/);
   assert.doesNotMatch(system, /onMovePlaced=\{\(\)=>\{\}\}/);
+  assert.match(system, /onPointerDragStart=\{handlePointerDragStart\}/);
+  assert.match(system, /dropActive=\{Boolean\(pointerDrag\)\}/);
 });

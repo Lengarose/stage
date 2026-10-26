@@ -1,14 +1,15 @@
 /**
- * TrophyCabinetCanvas — the cabinet image with placed trophies on top.
- * Handles drop events to place new trophies or move existing ones.
- *
- * Trophies are positioned using % relative to the cabinet container.
- * Trophy size is stored as a scale factor where scale=1 means
- * BASE_SIZE_RATIO * cabinetWidth pixels — so size scales with the cabinet.
+ * TrophyCabinetCanvas — cabinet image with placed trophies.
+ * Supports HTML5 drop from the collection and pointer rearrange of drafts.
  */
-import { useRef, useState, useEffect } from "react";
-import PlacedTrophy from "./PlacedTrophy";
-import CabinetImg from "@/assets/Trophy Cabinet.PNG";
+import { useRef, useState, useEffect } from 'react';
+import PlacedTrophy from './PlacedTrophy';
+import CabinetImg from '@/assets/Trophy Cabinet.PNG';
+import {
+  CABINET_ASPECT_RATIO,
+  clientPointToCabinetPercent,
+  normalizePlacementCoords,
+} from '@/lib/trophyCabinetLayout';
 
 export default function TrophyCabinetCanvas({
   placements,
@@ -18,14 +19,15 @@ export default function TrophyCabinetCanvas({
   onMovePlacedSave,
   onRemovePlaced,
   wonTournamentsMap,
+  dropActive = false,
 }) {
   const cabinetRef = useRef(null);
   const [cabinetSize, setCabinetSize] = useState({ width: 400, height: 300 });
+  const [isDragOver, setIsDragOver] = useState(false);
 
-  // Track cabinet dimensions with ResizeObserver so trophies scale responsively
   useEffect(() => {
     const el = cabinetRef.current;
-    if (!el) return;
+    if (!el) return undefined;
     const update = () => {
       const { width, height } = el.getBoundingClientRect();
       if (width > 0) setCabinetSize({ width, height });
@@ -36,67 +38,81 @@ export default function TrophyCabinetCanvas({
     return () => ro.disconnect();
   }, []);
 
-  function getPercent(e) {
-    const rect = cabinetRef.current.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 100;
-    const y = ((e.clientY - rect.top) / rect.height) * 100;
-    return {
-      x: Math.max(5, Math.min(95, x)),
-      y: Math.max(5, Math.min(95, y)),
-    };
+  function getPercentFromClient(clientX, clientY) {
+    return clientPointToCabinetPercent(cabinetRef.current?.getBoundingClientRect(), clientX, clientY);
   }
 
   function handleDragOver(e) {
+    if (!editMode) return;
     e.preventDefault();
-    e.dataTransfer.dropEffect = "copy";
+    e.dataTransfer.dropEffect = 'copy';
+    setIsDragOver(true);
+  }
+
+  function handleDragLeave(e) {
+    if (!cabinetRef.current?.contains(e.relatedTarget)) setIsDragOver(false);
   }
 
   function handleDrop(e) {
     e.preventDefault();
-    const pos = getPercent(e);
+    setIsDragOver(false);
+    if (!editMode) return;
+    const pos = getPercentFromClient(e.clientX, e.clientY);
 
-    // Moving an already-placed trophy?
-    const placedId = e.dataTransfer.getData("placed-id");
+    const coords = normalizePlacementCoords({ x_percent: pos.x, y_percent: pos.y });
+    const placedId = e.dataTransfer.getData('placed-id');
     if (placedId) {
-      const rect = cabinetRef.current.getBoundingClientRect();
-      let offsetPos = pos;
-      try {
-        const { dx, dy } = JSON.parse(e.dataTransfer.getData("placed-offset") || "{}");
-        if (dx !== undefined) {
-          const x = Math.max(5, Math.min(95, ((e.clientX - dx - rect.left) / rect.width) * 100));
-          const y = Math.max(5, Math.min(95, ((e.clientY - dy - rect.top) / rect.height) * 100));
-          offsetPos = { x, y };
-        }
-      } catch {}
-      onMovePlaced(placedId, { x_percent: offsetPos.x, y_percent: offsetPos.y });
+      onMovePlaced?.(placedId, coords);
+      onMovePlacedSave?.(placedId, coords);
       return;
     }
 
-    // New trophy from scroll bar
-    const trophyJson = e.dataTransfer.getData("trophy");
+    const trophyJson = e.dataTransfer.getData('trophy');
     if (trophyJson) {
-      const trophy = JSON.parse(trophyJson);
-      onDrop(trophy, pos);
+      try {
+        onDrop?.(JSON.parse(trophyJson), { x: coords.x_percent, y: coords.y_percent });
+      } catch {
+        // ignore malformed drag payloads
+      }
     }
   }
+
+  function handlePointerUp(e) {
+    // Pointer-based collection drag (touch / devices without HTML5 DnD).
+    const payload = window.__stageTrophyPointerDrag;
+    if (!payload || !editMode || !cabinetRef.current) return;
+    const rect = cabinetRef.current.getBoundingClientRect();
+    if (
+      e.clientX < rect.left || e.clientX > rect.right
+      || e.clientY < rect.top || e.clientY > rect.bottom
+    ) return;
+    const pos = getPercentFromClient(e.clientX, e.clientY);
+    const coords = normalizePlacementCoords({ x_percent: pos.x, y_percent: pos.y });
+    window.__stageTrophyPointerDrag = null;
+    window.dispatchEvent(new CustomEvent('stage-trophy-pointer-drag-end'));
+    onDrop?.(payload, { x: coords.x_percent, y: coords.y_percent });
+  }
+
+  const highlight = editMode && (isDragOver || dropActive);
 
   return (
     <div
       ref={cabinetRef}
-      className="relative w-[95%] mx-auto rounded-2xl overflow-hidden select-none"
-      style={{ aspectRatio: "3 / 2" }}
+      className={`relative mx-auto w-[min(100%,1100px)] select-none overflow-hidden rounded-2xl transition-shadow ${highlight ? 'ring-2 ring-amber-300/70 shadow-[0_0_0_4px_rgba(251,191,36,0.15)]' : ''}`}
+      style={{ aspectRatio: `${CABINET_ASPECT_RATIO}` }}
       onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
       onDrop={handleDrop}
+      onPointerUp={handlePointerUp}
     >
       <img
         src={CabinetImg}
         alt="Trophy Cabinet"
-        className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+        className="pointer-events-none absolute inset-0 h-full w-full object-fill"
         draggable={false}
       />
 
-      {/* Placed trophies */}
-      {placements.map(p => (
+      {placements.map((p) => (
         <PlacedTrophy
           key={p.id}
           placement={p}
@@ -110,12 +126,16 @@ export default function TrophyCabinetCanvas({
         />
       ))}
 
-      {/* Edit mode hint */}
       {editMode && placements.length === 0 && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="bg-black/60 rounded-xl px-4 py-2 text-xs text-amber-300 font-medium">
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <div className="rounded-xl bg-black/60 px-4 py-2 text-xs font-medium text-amber-300">
             Drag a trophy from below and drop it here
           </div>
+        </div>
+      )}
+      {editMode && placements.some((p) => !p.locked_at && p.award_id) && (
+        <div className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-black/55 px-3 py-1 text-[10px] font-semibold text-amber-200/90">
+          Drag draft trophies to rearrange · Done locks them permanently
         </div>
       )}
     </div>
