@@ -88,3 +88,16 @@ test('GOST settings stay independent, edition snapshots do not follow later edit
   const final=env.state.entities.find(r=>r.phase==='knockout_final');Object.assign(final,{home_score:0,away_score:2});final.data_json=JSON.stringify({...JSON.parse(final.data_json),home_score:0,away_score:2});
   const before=env.state.ledgers.length;report=await env.prizes.review(env.kind,'edition',{apply:true});assert.equal(report.state,'blocked');assert.equal(env.state.ledgers.length,before);
 });
+test('a captured GOST trophy name and artwork survive catalogue edits before the award is issued',async()=>{
+  const env=setup('competition_season',36);
+  await configure(env);
+  await env.prizes.capture(env.kind,'edition');
+  env.state.items[0].name='Later catalogue design name';
+  env.state.items[0].image_url='/uploads/later-design.png';
+  env.setRoot({status:'completed'});
+  const result=await env.prizes.review(env.kind,'edition',{apply:true});
+  assert.equal(result.trophy_state,'awarded',result.trophy_error);
+  const details=JSON.parse(env.state.awards[0].metadata_json);
+  assert.equal(details.design_name,'Test Championship');
+  assert.equal(details.image_url,'/uploads/test.png');
+});

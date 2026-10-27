@@ -17,6 +17,14 @@ function readRepoFile(path) {
   return readFileSync(resolve(root, path), "utf8");
 }
 
+test("GameDay's unselected details panel uses a square rectangular frame", () => {
+  const source = readRepoFile("src/pages/GameDay.jsx");
+  const panel = source.match(/data-testid="gameday-empty-detail" className="([^"]+)"/);
+  assert.ok(panel);
+  assert.match(panel[1], /rounded-none/);
+  assert.doesNotMatch(panel[1], /clip-path|skew|transform/);
+});
+
 test("away side cannot open result submission before home has submitted full time", () => {
   const controls = getResultSubmissionControls({
     game: { result_home_submitted: 0, result_away_submitted: "0" },

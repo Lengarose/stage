@@ -14,7 +14,7 @@ import GameDayTileBackgroundDialog, {
 import ArrangeGameDialog from "@/components/schedule/ArrangeGameDialog";
 import FixtureSchedulerPanel from "@/components/schedule/FixtureSchedulerPanel";
 import { createMatchFromFixture } from "@/lib/gameDayIntegration";
-import {isHubMatch as isActiveGameDayMatch,isOfficialGameDayResult,filterGameDayMatches} from '@/lib/gameDayHub';
+import {isHubMatch as isActiveGameDayMatch,isOfficialGameDayResult,filterGameDayMatches,enrichGameDayMatches} from '@/lib/gameDayHub';
 import GameDayInsights from '@/components/gameday/GameDayInsights';
 import GameDayResultDialog from '@/components/gameday/GameDayResultDialog';
 import { isGameDayMatchSocketPayload, sameRecordId } from "@/lib/gameDayRealtime";
@@ -59,6 +59,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
   const { getUnreadCount } = useChatNotifications();
   const chatUnread = selectedGame?.id ? getUnreadCount(selectedGame.id) : 0;
   const [loadError,setLoadError]=useState('');
+  const [backendNotice,setBackendNotice]=useState('');
   const [scopeFilter,setScopeFilter]=useState('general');
   const [statusFilter,setStatusFilter]=useState('all');
   const [search,setSearch]=useState('');
@@ -293,13 +294,11 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
     ]);
     const matchMap = new Map();
     arrays.flat().forEach(m => matchMap.set(m.id, m));
-    for(let offset=0;;offset+=100){
-      const page=await stageClient.http.get('/game-day/matches',{limit:100,offset});
-      if(version!==loadVersion.current)return;
-      if(!Array.isArray(page))throw new Error('GameDay matches could not be loaded.');
-      page.forEach(m=>matchMap.set(m.id,{...matchMap.get(m.id),...m}));
-      if(page.length<100)break;
-    }
+    const notice = await enrichGameDayMatches(matchMap,
+      query => stageClient.http.get('/game-day/matches',query),
+      () => version === loadVersion.current);
+    if(version!==loadVersion.current)return;
+    setBackendNotice(notice);
 
     const clubIdSet = new Set(ids);
     const typedFixtures = fixtureResults
@@ -423,7 +422,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
       }}
     />
   ) : (
-    <div className="flex min-h-[360px] flex-col items-center justify-center border border-white/10 bg-[#111827] px-6 py-12 text-center shadow-[inset_0_0_80px_rgba(238,243,251,0.08)] [clip-path:polygon(18px_0,100%_0,calc(100%_-_18px)_100%,0_100%)]">
+    <div data-testid="gameday-empty-detail" className="flex min-h-[360px] flex-col items-center justify-center rounded-none border border-white/10 bg-[#111827] px-6 py-12 text-center shadow-[inset_0_0_80px_rgba(238,243,251,0.08)]">
       <Zap className="mb-3 h-10 w-10 text-[#eef3fb]/35" />
       <p className="font-heading text-sm font-black uppercase tracking-[0.22em] text-white/50">
         {t("matchFlow.selectGameDetails")}
@@ -533,6 +532,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
                 ) : null}
               </div>
               <div className="mb-3 space-y-2 px-2"><input aria-label="Search matches" placeholder="Search matches" value={search} onChange={e=>setSearch(e.target.value)} className="h-11 w-full border border-white/20 bg-black/25 px-3 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"/><select aria-label="Match competition scope" value={scopeFilter} onChange={e=>setScopeFilter(e.target.value)} className="h-11 w-full border border-white/20 bg-[#0b1019] px-3 text-xs text-white"><option value="general">General - All games</option><option value="gost">GOST</option><option value="regional">Regional</option><option value="tournament">Tournament</option><option value="friendly">Friendly</option></select><div className="flex justify-between gap-1" aria-label="Match status">{['all','upcoming','live','completed'].map(status=><button type="button" key={status} aria-pressed={statusFilter===status} onClick={()=>setStatusFilter(status)} className={cn('min-h-11 border-b-2 px-1 text-xs capitalize focus-visible:ring-2 focus-visible:ring-cyan-400',statusFilter===status?'border-cyan-400 text-white':'border-transparent text-white/55')}>{status}</button>)}</div></div>
+              {backendNotice&&<p role="status" className="p-2 text-sm text-amber-200">{backendNotice}</p>}
               {loadError&&<p role="alert" className="p-2 text-sm text-red-300">{loadError}<button type="button" onClick={()=>setRefreshTick(n=>n+1)} className="ml-2 min-h-11 text-cyan-300">Retry</button></p>}
               {pendingScheduleFixtures.length > 0 && !scopedTournamentId && ['all','upcoming'].includes(statusFilter) && ['general','gost'].includes(scopeFilter) ? (
                 <div className="mx-2 mb-3 shrink-0 space-y-2">

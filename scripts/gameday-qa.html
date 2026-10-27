@@ -30,6 +30,7 @@ stageClient.entities.Tournament.filter=async()=>[{id:'qa-cup',name:'QA Cup',part
 stageClient.entities.GameDayConfig.filter=async()=>[{banner_url:'/src/assets/Banner.jpg'}];
 stageClient.functions.invoke=async(name,args)=>{if(args.action==='submit_result')throw Error('Controlled submission failure: your report has not been sent.');return {data:{}};};
 stageClient.http.get=async(path,query={})=>{
+  if(params.has('missingBackend')&&(path.startsWith('/game-day/')||path==='/match-highlights'))throw Object.assign(Error('Route not found'),{status:404});
   if(path==='/game-day/matches'){if(params.has('error'))throw Error('Controlled match loading failure');return query.offset?[]:games;}
   if(path.endsWith('/penalties'))return {applicable:Number(query.home_score)===Number(query.away_score),required:true,decidingLeg:true,legs:1,aggregate:{home:Number(query.home_score),away:Number(query.away_score)}};
   if(path.endsWith('/history'))return {total:3,homeWins:2,awayWins:0,draws:1,chronology:'Local QA history, not live competition data.',meetings:[{...games[2],id:'qa-prior',home_score:2,away_score:1,competition_name:'QA previous competition'}]};

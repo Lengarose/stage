@@ -36,13 +36,23 @@ Changed frontend areas: `GameDay.jsx`, GameDay card/detail/arena/result componen
 - `npm run build`: pass; existing large-chunk and old Browserslist warnings remain.
 - Focused policy, aggregation/history, engine, progression and filtering tests: 60/60 pass.
 - Local HTTP integration test: pass. Exercises all new route paths, validation/401/403/404/405, history privacy, image signature/size rejection, duplicate publication, removal and moderation audit using isolated database/identity seams and temporary storage.
-- Full backend suite: 692/696 pass. Four existing failures: legacy captain profile edit; legacy fixture snapshot creation; tournament registration proof expectation; startup migration export source regex.
-- Full frontend suite: 404/408 pass. Four existing failures: header identity menu source expectation; FUT avatar frame source expectation; GameDay club/president loader source expectation; profile-photo preview source expectation.
+- Latest full backend suite: 703/707 pass. Four existing failures: legacy captain profile edit; legacy fixture snapshot creation; tournament registration proof expectation; startup migration export source regex.
+- Latest full frontend suite: 413/417 pass. Four existing failures: header identity menu source expectation; FUT avatar frame source expectation; GameDay club/president loader source expectation; profile-photo preview source expectation.
 - Browser checks at 1440x1000, 390x844 and 320x740: combined filters and selection, empty state, report opening, dirty-close warning, retained score after controlled failure, fitted modal bounds, long club-form wheel scrolling and full-size highlight viewer. Fixed the component-key collision and 320px modal width found during these checks. Latest compact report action opens the same modal.
 - `git diff --check`: pass.
 - `graphify update .`: unavailable (`graphify` not installed). `graphify-out/` is empty, so no report/wiki was available.
 
 ## Unverified or Limited
+
+### Follow-up Verification and Deployment Mismatch
+
+The screenshot's `Route /api/stage/game-day/matches ... not found` shows a backend without the new route, while the new frontend filters are already visible. Source registration exists; no live deployment/version was verified. The list now retains existing authorised Match API records on an initial enrichment-route 404, with an explicit partial-history/update notice. Permission errors, outages and subsequent pagination failures still surface as failures. No history or results are fabricated. A missing penalty-policy endpoint prevents result submission; it does not bypass server policy.
+
+Follow-up work extended shared penalty labels to Schedule list/calendar, club fixtures/history, legacy competition cards, statistics modals and admin dispute/archive lists. Confirmed `played` records are distinguished from proposals; calendar/stage serializers retain confirmation and aggregate fields. Schedule W/L uses the recorded shootout winner without changing ordinary goals.
+
+Result mutations now compare the reviewed submission snapshot, use conditional updates, and recheck the locked record before completion. Amending an acknowledged proposal is refused. Failed timeout validation leaves the report pending. Disputed penalty claims remain nonofficial evidence. Isolated tests cover stale/concurrent confirmations, corrections with unchanged goals, rejected timeouts, real confirmation-handler completion and schema/migration synchronisation. These do not establish physical MySQL locking or migration success.
+
+The unselected "Select a game to view details" panel is rectangular with square corners, without a clip path or transform. Browser inspection confirmed computed `clip-path: none`, `transform: none`, and `border-radius: 0px`; a regression test covers the empty-state frame. The missing-backend QA scenario retains all six sample matches and displays update notices. Latest lint, typecheck, backend syntax, build and diff checks pass; the isolated endpoint HTTP test passes outside the port-restricted sandbox. Graphify remains unavailable.
 
 Local `server/.env` and `server/src/constants/env.local.js` are absent. New APIs were exercised over real local HTTP with injected, isolated database/identity seams, not against a configured MySQL application. Startup migrations, real authenticated account flows, physical MySQL concurrency/locks and live deployment remain unverified. Nothing here claims the production environment is updated.
 

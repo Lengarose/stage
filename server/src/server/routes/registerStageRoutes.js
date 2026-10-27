@@ -18,6 +18,7 @@ function registerStageRoutes(app, { verifyToken }) {
   app.use('/api/stage/tournaments', verifyToken, require('../controllers/tournamentController'));
   app.use('/api/stage/competition-engine', verifyToken, require('../controllers/competitionEngineController'));
   app.use('/api/stage/competition-views', verifyToken, require('../controllers/competitionViewsController'));
+  app.use('/api/stage/gost', verifyToken, require('../controllers/gostOverviewController'));
 
   const { makeRouter: makeCompetitionEngineEntityRouter } = require('../controllers/competitionEngineEntityController');
   app.use('/api/stage/competition-instances', verifyToken, makeCompetitionEngineEntityRouter({

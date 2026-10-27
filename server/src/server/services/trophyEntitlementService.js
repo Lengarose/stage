@@ -15,10 +15,13 @@ async function outcome(kind,id,query=EXECUTESQL) {
 async function verifiedDesign(kind,id,trophyId,query=EXECUTESQL) {
   const {scope,winner,runner_up}=await outcome(kind,id,query);
   let configured=scope.root.trophy_item_id;
+  let capturedDesign=null;
   if(kind!=='tournament') {
     const settlementId=require('./competitionPrizeService').uuid(`prize-settlement:${kind}:${scope.edition_id}`);
     const [saved]=await query("SELECT * FROM league_entities WHERE id=? AND entity_type='competition_settlement'",[settlementId]);
-    configured=parse(saved?.data_json,{}).config?.trophy_item_id||configured;
+    const config=parse(saved?.data_json,{}).config;
+    configured=config?.trophy_item_id||configured;
+    capturedDesign=config?.trophy_snapshot;
   }
   const sourceType=kind==='competition_season'?'competition':kind;
   const sourceId=kind==='competition_season'?scope.root.competition_id:id;
@@ -32,7 +35,8 @@ async function verifiedDesign(kind,id,trophyId,query=EXECUTESQL) {
   if(!item)throw fail('Historical trophy design record is unavailable',409);
   if(item.tournament_id && String(item.tournament_id)!==String(id)
     || item.linked_source_id && (String(item.linked_source_id)!==String(sourceId)||item.linked_source_type!==sourceType))throw fail('Trophy explicitly belongs to a different competition',409);
-  return {scope,winner,runner_up,item,source_type:kind,source_id:id,edition_id:scope.edition_id};
+  const historicalItem=capturedDesign?.id===configured?{...item,name:capturedDesign.name,image_url:capturedDesign.image_url}:item;
+  return {scope,winner,runner_up,item:historicalItem,source_type:kind,source_id:id,edition_id:scope.edition_id};
 }
 async function assertCabinetOwner(userId,ownerId,ownerType,query=EXECUTESQL) {
   if(!['club','player'].includes(ownerType)||!ownerId)throw fail('Valid cabinet identity required',400);

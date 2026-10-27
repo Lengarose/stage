@@ -94,13 +94,14 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
   const needsEvidence = evidenceRequired(game) && !confirmMode && !correcting;
   const [penaltyContext,setPenaltyContext]=useState(null);
   const [penaltyError,setPenaltyError]=useState('');
+  const [backendUnavailable,setBackendUnavailable]=useState(false);
   const [penaltyOpen,setPenaltyOpen]=useState(false);
   const allowPens = Boolean(penaltyContext?.applicable);
   useEffect(()=>{onBusyChange?.(submitting||uploadingProof);},[submitting,uploadingProof,onBusyChange]);
   useEffect(()=>{
     let active=true;
     setPenaltyContext(null);setPenaltyError('');
-    const timer=setTimeout(()=>stageClient.http.get(`/game-day/${encodeURIComponent(game.id)}/penalties`,{home_score:Number(homeScore),away_score:Number(awayScore)}).then(context=>{if(active){setPenaltyContext(context);if(!context.applicable)setPenaltyChoice('none');}}).catch(e=>{if(active)setPenaltyError(e.message||'Penalty eligibility could not be verified.');}),200);
+    const timer=setTimeout(()=>stageClient.http.get(`/game-day/${encodeURIComponent(game.id)}/penalties`,{home_score:Number(homeScore),away_score:Number(awayScore)}).then(context=>{if(active){setBackendUnavailable(false);setPenaltyContext(context);if(!context.applicable)setPenaltyChoice('none');}}).catch(e=>{if(active){setBackendUnavailable(e.status===404);setPenaltyError(e.status===404?'Result reporting needs the updated GameDay backend. Please ask an administrator to install the update.':e.message||'Penalty eligibility could not be verified.');}}),200);
     return ()=>{active=false;clearTimeout(timer);};
   },[game.id,homeScore,awayScore]);
   const homeSubmission = parseMatchSubmission(game.home_submission);
@@ -331,6 +332,10 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
 
   async function submit(actionOverride) {
     if(submitting||uploadingProof)return;
+    if(backendUnavailable){
+      setSubmitError('Result reporting is unavailable until the GameDay backend is updated.');
+      return;
+    }
     if (needsEvidence && !proofUrl) {
       setSubmitError("Upload screenshot proof before submitting.");
       return;

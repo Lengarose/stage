@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import SeasonCard from "@/components/admin/seasons/SeasonCard";
+import CompetitionTrophySelector from '@/components/admin/CompetitionTrophySelector';
 import { stageClient } from "@/api/stageClient";
 import {
   OFFICIAL_STAGE_TOURNAMENT_MAX_CLUBS,
@@ -795,6 +796,7 @@ export default function LeaguesTab({
                 </label>
               ))}
             </div>
+            <CompetitionTrophySelector competitionId={comp.id} />
             {isEditing && (
               <div className="pt-2 border-t border-border/50 space-y-3">
                 <div className="grid grid-cols-2 gap-3">
@@ -809,22 +811,6 @@ export default function LeaguesTab({
                     </div>
                   ))}
                 </div>
-                {(() => {
-                  const linked = trophyItems.find(t => t.linked_source_id === comp.id);
-                  return linked ? (
-                    <div className="flex items-center gap-2 p-2 bg-warning/5 border border-warning/20 rounded">
-                      {linked.image_url
-                        ? <img src={linked.image_url} alt={linked.name} className="w-8 h-8 object-contain" />
-                        : <div className="w-8 h-8" />}
-                      <div>
-                        <p className="text-[10px] font-bold text-warning">{linked.name}</p>
-                        <p className="text-[9px] text-muted-foreground">{t("admin.leagues.linkedTrophyHint")}</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-[10px] text-muted-foreground">{t("admin.leagues.noTrophyLinked")}</p>
-                  );
-                })()}
                 <Button size="sm" onClick={saveCompRules} disabled={savingComp}
                   className="bg-primary text-primary-foreground h-8 text-xs gap-1.5">
                   {savingComp ? <span className="w-3 h-3 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin inline-block" /> : <Check className="w-3.5 h-3.5" />}

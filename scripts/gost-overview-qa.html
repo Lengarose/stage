@@ -1,0 +1,25 @@
+<!doctype html>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>GOST overview local QA</title></head>
+<body style="margin:0"><div id="root"></div><script type="module">
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import {MemoryRouter} from 'react-router-dom';
+import RefreshRuntime from '/@react-refresh';
+RefreshRuntime.injectIntoGlobalHook(window);
+window.$RefreshReg$=()=>{};window.$RefreshSig$=()=>type=>type;window.__vite_plugin_react_preamble_installed__=true;
+await import('/src/index.css');
+await import('/node_modules/@fontsource/anton/index.css');
+document.documentElement.className='theme-dark dark';
+const {stageClient}=await import('/src/api/stageClient.js');
+const params=new URLSearchParams(location.search);
+const journey={kind:'ucl',text:'League phase: top 8 directly to Round of 16; positions 9–24 play a two-legged playoff. Eight winners advance. Then quarterfinals, semifinals and final.'};
+const prizes={participation:'100.00',winner_bonus:'300.00',runner_up_bonus:'200.00',budget:'4100.00',participant_basis:36};
+const competitions=['supreme','elite','challenger'].map((slug,i)=>({id:slug,slug,name:`STAGE ${slug[0].toUpperCase()+slug.slice(1)} League`,tier:i+1,assignment:{state:'unassigned',trophy:null,guidance:'Assign a competition trophy in Admin → GOST.'},current:{id:`${slug}-current`,label:'Season 2',state:i===0?'Registration':i===1?'Draft':'In progress · League phase',status:i===0?'registration':i===1?'draft':'league_phase',registered:[12,0,36][i],qualified:[12,0,36][i],maximum:36,prizes,journey},archive:[{id:`${slug}-old`,label:'Season 1',state:'Archived',status:'archived',winner:'QA Winning Club',prizes,journey}],journey}));
+if(params.has('brokenImage'))competitions[0].assignment={state:'assigned',trophy:{id:'missing-qa-art',name:'QA missing image',image_url:'/uploads/nonexistent-qa-trophy.png'}};
+stageClient.http.get=async path=>{if(path==='/gost/overview')return {competitions};if(path.endsWith('/trophy'))return {selected_id:'qa-cup',state:'assigned',revision:'qa',items:[{id:'qa-cup',name:'QA catalogue design',image_url:null}],trophy:{id:'qa-cup',name:'QA catalogue design'}};return {};};
+stageClient.auth.me=async()=>({id:'qa',email:'qa@example.test'});stageClient.auth.hasToken=()=>false;
+for(const entity of Object.values(stageClient.entities)){entity.filter=async()=>[];entity.list=async()=>[];entity.get=async()=>null;}
+const {default:Competitions}=await import('/src/pages/Competitions.jsx');
+const {default:Selector}=await import('/src/components/admin/CompetitionTrophySelector.jsx');
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(MemoryRouter,{initialEntries:[params.has('archive')?'/competitions?view=archive':'/competitions']},params.has('admin')?React.createElement('main',{className:'bg-background text-foreground min-h-screen p-8'},React.createElement(Selector,{competitionId:'supreme'})):React.createElement(Competitions)));
+</script></body></html>

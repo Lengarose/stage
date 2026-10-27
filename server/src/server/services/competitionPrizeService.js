@@ -36,7 +36,9 @@ async function editionConfiguration(scope,query) {
   const policy=require('../lib/rewardPolicy');
   const rows=settings.version?settings.rows:type==='regional_league'?policy.regionalRows(roster.length,scope.root):[];
   const configuration=require('../lib/rewardPolicy').validateConfiguration(type,type==='regional_league'?rows.filter(r=>Number(r.position)<=roster.length):rows,roster.length);
-  return {...configuration,...(type==='regional_league'?{division:scope.root.division??null,template_version:policy.regionalPreset(scope.root).version}:{}),source_id:scope.config_source_id,source_type:type,edition_id:scope.edition_id,version:settings.version||policy.regionalPreset(scope.root).version,roster,trophy_item_id:settings.settings.trophy_item_id||scope.root.trophy_item_id||null};
+  const trophyId=settings.settings.trophy_item_id||scope.root.trophy_item_id||null;
+  const [trophy]=trophyId?await query('SELECT id,name,image_url FROM trophy_items WHERE id=?',[trophyId]):[];
+  return {...configuration,...(type==='regional_league'?{division:scope.root.division??null,template_version:policy.regionalPreset(scope.root).version}:{}),source_id:scope.config_source_id,source_type:type,edition_id:scope.edition_id,version:settings.version||policy.regionalPreset(scope.root).version,roster,trophy_item_id:trophyId,trophy_snapshot:trophy?{id:trophy.id,name:trophy.name,image_url:trophy.image_url}:null};
 }
 async function saveState(query, ctx, state, reason = null) {
   const data = { ...ctx.saved, source_type: ctx.scope.source_type, source_id: ctx.scope.root.id, edition_id: ctx.scope.edition_id, config: ctx.config, obligations:ctx.plan.obligations, sporting_completion:['completed','archived'].includes(ctx.scope.root.status), archived:ctx.scope.root.status==='archived', trophy_state:ctx.trophyState||ctx.saved.trophy_state||'pending', state, blocking_reason: reason, updated_at: new Date().toISOString() };

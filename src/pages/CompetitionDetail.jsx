@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, useSearchParams, Link } from "react-router-dom";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { useTranslation } from "@/hooks/useTranslation";
 import { Trophy, Shield, ChevronLeft, ChevronDown, Star, CheckCircle2, ExternalLink } from "lucide-react";
@@ -490,6 +490,8 @@ function QualificationPanel({ entries }) {
 export default function CompetitionDetail() {
   const { t } = useTranslation();
   const { slug } = useParams();
+  const [searchParams] = useSearchParams();
+  const requestedSeasonId = searchParams.get('season');
   const meta = getCompetitionMeta(slug);
 
   const [competition, setCompetition] = useState(null);
@@ -507,7 +509,7 @@ export default function CompetitionDetail() {
   const [activeTab, setActiveTab] = useState("overview");
   const [adminCompetitionBusy, setAdminCompetitionBusy] = useState("");
 
-  useEffect(() => { loadComp(); }, [slug]);
+  useEffect(() => { loadComp(); }, [slug, requestedSeasonId]);
   useEffect(() => { if (selectedSeason) loadSeasonData(selectedSeason); }, [selectedSeason?.id]);
 
   async function loadComp() {
@@ -528,8 +530,12 @@ export default function CompetitionDetail() {
       const seasons = await stageClient.entities.CompetitionSeason.filter(
         { competition_id: comp.id }, "-season_number", 20
       ).catch(() => []);
+      if (requestedSeasonId && !seasons.some(s => s.id === requestedSeasonId)) {
+        const requested = await stageClient.entities.CompetitionSeason.get(requestedSeasonId).catch(() => null);
+        if (requested?.competition_id === comp.id) seasons.push(requested);
+      }
       setAllSeasons(seasons);
-      const active = seasons.find(s => s.status !== "completed" && s.status !== "archived" && s.status !== "draft") || seasons.find(s => s.status !== "archived" && s.status !== "draft") || seasons[0];
+      const active = seasons.find(s => s.id === requestedSeasonId) || seasons.find(s => s.status !== "completed" && s.status !== "archived" && s.status !== "draft") || seasons.find(s => s.status !== "archived" && s.status !== "draft") || seasons[0];
       if (active) setSelectedSeason(active);
       else setLoading(false);
     } catch (err) {

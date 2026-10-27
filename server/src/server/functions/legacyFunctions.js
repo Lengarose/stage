@@ -8853,8 +8853,8 @@ const HANDLERS = {
       const settled = await matchResultNegotiationService.settleMatchDeadlines(rows[0]);
       const match = settled.match || (await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [match_id]))[0];
       const actor = await resolveMatchActorSide(match, _auth_user_id);
-      if (expected_result_snapshot != null) require('../lib/matchResultNegotiation').assertResultSnapshotCurrent(expected_result_snapshot,match);
       const isHomeSubmission = actor.side === 'home';
+      if (expected_result_snapshot != null) require('../lib/matchResultNegotiation').assertResultSnapshotCurrent(expected_result_snapshot,match);
       await require('../services/tournamentProgressionService').assertTournamentMatchAction(match, { result: true });
       const requestedHomeSide = is_home_team === true || is_home_team === 'true' || is_home_team === 1 || is_home_team === '1';
       if (typeof is_home_team !== 'undefined' && requestedHomeSide !== isHomeSubmission) {

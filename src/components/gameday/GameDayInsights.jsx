@@ -4,6 +4,11 @@ import {ImagePlus,ChevronLeft,ChevronRight,Trash2} from 'lucide-react';
 import {stageClient} from '@/api/stageClient';
 import {Dialog,DialogContent,DialogTitle,DialogDescription} from '@/components/ui/dialog';
 import {penaltyOutcome} from '@/lib/penaltyOutcome';
+function readError(error, feature) {
+  return error.status === 404
+    ? `${feature} needs the updated GameDay backend. Please ask an administrator to install the update.`
+    : error.message;
+}
 export default function GameDayInsights({game}) {
   const [scope,setScope]=useState('all'),[history,setHistory]=useState(null),[historyError,setHistoryError]=useState('');
   const [media,setMedia]=useState(null),[mediaError,setMediaError]=useState(''),[revision,setRevision]=useState(0),[busy,setBusy]=useState(false),[image,setImage]=useState(0),[viewer,setViewer]=useState(false),[offset,setOffset]=useState(0);
@@ -11,7 +16,7 @@ export default function GameDayInsights({game}) {
   useEffect(()=>{
     let active=true;
     async function load(){
-      try{const result=await stageClient.http.get(`/game-day/${encodeURIComponent(game.id)}/history`,{scope,limit:5,offset});if(active){setHistory(result);setHistoryError('');}}catch(e){if(active)setHistoryError(e.message);}
+      try{const result=await stageClient.http.get(`/game-day/${encodeURIComponent(game.id)}/history`,{scope,limit:5,offset});if(active){setHistory(result);setHistoryError('');}}catch(e){if(active)setHistoryError(readError(e,'Head-to-Head'));}
     }
     setHistory(null);void load();
     const refresh=()=>{if(document.visibilityState==='visible')void load();};
@@ -20,7 +25,7 @@ export default function GameDayInsights({game}) {
   },[game.id,game.updated_date,scope,offset]);
   useEffect(()=>{
     let active=true;
-    async function load(){try{let result;const all=[];for(let offset=0;;offset+=100){result=await stageClient.http.get('/match-highlights',{match_id:game.id,limit:100,offset,view:'gallery'});if(!active)return;all.push(...result.items);if(result.items.length<100)break;}if(active){setMedia({...result,items:all});setMediaError('');}}catch(e){if(active)setMediaError(e.message);}}
+    async function load(){try{let result;const all=[];for(let offset=0;;offset+=100){result=await stageClient.http.get('/match-highlights',{match_id:game.id,limit:100,offset,view:'gallery'});if(!active)return;all.push(...result.items);if(result.items.length<100)break;}if(active){setMedia({...result,items:all});setMediaError('');}}catch(e){if(active)setMediaError(readError(e,'Highlights'));}}
     void load();const refresh=()=>{if(document.visibilityState==='visible')void load();};
     window.addEventListener('focus',refresh);const timer=setInterval(refresh,15000);
     return ()=>{active=false;clearInterval(timer);window.removeEventListener('focus',refresh);};
