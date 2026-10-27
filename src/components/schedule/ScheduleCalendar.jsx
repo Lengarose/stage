@@ -1,536 +1,134 @@
-import { useState, useMemo, useEffect } from "react";
-import { cn } from "@/lib/utils";
-import {
-  format, parseISO, isValid, startOfMonth, endOfMonth,
-  startOfWeek, endOfWeek, addDays, addMonths, subMonths,
-  isSameMonth, isToday,
-} from "@/lib/momentDate";
-import {
-  ChevronLeft, ChevronRight, ChevronDown, X,
-} from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import MatchDetail from "./MatchDetail";
-import { COMPETITIONS } from "@/lib/competitionUtils";
+import { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
+import { ChevronLeft, ChevronRight, ChevronDown, Check, ArrowRight, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { stageClient } from '@/api/stageClient';
+import { useAuth } from '@/lib/AuthContext';
+import { CHANNELS, setSocketListeners, offSocketListeners } from '@/lib/SocketContext';
+import { cn } from '@/lib/utils';
+import { CALENDAR_CATEGORIES, CALENDAR_SCOPES, calendarDay, calendarTime, calendarDate, calendarGrid, calendarRange, shiftCalendarMonth, groupCalendarEvents, identicalKickoffs } from '@/lib/scheduleCalendar';
 
-const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-
-const MONTH_LABELS = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
-
-function parseDate(d) {
-  if (!d) return null;
-  const p = typeof d === "string" ? parseISO(d) : new Date(d);
-  return isValid(p) ? p : null;
+const control = 'inline-flex min-h-11 items-center justify-center gap-2 border border-border px-3 text-sm text-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400';
+function categoryStyle(event) {
+  const category=CALENDAR_CATEGORIES[event.category] || {label:event.category==='gost'?'GOST':'Match',color:'#94a3b8',background:'rgba(148,163,184,0.12)'};
+  return {...category,style:{background:category.background,borderInlineStart:`4px solid ${category.color}`}};
 }
 
-function buildDateMap(events) {
-  const map = new Map();
-  events.forEach((ev) => {
-    if (ev.type === "contract_reminder") return;
-    const d = parseDate(ev.date);
-    if (!d) return;
-    const key = format(d, "yyyy-MM-dd");
-    if (!map.has(key)) map.set(key, []);
-    map.get(key).push(ev);
-  });
-  for (const [, list] of map) {
-    list.sort((a, b) => {
-      const ta = parseDate(a.date)?.getTime() || 0;
-      const tb = parseDate(b.date)?.getTime() || 0;
-      return ta - tb;
-    });
-  }
-  return map;
-}
+export default function ScheduleCalendar({ tournamentId }) {
+  const auth = useAuth();
+  const user=auth?.user;
+  const timezone=user?.timezone || 'Europe/Brussels';
+  const [month,setMonth]=useState(()=>calendarDay(new Date(),timezone).slice(0,7));
+  const [selected,setSelected]=useState(()=>calendarDay(new Date(),timezone));
+  const [scope,setScope]=useState('general');
+  const [scopeOpen,setScopeOpen]=useState(false);
+  const [monthOpen,setMonthOpen]=useState(false);
+  const [pickerYear,setPickerYear]=useState(()=>Number(month.slice(0,4)));
+  const [response,setResponse]=useState(null);
+  const [error,setError]=useState('');
+  const [loading,setLoading]=useState(true);
+  const [revision,setRevision]=useState(0);
+  const sequence=useRef(0);
+  const days=calendarGrid(month);
+  const {from,to}=calendarRange(month);
+  const accountKey=[user?.id,user?.player_id,user?.club_id,user?.owner_id,user?.president_club_id,user?.active_role,timezone].join(':');
+  const requestKey=[accountKey,from,to,scope,tournamentId || ''].join('|');
+  const current=response?.requestKey===requestKey ? response : null;
+  const displayTimezone=current?.timezone || timezone;
+  const events=current?.events || [];
+  const dates=groupCalendarEvents(events,displayTimezone);
+  const selectedEvents=dates.get(selected)||[];
+  const conflicts=identicalKickoffs(selectedEvents);
+  const today=calendarDay(new Date(),displayTimezone);
+  const scopeLabel=CALENDAR_SCOPES.find(s=>s.id===scope)?.label;
 
-function resolveGostSlug(ev = {}) {
-  const raw = String(ev.competitionSlug || ev.competition_slug || "").toLowerCase().trim();
-  if (COMPETITIONS.some((c) => c.slug === raw)) return raw;
-  const name = String(ev.competition || ev.competition_name || "").toLowerCase();
-  if (name.includes("supreme")) return "supreme";
-  if (name.includes("elite")) return "elite";
-  if (name.includes("challenger")) return "challenger";
-  return null;
-}
+  useEffect(()=>{
+    let alive=true;
+    const version=++sequence.current;
+    setLoading(true);
+    setError('');
+    stageClient.http.get('/schedule/calendar',{from,to,scope,...(tournamentId?{tournament_id:tournamentId}:{})})
+      .then(data=>{if(alive && version===sequence.current) setResponse({...data,requestKey});})
+      .catch(()=>{if(alive && version===sequence.current)setError('Scheduled games could not be loaded. Please try again.');})
+      .finally(()=>{if(alive && version===sequence.current)setLoading(false);});
+    return ()=>{alive=false;};
+  },[requestKey,revision,from,to,scope,tournamentId]);
 
-function shortName(name = "", max = 18) {
-  const cleaned = String(name || "").trim() || "TBD";
-  if (cleaned.length <= max) return cleaned;
-  return `${cleaned.slice(0, max - 1)}…`;
-}
+  useEffect(()=>{
+    let timer;
+    const refresh=()=>{clearTimeout(timer);timer=setTimeout(()=>setRevision(r=>r+1),120);};
+    const onVisible=()=>{if(document.visibilityState==='visible')refresh();};
+    setSocketListeners(CHANNELS.MATCH,refresh);
+    window.addEventListener('focus',refresh);
+    document.addEventListener('visibilitychange',onVisible);
+    const poll=setInterval(onVisible,60000);
+    return ()=>{clearTimeout(timer);clearInterval(poll);offSocketListeners(CHANNELS.MATCH,refresh);window.removeEventListener('focus',refresh);document.removeEventListener('visibilitychange',onVisible);};
+  },[]);
 
-/** FM-style solid match block colours */
-function matchBlockStyle(ev) {
-  if (ev.type === "contract_end") {
-    return {
-      bg: "linear-gradient(90deg,#3b2a08,#5c4210)",
-      label: "Contract",
-      accent: "#FBBF24",
-    };
-  }
-  if (ev.type === "tournament_start") {
-    return {
-      bg: "linear-gradient(90deg,#2a1548,#4c1d95)",
-      label: "Tournament",
-      accent: "#C084FC",
-    };
-  }
-
-  const slug = resolveGostSlug(ev);
-  if (slug === "supreme") {
-    return {
-      bg: "linear-gradient(90deg,#0c4a6e,#0369a1)",
-      label: "Supreme",
-      accent: "#38BDF8",
-    };
-  }
-  if (slug === "elite") {
-    return {
-      bg: "linear-gradient(90deg,#1e3a8a,#4338ca)",
-      label: "Elite",
-      accent: "#A5B4FC",
-    };
-  }
-  if (slug === "challenger") {
-    return {
-      bg: "linear-gradient(90deg,#14532d,#166534)",
-      label: "Challenger",
-      accent: "#4ADE80",
-    };
-  }
-  if (ev.source === "regional" || /regional|league/i.test(String(ev.competition || ""))) {
-    return {
-      bg: "linear-gradient(90deg,#7f1d1d,#991b1b)",
-      label: shortName(String(ev.competition || "Regional").replace(/^STAGE\s+/i, ""), 16),
-      accent: "#FCA5A5",
-    };
-  }
-  return {
-    bg: "linear-gradient(90deg,#881337,#9f1239)",
-    label: shortName(String(ev.competition || "Match").replace(/^STAGE\s+/i, ""), 16),
-    accent: "#FDA4AF",
-  };
-}
-
-function homeAwayNames(ev) {
-  if (ev.homeName || ev.awayName) {
-    return { home: ev.homeName || "TBD", away: ev.awayName || "TBD" };
-  }
-  const m = ev.matchData;
-  if (m) {
-    return {
-      home: m.home_club_name || m.home_player_name || "TBD",
-      away: m.away_club_name || m.away_player_name || "TBD",
-    };
-  }
-  if (ev.opposition) {
-    return {
-      home: ev.isHome ? (ev.myClubName || "You") : ev.opposition,
-      away: ev.isHome ? ev.opposition : (ev.myClubName || "You"),
-    };
-  }
-  return { home: "TBD", away: "TBD" };
-}
-
-function timeOrScore(ev) {
-  if (ev.result?.display) return ev.result.display;
-  const m = ev.matchData;
-  if (m && ["completed", "awaiting_confirmation", "played"].includes(String(m.status || "")) && m.home_score != null) {
-    return `${m.home_score}-${m.away_score}`;
-  }
-  if (ev.homeScore != null && ev.awayScore != null) {
-    const st = String(ev.status || "").toLowerCase();
-    if (["played", "completed", "finished"].includes(st) || Number(ev.homeScore) + Number(ev.awayScore) > 0) {
-      return `${ev.homeScore}-${ev.awayScore}`;
-    }
-  }
-  const d = parseDate(ev.date);
-  if (d) {
-    const hm = format(d, "HH:mm");
-    if (hm !== "00:00") return hm;
-  }
-  if (ev.matchday) return `MD${ev.matchday}`;
-  return "TBD";
-}
-
-function venueLetter(ev, myClubId) {
-  if (ev.venueKey === "home" || ev.venue === "Home") return "H";
-  if (ev.venueKey === "away" || ev.venue === "Away") return "A";
-  if (myClubId && ev.matchData) {
-    if (String(ev.matchData.home_club_id) === String(myClubId)) return "H";
-    if (String(ev.matchData.away_club_id) === String(myClubId)) return "A";
-  }
-  return "";
-}
-
-function MatchBlock({ ev, myClub, onClick }) {
-  const style = matchBlockStyle(ev);
-  const { home, away } = homeAwayNames(ev);
-  const opp = myClub?.id
-    ? (String(ev.matchData?.home_club_id || ev.fixtureData?.home_club_id) === String(myClub.id) ? away : home)
-    : away;
-  const venue = venueLetter(ev, myClub?.id);
-  const when = timeOrScore(ev);
-
-  if (ev.type === "contract_end" || ev.type === "tournament_start") {
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        className="w-full rounded-[3px] px-1.5 py-1 text-left text-[10px] font-semibold text-white shadow-sm"
-        style={{ background: style.bg }}
-      >
-        <div className="flex items-center justify-between gap-1">
-          <span className="truncate" style={{ color: style.accent }}>{style.label}</span>
-          <span className="shrink-0 tabular-nums text-white/80">{when}</span>
-        </div>
-        <p className="truncate font-bold text-white">
-          {ev.type === "tournament_start" ? (ev.tournamentData?.name || ev.competition) : "Contract ends"}
-        </p>
-      </button>
-    );
+  const navigateMonth=amount=>{const next=shiftCalendarMonth(month,amount);setMonth(next);setSelected(`${next}-01`);};
+  const showToday=()=>{setMonth(today.slice(0,7));setSelected(today);};
+  function onDateKey(event,day) {
+    const offsets={ArrowLeft:-1,ArrowRight:1,ArrowUp:-7,ArrowDown:7};
+    if (!(event.key in offsets)) return;
+    event.preventDefault();
+    const next=new Date(Date.parse(`${day}T12:00:00Z`)+offsets[event.key]*86400000).toISOString().slice(0,10);
+    setSelected(next);
+    if(!days.includes(next))setMonth(next.slice(0,7));
+    requestAnimationFrame(()=>document.getElementById(`schedule-day-${next}`)?.focus());
   }
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="w-full rounded-[3px] px-1.5 py-1 text-left shadow-sm transition hover:brightness-110"
-      style={{ background: style.bg }}
-      title={`${home} vs ${away}`}
-    >
-      <div className="flex items-center justify-between gap-1 text-[9px] font-bold uppercase tracking-wide text-white/85">
-        <span className="truncate">{style.label}</span>
-        <span className="shrink-0 tabular-nums">{when}</span>
-      </div>
-      <div className="mt-0.5 flex items-center justify-between gap-1">
-        <p className="truncate text-[11px] font-bold leading-tight text-white">
-          {shortName(opp || away, 16)}
-        </p>
-        <span className="shrink-0 text-[9px] font-black text-white/70">
-          {venue}
-        </span>
-      </div>
-      <p className="truncate text-[9px] leading-tight text-white/55">
-        {shortName(home, 12)} vs {shortName(away, 12)}
-      </p>
-    </button>
-  );
-}
-
-export default function ScheduleCalendar({ events, myPlayer, myClub, fullScreen = true }) {
-  const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [detailEvent, setDetailEvent] = useState(null);
-  const [filter, setFilter] = useState("all");
-  const [didAutoJump, setDidAutoJump] = useState(false);
-  const [monthPickerOpen, setMonthPickerOpen] = useState(false);
-  const [pickerYear, setPickerYear] = useState(() => new Date().getFullYear());
-
-  const openMonthPicker = (open) => {
-    if (open) setPickerYear(currentMonth.getFullYear());
-    setMonthPickerOpen(open);
-  };
-
-  const selectMonth = (monthIndex) => {
-    setCurrentMonth(new Date(pickerYear, monthIndex, 1));
-    setMonthPickerOpen(false);
-  };
-
-  const filteredEvents = useMemo(() => {
-    return (events || []).filter((ev) => {
-      if (filter === "gost") {
-        return ev.type === "match" && (ev.source === "gost" || resolveGostSlug(ev));
-      }
-      if (filter === "fixtures") {
-        return ev.type === "match";
-      }
-      return true;
-    });
-  }, [events, filter]);
-
-  const dateMap = useMemo(() => buildDateMap(filteredEvents), [filteredEvents]);
-
-  useEffect(() => {
-    if (didAutoJump) return;
-    const dated = filteredEvents.map((ev) => parseDate(ev.date)).filter(Boolean).sort((a, b) => a - b);
-    if (!dated.length) return;
-    const monthKey = format(currentMonth, "yyyy-MM");
-    const hasInMonth = dated.some((d) => format(d, "yyyy-MM") === monthKey);
-    if (!hasInMonth) {
-      const upcoming = dated.find((d) => d >= new Date()) || dated[dated.length - 1];
-      setCurrentMonth(startOfMonth(upcoming));
-    }
-    setDidAutoJump(true);
-  }, [filteredEvents, currentMonth, didAutoJump]);
-
-  const monthStart = startOfMonth(currentMonth);
-  const monthEnd = endOfMonth(currentMonth);
-  const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 });
-  const gridEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
-
-  const days = [];
-  let cursor = gridStart;
-  while (cursor <= gridEnd) {
-    days.push(cursor);
-    cursor = addDays(cursor, 1);
-  }
-  const weekCount = Math.max(1, Math.ceil(days.length / 7));
-
-  return (
-    <div
-      className={cn(
-        "flex h-full min-h-0 flex-1 flex-col bg-background text-foreground",
-        fullScreen && "min-h-0"
-      )}
-    >
-      {/* FM toolbar */}
-      <div className="shrink-0 border-b border-border px-3 py-2 sm:px-4">
-        <p className="mb-2 text-[11px] text-muted-foreground">
-          Overview <span className="text-muted-foreground/50">›</span> <span className="text-foreground/80">Calendar</span>
-        </p>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center overflow-hidden rounded-md border border-border">
-            {[
-              { id: "all", label: "General" },
-              { id: "gost", label: "GOST" },
-              { id: "fixtures", label: "Fixtures" },
-            ].map((f, i) => (
-              <button
-                key={f.id}
-                type="button"
-                onClick={() => setFilter(f.id)}
-                className={cn(
-                  "px-3 py-1.5 text-[11px] font-semibold transition",
-                  i > 0 && "border-l border-border",
-                  filter === f.id
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-secondary text-muted-foreground hover:bg-secondary/80 hover:text-foreground"
-                )}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-
-          <Popover open={monthPickerOpen} onOpenChange={openMonthPicker}>
-            <PopoverTrigger asChild>
-              <button
-                type="button"
-                aria-label="Select month"
-                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary px-3 py-1.5 text-[11px] font-semibold text-foreground hover:bg-secondary/80"
-              >
-                {format(currentMonth, "MMMM yyyy")}
-                <ChevronDown className={cn(
-                  "h-3.5 w-3.5 text-muted-foreground transition-transform",
-                  monthPickerOpen && "rotate-180"
-                )} />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent
-              align="start"
-              className="w-[240px] border-border bg-card p-3 shadow-xl"
-            >
-              <div className="mb-3 flex items-center justify-between gap-2">
-                <button
-                  type="button"
-                  aria-label="Previous year"
-                  onClick={() => setPickerYear((y) => y - 1)}
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-secondary text-muted-foreground hover:bg-secondary/80 hover:text-foreground"
-                >
-                  <ChevronLeft className="h-3.5 w-3.5" />
-                </button>
-                <p className="text-sm font-bold tabular-nums text-foreground">{pickerYear}</p>
-                <button
-                  type="button"
-                  aria-label="Next year"
-                  onClick={() => setPickerYear((y) => y + 1)}
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-secondary text-muted-foreground hover:bg-secondary/80 hover:text-foreground"
-                >
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </button>
-              </div>
-              <div className="grid grid-cols-3 gap-1.5">
-                {MONTH_LABELS.map((label, monthIndex) => {
-                  const selected =
-                    currentMonth.getFullYear() === pickerYear
-                    && currentMonth.getMonth() === monthIndex;
-                  const isCurrent =
-                    new Date().getFullYear() === pickerYear
-                    && new Date().getMonth() === monthIndex;
-                  return (
-                    <button
-                      key={label}
-                      type="button"
-                      onClick={() => selectMonth(monthIndex)}
-                      className={cn(
-                        "rounded-md px-1.5 py-2 text-[11px] font-semibold transition",
-                        selected
-                          ? "bg-primary text-primary-foreground"
-                          : isCurrent
-                            ? "bg-secondary text-primary hover:bg-secondary/80"
-                            : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-                      )}
-                    >
-                      {label.slice(0, 3)}
-                    </button>
-                  );
-                })}
-              </div>
-            </PopoverContent>
+    <section className="min-w-0 text-foreground" aria-label="Schedule calendar" aria-busy={loading}>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border py-3">
+        <Popover open={scopeOpen} onOpenChange={setScopeOpen}>
+          <PopoverTrigger asChild><button type="button" className={cn(control,'min-w-36 justify-between')} aria-label={`Calendar scope: ${scopeLabel}`}>{scopeLabel}<ChevronDown size={16}/></button></PopoverTrigger>
+          <PopoverContent align="start" className="w-72 rounded-none border-border bg-card p-0">
+            <div role="group" aria-label="Calendar scope">{CALENDAR_SCOPES.map(option=><button key={option.id} type="button" aria-pressed={scope===option.id} className="flex min-h-14 w-full items-center justify-between gap-3 border-b border-border px-4 py-2 text-left hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-400" onClick={()=>{setScope(option.id);setScopeOpen(false);}}><span><span className="block text-sm font-bold">{option.label}</span><span className="block text-xs text-muted-foreground">{option.description}</span></span>{scope===option.id?<Check size={18} className="text-cyan-500"/>:null}</button>)}</div>
+          </PopoverContent>
+        </Popover>
+        <div className="flex items-center gap-1 sm:gap-3">
+          <button type="button" aria-label="Previous month" className={cn(control,'w-11 px-0')} onClick={()=>navigateMonth(-1)}><ChevronLeft size={20}/></button>
+          <Popover open={monthOpen} onOpenChange={open=>{setMonthOpen(open);if(open)setPickerYear(Number(month.slice(0,4)));}}>
+            <PopoverTrigger asChild><button type="button" aria-label="Choose month and year" className="min-h-11 w-28 min-w-0 shrink-0 px-1 font-heading text-lg font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 sm:w-44 sm:text-2xl">{calendarDate(`${month}-01`,{month:'long',year:'numeric'})}</button></PopoverTrigger>
+            <PopoverContent className="w-64 rounded-none border-border bg-card p-3"><div className="mb-2 flex items-center justify-between"><button type="button" className={control} aria-label="Previous year" onClick={()=>setPickerYear(y=>y-1)}><ChevronLeft size={16}/></button><span>{pickerYear}</span><button type="button" className={control} aria-label="Next year" onClick={()=>setPickerYear(y=>y+1)}><ChevronRight size={16}/></button></div><div className="grid grid-cols-3 gap-1">{Array.from({length:12},(_,i)=>{const value=`${pickerYear}-${String(i+1).padStart(2,'0')}`;return <button type="button" key={value} className={cn(control,'px-1',value===month&&'text-cyan-500')} onClick={()=>{setMonth(value);setSelected(`${value}-01`);setMonthOpen(false);}}>{calendarDate(`${value}-01`,{month:'short'})}</button>;})}</div></PopoverContent>
           </Popover>
-
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              aria-label="Previous month"
-              onClick={() => setCurrentMonth((m) => subMonths(m, 1))}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-secondary text-muted-foreground hover:bg-secondary/80 hover:text-foreground"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              aria-label="Next month"
-              onClick={() => setCurrentMonth((m) => addMonths(m, 1))}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-secondary text-muted-foreground hover:bg-secondary/80 hover:text-foreground"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setCurrentMonth(new Date())}
-              className="rounded-md border border-border bg-secondary px-3 py-1.5 text-[11px] font-semibold text-muted-foreground hover:bg-secondary/80 hover:text-foreground"
-            >
-              Today
-            </button>
-          </div>
-
-          <div className="ml-auto hidden items-center gap-2 lg:flex">
-            {COMPETITIONS.map((c) => (
-              <span key={c.slug} className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground">
-                <span className="h-2 w-2 rounded-sm" style={{ background: c.color }} />
-                {c.name.replace(/^STAGE\s+/i, "").replace(" League", "")}
-              </span>
-            ))}
-            <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground">
-              <span className="h-2 w-2 rounded-sm bg-[#991b1b]" />
-              Regional
-            </span>
-          </div>
+          <button type="button" aria-label="Next month" className={cn(control,'w-11 px-0')} onClick={()=>navigateMonth(1)}><ChevronRight size={20}/></button>
+          <button type="button" className={control} onClick={showToday}>Today</button>
         </div>
+        <div aria-label="Competition legend" className="flex flex-wrap gap-x-4 gap-y-2 text-xs">{Object.entries(CALENDAR_CATEGORIES).map(([id,category])=><span key={id} className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{background:category.color}}/>{category.label}</span>)}</div>
       </div>
-
-      {/* Weekday headers */}
-      <div className="grid shrink-0 grid-cols-7 border-b border-border bg-secondary/40">
-        {DAY_NAMES.map((d) => (
-          <div
-            key={d}
-            className="border-r border-border/60 px-2 py-1.5 text-[11px] font-medium text-muted-foreground last:border-r-0"
-          >
-            <span className="hidden sm:inline">{d}</span>
-            <span className="sm:hidden">{d.slice(0, 3)}</span>
-          </div>
-        ))}
-      </div>
-
-      {/* Full-height month grid */}
-      <div
-        className="grid min-h-0 flex-1 grid-cols-7"
-        style={{ gridTemplateRows: `repeat(${weekCount}, minmax(0, 1fr))` }}
-      >
-        {days.map((day, i) => {
-          const key = format(day, "yyyy-MM-dd");
-          const dayEvents = (dateMap.get(key) || []).filter((ev) => {
-            if (filter === "fixtures") return ev.type === "match";
-            return true;
-          });
-          const inMonth = isSameMonth(day, currentMonth);
-          const today = isToday(day);
-          const visible = dayEvents.slice(0, 5);
-          const extra = dayEvents.length - visible.length;
-          const dateLabel = !inMonth || format(day, "d") === "1"
-            ? format(day, "d MMM")
-            : format(day, "d");
-
-          return (
-            <div
-              key={key}
-              className={cn(
-                "flex min-h-0 flex-col border-b border-r border-border/60 bg-card p-1 last:border-r-0 sm:p-1.5",
-                !inMonth && "bg-background opacity-50",
-                today && "ring-1 ring-inset ring-primary/70"
-              )}
-            >
-              <div
-                className={cn(
-                  "mb-1 shrink-0 px-0.5 text-[11px] font-medium tabular-nums",
-                  today ? "font-bold text-primary" : "text-muted-foreground"
-                )}
-              >
-                {dateLabel}
-              </div>
-
-              <div className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                {visible.map((ev) => (
-                  <MatchBlock
-                    key={ev.id}
-                    ev={ev}
-                    myClub={myClub}
-                    onClick={() => setDetailEvent(ev)}
-                  />
-                ))}
-                {extra > 0 ? (
-                  <p className="px-0.5 text-[9px] font-semibold text-muted-foreground">+{extra} more</p>
-                ) : null}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Detail overlay */}
-      {detailEvent ? (
-        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-6">
-          <div className="relative max-h-[90vh] w-full max-w-lg overflow-hidden rounded-t-2xl border border-border bg-card shadow-2xl sm:rounded-2xl">
-            <div className="flex items-center justify-between border-b border-border px-4 py-3">
-              <p className="text-sm font-bold text-foreground">
-                {homeAwayNames(detailEvent).home} vs {homeAwayNames(detailEvent).away}
-              </p>
-              <button
-                type="button"
-                onClick={() => setDetailEvent(null)}
-                className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
-              >
-                <X className="h-4 w-4" />
+      {error?<div role="alert" className="my-3 flex flex-wrap items-center gap-3 border border-destructive/40 p-3 text-sm"><span>{error}{current?' Showing the last loaded games.':''}</span><button type="button" className={control} onClick={()=>setRevision(r=>r+1)}><RefreshCw size={16}/>Retry</button></div>:null}
+      <div className="my-3 min-h-5 text-xs text-muted-foreground" role="status">{loading ? (current?'Refreshing games...':'Loading scheduled games...') : error ? '' : !current?.hasClub && ['gost','regional'].includes(scope) ? 'No active club resolved for this calendar scope.' : !events.length ? (scope==='general'?'No confirmed games scheduled in this month.':`No confirmed ${scopeLabel} games in this month.`) : `${events.length} games in the displayed calendar`}</div>
+      <div className="grid min-w-0 items-stretch gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(280px,340px)]">
+        <div className="min-w-0 border-l border-t border-border" role="grid" aria-label={calendarDate(`${month}-01`,{month:'long',year:'numeric'})}>
+          <div className="grid grid-cols-7" role="row">{['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map(day=><div key={day} role="columnheader" aria-label={day} className="border-b border-r border-border py-2 text-center text-[10px] font-semibold uppercase text-muted-foreground sm:text-xs"><span className="sm:hidden">{day.slice(0,1)}</span><span className="hidden sm:inline">{day.slice(0,3)}</span></div>)}</div>
+          {Array.from({length:days.length/7},(_,week)=><div role="row" key={week} className="grid grid-cols-7">{days.slice(week*7,week*7+7).map(day=>{
+            const items=dates.get(day)||[];const active=day===selected;const isToday=day===today;
+            return <div key={day} role="gridcell" aria-selected={active} className={cn('relative min-w-0 border-b border-r border-border',day.slice(0,7)!==month&&'text-muted-foreground',new Date(`${day}T12:00:00Z`).getUTCDay()%6===0&&'bg-secondary/25',active&&'ring-1 ring-inset ring-cyan-400')}>
+              <button type="button" id={`schedule-day-${day}`} tabIndex={active?0:-1} aria-current={isToday?'date':undefined} aria-label={`${calendarDate(day,{dateStyle:'full'})}, ${items.length} games${isToday?', today':''}`} onKeyDown={e=>onDateKey(e,day)} onClick={()=>setSelected(day)} className="flex h-[76px] w-full min-w-0 flex-col p-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-400 sm:h-[112px] sm:p-1.5 lg:h-[124px]">
+                <span className="flex w-full min-w-0 items-center justify-between gap-1 text-xs sm:text-sm"><span className={cn(isToday&&'font-bold text-cyan-500')}>{Number(day.slice(8))}{day.slice(0,7)!==month?<span className="hidden sm:inline"> {calendarDate(day,{month:'short'})}</span>:null}</span>{isToday?<span className="hidden text-[9px] font-bold text-cyan-500 sm:inline">TODAY</span>:null}</span>
+                <span className="mt-1 flex flex-wrap gap-1 sm:hidden">{items.slice(0,3).map(event=><span key={event.id} className="h-1.5 w-1.5 rounded-full" style={{background:categoryStyle(event).color}}/>)}{items.length>3?<span className="text-[9px]">+{items.length-3}</span>:null}</span>
+                <span className="mt-1 hidden w-full min-w-0 space-y-1 sm:block">{items.slice(0,2).map(event=>{const category=categoryStyle(event);return <span key={event.id} className="block min-w-0 px-1 py-0.5 text-[10px] leading-tight" style={category.style}><span className="block truncate">{category.label} · {calendarTime(event.startsAt,displayTimezone)}</span><span className="block truncate font-semibold">{event.score?`${event.score} · `:''}{event.homeName} v {event.awayName}</span></span>;})}{items.length>2?<span className="block text-[9px] text-muted-foreground">+{items.length-2} more</span>:null}</span>
               </button>
-            </div>
-            <div className="max-h-[min(70vh,560px)] overflow-y-auto p-4">
-              {detailEvent.matchData || detailEvent.type === "contract_end" || detailEvent.type === "tournament_start" ? (
-                <MatchDetail event={detailEvent} myPlayer={myPlayer} myClub={myClub} />
-              ) : (
-                <div
-                  className="rounded-xl p-4"
-                  style={{ background: matchBlockStyle(detailEvent).bg }}
-                >
-                  <p className="text-[10px] font-black uppercase tracking-wider text-white/70">
-                    {matchBlockStyle(detailEvent).label}
-                    {detailEvent.matchday ? ` · MD ${detailEvent.matchday}` : ""}
-                  </p>
-                  <p className="mt-2 font-heading text-2xl font-black uppercase text-white">
-                    {homeAwayNames(detailEvent).home}
-                    <span className="mx-2 text-white/40">vs</span>
-                    {homeAwayNames(detailEvent).away}
-                  </p>
-                  <p className="mt-2 text-sm text-white/70">{detailEvent.competition}</p>
-                  <p className="mt-1 text-sm font-bold text-white">{timeOrScore(detailEvent)}</p>
-                </div>
-              )}
-            </div>
-          </div>
+            </div>;
+          })}</div>)}
         </div>
-      ) : null}
-    </div>
+        <section className="min-w-0 border border-border p-4 text-foreground sm:p-5" aria-label="Selected day fixtures">
+          <div className="border-b border-border pb-4"><p className="text-sm font-semibold uppercase">{calendarDate(selected,{weekday:'long'})}</p><p className="font-heading text-6xl font-black leading-none text-cyan-500">{Number(selected.slice(8))}</p><h2 className="mt-1 font-heading text-xl uppercase">{calendarDate(selected,{month:'long',year:'numeric'})}</h2></div>
+          <p className="my-4 text-sm" aria-live="polite">{loading&&!current?'Loading games...':error&&!current?'Games unavailable':`${selectedEvents.length} scheduled ${selectedEvents.length===1?'game':'games'}`}</p>
+          {conflicts.size?<p role="note" className="mb-3 flex items-start gap-2 border border-amber-500/40 p-2 text-xs"><AlertTriangle size={16} className="shrink-0 text-amber-500"/>Games share the same kickoff time. Check the fixtures below.</p>:null}
+          {!selectedEvents.length?<p className="text-sm text-muted-foreground">{loading&&!current?'Loading games...':error&&!current?'Games unavailable. Retry above.':scope==='general'?'No fixtures scheduled for this day.':`No ${scopeLabel} fixtures scheduled for this day.`}</p>:null}
+          <div className="space-y-3 xl:max-h-[560px] xl:overflow-y-auto xl:pr-1">{selectedEvents.map(event=>{const category=categoryStyle(event);return <article key={event.id} className="min-w-0 border border-border p-3" style={category.style}>
+            <div className="flex items-start justify-between gap-2"><p className="min-w-0 break-words text-xs font-bold uppercase">{event.competition}</p><time className="shrink-0 text-sm tabular-nums" dateTime={event.startsAt}>{calendarTime(event.startsAt,displayTimezone)}</time></div>
+            <p className="mt-1 text-[10px] text-muted-foreground">{category.label}{event.stage?` · ${event.stage}`:''}{event.matchday?` · Matchday ${event.matchday}`:event.round?` · Round ${event.round}`:''}{event.leg?` · Leg ${event.leg}`:''}</p>
+            <div className="mt-2 flex items-start gap-2">{event.homeAvatarUrl?<img src={event.homeAvatarUrl} alt="" className="h-6 w-6 shrink-0 object-contain"/>:null}<h3 className="min-w-0 break-words font-heading text-lg font-bold">{event.homeName} vs {event.awayName}</h3>{event.awayAvatarUrl?<img src={event.awayAvatarUrl} alt="" className="h-6 w-6 shrink-0 object-contain"/>:null}</div>
+            {event.score?<p className="mt-1 font-bold">{event.score} · Completed</p>:<p className="mt-1 text-xs text-muted-foreground">{event.status==='in_progress'?'In progress':event.status==='disputed'?'Result disputed':event.status==='awaiting_confirmation'?'Result awaiting confirmation':'Confirmed schedule'}</p>}
+            {conflicts.has(event.id)?<p className="mt-1 text-xs text-amber-600 dark:text-amber-300">Same-time kickoff</p>:null}
+            {event.href?<Link to={event.href} className="mt-2 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:text-cyan-300" aria-label={`View match: ${event.homeName} vs ${event.awayName}`}>View match<ArrowRight size={16}/></Link>:<p className="mt-2 text-xs text-muted-foreground">Match details are not linked yet.</p>}
+          </article>;})}</div>
+        </section>
+      </div>
+      <p className="py-4 text-xs text-muted-foreground">Times shown in {displayTimezone}</p>
+    </section>
   );
 }

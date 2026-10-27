@@ -1,0 +1,37 @@
+<!doctype html>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Schedule calendar local QA</title></head>
+<body style="margin:0"><div id="root"></div><script type="module">
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import {MemoryRouter} from 'react-router-dom';
+import RefreshRuntime from '/@react-refresh';
+RefreshRuntime.injectIntoGlobalHook(window);
+window.$RefreshReg$=()=>{};window.$RefreshSig$=()=>type=>type;window.__vite_plugin_react_preamble_installed__=true;
+await import('/src/index.css');
+await import('/node_modules/@fontsource/anton/index.css');
+const params=new URLSearchParams(location.search);
+document.documentElement.className=params.get('theme')==='light'?'theme-white':'theme-dark dark';
+const {stageClient}=await import('/src/api/stageClient.js');
+const {calendarDay}=await import('/src/lib/scheduleCalendar.js');
+const zone='Europe/Brussels';
+const today=calendarDay(new Date(),zone);
+stageClient.auth.hasToken=()=>false;
+stageClient.auth.me=async()=>({id:'qa',player_id:'qa-player',timezone:zone});
+for(const entity of Object.values(stageClient.entities)){entity.list=async()=>[];entity.filter=async()=>[];entity.get=async()=>null;}
+stageClient.http.get=async(path,query)=>{
+  if(path!=='/schedule/calendar')return {};
+  if(params.get('state')==='loading')return new Promise(()=>{});
+  if(params.get('state')==='error')throw Error('Controlled calendar failure');
+  if(params.get('delay'))await new Promise(r=>setTimeout(r,query.scope==='general'?1500:50));
+  const categories=['supreme','elite','challenger','regional','friendly','tournament'];
+  const month=query.from.slice(0,7);
+  const anchor=today>=query.from&&today<query.to?today:`${month}-15`;
+  let events=params.get('state')==='empty'?[]:categories.map((category,index)=>({id:`qa-${category}`,category,competition:`Test ${category} competition`,startsAt:`${anchor}T${String(17+index%4).padStart(2,'0')}:00:00+01:00`,homeName:category==='tournament'?'Test player':'Test home club',awayName:'Test away participant',round:2,stage:'Quarter-final',href:`/game-day?match=qa-${category}`,status:index===1?'completed':'scheduled',score:index===1?'2 - 1':null}));
+  if(query.scope!=='general')events=events.filter(e=>query.scope==='gost'?['supreme','elite','challenger'].includes(e.category):e.category===query.scope);
+  return {timezone:zone,today,hasClub:!params.has('noClub'),identityKey:'qa',events};
+};
+const {AuthProvider}=await import('/src/lib/AuthContext.jsx');
+const {TranslationProvider}=await import('/src/lib/TranslationContext.jsx');
+const {default:Schedule}=await import('/src/pages/Schedule.jsx');
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(AuthProvider,null,React.createElement(TranslationProvider,null,React.createElement(MemoryRouter,null,React.createElement('div',{className:'h-screen bg-background'},React.createElement(Schedule))))));
+</script></body></html>

@@ -18,15 +18,15 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState("calendar"); // "fixtures" | "calendar"
-  const [allPlayers, setAllPlayers] = useState([]);
 
   useEffect(() => {
-    load();
-  }, []);
+    if (view === 'fixtures') load();
+  }, [view, scopedTournamentId]);
 
   useEffect(() => {
     let reloadTimer = null;
     const onMatchUpdate = () => {
+      if (view !== 'fixtures') return;
       if (reloadTimer) window.clearTimeout(reloadTimer);
       reloadTimer = window.setTimeout(() => {
         load();
@@ -37,7 +37,7 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
       if (reloadTimer) window.clearTimeout(reloadTimer);
       offSocketListeners(CHANNELS.MATCH, onMatchUpdate);
     };
-  }, []);
+  }, [view, scopedTournamentId]);
 
   async function load() {
     setLoading(true);
@@ -57,12 +57,6 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
         ? stageClient.entities.RegionalLeagueFixture.list("-created_date", 300).catch(() => [])
         : Promise.resolve([]),
     ]);
-
-    let clubPlayers = [];
-    if (club) {
-      clubPlayers = await stageClient.entities.Player.filter({ club_id: club.id }).catch(() => []);
-    }
-    setAllPlayers(clubPlayers);
 
     // Gather all matches relevant to user (club or player)
     const matchFilters = [];
@@ -359,24 +353,24 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
   return (
     <div className={cn(
       view === "calendar"
-        ? "flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background p-0"
+        ? "h-full min-h-0 flex-1 overflow-y-auto bg-background p-4 lg:p-8"
         : "min-h-screen overflow-y-auto bg-background p-4 lg:p-8"
     )}>
       {view === "calendar" ? (
-        <div className="flex h-full min-h-0 flex-1 flex-col">
-          <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border bg-background px-3 py-2 sm:px-4">
-            <div className="flex items-center gap-2">
-              <CalendarDays className="h-5 w-5 text-primary" />
-              <h1 className="font-heading text-xl font-black uppercase tracking-wide text-foreground sm:text-2xl">
+        <div className="mx-auto w-full max-w-[1600px]">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
+            <div>
+              <h1 className="font-heading text-4xl font-black uppercase tracking-normal text-foreground sm:text-5xl">
                 {t("matchFlow.scheduleTitle")}
               </h1>
+              <p className="mt-1 text-xs text-muted-foreground">Overview / Schedule / Calendar</p>
             </div>
-            <div className="flex items-center rounded-lg border border-border bg-secondary p-0.5">
+            <div className="flex items-center gap-5" aria-label="Schedule view">
               <button
                 type="button"
                 onClick={() => setView("fixtures")}
                 className={cn(
-                  "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all",
+                  "flex min-h-11 items-center gap-1.5 border-b-2 border-transparent px-2 text-sm font-semibold transition-all focus-visible:ring-2 focus-visible:ring-cyan-400",
                   "text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -387,8 +381,7 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
                 type="button"
                 onClick={() => setView("calendar")}
                 className={cn(
-                  "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all",
-                  "bg-primary text-primary-foreground shadow"
+                  "flex min-h-11 items-center gap-1.5 border-b-2 border-cyan-400 px-2 text-sm font-semibold text-cyan-500 focus-visible:ring-2 focus-visible:ring-cyan-400"
                 )}
               >
                 <CalendarDays className="w-3.5 h-3.5" />
@@ -397,21 +390,7 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
             </div>
           </div>
 
-          {loading ? (
-            <div className="flex flex-1 items-center justify-center">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary/20 border-t-primary" />
-            </div>
-          ) : (
-            <div className="min-h-0 flex-1">
-              <ScheduleCalendar
-                events={events}
-                myPlayer={myPlayer}
-                myClub={myClub}
-                players={allPlayers}
-                fullScreen
-              />
-            </div>
-          )}
+          <ScheduleCalendar tournamentId={scopedTournamentId} />
         </div>
       ) : (
       <div className="max-w-7xl mx-auto">
@@ -433,26 +412,28 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
           </div>
           <div className="flex items-center gap-2 ml-auto">
             {/* View toggle */}
-            <div className="flex items-center bg-secondary border border-border rounded-lg p-0.5">
+            <div className="flex items-center gap-5" aria-label="Schedule view">
               <button
+                type="button"
                 onClick={() => setView("fixtures")}
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all",
+                  "flex min-h-11 items-center gap-1.5 border-b-2 px-2 text-sm font-semibold transition-all",
                   view === "fixtures"
-                    ? "bg-primary text-primary-foreground shadow"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "border-cyan-400 text-cyan-500"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
                 )}
               >
                 <List className="w-3.5 h-3.5" />
                 {t("matchFlow.fixtures")}
               </button>
               <button
+                type="button"
                 onClick={() => setView("calendar")}
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all",
+                  "flex min-h-11 items-center gap-1.5 border-b-2 px-2 text-sm font-semibold transition-all",
                   view === "calendar"
-                    ? "bg-primary text-primary-foreground shadow"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "border-cyan-400 text-cyan-500"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
                 )}
               >
                 <CalendarDays className="w-3.5 h-3.5" />
