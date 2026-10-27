@@ -247,6 +247,20 @@ CREATE TABLE IF NOT EXISTS clubs (
 );
 
 -- ── matches ───────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS match_highlights (
+  id VARCHAR(36) PRIMARY KEY,
+  match_id VARCHAR(36) NOT NULL,
+  uploader_user_id VARCHAR(36) NOT NULL,
+  image_url VARCHAR(255) NOT NULL,
+  image_sha256 CHAR(64) NOT NULL,
+  caption VARCHAR(160) NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'published',
+  created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_date DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY idx_match_highlights_image (match_id,image_sha256),
+  INDEX idx_match_highlights_published (match_id,status,created_date)
+);
+
 CREATE TABLE IF NOT EXISTS matches (
   report_finalized       TINYINT(1) NOT NULL DEFAULT 0,
   administrative_result  TINYINT(1) NOT NULL DEFAULT 0,
@@ -293,6 +307,8 @@ CREATE TABLE IF NOT EXISTS matches (
   result_state           VARCHAR(40)  NULL,
   result_submit_side     VARCHAR(10)  NULL,
   decided_on_penalties   TINYINT(1)   DEFAULT 0,
+  aggregate_home_score   INT          NULL,
+  aggregate_away_score   INT          NULL,
   penalty_winner_side    VARCHAR(10)  NULL,
   allow_penalties        TINYINT(1)   DEFAULT 0,
   result_due_at          DATETIME     NULL,

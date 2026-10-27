@@ -8,6 +8,7 @@ import ScheduleCalendar from "../components/schedule/ScheduleCalendar";
 import { CHANNELS, setSocketListeners, offSocketListeners } from "@/lib/SocketContext";
 import { getContractTargetPlayerId } from "@/lib/playerContractFields";
 import { useTranslation } from "@/hooks/useTranslation";
+import { scheduleResult as getResult } from '@/lib/scheduleResult';
 
 export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
   const { t } = useTranslation();
@@ -188,8 +189,7 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
           : slug === "elite" ? "STAGE Elite League"
             : slug === "challenger" ? "STAGE Challenger League"
               : "GOST");
-      const played = String(f.status || "").toLowerCase() === "played"
-        || (f.home_score != null && f.away_score != null);
+      const result = getResult(f,club,player);
       const isHome = String(f.home_club_id) === myClubId;
       return {
         id: `gost-${f.id}`,
@@ -199,7 +199,7 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
         opposition: isHome ? (f.away_club_name || "TBD") : (f.home_club_name || "TBD"),
         venue: isHome ? "Home" : "Away",
         venueKey: isHome ? "home" : "away",
-        result: played ? { display: `${f.home_score}–${f.away_score}`, outcome: null } : null,
+        result,
         competition: competitionName,
         competitionSlug: slug || resolveCompetitionSlug(f, null, competitionName),
         homeName: f.home_club_name || "TBD",
@@ -221,8 +221,7 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
         return String(f.home_club_id) === myClubId || String(f.away_club_id) === myClubId;
       })
       .map((f) => {
-      const played = String(f.status || "").toLowerCase() === "played"
-        || (f.home_score != null && f.away_score != null);
+      const result = getResult(f,club,player);
       const isHome = String(f.home_club_id) === myClubId;
       return {
         id: `rl-${f.id}`,
@@ -232,7 +231,7 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
         opposition: isHome ? (f.away_club_name || "TBD") : (f.home_club_name || "TBD"),
         venue: isHome ? "Home" : "Away",
         venueKey: isHome ? "home" : "away",
-        result: played ? { display: `${f.home_score}–${f.away_score}`, outcome: null } : null,
+        result,
         competition: f.league_name || f.competition_name || "Regional League",
         competitionSlug: null,
         homeName: f.home_club_name || "TBD",
@@ -527,20 +526,4 @@ function resolveCompetitionSlug(row = {}, tournament = null, competitionLabel = 
   if (name.includes("elite")) return "elite";
   if (name.includes("challenger")) return "challenger";
   return null;
-}
-
-function getResult(match, club, player) {
-  if (match.status !== "completed" && match.status !== "awaiting_confirmation") return null;
-  const homeScore = match.home_score ?? 0;
-  const awayScore = match.away_score ?? 0;
-  const isSolo = match.mode === "solo" || (!match.home_club_id && !match.away_club_id);
-  const isHome = isSolo
-    ? match.home_player_id === player?.id
-    : club
-      ? match.home_club_id === club?.id
-      : match.home_player_id === player?.id;
-  const myScore = isHome ? homeScore : awayScore;
-  const theirScore = isHome ? awayScore : homeScore;
-  const outcome = myScore > theirScore ? "W" : myScore < theirScore ? "L" : "D";
-  return { outcome, myScore, theirScore, display: `${myScore}–${theirScore}` };
 }

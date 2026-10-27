@@ -418,7 +418,7 @@ function makeEntity(name) {
 
 // ── Entity registry ────────────────────────────────────────────────────────────
 const ENTITY_NAMES = [
-  'Player', 'President', 'Club', 'Match', 'Tournament', 'Post', 'Comment',
+  'Player', 'President', 'Club', 'Match', 'MatchHighlight', 'Tournament', 'Post', 'Comment',
   'MatchPlayerStat', 'Notification', 'PlayerContract', 'PlayerLoan', 'InboxMessage',
   'Prediction',
   'DirectMessage', 'STCTransaction', 'ShirtSale', 'DressingRoom',
@@ -777,6 +777,7 @@ const identityClaims = {
 // Bodies are JSON-serialized automatically; auth header + 401-refresh are
 // handled by apiFetch.
 const http = {
+  upload: (path, body) => apiFetch(path, {method:'POST',body}),
   get:    (path, query)        => apiFetch(`${path}${buildQuery(query)}`, { method: 'GET' }),
   post:   (path, body)         => apiFetch(path, { method: 'POST',   body: JSON.stringify(body || {}) }),
   patch:  (path, body)         => apiFetch(path, { method: 'PATCH',  body: JSON.stringify(body || {}) }),

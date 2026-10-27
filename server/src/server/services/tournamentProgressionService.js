@@ -154,10 +154,11 @@ async function correctTournamentResult(match, patch, admin) {
     const hs = Number(patch.home_score ?? source.home_score), as = Number(patch.away_score ?? source.away_score);
     if (!Number.isInteger(hs) || !Number.isInteger(as) || hs < 0 || as < 0) throw new Error('Scores must be nonnegative whole numbers.');
     const player = t.participant_type === 'player';
-    const penaltySide = patch.penalty_winner_side || null;
-    const penalties = hs === as && Number(patch.decided_on_penalties) === 1;
+    const validated = status === 'completed' ? await require('./penaltyPolicyService').validateMatchPenalty(source,{home_score:hs,away_score:as},{decided_on_penalties:patch.decided_on_penalties ?? source.decided_on_penalties,penalty_winner_side:patch.penalty_winner_side ?? source.penalty_winner_side},query) : {decided_on_penalties:0,penalty_winner_side:null};
+    const penaltySide = validated.penalty_winner_side;
+    const penalties = Number(validated.decided_on_penalties) === 1;
     if (penalties && !['home', 'away'].includes(penaltySide)) throw conflict('Choose the winning side for a penalty decision.');
-    let winnerSide = hs > as ? 'home' : as > hs ? 'away' : penalties ? penaltySide : null;
+    let winnerSide = penalties ? penaltySide : hs > as ? 'home' : as > hs ? 'away' : null;
     if (!winnerSide && status === 'forfeit') {
       const awarded = patch[`winner_${player ? 'player' : 'club'}_id`] || source.forfeit_claimed_by;
       winnerSide = ['home', 'away'].find(side => awarded && String(source[`${side}_${player ? 'player' : 'club'}_id`]) === String(awarded));
@@ -169,6 +170,7 @@ async function correctTournamentResult(match, patch, admin) {
       await query('DELETE FROM matches WHERE id=? AND tournament_id=?', [row.id, t.id]);
     }
     await query('UPDATE match_player_stats SET is_superseded=1, appearance_key=NULL WHERE match_id=?', [source.id]);
+    await query('UPDATE matches SET aggregate_home_score=?,aggregate_away_score=? WHERE id=?',[validated.aggregate_home_score??null,validated.aggregate_away_score??null,source.id]);
     await query(`UPDATE matches SET home_score=?, away_score=?, status=?, result_state=?, winner_${player ? 'player' : 'club'}_id=?, winner_${player ? 'player' : 'club'}_name=?, decided_on_penalties=?, penalty_winner_side=?, administrative_result=1, report_finalized=?, stats_processed=?, home_submission=NULL, away_submission=NULL, home_goal_events=NULL, away_goal_events=NULL, result_home_submitted=0, result_away_submitted=0, updated_date=NOW() WHERE id=?`, [hs, as, status, ['completed', 'forfeit'].includes(status) ? 'CONFIRMED' : null, winner, winnerSide ? source[`${winnerSide}_${player ? 'player' : 'club'}_name`] : null, penalties ? 1 : 0, penalties ? penaltySide : null, ['completed', 'forfeit'].includes(status) ? 1 : 0, ['completed', 'forfeit'].includes(status) ? 1 : 0, source.id]);
     await query(`INSERT INTO admin_audit_log (id,admin_user_id,admin_email,action,entity_type,entity_id,old_value,new_value,reason) VALUES (?,?,?,?,?,?,?,?,?)`, [crypto.randomUUID(), admin.id, admin.email, 'correct_tournament_result', 'match', source.id, JSON.stringify(source), JSON.stringify({ status, home_score: hs, away_score: as, removed_idle_descendants: affected.map(m => m.id) }), patch.reason || 'Admin corrected tournament result; previous player statistics retained as superseded.']);
     const [updated] = await query('SELECT * FROM matches WHERE id=? LIMIT 1', [source.id]);

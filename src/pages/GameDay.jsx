@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { useSearchParams } from "react-router-dom";
 import { MessageSquare, MoreHorizontal, Plus, Radio, RefreshCw, Zap } from "lucide-react";
@@ -14,31 +14,14 @@ import GameDayTileBackgroundDialog, {
 import ArrangeGameDialog from "@/components/schedule/ArrangeGameDialog";
 import FixtureSchedulerPanel from "@/components/schedule/FixtureSchedulerPanel";
 import { createMatchFromFixture } from "@/lib/gameDayIntegration";
-import { isActiveGameDayMatch } from "@/lib/gameDayPresentation";
+import {isHubMatch as isActiveGameDayMatch,isOfficialGameDayResult,filterGameDayMatches} from '@/lib/gameDayHub';
+import GameDayInsights from '@/components/gameday/GameDayInsights';
+import GameDayResultDialog from '@/components/gameday/GameDayResultDialog';
 import { isGameDayMatchSocketPayload, sameRecordId } from "@/lib/gameDayRealtime";
 import { pickMyClubForMatch, uniqueIdentityClubs } from "@/lib/gameDayResultFlow";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
 import { useTranslation } from "@/hooks/useTranslation";
 import { cn } from "@/lib/utils";
-import { PAGE_BANNER_HEIGHT_CLASS } from "@/lib/pageBanner";
 import { hasStagePlus } from "@/lib/subscriptionUtils";
-
-// Derive the "league group" a game belongs to for the filter dropdown.
-// We strip the trailing "· Matchday N" so every matchday of the same
-// league/division collapses into one group entry. Falls back to the
-// tournament name for non-league competitions and "Ranked Match" for
-// unstructured games.
-function groupKeyForGame(game, tournamentMap, t) {
-  const ctx = String(game?.competition_context || "").trim();
-  if (ctx) {
-    return ctx.replace(/\s*·\s*Matchday\s+\d+\s*$/i, "").trim() || ctx;
-  }
-  if (!game?.tournament_id || game.tournament_id === "ranked") return t("matchFlow.rankedMatch");
-  const tournament = tournamentMap?.[game.tournament_id];
-  return tournament?.name || t("matchFlow.tournament");
-}
 
 function confirmedFixtureSourceKey(fixture, type) {
   if (!fixture?.id) return null;
@@ -75,8 +58,12 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
   const [tileBackgroundDialog, setTileBackgroundDialog] = useState(null);
   const { getUnreadCount } = useChatNotifications();
   const chatUnread = selectedGame?.id ? getUnreadCount(selectedGame.id) : 0;
-  // "all" or a group key (see groupKeyForGame). Stable across re-renders.
-  const [leagueFilter, setLeagueFilter] = useState("all");
+  const [loadError,setLoadError]=useState('');
+  const [scopeFilter,setScopeFilter]=useState('general');
+  const [statusFilter,setStatusFilter]=useState('all');
+  const [search,setSearch]=useState('');
+  const [report,setReport]=useState(null);
+  const loadVersion=useRef(0);
 
   const identityClubs = useMemo(
     () => uniqueIdentityClubs(
@@ -166,33 +153,13 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
     };
   }, [selectedGame?.id, scopedTournamentId]);
 
-  // Build the [{key, label, count}] list of league/competition groups used to
-  // populate the filter dropdown. Sorted by descending count so the most
-  // active league surfaces first.
-  const leagueGroups = useMemo(() => {
-    const counts = new Map();
-    for (const g of games) {
-      const key = groupKeyForGame(g, tournamentMap, t);
-      counts.set(key, (counts.get(key) || 0) + 1);
-    }
-    return Array.from(counts.entries())
-      .map(([key, count]) => ({ key, label: key, count }))
-      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
-  }, [games, tournamentMap, t]);
-
-  // If the currently selected league disappears (all its games rolled off),
-  // gracefully fall back to "all" so the user isn't stuck with an empty list.
-  useEffect(() => {
-    if (leagueFilter === "all") return;
-    if (!leagueGroups.some(g => g.key === leagueFilter)) setLeagueFilter("all");
-  }, [leagueGroups, leagueFilter]);
-
   const visibleGames = useMemo(() => {
-    if (leagueFilter === "all") return games;
-    return games.filter(g => groupKeyForGame(g, tournamentMap, t) === leagueFilter);
-  }, [games, tournamentMap, leagueFilter, t]);
+    return filterGameDayMatches(games,{scope:scopeFilter,status:statusFilter,search});
+  }, [games,scopeFilter,statusFilter,search]);
+  useEffect(()=>{setSelectedGame(previous=>visibleGames.find(g=>sameRecordId(g.id,previous?.id))||visibleGames[0]||null);},[visibleGames]);
 
   useEffect(() => {
+    let cancelled = false;
     let userEmail = null;
     let identityClubIds = new Set();
     let identityPlayerId = null;
@@ -212,12 +179,12 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
     async function load() {
       try {
         const isAuthed = await stageClient.auth.isAuthenticated();
-        if (!isAuthed) {
+        if (!isAuthed || cancelled) {
           return;
         }
 
         const { user: u, player, club, presidentClub: ownedClub } = await resolveMyPlayerAndClub();
-        if (!u) return;
+        if (!u || cancelled) return;
         setUser(u);
         userEmail = u.email;
 
@@ -233,8 +200,9 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
         identityClubIds = new Set(clubs.map((row) => String(row.id)));
         identityPlayerId = player?.id || null;
         await loadGames(player?.id, clubs.map((row) => row.id));
-      } finally {
-        setLoading(false);
+        if(!cancelled)setLoadError('');
+      } catch(error) {if(!cancelled)setLoadError(error.message||'GameDay could not be loaded.');} finally {
+        if(!cancelled)setLoading(false);
       }
     }
 
@@ -267,10 +235,11 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
       });
     });
 
-    return () => unsubMatch();
+    return () => {cancelled=true;loadVersion.current++;unsubMatch();};
   }, [searchParams, scopedTournamentId, refreshTick]);
 
   async function loadGames(playerId, clubIds) {
+    const version=++loadVersion.current;
     const ids = [...new Set((Array.isArray(clubIds) ? clubIds : [clubIds]).filter(Boolean).map(String))];
     await Promise.all(ids.map(clubId =>
       stageClient.functions.invoke("matchKickoff", { action: "settle_club_matches", club_id: clubId }).catch(() => null)
@@ -324,6 +293,13 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
     ]);
     const matchMap = new Map();
     arrays.flat().forEach(m => matchMap.set(m.id, m));
+    for(let offset=0;;offset+=100){
+      const page=await stageClient.http.get('/game-day/matches',{limit:100,offset});
+      if(version!==loadVersion.current)return;
+      if(!Array.isArray(page))throw new Error('GameDay matches could not be loaded.');
+      page.forEach(m=>matchMap.set(m.id,{...matchMap.get(m.id),...m}));
+      if(page.length<100)break;
+    }
 
     const clubIdSet = new Set(ids);
     const typedFixtures = fixtureResults
@@ -354,13 +330,15 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
     );
     for (const { fixture, type } of confirmedFixtures) {
       const match = await createMatchFromFixture(fixture, type).catch(() => null);
-      if (match?.id) matchMap.set(match.id, match);
+      if(version!==loadVersion.current)return;
+      if (match?.id) matchMap.set(match.id, {...matchMap.get(match.id),...match});
     }
 
     const requestedMatchId = searchParams.get("match");
     if (requestedMatchId) {
       const requested = matchMap.get(requestedMatchId)
         || await stageClient.entities.Match.get(requestedMatchId).catch(() => null);
+      if(version!==loadVersion.current)return;
       if (requested?.id && isActiveGameDayMatch(requested)) {
         matchMap.set(requested.id, requested);
         setSelectedGame(requested);
@@ -371,7 +349,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
     let relevantGames = Array.from(matchMap.values()).filter((m) => {
       if (!isActiveGameDayMatch(m)) return false;
       const sourceKey = matchSourceKey(m);
-      return !sourceKey || confirmedSourceKeys.has(sourceKey);
+      return isOfficialGameDayResult(m) || !sourceKey || confirmedSourceKeys.has(sourceKey);
     });
 
     // When scoped to a specific tournament, only show matches for that tournament
@@ -379,6 +357,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
       relevantGames = relevantGames.filter(m => m.tournament_id === scopedTournamentId);
     }
 
+    if(version!==loadVersion.current)return;
     setGames(relevantGames);
     if (requestedMatchId) {
       setSelectedGame(prev => (prev && relevantGames.some(g => sameRecordId(g.id, prev.id)) ? prev : null));
@@ -425,6 +404,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
       myClub={selectedMatchClub}
       myPlayer={myPlayer}
       user={user}
+      onOpenReport={setReport}
       opsOpen={opsOpen}
       chatOpen={chatOpen}
       onOpsOpenChange={setOpsOpen}
@@ -438,7 +418,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
           setGames(prev => prev.filter(g => !sameRecordId(g.id, updated.id)));
           return;
         }
-        setSelectedGame(updated);
+        setSelectedGame(prev=>sameRecordId(prev?.id,updated.id)?{...prev,...updated}:prev);
         setGames(prev => prev.map(g => sameRecordId(g.id, updated.id) ? { ...g, ...updated } : g));
       }}
     />
@@ -460,28 +440,16 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
     }
     : {};
 
-  const ActionTab = ({ children, onClick, disabled, tone = "cyan", className = "" }) => (
+  const ActionTab = ({ children, onClick, disabled, className = "" }) => (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "group relative h-9 min-w-[112px] overflow-hidden px-3.5 font-heading text-[9px] font-black uppercase tracking-[0.16em] transition-all [clip-path:polygon(12px_0,100%_0,calc(100%_-_12px)_100%,0_100%)] sm:h-10 sm:min-w-[124px] sm:px-4 sm:text-[10px]",
-        "border bg-black/20 text-white/75 backdrop-blur-md disabled:cursor-not-allowed disabled:opacity-35",
-        tone === "silver"
-          ? "border-[#eef3fb]/40 shadow-[0_0_24px_-18px_rgba(238,243,251,1)] hover:border-white/85"
-          : "border-[#8eeeff]/35 shadow-[0_0_24px_-18px_rgba(142,238,255,1)] hover:border-[#8eeeff]/75",
+        "group relative min-h-11 px-3 font-heading text-xs font-black uppercase tracking-normal text-white/85 transition hover:text-cyan-100 hover:drop-shadow-[0_0_6px_rgba(103,232,249,0.65)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 focus-visible:drop-shadow-[0_0_6px_rgba(103,232,249,0.65)] disabled:opacity-35",
         className
       )}
     >
-      <span className={cn(
-        "absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100",
-        tone === "silver"
-          ? "bg-gradient-to-r from-[#d8dee8]/30 via-white/10 to-[#d8dee8]/20"
-          : "bg-gradient-to-r from-[#8eeeff]/22 via-white/10 to-[#8eeeff]/16"
-      )} />
-      <span className="absolute inset-x-4 top-0 h-px bg-current opacity-55" />
-      <span className="absolute inset-x-4 bottom-0 h-px bg-current opacity-35" />
       <span className="relative flex items-center justify-center gap-2">{children}</span>
     </button>
   );
@@ -489,7 +457,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain bg-[#07070b] text-white">
       {/* Banner scrolls away first */}
-      <section className={cn("relative w-full shrink-0 overflow-hidden border-b border-[#d8dee8]/30 bg-[#07070b]", PAGE_BANNER_HEIGHT_CLASS)}>
+      <section className="relative h-[180px] w-full shrink-0 overflow-hidden border-b border-[#d8dee8]/30 bg-[#07070b] sm:h-[230px] xl:h-[260px]">
         <div
           className="absolute inset-0 bg-[radial-gradient(circle_at_72%_22%,rgba(238,243,251,0.26),transparent_30%),radial-gradient(circle_at_20%_72%,rgba(255,255,255,0.18),transparent_28%),linear-gradient(110deg,#171c25_0%,#10141d_45%,#252b36_100%)]"
           style={bannerStyle}
@@ -500,7 +468,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
       </section>
 
       {/* Sticky dock under nav: action bar + match screens / detail */}
-      <div className="sticky top-0 z-10 flex h-full min-h-0 shrink-0 flex-col bg-[#07070b]">
+      <div className="relative z-10 flex shrink-0 flex-col bg-[#07070b]">
         <div className="flex shrink-0 flex-wrap items-center justify-end gap-2.5 border-b border-[#d8dee8]/20 bg-[linear-gradient(120deg,rgba(17,24,39,0.96),rgba(7,7,11,0.94))] px-4 py-3 backdrop-blur-md sm:px-6 lg:px-8">
           {!scopedTournamentId && (
             <ActionTab
@@ -534,7 +502,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
           </ActionTab>
         </div>
 
-        <div className="mx-auto grid min-h-0 w-full max-w-[1600px] flex-1 gap-5 overflow-y-auto px-4 py-5 sm:px-6 lg:grid-cols-[380px_minmax(0,1fr)] lg:overflow-hidden lg:px-8">
+        <div className="mx-auto grid w-full max-w-[1600px] items-start gap-4 px-4 py-5 sm:px-6 lg:grid-cols-[380px_minmax(0,1fr)] lg:px-8">
           <aside className={cn(
             "relative flex min-h-0 flex-col overflow-hidden border border-[#eef3fb]/22 p-3 shadow-[0_0_42px_-24px_rgba(238,243,251,0.85)]",
             hasMatchScreensBg ? "bg-black/40" : "bg-gradient-to-b from-[#1b212c]/90 via-[#111827]/95 to-black/82",
@@ -563,26 +531,10 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
                     <MoreHorizontal className="h-4 w-4" />
                   </button>
                 ) : null}
-                {leagueGroups.length > 1 && (
-                  <Select value={leagueFilter} onValueChange={setLeagueFilter}>
-                    <SelectTrigger className="h-9 w-[150px] border-[#f8fbff]/25 bg-black/50 text-[10px] text-white">
-                      <SelectValue placeholder={t("matchFlow.allLeagues")} />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-[60vh]">
-                      <SelectItem value="all" className="text-xs">
-                        {t("matchFlow.all")} <span className="ml-1 text-muted-foreground">({games.length})</span>
-                      </SelectItem>
-                      {leagueGroups.map(group => (
-                        <SelectItem key={group.key} value={group.key} className="text-xs">
-                          {group.label}
-                          <span className="ml-1 text-muted-foreground">({group.count})</span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
               </div>
-              {pendingScheduleFixtures.length > 0 && !scopedTournamentId ? (
+              <div className="mb-3 space-y-2 px-2"><input aria-label="Search matches" placeholder="Search matches" value={search} onChange={e=>setSearch(e.target.value)} className="h-11 w-full border border-white/20 bg-black/25 px-3 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"/><select aria-label="Match competition scope" value={scopeFilter} onChange={e=>setScopeFilter(e.target.value)} className="h-11 w-full border border-white/20 bg-[#0b1019] px-3 text-xs text-white"><option value="general">General - All games</option><option value="gost">GOST</option><option value="regional">Regional</option><option value="tournament">Tournament</option><option value="friendly">Friendly</option></select><div className="flex justify-between gap-1" aria-label="Match status">{['all','upcoming','live','completed'].map(status=><button type="button" key={status} aria-pressed={statusFilter===status} onClick={()=>setStatusFilter(status)} className={cn('min-h-11 border-b-2 px-1 text-xs capitalize focus-visible:ring-2 focus-visible:ring-cyan-400',statusFilter===status?'border-cyan-400 text-white':'border-transparent text-white/55')}>{status}</button>)}</div></div>
+              {loadError&&<p role="alert" className="p-2 text-sm text-red-300">{loadError}<button type="button" onClick={()=>setRefreshTick(n=>n+1)} className="ml-2 min-h-11 text-cyan-300">Retry</button></p>}
+              {pendingScheduleFixtures.length > 0 && !scopedTournamentId && ['all','upcoming'].includes(statusFilter) && ['general','gost'].includes(scopeFilter) ? (
                 <div className="mx-2 mb-3 shrink-0 space-y-2">
                   <p className="px-1 font-heading text-[10px] font-black uppercase tracking-[0.18em] text-[#f8fbff]/70">
                     Schedule · GOST
@@ -621,7 +573,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
                   })}
                 </div>
               ) : null}
-              {visibleGames.length === 0 ? (
+              {!loadError && visibleGames.length === 0 ? (
                 <div className="mx-2 rounded-sm border border-white/10 px-4 py-8 text-center">
                   <Zap className="mx-auto mb-2 h-8 w-8 text-white/20" />
                   <p className="text-sm text-white/55">
@@ -629,12 +581,11 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
                       ? t("matchFlow.noScheduledGames")
                       : games.length === 0
                         ? "Confirm a GOST schedule above to unlock kickoff."
-                        : t("matchFlow.noMatchesInLeague")}
+                        : 'No matches match these filters.'}
                   </p>
-                  {games.length > 0 ? <p className="mt-1 text-xs text-white/35">{t("matchFlow.switchToAll")}</p> : null}
                 </div>
               ) : (
-                <div className="flex min-h-0 flex-1 gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-y-auto lg:overflow-x-hidden lg:pr-1">
+                <div className="flex max-h-[240px] min-h-0 flex-col gap-1 overflow-y-auto overscroll-contain pb-1 lg:max-h-[300px] lg:pr-1">
                   {visibleGames.map(game => (
                     <GameDayCard
                       key={game.id}
@@ -652,11 +603,14 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
             </div>
           </aside>
 
-          <div className="min-h-0 min-w-0 overflow-y-auto lg:overflow-hidden">
+          <div className="min-h-0 min-w-0">
             {detail}
           </div>
         </div>
       </div>
+
+      {selectedGame&&<GameDayInsights key={`insights:${selectedGame.id}`} game={selectedGame}/>}
+      {report&&<GameDayResultDialog key={`report:${report.game.id}`} report={report} onClose={()=>{report.onClose?.();setReport(null);}}/>}
 
       <ArrangeGameDialog
         open={arrangeOpen}

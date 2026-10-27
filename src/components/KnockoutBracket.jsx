@@ -1,5 +1,6 @@
 import { Shield, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {penaltyOutcome} from '@/lib/penaltyOutcome';
 import { canOpenTournamentGameDay } from "@/lib/tournamentGameDay";
 import { matchSide, matchWinnerSide, sameParticipant, projectKnockoutBracket } from "@/lib/tournamentEngine";
 
@@ -117,6 +118,7 @@ function MatchCard({ match, myParticipantId, participantType = "club", onSubmit,
       </div>
 
       {/* Actions */}
+      {penaltyOutcome(match)&&<p className="border-t border-border p-2 text-[10px] text-primary">{penaltyOutcome(match)}</p>}
       {showCompletedStats && (
         <button type="button" onClick={() => onViewStats(match)}
           className="w-full text-[10px] uppercase tracking-wider font-semibold text-muted-foreground bg-secondary/40 hover:bg-secondary py-1.5 border-t border-border/50 transition-colors">

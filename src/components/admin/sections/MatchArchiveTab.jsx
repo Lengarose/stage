@@ -7,6 +7,7 @@ import { Archive, Coins, Loader2, Search, Shield, User } from "lucide-react";
 import MatchArchiveDetail from "@/components/admin/sections/MatchArchiveDetail";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/hooks/useTranslation";
+import { penaltyOutcome } from '@/lib/penaltyOutcome';
 
 const PAGE_SIZE = 50;
 
@@ -192,7 +193,7 @@ export default function MatchArchiveTab() {
                 </p>
               </div>
 
-              <span className="font-heading text-base text-foreground shrink-0">{formatScore(match)}</span>
+              <span className="min-w-0 text-right"><span className="font-heading text-base text-foreground">{formatScore(match)}</span>{penaltyOutcome(match)&&<span className="mt-1 block break-words text-xs text-primary">{penaltyOutcome(match)}</span>}</span>
 
               {Number(match.wager_stc || 0) > 0 && (
                 <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border border-warning/30 bg-warning/10 text-warning shrink-0">

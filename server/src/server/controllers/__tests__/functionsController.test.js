@@ -3462,6 +3462,39 @@ function clubResultSqlMock(match, updates = []) {
   };
 }
 
+test('matchKickoff rejects a browser snapshot older than the stored proposal before mutation', async () => {
+  const updates=[];
+  const match={id:'stale-report',mode:'club',status:'in_progress',home_club_id:'club-home',away_club_id:'club-away',result_state:'AWAITING_AWAY_CONFIRMATION',result_home_submitted:1,home_submission:JSON.stringify({home_score:3,away_score:1}),away_submission:null};
+  const reviewed={...match,home_submission:JSON.stringify({home_score:2,away_score:1})};
+  const router=loadFunctionsRouterWithDbMock(clubResultSqlMock(match,updates));
+  const response=makeJsonResponse();
+  await postFunctionHandler(router)({params:{name:'matchKickoff'},user:{id:'user-1'},body:{action:'confirm_result',match_id:match.id,is_home_team:false,expected_result_snapshot:reviewed}},response);
+  assert.equal(response.statusCode,409);assert.equal(response.body.code,'RESULT_CHANGED');assert.equal(updates.length,0);
+});
+
+test('matchKickoff confirmation persists an unequal return-leg shootout and ordinary scores together', async () => {
+  const updates=[];
+  const match={id:'return-leg',tournament_id:'aggregate-cup',type:'quarter_final',round:2,leg:2,tie_id:'tie',mode:'club',status:'in_progress',home_club_id:'club-home',away_club_id:'club-away',home_club_name:'Home FC',away_club_name:'Away FC',result_state:'AWAITING_AWAY_CONFIRMATION',result_home_submitted:1,result_away_submitted:0,stats_processed:0,home_submission:JSON.stringify({home_score:2,away_score:1,decided_on_penalties:1,penalty_winner_side:'away',player_stats:[],goal_events:[]}),away_submission:null};
+  const first={...match,id:'first-leg',round:1,leg:1,home_club_id:'club-away',away_club_id:'club-home',home_score:2,away_score:1,status:'completed',result_state:'CONFIRMED'};
+  const baseQuery=clubResultSqlMock(match,updates);
+  const router=loadFunctionsRouterWithDbMock(async(sql,args)=>{
+    if(sql.startsWith('SELECT * FROM tournaments WHERE id='))return [{id:'aggregate-cup',type:'group_stage',participant_type:'club',knockout_legs:2,status:'in_progress'}];
+    if(sql.startsWith('SELECT * FROM matches WHERE tournament_id='))return [first,match];
+    return baseQuery(sql,args);
+  });
+  const reviewed=JSON.parse(JSON.stringify(match));
+  const response=makeJsonResponse();
+  await postFunctionHandler(router)({params:{name:'matchKickoff'},user:{id:'user-1'},body:{action:'confirm_result',match_id:match.id,is_home_team:false,expected_result_snapshot:reviewed}},response);
+  assert.equal(response.statusCode,200,response.body?.error);
+  const completed=updates.find(call=>/UPDATE matches SET status='completed'/.test(call.sql));
+  assert.ok(completed);assert.equal(completed.params[0],2);assert.equal(completed.params[1],1);
+  assert.equal(completed.params[2],'club-away');assert.equal(completed.params[8],1);assert.equal(completed.params[9],'away');
+  assert.equal(completed.params[12],3);assert.equal(completed.params[13],3);
+  const retry=makeJsonResponse();
+  await postFunctionHandler(router)({params:{name:'matchKickoff'},user:{id:'user-1'},body:{action:'confirm_result',match_id:match.id,is_home_team:false,expected_result_snapshot:reviewed}},retry);
+  assert.equal(retry.statusCode,409);assert.equal(updates.filter(call=>/UPDATE matches SET status='completed'/.test(call.sql)).length,1);
+});
+
 test('matchKickoff completes when both sides submit the same score even if proofs are unreadable', async () => {
   const updates = [];
   const match = {

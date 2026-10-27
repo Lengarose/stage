@@ -2,6 +2,7 @@ import { cn } from "@/lib/utils";
 import { format, parseISO, isValid } from "@/lib/momentDate";
 import { AlertTriangle, FileText, ChevronRight } from "lucide-react";
 import { useTranslation } from "@/hooks/useTranslation";
+import { penaltyOutcome } from '@/lib/penaltyOutcome';
 
 function fmtDate(d) {
   if (!d) return "—";
@@ -69,6 +70,7 @@ export default function ScheduleList({ events, selectedId, onSelect }) {
 function MatchRow({ ev, selected, onClick }) {
   const { t } = useTranslation();
   const status = STATUS_LABEL[ev.status] || { label: ev.status, cls: "text-muted-foreground bg-secondary" };
+  const penaltyLabel = penaltyOutcome(ev.matchData || ev.fixtureData);
   const resultColor = !ev.result ? "" :
     ev.result.outcome === "W" ? "text-success font-bold" :
     ev.result.outcome === "L" ? "text-destructive font-bold" :
@@ -95,7 +97,7 @@ function MatchRow({ ev, selected, onClick }) {
             <span className={cn("text-[10px] px-1.5 py-0.5 rounded", status.cls)}>{status.key ? t(`matchFlow.${status.key}`) : status.label}</span>
           )}
         </span>
-        <span className="text-xs text-muted-foreground truncate">{ev.competition || "—"}</span>
+        <span className="min-w-0 text-xs text-muted-foreground"><span className="block truncate">{ev.competition || "—"}</span>{penaltyLabel&&<span className="mt-1 block break-words text-primary">{penaltyLabel}</span>}</span>
       </div>
 
       {/* ── Mobile card row ── */}
@@ -135,6 +137,7 @@ function MatchRow({ ev, selected, onClick }) {
               <span className="text-[10px] text-muted-foreground/60 truncate max-w-[140px]">{ev.competition}</span>
             )}
           </div>
+          {penaltyLabel&&<p className="mt-1 break-words text-[10px] text-primary">{penaltyLabel}</p>}
         </div>
 
         {/* Result / status */}

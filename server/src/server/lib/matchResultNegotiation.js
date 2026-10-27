@@ -77,15 +77,36 @@ function httpError(message, status, code) {
   return err;
 }
 
+const RESULT_SNAPSHOT_FIELDS = ['home_submission', 'away_submission', 'result_state', 'status', 'result_history', 'home_dispute_submission', 'away_dispute_submission'];
+
+function resultSnapshotValues(match) {
+  return RESULT_SNAPSHOT_FIELDS.map(key => {
+    const value = match[key] ?? null;
+    return value && typeof value === 'object' ? JSON.stringify(value) : value;
+  });
+}
+
+function assertResultSnapshotCurrent(expected, current) {
+  const canonical = value => {
+    if (typeof value === 'string') { try { return JSON.stringify(JSON.parse(value)); } catch { return value; } }
+    return value;
+  };
+  const before = resultSnapshotValues(expected), after = resultSnapshotValues(current);
+  if (before.some((value, index) => canonical(value) !== canonical(after[index]))) {
+    throw httpError('This result changed while the request was being processed. Refresh the match and review the latest proposal before retrying.', 409, 'RESULT_CHANGED');
+  }
+}
+
 function normalizePenaltySelection({
   homeScore,
   awayScore,
   decidedOnPenalties,
   penaltyWinnerSide,
   allowed,
+  eligibility,
 }) {
   const isDraw = Number(homeScore) === Number(awayScore);
-  if (!isDraw) {
+  if (!eligibility && !isDraw) {
     return { decided_on_penalties: 0, penalty_winner_side: null };
   }
   const wantsPenalties = decidedOnPenalties === true
@@ -93,11 +114,18 @@ function normalizePenaltySelection({
     || decidedOnPenalties === '1'
     || decidedOnPenalties === 'true';
   const side = String(penaltyWinnerSide || '').toLowerCase();
+  if (eligibility && wantsPenalties && !allowed) {
+    throw httpError(eligibility.reason || 'Penalties are not allowed for this fixture.', 400, 'PENALTIES_NOT_ALLOWED');
+  }
+  if (eligibility && wantsPenalties && !['home', 'away'].includes(side)) {
+    throw httpError('Select the penalty winner.', 400, 'INVALID_PENALTY_SIDE');
+  }
   if (!wantsPenalties || !side || side === 'none') {
+    if (eligibility?.required) throw httpError('Select the penalty winner to resolve this level tie.',400,'PENALTY_WINNER_REQUIRED');
     return { decided_on_penalties: 0, penalty_winner_side: null };
   }
   if (!allowed) {
-    throw httpError('Penalties are not allowed for this fixture.', 400, 'PENALTIES_NOT_ALLOWED');
+    throw httpError(eligibility?.reason || 'Penalties are not allowed for this fixture.', 400, 'PENALTIES_NOT_ALLOWED');
   }
   if (side !== 'home' && side !== 'away') {
     throw httpError('penalty_winner_side must be home or away.', 400, 'INVALID_PENALTY_SIDE');
@@ -247,6 +275,9 @@ function formatScoreLine(homeScore, awayScore, homeName = 'Home', awayName = 'Aw
 }
 
 module.exports = {
+  RESULT_SNAPSHOT_FIELDS,
+  resultSnapshotValues,
+  assertResultSnapshotCurrent,
   RESULT_STATES,
   TERMINAL_RESULT_STATES,
   RESULT_WINDOW_HOURS,

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useId } from "react";
 import { useParams, Link } from "react-router-dom";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
+import { penaltyOutcome } from '@/lib/penaltyOutcome';
 import {
   Shield, Users, ArrowLeft,
   Check, X, Send, Loader2, LogOut,
@@ -3615,6 +3616,7 @@ function CompactFixtureRow({
           <ChevronDown className={cn("h-4 w-4 text-white/45 transition", expanded && "rotate-180 text-white/80")} />
         </div>
       </button>
+      {penaltyOutcome(fixture)&&<p className="px-3 pb-2 text-xs text-cyan-200">{penaltyOutcome(fixture)}</p>}
       {expanded ? (
         <div className="border-t border-white/10 bg-[#050b14] p-3">
           <FixtureRow
@@ -3837,6 +3839,7 @@ function FixtureRow({
     <article className="relative overflow-hidden border border-white/10 bg-black/24 p-3 sm:p-4">
       <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-cyan-400/[0.06] via-transparent to-[#f5c542]/[0.05]" />
       <div className="relative z-[1] space-y-4">
+        {penaltyOutcome(fixture)&&<p className="break-words text-xs text-cyan-200">{penaltyOutcome(fixture)}</p>}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <span className="border border-cyan-300/22 bg-cyan-300/8 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-cyan-100/70">

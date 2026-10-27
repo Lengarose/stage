@@ -4,6 +4,7 @@ import { Radio } from "lucide-react";
 import { useTranslation } from "@/hooks/useTranslation";
 import { getMatchSideNames } from "@/lib/gameDayPresentation";
 import GameDayCrest from "./GameDayCrest";
+import {CALENDAR_CATEGORIES} from '@/lib/scheduleCalendar';
 
 function parseDate(d) {
   if (!d) return null;
@@ -36,13 +37,14 @@ export default function GameDayCard({ game, selected, onClick, myClub, _myPlayer
     if (tournament.type === "double_elimination") return `${tournament.name} · ${t("matchFlow.doubleElim")}`;
     return tournament.name || t("matchFlow.tournament");
   }
-  const competition = game.competition_context || deriveCompetition(game, tournament);
+  const competition = game.competition_name || game.competition_context || deriveCompetition(game, tournament);
   const live = game.status === "in_progress";
 
   return (
     <button
       type="button"
       onClick={onClick}
+      style={{borderInlineStart:`${selected?4:2}px solid ${CALENDAR_CATEGORIES[game.category]?.color||'#67e8f9'}`}}
       className={cn(
         "flex w-full min-w-[246px] max-w-none shrink-0 items-center gap-3 border px-4 py-2.5 text-left transition-all",
         glass
@@ -69,6 +71,7 @@ export default function GameDayCard({ game, selected, onClick, myClub, _myPlayer
           {date ? `${format(date, "EEE HH:mm")} · ` : ""}
           {status.key ? t(`matchFlow.${status.key}`) : status.label}
         </p>
+        <p className="mt-0.5 truncate text-[10px] text-white/55" title={competition}>{competition}{game.matchday?` · Matchday ${game.matchday}`:game.round?` · Round ${game.round}`:''}{game.leg?` · Leg ${game.leg}`:''}</p>
       </div>
       <div className="flex shrink-0 flex-col items-end gap-1">
         {live || game.home_stream_url || game.away_stream_url ? (
@@ -76,12 +79,7 @@ export default function GameDayCard({ game, selected, onClick, myClub, _myPlayer
         ) : null}
         {isMyClubInvolved ? (
           <span className="text-[8px] font-black uppercase tracking-widest text-[#f8fbff]">{t("matchFlow.yourClub")}</span>
-        ) : (
-          <span className={cn(
-            "max-w-[72px] truncate text-[8px] uppercase tracking-widest",
-            glass ? "text-white/85" : "text-white/35",
-          )}>{competition}</span>
-        )}
+        ) : null}
       </div>
     </button>
   );

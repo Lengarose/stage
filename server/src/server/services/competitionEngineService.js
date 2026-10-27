@@ -667,40 +667,54 @@ async function createMatchFromFixture(fixtureId) {
 }
 
 function submissionsAgree(home, away) {
+  const decision = entry => { try { const p = typeof entry.payload_json === 'string' ? JSON.parse(entry.payload_json) : entry.payload_json || {}; return `${Number(p.decided_on_penalties || 0)}:${p.penalty_winner_side || ''}`; } catch { return 'invalid'; } };
   return Number(home.score_home) === Number(away.score_home) &&
-    Number(home.score_away) === Number(away.score_away);
+    Number(home.score_away) === Number(away.score_away) && decision(home) === decision(away);
 }
 
 async function finalizeAgreedResult(fixture, home, away) {
+  const committed = await database.withTransaction(async query => {
+  await query('SELECT id FROM competition_fixtures WHERE id=? FOR UPDATE',[fixture.id]);
   const homeScore = Number(home.score_home);
   const awayScore = Number(home.score_away);
-  const winnerParticipantId = homeScore > awayScore
+  const [match] = await query('SELECT * FROM matches WHERE id=? LIMIT 1 FOR UPDATE',[fixture.match_id]);
+  if (Number(match?.stats_processed)===1) return {...match,source_fixture_type:'competition_engine',source_fixture_id:fixture.id};
+  const payload = typeof home.payload_json === 'string' ? JSON.parse(home.payload_json) : home.payload_json || {};
+  const penalty = await require('./penaltyPolicyService').validateMatchPenalty(match || {...mapFixtureToMatch(fixture),id:fixture.match_id}, {home_score:homeScore,away_score:awayScore},payload,query);
+  const winnerParticipantId = penalty.decided_on_penalties
+    ? penalty.penalty_winner_side === 'home' ? fixture.home_participant_id : fixture.away_participant_id
+    : homeScore > awayScore
     ? fixture.home_participant_id
     : awayScore > homeScore
       ? fixture.away_participant_id
       : null;
-  await EXECUTESQL(
+  await query(
     `UPDATE matches
-     SET status = 'completed', result_state = 'CONFIRMED', home_score = ?, away_score = ?, stats_processed = 1
+     SET status = 'completed', result_state = 'CONFIRMED', home_score = ?, away_score = ?, stats_processed = 1,
+       decided_on_penalties=?, penalty_winner_side=?, aggregate_home_score=?, aggregate_away_score=?
      WHERE id = ?`,
-    [homeScore, awayScore, fixture.match_id],
+    [homeScore, awayScore, penalty.decided_on_penalties,penalty.penalty_winner_side,penalty.aggregate_home_score,penalty.aggregate_away_score,fixture.match_id],
   );
-  await EXECUTESQL(
+  await query(
     `UPDATE competition_fixtures
      SET status = 'completed', home_score = ?, away_score = ?, winner_participant_id = ?, stats_processed = 1, updated_date = CURRENT_TIMESTAMP
      WHERE id = ?`,
     [homeScore, awayScore, winnerParticipantId, fixture.id],
   );
-  const progression = await advanceAfterFinalResult({
+  return {
     id: fixture.match_id,
     status: 'completed',
     home_score: homeScore,
     away_score: awayScore,
+    ...penalty,
+    winner_participant_id: winnerParticipantId,
     source_fixture_type: 'competition_engine',
     source_fixture_id: fixture.id,
     tournament_id: null,
+  };
   });
-  return { status: 'completed', home_score: homeScore, away_score: awayScore, winner_participant_id: winnerParticipantId, progression };
+  const progression = await advanceAfterFinalResult(committed);
+  return {status:'completed',home_score:committed.home_score,away_score:committed.away_score,winner_participant_id:committed.winner_participant_id,progression};
 }
 
 async function assertStandingParticipants(type, column, edition, fixture) {
@@ -728,7 +742,7 @@ async function syncCompetitionFixtureResult(match, sourceFixtureId) {
 
   const homeScore = Number(match.home_score || 0);
   const awayScore = Number(match.away_score || 0);
-  const winnerClubId = homeScore > awayScore ? fixture.home_club_id : awayScore > homeScore ? fixture.away_club_id : null;
+  const winnerClubId = Number(match.decided_on_penalties)===1 ? match.penalty_winner_side==='home'?fixture.home_club_id:match.penalty_winner_side==='away'?fixture.away_club_id:null : homeScore > awayScore ? fixture.home_club_id : awayScore > homeScore ? fixture.away_club_id : null;
   const winnerClubName = String(winnerClubId || '') === String(fixture.home_club_id || '') ? fixture.home_club_name
     : String(winnerClubId || '') === String(fixture.away_club_id || '') ? fixture.away_club_name
       : null;
@@ -741,6 +755,8 @@ async function syncCompetitionFixtureResult(match, sourceFixtureId) {
     result_state: match.result_state || 'CONFIRMED',
     decided_on_penalties: match.decided_on_penalties || 0,
     penalty_winner_side: match.penalty_winner_side || null,
+    aggregate_home_score: match.aggregate_home_score ?? null,
+    aggregate_away_score: match.aggregate_away_score ?? null,
     home_penalties: match.home_penalties ?? null,
     away_penalties: match.away_penalties ?? null,
     status: 'completed',
@@ -1967,7 +1983,9 @@ async function markEngineFixtureCompleted(match) {
   const fixture = fixtureRows[0];
   const homeScore = Number(match.home_score || 0);
   const awayScore = Number(match.away_score || 0);
-  const winnerParticipantId = homeScore > awayScore
+  const winnerParticipantId = Number(match.decided_on_penalties) === 1
+    ? match.penalty_winner_side === 'home' ? fixture.home_participant_id : match.penalty_winner_side === 'away' ? fixture.away_participant_id : null
+    : homeScore > awayScore
     ? fixture.home_participant_id
     : awayScore > homeScore
       ? fixture.away_participant_id
@@ -2307,6 +2325,13 @@ async function submitResult({ matchId, side, submittedByUserId, scoreHome, score
     });
     return result.data || result;
   }
+  const scores = {home_score:Number(scoreHome),away_score:Number(scoreAway)};
+  if (!Object.values(scores).every(value=>Number.isInteger(value)&&value>=0&&value<=99)) throw Object.assign(new Error('Valid match scores are required.'),{status:400});
+  let submission = payloadJson || {};
+  if (typeof submission === 'string') { try { submission=JSON.parse(submission); } catch { throw Object.assign(new Error('Invalid result payload.'),{status:400}); } }
+  const [currentMatch] = await EXECUTESQL('SELECT * FROM matches WHERE id=? LIMIT 1',[matchId]);
+  if(Number(currentMatch?.stats_processed)===1)return {status:'completed',skipped:true};
+  const decision = await require('./penaltyPolicyService').validateMatchPenalty(currentMatch || {...mapFixtureToMatch(fixture),id:matchId},scores,submission,EXECUTESQL);
   await model.insertResultSubmission({
     id: uuidv4(),
     fixture_id: fixture.id,
@@ -2315,7 +2340,7 @@ async function submitResult({ matchId, side, submittedByUserId, scoreHome, score
     submitted_by_user_id: submittedByUserId,
     score_home: Number(scoreHome),
     score_away: Number(scoreAway),
-    payload_json: payloadJson || null,
+    payload_json: JSON.stringify({...submission,...decision}),
     proof_url: proofUrl || null,
     idempotency_key: `match_submission:${matchId}:${side}`,
   });
@@ -2324,8 +2349,8 @@ async function submitResult({ matchId, side, submittedByUserId, scoreHome, score
   const away = submissions.find((entry) => entry.side === 'away');
   if (!home || !away) return { status: 'pending_confirmation' };
   if (!submissionsAgree(home, away)) {
-    await EXECUTESQL("UPDATE matches SET status = 'disputed' WHERE id = ?", [matchId]);
-    await EXECUTESQL("UPDATE competition_fixtures SET status = 'disputed', updated_date = CURRENT_TIMESTAMP WHERE id = ?", [fixture.id]);
+    await EXECUTESQL("UPDATE matches SET status = 'disputed' WHERE id = ? AND COALESCE(stats_processed,0)=0", [matchId]);
+    await EXECUTESQL("UPDATE competition_fixtures SET status = 'disputed', updated_date = CURRENT_TIMESTAMP WHERE id = ? AND COALESCE(stats_processed,0)=0", [fixture.id]);
     return { status: 'disputed' };
   }
   return finalizeAgreedResult(fixture, home, away);

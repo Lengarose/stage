@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/hooks/useTranslation";
+import {penaltyOutcome} from '@/lib/penaltyOutcome';
 
 function Field({ label, value, tone }) {
   return (
@@ -109,6 +110,7 @@ export default function MatchArchiveDetail({ matchId, onClose }) {
               </p>
               <p className="font-heading text-3xl text-foreground mt-1">
                 {match.home_score ?? 0} – {match.away_score ?? 0}
+                <span className="block text-xs font-normal">{penaltyOutcome(match)}</span>
               </p>
               <p className="text-[11px] uppercase tracking-wider text-muted-foreground mt-1">
                 {t("admin.matchArchive.officialScore")}

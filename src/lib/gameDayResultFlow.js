@@ -210,6 +210,10 @@ export function pickMyClubForMatch(game, clubs) {
   )) || null;
 }
 
+export function resultSnapshot(game) {
+  return Object.fromEntries(['home_submission','away_submission','result_state','status','result_history','home_dispute_submission','away_dispute_submission'].map(key=>[key,game[key]??null]));
+}
+
 // Phase 2 — seats no longer gate kickoff. A scheduled match the actor takes
 // part in is startable once the early window has passed; participation is
 // declared at result time instead. `isClubMatch` / `bothClubsReady` are still

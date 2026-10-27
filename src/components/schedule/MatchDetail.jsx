@@ -3,6 +3,7 @@ import { format, parseISO, isValid } from "@/lib/momentDate";
 import { Shield, Trophy, AlertTriangle, FileText } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "@/hooks/useTranslation";
+import {penaltyOutcome, isOfficialDisplayResult} from '@/lib/penaltyOutcome';
 
 function fmtDate(d) {
   if (!d) return "—";
@@ -32,14 +33,14 @@ export default function MatchDetail({ event, myPlayer, myClub }) {
   if (event.type === "contract_end") return <ContractEndDetail event={event} />;
   if (event.type === "tournament_start") return <TournamentStartDetail event={event} />;
 
-  const m = event.matchData;
+  const m = event.matchData || event.fixtureData;
   if (!m) return null;
   const tournament = event.tournament;
   const stats = event.playerStats;
 
   const homeScore = m.home_score ?? 0;
   const awayScore = m.away_score ?? 0;
-  const completed = m.status === "completed" || m.status === "awaiting_confirmation" || m.status === "forfeit";
+  const completed = isOfficialDisplayResult(m) || m.status === "awaiting_confirmation";
 
   return (
     <div className="bg-card border border-border rounded-xl overflow-hidden">
@@ -81,6 +82,7 @@ export default function MatchDetail({ event, myPlayer, myClub }) {
       </div>
 
       {/* Info rows */}
+      {penaltyOutcome(m)&&<p className="p-3 text-xs text-primary">{penaltyOutcome(m)}</p>}
       <div className="border-t border-border divide-y divide-border">
         <InfoRow label={t("matchFlow.dateTime")} value={fmtDate(m.scheduled_date)} />
         <InfoRow label={t("matchFlow.venue")} value={event.venue} />

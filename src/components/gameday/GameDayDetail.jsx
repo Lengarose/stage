@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { stageClient } from "@/api/stageClient";
 import { processMatchRevenue, processSoloMatchRevenue } from "@/lib/matchRevenue";
 import { parseISO, isValid, differenceInMinutes } from "@/lib/momentDate";
@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import GameDayMatchChat from "./GameDayMatchChat";
-import GameDayMatchResult from "./GameDayMatchResult";
+import {penaltyOutcome} from '@/lib/penaltyOutcome';
 import GameDayKickoffArena from "./GameDayKickoffArena";
 import StreamLinkSection from "./StreamLinkSection";
 import WagerPanel from "./WagerPanel";
@@ -63,6 +63,7 @@ export default function GameDayDetail({
   onChatOpenChange,
   matchDetailsBackgroundConfig,
   onOpenTileBackgroundDialog,
+  onOpenReport,
 }) {
   const { t } = useTranslation();
   const [game, setGame] = useState(initialGame);
@@ -71,6 +72,16 @@ export default function GameDayDetail({
   const [kickoffLoading, setKickoffLoading] = useState(false);
   const [kickoffError, setKickoffError]     = useState("");
   const [showResultForm, setShowResultForm] = useState(false);
+  const selectedId=useRef(initialGame.id);
+  selectedId.current=initialGame.id;
+  async function openResultForm(readOnly=false){
+    try {
+      const fresh=await stageClient.entities.Match.get(game.id);
+      if(selectedId.current!==game.id)return;
+      setShowResultForm(!readOnly);
+      onOpenReport?.({game:{...game,...fresh},myClub,myPlayer,isHomeTeam:game.home_club_id?String(game.home_club_id)===String(myClub?.id):String(game.home_player_id)===String(myPlayer?.id),readOnly,stats,onSubmitted:handleResultSubmitted,onClose:()=>setShowResultForm(false)});
+    } catch(e) {setKickoffError(e.message || 'Unable to open the match report.');}
+  }
   const [crests, setCrests] = useState({ home: null, away: null });
 
   // Update game when parent passes new data
@@ -89,15 +100,18 @@ export default function GameDayDetail({
 
   useEffect(() => {
     if (!game?.id) return;
+    let cancelled=false;
+    setStats([]);setTournament(null);
     async function load() {
       if (game.tournament_id && game.tournament_id !== "ranked") {
         const tournaments = await stageClient.entities.Tournament.filter({ id: game.tournament_id });
-        if (tournaments.length > 0) setTournament(tournaments[0]);
+        if (!cancelled && tournaments.length > 0) setTournament(tournaments[0]);
       }
       const matchStats = await stageClient.entities.MatchPlayerStat.filter({ match_id: game.id });
-      setStats(matchStats || []);
+      if(!cancelled)setStats(matchStats || []);
     }
-    load();
+    load().catch(()=>{});
+    return ()=>{cancelled=true;};
   }, [game?.id, game?.tournament_id]);
 
   useEffect(() => {
@@ -250,7 +264,7 @@ export default function GameDayDetail({
       ...(status === "completed" && homeScore != null ? { home_score: homeScore, away_score: awayScore } : {}),
     };
 
-    setGame(updated);
+    setGame(previous=>sameRecordId(previous?.id,updated.id)?updated:previous);
     if (onGameUpdate) onGameUpdate(updated);
 
     if (status === "completed") {
@@ -315,6 +329,11 @@ export default function GameDayDetail({
         backgroundStyle={matchDetailsBackgroundStyle}
         onChangeBackground={() => onOpenTileBackgroundDialog?.({ tileKey: "match_details", title: "Match Details" })}
       >
+      </GameDayKickoffArena>
+      {penaltyOutcome(game)&&<p className="px-4 text-sm text-cyan-200">{penaltyOutcome(game)}</p>}
+      {game.competition_href&&<a href={game.competition_href} className="inline-flex min-h-11 items-center px-4 text-sm text-cyan-300">View competition</a>}
+      {isCompleted&&<button type="button" onClick={()=>openResultForm(true)} className="min-h-11 border border-white/15 px-4 text-sm text-cyan-300">View Match Report</button>}
+      <section className="px-4" aria-label="Kickoff actions">
         {showKickoffDock ? (
           <div className="space-y-2">
             {isSoloMatch && (
@@ -355,18 +374,20 @@ export default function GameDayDetail({
             )}
           </div>
         ) : null}
-      </GameDayKickoffArena>
+      </section>
 
       {showResultDock && (
         <section className="border-t border-[#d8dee8]/15 bg-black/45 px-4 py-4 sm:px-6">
-          <div className="mx-auto max-w-3xl space-y-3 border border-[#d8dee8]/25 bg-[#111827]/80 p-4 [clip-path:polygon(18px_0,100%_0,calc(100%_-_18px)_100%,0_100%)] sm:p-5">
+          <div className="mx-auto max-w-3xl space-y-3">
             {resultControls.showHomeSubmit && (
-              <Button
-                onClick={() => setShowResultForm(true)}
-                className="h-12 w-full gap-2 rounded-sm bg-destructive font-heading text-sm font-black uppercase tracking-[0.18em] text-white"
+              <button
+                type="button"
+                onClick={() => openResultForm()}
+                title="Final whistle: report the result"
+                className="inline-flex min-h-11 items-center gap-2 px-2 font-heading text-sm font-bold uppercase tracking-normal text-cyan-300 transition hover:text-cyan-100 hover:drop-shadow-[0_0_6px_rgba(103,232,249,0.65)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
               >
-                <Flag className="h-4 w-4" /> {t("matchFlow.submitFullTime")}
-              </Button>
+                <Flag className="h-4 w-4" /> Report Result
+              </button>
             )}
             {resultControls.showAwayWaitingForHome && (
               <div className="flex items-center gap-2 rounded-sm border border-border bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
@@ -376,7 +397,7 @@ export default function GameDayDetail({
             )}
             {resultControls.showAwaySubmit && (
               <Button
-                onClick={() => setShowResultForm(true)}
+                onClick={() => openResultForm()}
                 variant="outline"
                 className="h-12 w-full gap-2 rounded-sm border-[#f8fbff] font-heading text-sm font-black uppercase tracking-[0.18em] text-[#dbe4ef] hover:text-white"
               >
@@ -385,7 +406,7 @@ export default function GameDayDetail({
             )}
             {resultControls.showConfirmResult && (
               <Button
-                onClick={() => setShowResultForm(true)}
+                onClick={() => openResultForm()}
                 variant="outline"
                 className="h-12 w-full gap-2 rounded-sm border-[#f8fbff] font-heading text-sm font-black uppercase tracking-[0.18em] text-[#dbe4ef] hover:text-white"
               >
@@ -394,7 +415,7 @@ export default function GameDayDetail({
             )}
             {resultControls.showHomeReview && (
               <Button
-                onClick={() => setShowResultForm(true)}
+                onClick={() => openResultForm()}
                 className="h-12 w-full gap-2 rounded-sm bg-warning font-heading text-sm font-black uppercase tracking-[0.18em] text-black"
               >
                 <Flag className="h-4 w-4" /> {t("matchFlow.reviewCorrection")}
@@ -409,7 +430,7 @@ export default function GameDayDetail({
                 {resultControls.showAmendResult ? (
                   <Button
                     type="button"
-                    onClick={() => setShowResultForm(true)}
+                    onClick={() => openResultForm()}
                     variant="outline"
                     className="h-11 w-full gap-2 rounded-sm border-[#f8fbff]/50 font-heading text-xs font-black uppercase tracking-[0.18em] text-[#dbe4ef] hover:text-white"
                   >
@@ -423,15 +444,6 @@ export default function GameDayDetail({
                 <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
                 {t("matchFlow.resultWaitingHome")}
               </div>
-            )}
-            {showResultForm && (
-              <GameDayMatchResult
-                game={game}
-                myClub={myClub}
-                myPlayer={myPlayer}
-                isHomeTeam={amIHomeTeam}
-                onSubmitted={handleResultSubmitted}
-              />
             )}
           </div>
         </section>

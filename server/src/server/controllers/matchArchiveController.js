@@ -117,6 +117,7 @@ router.get('/', async (req, res) => {
               m.home_player_email, m.away_player_email,
               m.home_owner_email, m.away_owner_email,
               m.home_score, m.away_score,
+              m.decided_on_penalties,m.penalty_winner_side,m.result_state,m.aggregate_home_score,m.aggregate_away_score,
               m.home_submitted_score, m.away_submitted_score,
               m.scheduled_date, m.first_submission_at, m.updated_date, m.created_date,
               m.wager_stc, m.wager_status,
@@ -243,6 +244,10 @@ router.post('/:id/correct-score', async (req, res) => {
 
     const homeScore = parseScore(req.body?.home_score, 'home_score');
     const awayScore = parseScore(req.body?.away_score, 'away_score');
+
+    if ((match.tournament_id && match.tournament_id !== 'ranked') || ['competition','competition_fixture','competition_engine'].includes(match.source_fixture_type) || Number(match.decided_on_penalties) === 1) {
+      return res.status(409).json({error:'This result belongs to a competition tie. Use the existing competition result correction/review action so aggregate, penalty winner and downstream activity are checked together.'});
+    }
 
     await EXECUTESQL(
       `UPDATE matches

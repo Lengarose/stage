@@ -27,11 +27,17 @@ stageClient.http.get=async(path,query)=>{
   const month=query.from.slice(0,7);
   const anchor=today>=query.from&&today<query.to?today:`${month}-15`;
   let events=params.get('state')==='empty'?[]:categories.map((category,index)=>({id:`qa-${category}`,category,competition:`Test ${category} competition`,startsAt:`${anchor}T${String(17+index%4).padStart(2,'0')}:00:00+01:00`,homeName:category==='tournament'?'Test player':'Test home club',awayName:'Test away participant',round:2,stage:'Quarter-final',href:`/game-day?match=qa-${category}`,status:index===1?'completed':'scheduled',score:index===1?'2 - 1':null}));
+  if(params.has('penalties'))events=events.map(event=>({...event,status:'completed',result_state:'CONFIRMED',stats_processed:1,score:'2 - 1',decided_on_penalties:1,penalty_winner_side:'away',aggregate_home_score:3,aggregate_away_score:3}));
   if(query.scope!=='general')events=events.filter(e=>query.scope==='gost'?['supreme','elite','challenger'].includes(e.category):e.category===query.scope);
   return {timezone:zone,today,hasClub:!params.has('noClub'),identityKey:'qa',events};
 };
 const {AuthProvider}=await import('/src/lib/AuthContext.jsx');
 const {TranslationProvider}=await import('/src/lib/TranslationContext.jsx');
 const {default:Schedule}=await import('/src/pages/Schedule.jsx');
-ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(AuthProvider,null,React.createElement(TranslationProvider,null,React.createElement(MemoryRouter,null,React.createElement('div',{className:'h-screen bg-background'},React.createElement(Schedule))))));
+const {default:ScheduleList}=await import('/src/components/schedule/ScheduleList.jsx');
+const {default:MatchDetail}=await import('/src/components/schedule/MatchDetail.jsx');
+const qaMatch={id:'qa-result',home_club_id:'qa-home',away_club_id:'qa-away',home_club_name:'QA Home FC',away_club_name:'QA Away FC',home_score:2,away_score:1,status:'played',result_state:'CONFIRMED',stats_processed:1,decided_on_penalties:1,penalty_winner_side:'away',aggregate_home_score:3,aggregate_away_score:3,scheduled_date:'2026-10-27T19:00:00Z'};
+const qaEvent={id:'qa-result',type:'match',date:qaMatch.scheduled_date,opposition:'QA Away FC',competition:'QA Knockout Cup',venue:'Home',venueKey:'home',status:'completed',fixtureData:qaMatch,result:{outcome:'L',display:'2–1'}};
+const content=params.get('view')==='fixture-list'?React.createElement('main',{className:'grid min-h-screen gap-4 bg-background p-4 lg:grid-cols-2'},React.createElement(ScheduleList,{events:[qaEvent],selectedId:qaEvent.id,onSelect:()=>{}}),React.createElement(MatchDetail,{event:qaEvent,myClub:{id:'qa-home'}})):React.createElement(Schedule);
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(AuthProvider,null,React.createElement(TranslationProvider,null,React.createElement(MemoryRouter,null,React.createElement('div',{className:'h-screen bg-background'},content)))));
 </script></body></html>

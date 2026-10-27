@@ -1090,9 +1090,9 @@ async function processMatchCompletion(match, acceptedSubmission, secondarySubmis
   const decidedOnPenalties = Number(
     acceptedSubmission.decided_on_penalties ?? fresh.decided_on_penalties ?? 0
   ) === 1;
-  const penaltyWinnerSide = acceptedSubmission.penalty_winner_side || fresh.penalty_winner_side || null;
-  let winnerIsHome = homeScore > awayScore;
-  let winnerIsAway = homeScore < awayScore;
+  const penaltyWinnerSide = decidedOnPenalties ? acceptedSubmission.penalty_winner_side || fresh.penalty_winner_side || null : null;
+  let winnerIsHome = decidedOnPenalties ? penaltyWinnerSide === 'home' : homeScore > awayScore;
+  let winnerIsAway = decidedOnPenalties ? penaltyWinnerSide === 'away' : homeScore < awayScore;
   if (!winnerIsHome && !winnerIsAway && decidedOnPenalties && penaltyWinnerSide === 'home') winnerIsHome = true;
   if (!winnerIsHome && !winnerIsAway && decidedOnPenalties && penaltyWinnerSide === 'away') winnerIsAway = true;
 
@@ -1107,6 +1107,8 @@ async function processMatchCompletion(match, acceptedSubmission, secondarySubmis
     if (match.tournament_id && match.tournament_id !== 'ranked') await query('SELECT id FROM tournaments WHERE id=? FOR UPDATE', [match.tournament_id]);
     const [locked] = await query('SELECT * FROM matches WHERE id = ? LIMIT 1 FOR UPDATE', [matchId]);
     if (Number(locked?.report_finalized || 0) === 1 || Number(locked?.stats_processed || 0) === 1) return false;
+    if (locked) require('../lib/matchResultNegotiation').assertResultSnapshotCurrent(match,locked);
+    const tieResult = await require('../services/penaltyPolicyService').validateMatchPenalty(locked || match, {home_score:homeScore,away_score:awayScore}, {decided_on_penalties:decidedOnPenalties,penalty_winner_side:penaltyWinnerSide}, query);
     await require('../services/tournamentProgressionService').assertTournamentMatchAction(locked || match, { result: true }, query);
     if (fresh.home_player_id || fresh.away_player_id) {
       const winnerPlayerId = winnerIsHome ? fresh.home_player_id : winnerIsAway ? fresh.away_player_id : null;
@@ -1117,7 +1119,7 @@ async function processMatchCompletion(match, acceptedSubmission, secondarySubmis
          winner_club_id=?, winner_club_name=?, loser_club_id=?, loser_club_name=?,
          home_goal_events=?, away_goal_events=?,
          decided_on_penalties=?, penalty_winner_side=?, result_state=?, administrative_result=?,
-         report_finalized=1, updated_date=NOW() WHERE id=?`,
+         aggregate_home_score=?, aggregate_away_score=?, report_finalized=1, updated_date=NOW() WHERE id=?`,
       [
         homeScore,
         awayScore,
@@ -1131,6 +1133,8 @@ async function processMatchCompletion(match, acceptedSubmission, secondarySubmis
         penaltyWinnerSide,
         officialState,
         acceptedSubmission.administrative_result ? 1 : 0,
+        tieResult.aggregate_home_score,
+        tieResult.aggregate_away_score,
         matchId,
       ]
     );
@@ -8764,7 +8768,7 @@ const HANDLERS = {
     player_stats, goal_events, proof_url, admin_resolve_winner,
     admin_home_score, admin_away_score, _auth_user_id,
     participating_player_ids, decided_on_penalties, penalty_winner_side,
-    explanation, club_id,
+    explanation, club_id, expected_result_snapshot,
   }) {
     if (action === 'settle_club_matches') {
       const { club } = await getMe(_auth_user_id);
@@ -8849,6 +8853,7 @@ const HANDLERS = {
       const settled = await matchResultNegotiationService.settleMatchDeadlines(rows[0]);
       const match = settled.match || (await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [match_id]))[0];
       const actor = await resolveMatchActorSide(match, _auth_user_id);
+      if (expected_result_snapshot != null) require('../lib/matchResultNegotiation').assertResultSnapshotCurrent(expected_result_snapshot,match);
       const isHomeSubmission = actor.side === 'home';
       await require('../services/tournamentProgressionService').assertTournamentMatchAction(match, { result: true });
       const requestedHomeSide = is_home_team === true || is_home_team === 'true' || is_home_team === 1 || is_home_team === '1';
@@ -8955,6 +8960,8 @@ const HANDLERS = {
       });
       combined.home_score = accepted.home_score;
       combined.away_score = accepted.away_score;
+      if (decided_on_penalties !== undefined) combined.decided_on_penalties = decided_on_penalties;
+      if (penalty_winner_side !== undefined) combined.penalty_winner_side = penalty_winner_side;
       if (admin_home_score != null || admin_away_score != null) {
         combined.administrative_result = true;
         combined.home_score = accepted.home_score;
@@ -8962,7 +8969,7 @@ const HANDLERS = {
       }
 
       if (m.tournament_id && ['completed', 'forfeit'].includes(m.status)) {
-        const corrected = await require('../services/tournamentProgressionService').correctTournamentResult(m, { home_score: combined.home_score, away_score: combined.away_score, status: 'completed', reason: explanation || 'Admin resolved corrected tournament score' }, admin);
+        const corrected = await require('../services/tournamentProgressionService').correctTournamentResult(m, { home_score: combined.home_score, away_score: combined.away_score, decided_on_penalties: combined.decided_on_penalties, penalty_winner_side: combined.penalty_winner_side, status: 'completed', reason: explanation || 'Admin resolved corrected tournament score' }, admin);
         await competitionEngineService.advanceAfterFinalResult(corrected);
         await broadcastMatchById(match_id);
         return { data: { status: 'completed', corrected: true } };

@@ -5,6 +5,7 @@ import TournamentStages from "@/components/TournamentStages";
 import FixtureSchedulerPanel from "@/components/schedule/FixtureSchedulerPanel";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { createMatchFromFixture } from "@/lib/gameDayIntegration";
+import { penaltyOutcome } from "@/lib/penaltyOutcome";
 
 export default function LeagueCompetitionStages({ kind, editionId, myClub, myEmail, myGamertag, renderStandings }) {
   const [data,setData] = useState(null);
@@ -25,7 +26,7 @@ export default function LeagueCompetitionStages({ kind, editionId, myClub, myEma
     window.addEventListener("focus",refresh);
     return ()=>{stopped=true;clearInterval(timer);window.removeEventListener("focus",refresh);};
   },[kind,editionId,revision]);
-  async function openDetails(match) { try { setFixture(await entity.get(match.fixture_id)); } catch(e) {setError(e.message);} }
+  async function openDetails(match) { try { setFixture({...match,...await entity.get(match.fixture_id)}); } catch(e) {setError(e.message);} }
   async function openGameDay(match) {
     try { const source = await entity.get(match.fixture_id); const created = await createMatchFromFixture(source,fixtureType); if (!created?.id) throw new Error("This fixture does not have an active confirmed GameDay match."); navigate(`/game-day?match=${encodeURIComponent(created.id)}`); }
     catch(e) {setError(e.message);}
@@ -34,6 +35,7 @@ export default function LeagueCompetitionStages({ kind, editionId, myClub, myEma
   const tournament = {...data.root,participant_type:"club",type:kind === "regional_league" || data.root.type === "league" || data.root.format === "league" || data.root.league_only === true ? "league" : "swiss_ucl",registered_clubs:data.participants.map(c=>c.id)};
   return <>
     {error && <p role="alert" className="p-3 text-destructive">{error}</p>}
+    {fixture && penaltyOutcome(fixture) && <p role="status" className="px-3 text-sm text-primary">{penaltyOutcome(fixture)}</p>}
     <TournamentStages key={`${kind}:${editionId}`} tournament={tournament} matches={data.matches} clubs={data.participants} onSchedule={openDetails} onGameDay={openGameDay} onStats={openDetails} canSchedule={m=>Boolean(m.can_schedule && m.home_club_id && m.away_club_id && !["completed","forfeit","bye","cancelled"].includes(m.status) && m.scheduling_status !== "home_proposed")} renderStandings={renderStandings} onDetails={openDetails} />
     <Dialog open={Boolean(fixture)} onOpenChange={open=>{if (!open) setFixture(null);}}><DialogContent className="max-h-[85dvh] overflow-y-auto !rounded-none"><DialogHeader><DialogTitle>{fixture?.home_club_name} vs {fixture?.away_club_name}</DialogTitle><DialogDescription>Match details and scheduling</DialogDescription></DialogHeader>{fixture && <FixtureSchedulerPanel fixture={fixture} fixtureType={fixtureType} myClub={myClub} myEmail={myEmail} myGamertag={myGamertag} onUpdate={()=>{setFixture(null);setRevision(v=>v+1);}} />}</DialogContent></Dialog>
   </>;

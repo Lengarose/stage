@@ -6,6 +6,7 @@ import { stageClient } from '@/api/stageClient';
 import { useAuth } from '@/lib/AuthContext';
 import { CHANNELS, setSocketListeners, offSocketListeners } from '@/lib/SocketContext';
 import { cn } from '@/lib/utils';
+import { penaltyOutcome } from '@/lib/penaltyOutcome';
 import { CALENDAR_CATEGORIES, CALENDAR_SCOPES, calendarDay, calendarTime, calendarDate, calendarGrid, calendarRange, shiftCalendarMonth, groupCalendarEvents, identicalKickoffs } from '@/lib/scheduleCalendar';
 
 const control = 'inline-flex min-h-11 items-center justify-center gap-2 border border-border px-3 text-sm text-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400';
@@ -123,6 +124,7 @@ export default function ScheduleCalendar({ tournamentId }) {
             <p className="mt-1 text-[10px] text-muted-foreground">{category.label}{event.stage?` · ${event.stage}`:''}{event.matchday?` · Matchday ${event.matchday}`:event.round?` · Round ${event.round}`:''}{event.leg?` · Leg ${event.leg}`:''}</p>
             <div className="mt-2 flex items-start gap-2">{event.homeAvatarUrl?<img src={event.homeAvatarUrl} alt="" className="h-6 w-6 shrink-0 object-contain"/>:null}<h3 className="min-w-0 break-words font-heading text-lg font-bold">{event.homeName} vs {event.awayName}</h3>{event.awayAvatarUrl?<img src={event.awayAvatarUrl} alt="" className="h-6 w-6 shrink-0 object-contain"/>:null}</div>
             {event.score?<p className="mt-1 font-bold">{event.score} · Completed</p>:<p className="mt-1 text-xs text-muted-foreground">{event.status==='in_progress'?'In progress':event.status==='disputed'?'Result disputed':event.status==='awaiting_confirmation'?'Result awaiting confirmation':'Confirmed schedule'}</p>}
+            {penaltyOutcome(event)&&<p className="mt-1 break-words text-xs text-primary">{penaltyOutcome(event)}</p>}
             {conflicts.has(event.id)?<p className="mt-1 text-xs text-amber-600 dark:text-amber-300">Same-time kickoff</p>:null}
             {event.href?<Link to={event.href} className="mt-2 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:text-cyan-300" aria-label={`View match: ${event.homeName} vs ${event.awayName}`}>View match<ArrowRight size={16}/></Link>:<p className="mt-2 text-xs text-muted-foreground">Match details are not linked yet.</p>}
           </article>;})}</div>

@@ -3,6 +3,7 @@ import { CalendarDays, ChevronLeft, ChevronRight, Shield, Trophy } from "lucide-
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { buildTournamentStages, canScheduleTournamentMatch, isStageResult, stageMatchSections, stageAggregate } from "@/lib/tournamentStages";
 import { canOpenTournamentGameDay } from "@/lib/tournamentGameDay";
+import {penaltyOutcome} from '@/lib/penaltyOutcome';
 
 export default function TournamentStages({ tournament, matches, clubs, user, player, onSchedule, onGameDay, onStats, onSimulate, onResolve, isAdmin, renderStandings, onDetails, canSchedule = canScheduleTournamentMatch }) {
   const stages = buildTournamentStages(tournament, matches);
@@ -51,7 +52,7 @@ export default function TournamentStages({ tournament, matches, clubs, user, pla
           {match.aggregate_home_score != null && match.aggregate_away_score != null && <span>Aggregate {match.aggregate_home_score} – {match.aggregate_away_score}</span>}
           {match.aggregate_home_score == null && stageAggregate(s, match) && <span>Aggregate {stageAggregate(s, match).join(" – ")}</span>}
           {(match.home_penalties != null && match.away_penalties != null) && <span>Penalties {match.home_penalties} – {match.away_penalties}</span>}
-          {match.penalty_winner_side && <span>{match.penalty_winner_side === "home" ? (match.home_player_name || match.home_club_name) : (match.away_player_name || match.away_club_name)} won on penalties</span>}
+          {penaltyOutcome(match,stageAggregate(s,match)) && <span>{penaltyOutcome(match,stageAggregate(s,match))}</span>}
           {actions && canOpenTournamentGameDay(match) && <button type="button" onClick={() => onGameDay(match)} className="text-primary hover:underline">GameDay</button>}
           {actions && isStageResult(match) && onStats && <button type="button" onClick={() => onStats(match)} className="hover:text-foreground">Stats</button>}
           {actions && match.video_url && <a href={match.video_url} target="_blank" rel="noreferrer" className="text-primary">Match video</a>}
@@ -68,7 +69,7 @@ export default function TournamentStages({ tournament, matches, clubs, user, pla
     return <button type="button" aria-label={`Open ${category.toLowerCase()} for ${stage.label}`} onClick={event => { trigger.current = event.currentTarget; setModal({ category, index: stages.indexOf(fullStage), day }); }} className="w-full border border-border bg-card text-left transition hover:border-primary/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
       <span className="flex items-center justify-between border-b border-border px-4 py-3 font-heading text-lg font-bold"><span>{category}</span><span className="text-xs text-muted-foreground">{rows.length}</span></span>
       <span className="block px-4 pt-3 text-xs text-primary">{stage.label}</span>
-      <span className="block min-h-28 p-3">{rows.length ? rows.slice(0, 4).map(m => <span key={m.id} className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 border-b border-border/40 py-2 text-xs">{identity(m, "home")}<strong>{score(m)}</strong>{identity(m, "away")}</span>) : <span className="text-xs text-muted-foreground">{category === "Fixtures" ? "No upcoming fixtures in this stage." : "No results yet."}</span>}</span>
+      <span className="block min-h-28 p-3">{rows.length ? rows.slice(0, 4).map(m => <span key={m.id} className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 border-b border-border/40 py-2 text-xs">{identity(m, "home")}<strong>{score(m)}</strong>{identity(m, "away")}{penaltyOutcome(m,stageAggregate(stage,m))&&<span className="col-span-3 text-primary">{penaltyOutcome(m,stageAggregate(stage,m))}</span>}</span>) : <span className="text-xs text-muted-foreground">{category === "Fixtures" ? "No upcoming fixtures in this stage." : "No results yet."}</span>}</span>
     </button>;
   }
   if (!stage) return null;

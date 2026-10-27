@@ -14,6 +14,7 @@ import { swalAlert, swalConfirm } from "@/lib/swal";
 import PageBannerShell from "@/components/PageBannerShell";
 import LeagueCompetitionStages from "@/components/LeagueCompetitionStages";
 import TournamentLeaderboard from "@/components/TournamentLeaderboard";
+import { penaltyOutcome, isOfficialDisplayResult } from '@/lib/penaltyOutcome';
 
 const PHASE_LABEL = {
   league: "League Phase",
@@ -196,7 +197,7 @@ function FixtureRow({ fixture, isAdmin, onSubmitResult, legLabel, isFinalLeg, my
     if (matchId) window.location.assign(`/game-day?match=${encodeURIComponent(matchId)}`);
   }
 
-  const isDone = fixture.status === "completed" || fixture.status === "forfeit";
+  const isDone = isOfficialDisplayResult(fixture);
   return (
     <div className={cn(
       "border-b border-border/40 last:border-0",
@@ -298,6 +299,7 @@ function FixtureRow({ fixture, isAdmin, onSubmitResult, legLabel, isFinalLeg, my
         </button>
       )}
       </div>
+      {penaltyOutcome(fixture)&&<p className="px-4 pb-3 text-xs text-primary">{penaltyOutcome(fixture)}</p>}
       {expanded && canSchedule && (
         <div className="px-4 pb-3">
           <FixtureSchedulerPanel
@@ -316,8 +318,8 @@ function FixtureRow({ fixture, isAdmin, onSubmitResult, legLabel, isFinalLeg, my
 
 function TieCard({ leg1, leg2, isAdmin, onRefresh, label, myClub, myEmail, myGamertag }) {
   const { t } = useTranslation();
-  const done1 = leg1?.status === "completed" || leg1?.status === "forfeit";
-  const done2 = leg2?.status === "completed" || leg2?.status === "forfeit";
+  const done1 = isOfficialDisplayResult(leg1);
+  const done2 = isOfficialDisplayResult(leg2);
 
   let agg1 = 0, agg2 = 0;
   if (done1 && leg1) { agg1 += leg1.home_score ?? 0; agg2 += leg1.away_score ?? 0; }
@@ -336,7 +338,7 @@ function TieCard({ leg1, leg2, isAdmin, onRefresh, label, myClub, myEmail, myGam
               agg1 > agg2 ? "text-foreground" : agg2 > agg1 ? "text-muted-foreground" : "text-warning"
             )}>
               Agg: {agg1} – {agg2}
-              {agg1 === agg2 && done1 && done2 && <span className="text-warning ml-1">(tied)</span>}
+              {agg1 === agg2 && done1 && done2 && !penaltyOutcome(leg2) && <span className="text-warning ml-1">(tied)</span>}
             </span>
           )}
         </div>

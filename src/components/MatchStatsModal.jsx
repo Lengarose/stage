@@ -3,6 +3,7 @@ import { stageClient } from "@/api/stageClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Target, Zap, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { penaltyOutcome } from '@/lib/penaltyOutcome';
 
 export default function MatchStatsModal({ match, open, onClose }) {
   const [stats, setStats] = useState([]);
@@ -71,6 +72,7 @@ export default function MatchStatsModal({ match, open, onClose }) {
             {match.home_club_name} {match.home_score} – {match.away_score} {match.away_club_name}
           </DialogTitle>
         </DialogHeader>
+        {penaltyOutcome(match)&&<p className="break-words text-xs text-primary">{penaltyOutcome(match)}</p>}
         {loading ? (
           <div className="flex justify-center py-8">
             <div className="w-6 h-6 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />

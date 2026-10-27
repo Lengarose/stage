@@ -1,4 +1,5 @@
 import { calculateStandings } from './standingsCore.js';
+import { isStageResult } from './tournamentStages.js';
 // Tournament Engine — auto-generate matches for any format
 
 export function shuffleArray(arr) {
@@ -204,6 +205,7 @@ export function matchSide(match, side, participantType = "club") {
 }
 
 export function matchWinnerSide(match, participantType = "club") {
+  if(match&&isStageResult(match)&&Number(match.decided_on_penalties)===1&&['home','away'].includes(match.penalty_winner_side))return match.penalty_winner_side;
   const home = matchSide(match, "home", participantType);
   const away = matchSide(match, "away", participantType);
   const winnerId = isPlayerParticipant(participantType)

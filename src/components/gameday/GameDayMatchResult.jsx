@@ -10,8 +10,8 @@ import {
   fixtureScoreFromSubmission,
   formatSideClaim,
   isClubGameDayMatch,
-  penaltiesAllowed,
   parseMatchSubmission,
+  resultSnapshot,
 } from "@/lib/gameDayResultFlow";
 
 function compactEventAvailabilityId(prefix, eventId, clubId, eventLength, clubLength) {
@@ -53,7 +53,7 @@ async function getOfficialEventAvailabilityFixtureId(game, clubId) {
  * Goals/assists per player are derived from the goal events automatically.
  * Player ratings are still entered individually.
  */
-export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam, onSubmitted }) {
+export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam, onSubmitted, onBeforeSubmit, onBusyChange }) {
   const isClubMatch   = isClubGameDayMatch(game);
   const [homeScore,   setHomeScore]   = useState(0);
   const [awayScore,   setAwayScore]   = useState(0);
@@ -92,7 +92,17 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
   // Home (submit side) can reopen the form to change score/stats before Away confirms.
   const amendMode = Boolean(Number(alreadySubmitted)) && iAmSubmitter && awaitingConfirm && !correcting;
   const needsEvidence = evidenceRequired(game) && !confirmMode && !correcting;
-  const allowPens = penaltiesAllowed(game);
+  const [penaltyContext,setPenaltyContext]=useState(null);
+  const [penaltyError,setPenaltyError]=useState('');
+  const [penaltyOpen,setPenaltyOpen]=useState(false);
+  const allowPens = Boolean(penaltyContext?.applicable);
+  useEffect(()=>{onBusyChange?.(submitting||uploadingProof);},[submitting,uploadingProof,onBusyChange]);
+  useEffect(()=>{
+    let active=true;
+    setPenaltyContext(null);setPenaltyError('');
+    const timer=setTimeout(()=>stageClient.http.get(`/game-day/${encodeURIComponent(game.id)}/penalties`,{home_score:Number(homeScore),away_score:Number(awayScore)}).then(context=>{if(active){setPenaltyContext(context);if(!context.applicable)setPenaltyChoice('none');}}).catch(e=>{if(active)setPenaltyError(e.message||'Penalty eligibility could not be verified.');}),200);
+    return ()=>{active=false;clearTimeout(timer);};
+  },[game.id,homeScore,awayScore]);
   const homeSubmission = parseMatchSubmission(game.home_submission);
   const awaySubmission = parseMatchSubmission(game.away_submission);
   const submittedScore = submitSide === "away" ? awaySubmission : homeSubmission;
@@ -101,6 +111,7 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
   const submittedAwayScore = Number.isFinite(submittedFixture.away) ? submittedFixture.away : null;
   const awayLockedWaiting   = !isHomeTeam && !homeHasSubmitted && !alreadySubmitted && submitSide === "home";
   const myPriorSubmission = isHomeTeam ? homeSubmission : awaySubmission;
+  useEffect(()=>{const proposal=reviewMode?awaySubmission:submittedScore;if((confirmMode||reviewMode)&&Number(proposal?.decided_on_penalties)===1)setPenaltyChoice(proposal.penalty_winner_side);},[confirmMode,reviewMode,game.id]);
 
   // Prefill Home–Away boxes from the claim being confirmed/corrected/amended (was stuck at 0–0).
   useEffect(() => {
@@ -319,6 +330,7 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
   const [submitError, setSubmitError] = useState("");
 
   async function submit(actionOverride) {
+    if(submitting||uploadingProof)return;
     if (needsEvidence && !proofUrl) {
       setSubmitError("Upload screenshot proof before submitting.");
       return;
@@ -339,6 +351,7 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
     setSubmitting(true);
     setSubmitError("");
     try {
+      await onBeforeSubmit?.();
       let playerStatsArr = [];
       let participating = [...playedIds];
 
@@ -392,10 +405,12 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
       const confirmAway = Number.isFinite(submittedFixture.away) ? submittedFixture.away : Number(awayScore);
       const fixtureHome = confirmMode ? confirmHome : Number(homeScore);
       const fixtureAway = confirmMode ? confirmAway : Number(awayScore);
-      const fixtureIsDraw = fixtureHome === fixtureAway;
+      const proposedPenalty = (confirmMode || reviewMode) ? (reviewMode?awaySubmission:submittedScore) : null;
+      const choice = proposedPenalty ? (Number(proposedPenalty.decided_on_penalties)===1?proposedPenalty.penalty_winner_side:'none') : penaltyChoice;
 
       const res = await stageClient.functions.invoke("matchKickoff", {
         match_id:     game.id,
+        expected_result_snapshot: resultSnapshot(game),
         action,
         is_home_team: isHomeTeam,
         home_score:   fixtureHome,
@@ -406,21 +421,21 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
         participating_player_ids: participating,
         goal_events:  eventsToStore,
         proof_url:    proofUrl || null,
-        decided_on_penalties: fixtureIsDraw && penaltyChoice !== "none",
-        penalty_winner_side: penaltyChoice === "none" ? null : penaltyChoice,
+        decided_on_penalties: choice !== "none",
+        penalty_winner_side: choice === "none" ? null : choice,
         explanation: explanation || null,
       });
 
       const status = res?.data?.status || 'waiting';
-      if (onSubmitted) onSubmitted(status, fixtureHome, fixtureAway, goalEvents);
+      if (onSubmitted) await onSubmitted(status, fixtureHome, fixtureAway, goalEvents);
     } catch (err) {
       // Server enforces the same lock with a 409 + code=AWAITING_HOME_SUBMISSION.
       // apiFetch surfaces the server payload as err.data, so look there first.
       const code = err?.data?.code || err?.code;
-      if (code === "PROOF_REQUIRED" || err?.status === 400) {
+      if (code === "PROOF_REQUIRED") {
         setSubmitError("Upload screenshot proof before submitting.");
       } else if (code === "AWAITING_CONFIRMATION" || code === "RESULT_ALREADY_SUBMITTED") {
-        if (onSubmitted) onSubmitted("waiting", Number(homeScore), Number(awayScore), goalEvents);
+        setSubmitError(err.message || 'The match state changed. Your input is retained; reopen the report to review the current claim.');
       } else if (code === "AWAITING_HOME_SUBMISSION") {
         setSubmitError("The home team hasn't submitted their result yet. Please wait for them to submit first.");
       } else {
@@ -547,13 +562,17 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
         )}
       </div>
 
-      {allowPens && Number(homeScore) === Number(awayScore) && !confirmMode && (
+      {penaltyError && <p role="alert" className="text-xs text-destructive">{penaltyError}</p>}
+      {penaltyContext?.blocked && <p role="alert" className="text-xs text-destructive">{penaltyContext.reason}</p>}
+      {penaltyContext?.aggregate && <p className="text-xs text-muted-foreground">{penaltyContext.legs===2?'Aggregate':'Match'}: {penaltyContext.aggregate.home} - {penaltyContext.aggregate.away}</p>}
+      {(confirmMode || reviewMode) && penaltyChoice!=='none' && <p className="text-sm text-primary">Proposed: {game[`${penaltyChoice}_club_name`]||game[`${penaltyChoice}_player_name`]} won on penalties.</p>}
+      {allowPens && !confirmMode && !reviewMode && (
         <div className="space-y-2">
-          <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Penalties</p>
-          {[["none", "No penalties"], ["home", "Home won on penalties"], ["away", "Away won on penalties"]].map(([value, label]) => (
+          <button type="button" onClick={()=>setPenaltyOpen(value=>!value)} aria-expanded={penaltyOpen} className="min-h-11 text-sm font-semibold text-primary">Won on penalties</button>
+          {penaltyOpen && ["home","away"].map(value => (
             <label key={value} className="flex items-center gap-2 text-xs">
               <input type="radio" name="penalty-outcome" checked={penaltyChoice === value} onChange={() => setPenaltyChoice(value)} />
-              {label}
+              {game[`${value}_club_name`]||game[`${value}_player_name`]||value} won on penalties
             </label>
           ))}
         </div>

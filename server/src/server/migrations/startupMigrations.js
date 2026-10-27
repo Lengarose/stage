@@ -15,6 +15,19 @@ async function migrateRewardConfigPosition(query = EXECUTESQL) {
 }
 
 async function runStartupMigrations() {
+  await EXECUTESQL(`CREATE TABLE IF NOT EXISTS match_highlights (
+  id VARCHAR(36) PRIMARY KEY,
+  match_id VARCHAR(36) NOT NULL,
+  uploader_user_id VARCHAR(36) NOT NULL,
+  image_url VARCHAR(255) NOT NULL,
+  image_sha256 CHAR(64) NOT NULL,
+  caption VARCHAR(160) NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'published',
+  created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_date DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY idx_match_highlights_image (match_id,image_sha256),
+  INDEX idx_match_highlights_published (match_id,status,created_date)
+)`).catch(err=>console.error('[migration] match_highlights:',err.message));
   const dropTable = async (table) => {
     try {
       await EXECUTESQL(`DROP TABLE IF EXISTS \`${table}\``);
@@ -564,6 +577,8 @@ async function runStartupMigrations() {
   await addCol('matches', 'result_state', 'VARCHAR(40) NULL');
   await addCol('matches', 'result_submit_side', 'VARCHAR(10) NULL');
   await addCol('matches', 'decided_on_penalties', 'TINYINT(1) DEFAULT 0');
+  await addCol('matches', 'aggregate_home_score', 'INT NULL');
+  await addCol('matches', 'aggregate_away_score', 'INT NULL');
   await addCol('matches', 'penalty_winner_side', 'VARCHAR(10) NULL');
   await addCol('matches', 'allow_penalties', 'TINYINT(1) DEFAULT 0');
   await addCol('matches', 'result_due_at', 'DATETIME NULL');

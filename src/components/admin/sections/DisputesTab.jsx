@@ -6,6 +6,7 @@ import EmptyState from "@/components/admin/shared/EmptyState";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/hooks/useTranslation";
 import { AlertTriangle, Download, Gavel, Image as ImageIcon, X } from "lucide-react";
+import { penaltyOutcome } from '@/lib/penaltyOutcome';
 
 export default function DisputesTab({ disputes, setResolveDialog, setSelectedWinner, showEconomyPanels = true }) {
   const { t } = useTranslation();
@@ -49,6 +50,8 @@ export default function DisputesTab({ disputes, setResolveDialog, setSelectedWin
                     {" · "}
                     {t("admin.disputes.claimsScore", { name: awayLbl, score: aScore })}
                   </p>
+                  {[['home',hs],['away',as_]].map(([side,claim])=>claim&&penaltyOutcome({...m,...claim,status:'disputed'})?<p key={side} className="mt-1 break-words text-xs text-primary">{side==='home'?homeLbl:awayLbl}: {penaltyOutcome({...m,...claim,status:'disputed'})}</p>:null)}
+                  {['home','away'].map(side=>{const claim=parseSub(m[`${side}_dispute_submission`]);return claim&&penaltyOutcome({...m,...claim,status:'disputed'})?<p key={`evidence:${side}`} className="mt-1 break-words text-xs text-primary">Dispute evidence ({side==='home'?homeLbl:awayLbl}): {penaltyOutcome({...m,...claim,status:'disputed'})}</p>:null;})}
                   {proofLinks.length > 0 && (
                     <div className="flex flex-wrap gap-2 mt-3">
                       {proofLinks.map(link => (
