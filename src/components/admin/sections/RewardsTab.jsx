@@ -6,12 +6,16 @@ import { OFFICIAL_STAGE_TOURNAMENT_MAX_CLUBS } from "@/lib/qualificationConfig";
 import { getRegionalLeagueMaxClubs } from "@/lib/regionalLeagueRules";
 import { useTranslation } from "@/hooks/useTranslation";
 import { Coins } from "lucide-react";
+import { regionalRewardSources } from '@/lib/regionalRewardSources';
+import RegionalEditionReview from '@/components/rewards/RegionalEditionReview';
 
 export default function RewardsTab({
   competitions,
   regionalLeagues,
   rewardSource,
   setRewardSource,
+  onReload,
+  sourceError,
 }) {
   const { t } = useTranslation();
   const [configurationRefresh,setConfigurationRefresh]=useState(0);
@@ -26,6 +30,8 @@ export default function RewardsTab({
       </p>
       <p className="border-l-2 border-primary pl-3 text-sm">Shared regional schedules: Division 1 starts at 54,000,000 STC (757,000,000 total); Division 2 starts at 33,000,000 STC (337,000,000 total). Both decrease by 1,700,000 per position, for up to 20 clubs. GOST is configured separately.</p>
       <DivisionTwoRewardReview onApplied={()=>setConfigurationRefresh(v=>v+1)}/>
+      {sourceError && <p role="alert" className="text-destructive">{sourceError}</p>}
+      <RegionalEditionReview onApplied={async result => { if (rewardSource?.id === result.source_id) setRewardSource(null); await onReload?.(); }} />
 
       <div className="space-y-2">
         <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">{t("admin.rewards.selectSource")}</p>
@@ -49,17 +55,22 @@ export default function RewardsTab({
           </div>
           <div className="space-y-1.5">
             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-primary">Regional Leagues</p>
-            {regionalLeagues.map(league => {
+            {regionalRewardSources(regionalLeagues).map(league => {
               const active = rewardSource?.id === league.id;
               return (
-                <button key={league.id} onClick={() => setRewardSource({ id: league.id, type: "regional_league", name: league.name, division: league.division || 1, max_clubs: getRegionalLeagueMaxClubs(league), trophy_image_url: league.trophy_image_url || "" })}
+                <button type="button" key={league.id} onClick={() => setRewardSource({ id: league.id, type: "regional_league", name: league.name, division: league.division || 1, max_clubs: getRegionalLeagueMaxClubs(league), trophy_image_url: league.trophy_image_url || "" })}
                   className={cn("w-full text-left p-3 rounded border text-xs font-bold transition-all",
                     active ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
                   )}>
                   {league.name}{league.status==='archived'?' · Archived':''}
-                  <span className="block text-[10px] font-normal mt-0.5 opacity-60">
+                  <span className="block text-[11px] font-normal mt-0.5">
                     {t("admin.rewards.leagueMeta", { division: league.division || 1, season: league.season_number })}
+                    {' · '}{league.region_slug || league.region || 'Region unspecified'}{' · '}{league.platform || 'Platform unspecified'}{' · '}{league.status || 'Status unspecified'}
                   </span>
+                  <span className="block break-all text-[10px] font-normal">ID: {league.id}</span>
+                  {league.stored_name && league.stored_name !== league.name && <span className="block text-[10px]">Stored name: {league.stored_name}</span>}
+                  {league.identity_conflict && <span className="block text-warning text-[10px]">Unresolved edition identity conflict — review before changing rewards</span>}
+                  {league.identity_unverified && <span className="block text-warning text-[10px]">Incomplete edition identity — inspect raw records</span>}
                 </button>
               );
             })}

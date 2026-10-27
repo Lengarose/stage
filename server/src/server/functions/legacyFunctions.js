@@ -6941,9 +6941,11 @@ const HANDLERS = {
 
       let resetRegionalLeagues = 0;
       if (resetScope === 'all' || resetScope === 'regional') {
+        await require('../services/regionalEditionService').model.lock(query);
         const regionalRows = await query(
           `SELECT * FROM league_entities WHERE entity_type = 'regional_league' FOR UPDATE`
         );
+        require('../services/regionalEditionService').assertResetSafe(regionalRows);
         for (const row of regionalRows) {
           const league = parseLeagueEntityRow(row);
           const nextLeague = {
@@ -6956,6 +6958,8 @@ const HANDLERS = {
             status: 'registration',
             updated_date: new Date().toISOString(),
           };
+          const resetIdentity = require('../lib/regionalEditionIdentity').identity({ ...nextLeague, slug: String(nextLeague.slug).replace(/-s\d+$/, '') });
+          nextLeague.slug = resetIdentity.canonical_slug;
           await updateLeagueEntityData(query, 'regional_league', league.id, nextLeague, {
             status: nextLeague.status,
             slug: nextLeague.slug || null,
@@ -6966,6 +6970,7 @@ const HANDLERS = {
             platform: nextLeague.platform || null,
             is_active: nextLeague.is_active ?? 1,
             season_number: 1,
+            regional_edition_key: resetIdentity.key,
           });
           resetRegionalLeagues += 1;
         }

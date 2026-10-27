@@ -1727,6 +1727,13 @@ async function runStartupMigrations() {
     INDEX idx_le_comp        (entity_type, competition_id)
   )`).catch(() => {});
 
+  // Legacy regional identities deliberately remain NULL pending explicit review.
+  // No historical merge, removal or business-data backfill runs at startup.
+  await addCol('league_entities', 'regional_edition_key', 'VARCHAR(64) NULL');
+  const duplicateRegionalKeys = await EXECUTESQL('SELECT regional_edition_key FROM league_entities WHERE regional_edition_key IS NOT NULL GROUP BY regional_edition_key HAVING COUNT(*) > 1');
+  if (!duplicateRegionalKeys.length) await addIndex('league_entities', 'idx_le_regional_edition', '(regional_edition_key)', true);
+  else console.error('[migration] Regional identity key conflicts require admin review; unique index was not changed.');
+
   // Admin audit log
   await EXECUTESQL(`CREATE TABLE IF NOT EXISTS admin_audit_log (
     id          VARCHAR(36) PRIMARY KEY,

@@ -15,7 +15,6 @@ function ChartTooltip({ active, payload, label }) {
   return (
     <div
       className="border border-cyan-300/20 bg-[#0a101c]/95 p-3 text-xs shadow-[0_0_24px_-8px_rgba(0,229,255,0.6)] backdrop-blur-md"
-      style={{ clipPath: "polygon(6% 0, 100% 0, 94% 100%, 0 100%)" }}
     >
       <p className="font-bold text-white mb-1">{label}</p>
       {payload.map((p) => (

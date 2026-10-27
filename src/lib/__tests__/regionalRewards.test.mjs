@@ -29,11 +29,13 @@ test('next-season creation carries division into the budget and persisted defaul
   for(const division of [1,2]) {
     const expected=division===2?337000000:757000000;
     let seeded;
-    const stageClient={entities:{RegionalLeague:{create:async row=>({...row,id:'next'}),update:async()=>{}}}};
+    let requested;
+    const stageClient={http:{post:async(path,body)=>{requested={path,body};return {outcome:'existing',record:{id:'next',name:'League',division,max_clubs:20,prize_pool_stc:expected}};}}};
     const rewardHelpers={ensureDefaultRewardConfigs:async(id,type,name,league,count)=>{seeded={league,count,budget:calculatePrizePool(type,league,count)};}};
     const create=new Function('stageClient','calculatePrizePool','REGIONAL_LEAGUE_MAX_CLUBS','rewardHelpers',`${fn};return createNextLeagueSeason;`)(stageClient,calculatePrizePool,20,rewardHelpers);
     const result=await create({id:'old',slug:'league-s1',name:'League',division,season_number:1,max_clubs:20});
     assert.equal(result.division,division);assert.equal(result.prize_pool_stc,expected);assert.equal(seeded.budget,expected);assert.equal(seeded.league.division,division);
+    assert.equal(requested.path,'/regional-leagues/old/next-season');
   }
   const admin=readFileSync(new URL('../../pages/Admin.jsx',import.meta.url),'utf8');
   assert.match(admin,/calculatePrizePool\("regional_league", d, REGIONAL_LEAGUE_MAX_CLUBS\)/);

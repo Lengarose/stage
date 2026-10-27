@@ -3,8 +3,6 @@ import { GamerHeroAction } from "@/components/profile/gamer/GamerProfileUI";
 import { DASHBOARD_WIDGET_META } from "@/lib/dashboardLayout";
 import { useTranslation } from "@/hooks/useTranslation";
 
-const CLIP = { clipPath: "polygon(2% 0, 100% 0, 98% 100%, 0 100%)" };
-
 export default function DashboardCustomizer({ activeWidgets, onAddWidget, onReset }) {
   const { t } = useTranslation();
   const availableToAdd = DASHBOARD_WIDGET_META.filter((w) => !activeWidgets.includes(w.id));
@@ -12,7 +10,6 @@ export default function DashboardCustomizer({ activeWidgets, onAddWidget, onRese
   return (
     <div
       className="border border-dashed border-cyan-300/30 bg-gradient-to-br from-[#070b14]/95 via-cyan-950/40 to-black/90 p-4 space-y-3 backdrop-blur-md"
-      style={CLIP}
     >
       <p className="text-xs text-white/45">{t("commonPages.dashboardLayoutHint")}</p>
       <div className="flex flex-wrap items-center gap-2">

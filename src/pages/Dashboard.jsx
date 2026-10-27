@@ -23,8 +23,6 @@ import ObjectivesWidget from "@/components/objectives/ObjectivesWidget";
 import DashboardGamerStatCard, { DashboardRankRing } from "@/components/dashboard/DashboardGamerStatCard";
 import { GamerHeroAction, GamerMetaPill, GamerProfileShell, GamerSectionCard } from "@/components/profile/gamer/GamerProfileUI";
 
-const ROW_CLIP = { clipPath: "polygon(4% 0, 100% 0, 96% 100%, 0 100%)" };
-
 function DashboardRow({ children, className }) {
   return (
     <div
@@ -32,7 +30,6 @@ function DashboardRow({ children, className }) {
         "border border-cyan-300/20 bg-gradient-to-r from-[#070b14]/95 via-black/85 to-[#070b14]/90 px-4 py-3 transition-all backdrop-blur-md hover:border-cyan-200/35 hover:bg-black/90",
         className,
       )}
-      style={ROW_CLIP}
     >
       {children}
     </div>
@@ -86,7 +83,7 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <GamerProfileShell>
+      <GamerProfileShell scrollMode="page">
         <div className="flex items-center justify-center min-h-[50vh]">
           <div className="w-8 h-8 border-4 border-cyan-400/20 border-t-cyan-400 rounded-full animate-spin" />
         </div>
@@ -110,12 +107,11 @@ export default function Dashboard() {
   const opponentInfo = getMatchOpponent(nextMatch, player, club);
 
   return (
-    <GamerProfileShell>
+    <GamerProfileShell scrollMode="page">
       <div className="px-4 py-6 lg:px-8 lg:py-8">
         <div className="mx-auto max-w-6xl space-y-6">
           <header
             className="relative overflow-hidden border border-cyan-300/20 bg-gradient-to-br from-cyan-500/10 via-[#0d1528]/80 to-amber-500/10 p-5 sm:p-6"
-            style={{ clipPath: "polygon(2% 0, 100% 0, 98% 100%, 0 100%)" }}
           >
             <div className="absolute inset-0 opacity-30 pointer-events-none" style={{ backgroundImage: "radial-gradient(circle at 85% 20%, rgba(255,184,0,0.25), transparent 40%), radial-gradient(circle at 10% 80%, rgba(0,229,255,0.2), transparent 35%)" }} />
             <div className="relative flex flex-wrap items-start justify-between gap-4">
@@ -257,7 +253,7 @@ export default function Dashboard() {
                     className="lg:col-span-2 border-cyan-300/30 bg-gradient-to-br from-cyan-950/55 via-[#070b14]/90 to-black/92"
                     title={t("commonPages.dashboardNextMatch")}
                     action={(
-                      <div className="w-10 h-10 border border-cyan-300/25 bg-cyan-300/10 flex items-center justify-center shrink-0" style={{ clipPath: "polygon(12% 0, 100% 0, 88% 100%, 0 100%)" }}>
+                      <div className="w-10 h-10 border border-cyan-300/25 bg-cyan-300/10 flex items-center justify-center shrink-0">
                         <Zap className="w-5 h-5 text-cyan-300" />
                       </div>
                     )}
@@ -300,7 +296,7 @@ export default function Dashboard() {
                     {club ? (
                       <>
                         <Link to={`/clubs/${club.id}`} className="flex items-center gap-3 group mb-4">
-                          <div className="w-12 h-12 border border-cyan-300/20 bg-black/30 overflow-hidden flex items-center justify-center shrink-0" style={{ clipPath: "polygon(12% 0, 100% 0, 88% 100%, 0 100%)" }}>
+                          <div className="w-12 h-12 border border-cyan-300/20 bg-black/30 overflow-hidden flex items-center justify-center shrink-0">
                             {club.logo_url ? (
                               <img src={club.logo_url} alt="" className="w-full h-full object-cover" />
                             ) : (
@@ -399,7 +395,7 @@ export default function Dashboard() {
                   </GamerSectionCard>
                   <GamerSectionCard title={t("commonPages.dashboardObjectives")}>
                     <p className="text-xs text-white/45 mb-3 -mt-1">{t("commonPages.dashboardObjectivesDesc")}</p>
-                    <ObjectivesWidget playerId={player.id} />
+                    <ObjectivesWidget playerId={player.id} shape="rectangle" />
                   </GamerSectionCard>
                 </div>
               ),
@@ -494,7 +490,6 @@ export default function Dashboard() {
 
         <section
           className="border border-dashed border-cyan-300/25 bg-gradient-to-r from-[#070b14]/92 via-black/88 to-[#070b14]/90 p-5 flex flex-wrap items-center justify-between gap-3 backdrop-blur-md"
-          style={{ clipPath: "polygon(2% 0, 100% 0, 98% 100%, 0 100%)" }}
         >
           <div className="flex items-center gap-3">
             <Trophy className="w-5 h-5 text-white/40" />

@@ -30,7 +30,7 @@ const ACCENT_VALUE = {
   sky: "text-sky-200",
 };
 
-export function GamerProfileShell({ children, className }) {
+export function GamerProfileShell({ children, className, scrollMode = "shell" }) {
   const kids = Children.toArray(children);
   const heroIndex = kids.findIndex(
     (child) => isValidElement(child) && child.type?.isStickyBannerHero
@@ -49,8 +49,10 @@ export function GamerProfileShell({ children, className }) {
   return (
     <div
       className={cn(
-        "relative flex h-full min-h-0 flex-1 flex-col overflow-x-hidden bg-[#060912] text-white",
-        hasStickyBanner ? "overflow-hidden" : "overflow-y-auto overscroll-y-contain",
+        "relative flex flex-col bg-[#060912] text-white",
+        scrollMode === "page"
+          ? "min-h-full"
+          : cn("h-full min-h-0 flex-1 overflow-x-hidden", hasStickyBanner ? "overflow-hidden" : "overflow-y-auto overscroll-y-contain"),
         className
       )}
     >
@@ -258,7 +260,7 @@ export function GamerStatTile({ label, value, accent = "cyan", sub, className, s
             : "border-cyan-300/15 bg-white/[0.03]",
         className,
       )}
-      style={rounded ? undefined : { clipPath: "polygon(6% 0, 100% 0, 94% 100%, 0 100%)" }}
+      style={rounded || shape === "rectangle" ? undefined : { clipPath: "polygon(6% 0, 100% 0, 94% 100%, 0 100%)" }}
     >
       <p className={cn("text-[9px] font-bold uppercase tracking-[0.22em] mb-1 truncate", tinted ? "text-white/55" : "text-white/40")}>{label}</p>
       <p className={cn(

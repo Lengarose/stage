@@ -179,15 +179,28 @@ function buildWhere(entityType, queryParams) {
 
 function makeRouter(entityType) {
   const router = express.Router();
+  if (entityType === 'regional_league') {
+    const editions = require('../services/regionalEditionService');
+    const review = require('../services/regionalEditionReviewService');
+    const action = handler => async (req, res) => {
+      try { res.json(await handler(req)); }
+      catch (err) { res.status(err.status || 500).json({ error: err.message, details: err.details }); }
+    };
+    router.get('/edition-review', action(req => review.diagnostics(req.user)));
+    router.post('/edition-review', action(req => review.repair(req.body || {}, req.user)));
+    router.post('/seed', action(req => editions.seed(req.body?.definitions, req.user)));
+    router.post('/:id/next-season', action(req => editions.nextSeason(req.params.id, req.user)));
+  }
 
   // GET / — list/filter
   router.get('/', async (req, res) => {
     try {
       const lim = Math.min(Number(req.query.limit) || 200, 500);
+      const offset = Math.max(0, Number.parseInt(req.query.offset, 10) || 0);
       const { where, vals } = buildWhere(entityType, req.query);
       const rows = await EXECUTESQL(
-        `SELECT * FROM \`${TABLE}\` WHERE ${where} ORDER BY created_date DESC LIMIT ?`,
-        [...vals, lim]
+        `SELECT * FROM \`${TABLE}\` WHERE ${where} ORDER BY created_date DESC,id LIMIT ? OFFSET ?`,
+        [...vals, lim, offset]
       );
       res.json(rows.map(parseRow));
     } catch (err) {
@@ -213,6 +226,10 @@ function makeRouter(entityType) {
   router.post('/', async (req, res) => {
     try {
       const body = await stampFixtureTimezone(entityType, req.body || {}, req, { force: true });
+      if (entityType === 'regional_league') {
+        const result = await require('../services/regionalEditionService').create(body, req.user);
+        return res.status(result.outcome === 'created' ? 201 : 200).json({ ...result.record, creation_outcome: result.outcome });
+      }
       if (FIXTURE_ENTITY_TYPES.has(entityType) || entityType === 'game_day_config' || entityType === 'transfer_room_config') {
         const admin = await getAdminUser(req).catch(() => null);
         if (!admin) return res.status(403).json({ error: 'Admin access required.' });
@@ -252,13 +269,14 @@ function makeRouter(entityType) {
       await auditLeagueEntity(req, `create_${entityType}`, entityType, id, null, createdRow, body.reason);
       res.status(201).json(createdRow);
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      res.status(err.status || 500).json({ error: err.message, details: err.details });
     }
   });
 
   // PATCH /:id
   router.patch('/:id', async (req, res) => {
     try {
+      if (entityType === 'regional_league') return res.json(await require('../services/regionalEditionService').update(req.params.id, req.body || {}, req.user));
       if (entityType === 'game_day_config' || entityType === 'transfer_room_config') {
         const admin = await getAdminUser(req).catch(() => null);
         if (!admin) return res.status(403).json({ error: 'Admin access required.' });
@@ -314,6 +332,10 @@ function makeRouter(entityType) {
   // DELETE /:id
   router.delete('/:id', async (req, res) => {
     try {
+      if (entityType === 'regional_league') {
+        await require('../services/regionalEditionService').admin(req.user);
+        return res.status(409).json({ error: 'Use the dry-run edition review before removing a regional league. No records were deleted.' });
+      }
       if (FIXTURE_ENTITY_TYPES.has(entityType) || entityType === 'game_day_config' || entityType === 'transfer_room_config') {
         const admin = await getAdminUser(req).catch(() => null);
         if (!admin) return res.status(403).json({ error: 'Admin access required.' });

@@ -13,8 +13,6 @@ function ratingStyle(value) {
   return "bg-white/[0.06] text-white/45 border-white/10";
 }
 
-const TILE_CLIP = { clipPath: "polygon(12% 0, 100% 0, 88% 100%, 0 100%)" };
-
 export default function DashboardFormStrip({ label, mode = "outcome", items = [], emptyLabel }) {
   if (!items?.length) {
     return emptyLabel ? (
@@ -39,7 +37,6 @@ export default function DashboardFormStrip({ label, mode = "outcome", items = []
               <span
                 key={`${item}-${i}`}
                 className={cn("w-9 h-9 border flex items-center justify-center text-xs font-black", ratingStyle(item))}
-                style={TILE_CLIP}
               >
                 {Number(item).toFixed(1)}
               </span>
@@ -52,7 +49,6 @@ export default function DashboardFormStrip({ label, mode = "outcome", items = []
             <span
               key={`${outcome}-${i}`}
               className={cn("w-9 h-9 border flex items-center justify-center text-xs font-black", OUTCOME_STYLE[outcome] || OUTCOME_STYLE.draw)}
-              style={TILE_CLIP}
             >
               {letter}
             </span>

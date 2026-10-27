@@ -3,8 +3,6 @@ import { Bell, Coins, Mail, Store } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/hooks/useTranslation";
 
-const CLIP = { clipPath: "polygon(6% 0, 100% 0, 94% 100%, 0 100%)" };
-
 const GLANCE_SURFACE = {
   default: "border-cyan-300/20 bg-gradient-to-br from-[#070b14]/95 via-[#0a101c]/92 to-black/90",
   highlight: "border-cyan-300/35 bg-gradient-to-br from-cyan-950/75 via-[#061018]/95 to-black/90 shadow-[0_0_24px_-12px_rgba(0,229,255,0.8)]",
@@ -18,13 +16,11 @@ function GlanceCard({ to, icon: Icon, label, value, highlight = false }) {
         highlight ? GLANCE_SURFACE.highlight : GLANCE_SURFACE.default,
         to && !highlight && "hover:border-cyan-200/35 hover:from-cyan-950/50",
       )}
-      style={CLIP}
     >
       <div className={cn(
         "w-10 h-10 flex items-center justify-center shrink-0 border bg-black/50",
         highlight ? "text-cyan-300 border-cyan-300/30" : "text-white/55 border-white/15",
       )}
-      style={{ clipPath: "polygon(12% 0, 100% 0, 88% 100%, 0 100%)" }}
       >
         <Icon className="w-4 h-4" />
       </div>

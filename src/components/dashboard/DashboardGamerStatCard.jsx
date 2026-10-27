@@ -7,7 +7,7 @@ export default function DashboardGamerStatCard({ label, value, sub, accent = "cy
       {Icon ? (
         <Icon className="absolute right-6 top-3 z-[1] h-4 w-4 text-white/35" />
       ) : null}
-      <GamerStatTile label={label} value={value} sub={sub} accent={accent} shape="angled" tinted />
+      <GamerStatTile label={label} value={value} sub={sub} accent={accent} shape="rectangle" tinted />
     </div>
   );
 }

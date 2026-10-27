@@ -18,7 +18,7 @@ const ROW_CLIP = { clipPath: "polygon(4% 0, 100% 0, 96% 100%, 0 100%)" };
  *   - scope:      'daily' | 'weekly' | undefined  (filter; undefined = both)
  *   - onClaimed:  (result) => void   optional callback after a successful claim
  */
-export default function ObjectivesWidget({ playerId, scope, onClaimed }) {
+export default function ObjectivesWidget({ playerId, scope, onClaimed, shape = 'angled' }) {
   const { t } = useTranslation();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -71,7 +71,7 @@ export default function ObjectivesWidget({ playerId, scope, onClaimed }) {
         const claimed   = !!it.claimed_at;
 
         return (
-          <div key={it.id} className="border border-cyan-300/20 bg-gradient-to-r from-[#070b14]/95 via-black/88 to-[#070b14]/90 p-3 backdrop-blur-md" style={ROW_CLIP}>
+          <div key={it.id} className="border border-cyan-300/20 bg-gradient-to-r from-[#070b14]/95 via-black/88 to-[#070b14]/90 p-3 backdrop-blur-md" style={shape === 'rectangle' ? undefined : ROW_CLIP}>
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">

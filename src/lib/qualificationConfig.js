@@ -93,7 +93,7 @@ export function getRegionalLeagueDefinitionBySlug(slug) {
 export function withCanonicalRegionalLeagueName(league) {
   if (!league || typeof league !== "object") return league;
   const definition = getRegionalLeagueDefinitionBySlug(league.slug);
-  return definition ? { ...league, name: definition.name } : league;
+  return definition ? { ...league, stored_name: league.stored_name || league.name, name: definition.name } : league;
 }
 
 // Division 1 final standings → official STAGE tournament qualification.

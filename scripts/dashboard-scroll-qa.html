@@ -1,0 +1,45 @@
+<!doctype html>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+<body style="margin:0"><div id="root"></div><script type="module">
+// Isolated visual/scroll fixture: the real dashboard and application layout,
+// with no authenticated session or business mutations.
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import {MemoryRouter,Routes,Route} from 'react-router-dom';
+import RefreshRuntime from '/@react-refresh';
+RefreshRuntime.injectIntoGlobalHook(window);
+window.$RefreshReg$=()=>{}; window.$RefreshSig$=()=>type=>type;
+window.__vite_plugin_react_preamble_installed__=true;
+await import('/src/index.css');
+await import('/node_modules/@fontsource/anton/index.css');
+const {stageClient}=await import('/src/api/stageClient.js');
+const player={id:'qa-player',user_id:'qa-user',gamertag:'Dashboard Test',position:'CDM',platform:'PlayStation',club_id:'qa-club',stc:50200,credits:50,created_date:'2026-01-01'};
+const club={id:'qa-club',name:'Test Club',tag:'TEST',region:'Europe'};
+const user={id:'qa-user',email:'dashboard@example.test',player_id:player.id,role_id:1};
+for(const entity of Object.values(stageClient.entities)) {
+  entity.filter=async()=>[]; entity.list=async()=>[]; entity.get=async()=>null;
+  entity.subscribe=()=>()=>{};
+}
+stageClient.auth.me=async()=>user;
+stageClient.auth.hasToken=()=>false;
+stageClient.auth.isAuthenticated=async()=>false;
+stageClient.entities.Player.get=async()=>player;
+stageClient.entities.Player.filter=async()=>[player];
+stageClient.entities.Club.get=async()=>club;
+stageClient.entities.Match.filter=async()=>[0,1,2,3,4,5].map(i=>({id:`match-${i}`,status:i<3?'completed':'scheduled',home_player_id:player.id,away_player_id:'opponent',home_club_id:club.id,home_club_name:club.name,away_club_name:'Next Opponent',home_score:2,away_score:1,scheduled_date:`2026-11-${10+i}T20:00:00Z`}));
+stageClient.entities.MatchPlayerStat.filter=async()=>[{id:'stat',player_id:player.id,rating:7.5,goals:1,created_date:new Date().toISOString()}];
+stageClient.entities.ObjectiveProgress.filter=async()=>[{id:'objective',title:'Play three matches',def_target:3,current_value:1,reward_stc:100}];
+stageClient.entities.Tournament.list=async()=>[{id:'qa-tournament',name:'Test Tournament',status:'open',registered_players:[player.id],participant_type:'player'}];
+stageClient.http.get=async path=>path.includes('rankings')?{players:[{...player,ranking_wins:12,ranking_draws:0,ranking_losses:9,ranking_matches:21,ranking_goals:56,ranking_win_rate:57}],clubs:[]} : {};
+stageClient.http.post=async()=>({});
+stageClient.functions.invoke=async()=>({});
+const {AuthProvider}=await import('/src/lib/AuthContext.jsx');
+const {TranslationProvider}=await import('/src/lib/TranslationContext.jsx');
+const {default:Layout}=await import('/src/components/Layout.jsx');
+const {default:Dashboard}=await import('/src/pages/Dashboard.jsx');
+ReactDOM.createRoot(document.getElementById('root')).render(
+  React.createElement(MemoryRouter,{initialEntries:['/dashboard']},
+    React.createElement(TranslationProvider,null,React.createElement(AuthProvider,null,
+      React.createElement(Routes,null,React.createElement(Route,{element:React.createElement(Layout)},
+        React.createElement(Route,{path:'/dashboard',element:React.createElement(Dashboard)})))))));
+</script></body></html>

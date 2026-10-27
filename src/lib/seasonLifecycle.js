@@ -1,5 +1,4 @@
 import { stageClient } from "@/api/stageClient";
-import { calculatePrizePool } from "./prizeDefaults";
 import { OFFICIAL_STAGE_TOURNAMENT_MAX_CLUBS, REGIONAL_LEAGUE_MAX_CLUBS } from "./qualificationConfig";
 
 // ─── Competition season lifecycle ────────────────────────────────────────────
@@ -76,32 +75,10 @@ export async function archiveLeague(league) {
 }
 
 export async function createNextLeagueSeason(league) {
-  const baseSlug   = league.slug.replace(/-s\d+$/, "");
-  const nextNumber = (league.season_number || 1) + 1;
-  const newSlug    = `${baseSlug}-s${nextNumber}`;
-
-  const created = await stageClient.entities.RegionalLeague.create({
-    name:            league.name,
-    slug:            newSlug,
-    region_slug:     league.region_slug,
-    division:        league.division || 1,
-    country_code:    league.country_code || "",
-    region:          league.region,
-    platform:        league.platform,
-    season_number:   nextNumber,
-    status:          "draft",
-    max_clubs:       league.max_clubs || REGIONAL_LEAGUE_MAX_CLUBS,
-    num_clubs:       0,
-    promoted_slots:  league.promoted_slots || 2,
-    prize_pool_stc:  calculatePrizePool("regional_league", league, league.max_clubs || REGIONAL_LEAGUE_MAX_CLUBS),
-    registered_club_ids: [],
-    linked_league_slug:  league.linked_league_slug || null,
-    seeding_mode: false,
-    placement_locked: false,
-  });
+  const result = await stageClient.http.post(`/regional-leagues/${encodeURIComponent(league.id)}/next-season`, {});
+  const created = result.record;
   const { ensureDefaultRewardConfigs } = await import("./rewardsEngine");
   await ensureDefaultRewardConfigs(created.id, "regional_league", created.name, created, created.max_clubs || REGIONAL_LEAGUE_MAX_CLUBS);
 
-  await stageClient.entities.RegionalLeague.update(league.id, { next_season_id: created.id });
   return created;
 }

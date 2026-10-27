@@ -4,7 +4,6 @@ import { stageClient } from "@/api/stageClient";
 import {
   OFFICIAL_STAGE_TOURNAMENT_MAX_CLUBS,
   REGIONS,
-  LEAGUE_DEFINITIONS,
   STAGE_QUALIFICATION_RULES,
 } from "@/lib/qualificationConfig";
 import { getRegionalLeagueMaxClubs, isRegionalLeagueSetupSeedingOpen } from "@/lib/regionalLeagueRules";
@@ -1398,9 +1397,9 @@ export default function LeaguesTab({
         <p className="text-xs text-muted-foreground mt-0.5">{t("admin.leagues.regionalLeaguesDesc", { count: REGIONS.length })}</p>
       </div>
       <Button onClick={seedRegionalLeagues}
-        disabled={seedingRegionalLeagues || regionalLeagues.length >= LEAGUE_DEFINITIONS.length}
+        disabled={seedingRegionalLeagues}
         className="bg-primary text-primary-foreground h-8 text-xs rounded gap-1.5 shrink-0">
-        {seedingRegionalLeagues ? t("admin.leagues.seeding") : regionalLeagues.length >= LEAGUE_DEFINITIONS.length ? t("admin.leagues.seeded") : t("admin.leagues.seedAllLeagues")}
+        {seedingRegionalLeagues ? t("admin.leagues.seeding") : t("admin.leagues.seedAllLeagues")}
       </Button>
     </div>
 

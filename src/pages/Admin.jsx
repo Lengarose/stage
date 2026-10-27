@@ -47,6 +47,7 @@ import {
 } from "../lib/qualificationConfig";
 import { swalAlert, swalConfirm, swalPrompt } from "@/lib/swal";
 import { calculatePrizePool } from "@/lib/prizeDefaults";
+import { loadRegionalRewardSources } from '@/lib/regionalRewardSources';
 import { ensureDefaultRewardConfigs, getRewardConfiguration } from '@/lib/rewardsEngine';
 import { canResolveDisputeWithScore } from "@/lib/gameDayResultFlow";
 import { toMysqlDateTime } from "@/lib/momentDate";
@@ -225,6 +226,7 @@ export default function Admin(props) {
   const [schedulingAdminBusy, setSchedulingAdminBusy] = useState(null);
   const [creatingLeagueSeason, setCreatingLeagueSeason] = useState(false);
   const [regionalLeagues, setRegionalLeagues] = useState([]);
+  const [regionalSourceError, setRegionalSourceError] = useState('');
   const [seedingRegionalLeagues, setSeedingRegionalLeagues] = useState(false);
   const [processingLeagueEnd, setProcessingLeagueEnd] = useState(null);
   const [generatingRegionalFixtures, setGeneratingRegionalFixtures] = useState(null);
@@ -334,6 +336,7 @@ export default function Admin(props) {
 
   async function loadAll() {
     setLoading(true);
+    setRegionalSourceError('');
     try {
       const [disputedMatches, allPlayers, allTournaments, allClubs, allTrophies, allComps, allCompSeasons, allCompetitionStandings, allQual, allRegLeagues, expiredLeagueFixtures, expiredCompFixtures, allRegApps, allLifestyleItems, pendingIdentityClaims] = await Promise.all([
         stageClient.entities.Match.filter({ status: "disputed" }, "-updated_date", 50).catch(() => []),
@@ -345,7 +348,7 @@ export default function Admin(props) {
         stageClient.entities.CompetitionSeason.list("-season_number", 30).catch(() => []),
         (stageClient.entities.CompetitionStanding?.list("-updated_date", 500) ?? Promise.resolve([])).catch(() => []),
         stageClient.entities.QualificationEntry.filter({ status: "pending" }, null, 50).catch(() => []),
-        stageClient.entities.RegionalLeague.list("-season_number", 50).catch(() => []),
+        loadRegionalRewardSources(stageClient).catch(err => { setRegionalSourceError(err.message || 'Could not load regional reward sources.'); return null; }),
         (stageClient.entities.RegionalLeagueFixture?.filter({ scheduling_status: "expired" }, null, 50) ?? Promise.resolve([])).catch(() => []),
         (stageClient.entities.CompetitionFixture?.filter({ scheduling_status: "expired" }, null, 50) ?? Promise.resolve([])).catch(() => []),
         (stageClient.entities.SeasonRegistration?.list("-applied_at", 200) ?? Promise.resolve([])).catch(() => []),
@@ -388,14 +391,14 @@ export default function Admin(props) {
       setCompetitionStandingCountsBySeason(nextCompetitionStandingCounts);
       setCompetitionStandingClubIdsBySeason(nextCompetitionStandingClubIds);
       setQualEntries(allQual);
-      const canonicalRegionalLeagues = allRegLeagues.map(withCanonicalRegionalLeagueName);
+      const canonicalRegionalLeagues = (allRegLeagues || regionalLeagues).map(withCanonicalRegionalLeagueName);
       setRegionalLeagues(canonicalRegionalLeagues);
       setRegApplications(await cleanupStaleSeasonRegistrations(allRegApps));
       setLifestyleItems(allLifestyleItems);
       seedDefaultRewardConfigsForSources([
         ...allComps.map(c => ({ id: c.id, type: "competition", name: c.name, slug: c.slug, tier: c.tier })),
         ...canonicalRegionalLeagues
-          .filter(l => l.status !== "archived")
+          .filter(l => allRegLeagues && !l.identity_conflict && !l.identity_unverified && l.status !== "archived")
           .map(l => ({ id: l.id, type: "regional_league", name: l.name, division: l.division || 1, max_clubs: getRegionalLeagueMaxClubs(l) })),
       ]).catch(() => {});
       await loadInternationalTournaments({ withSquads: false });
@@ -1000,12 +1003,8 @@ export default function Admin(props) {
   async function seedRegionalLeagues() {
     setSeedingRegionalLeagues(true);
     try {
-      const existing = new Set(regionalLeagues.map(l => l.slug));
-      // Strip fields that require schema publishing so the seed always succeeds
-      // with the base schema. Re-seed after publishing to persist extended fields.
       const toCreate = LEAGUE_DEFINITIONS
-        .filter(d => !existing.has(d.slug))
-        .map(({ linked_league_slug: _lls, ...d }) => ({
+        .map(d => ({
           ...d,
           platform: "Cross-Platform",
           season_number: 1,
@@ -1016,7 +1015,8 @@ export default function Admin(props) {
           promoted_slots: d.division === 1 ? 0 : 2,
           prize_pool_stc: calculatePrizePool("regional_league", d, REGIONAL_LEAGUE_MAX_CLUBS),
         }));
-      const created = await Promise.all(toCreate.map(d => stageClient.entities.RegionalLeague.create(d)));
+      const result = await stageClient.http.post('/regional-leagues/seed', { definitions: toCreate });
+      const created = result.results.filter(item => item.outcome !== 'conflict').map(item => item.record);
       await seedDefaultRewardConfigsForSources(created.map(l => ({
         id: l.id,
         type: "regional_league",
@@ -1025,7 +1025,8 @@ export default function Admin(props) {
         max_clubs: l.max_clubs || REGIONAL_LEAGUE_MAX_CLUBS,
       })));
       await loadAll();
-      await swalAlert(t("admin.alerts.regionalLeaguesSeeded", { count: toCreate.length }));
+      const conflicts = result.results.filter(item => item.outcome === 'conflict');
+      await swalAlert(`${result.results.filter(item => item.outcome === 'created').length} created, ${result.results.filter(item => item.outcome === 'existing').length} existing.${conflicts.length ? '\nReview required: ' + conflicts.map(item => `${item.slug}: ${item.error}`).join('\n') : ''}`);
     } catch (err) {
       const msg = err?.message || "";
       if (msg.includes("not found in app") || msg.includes("schema")) {
@@ -1874,6 +1875,8 @@ export default function Admin(props) {
 
           {adminTab === "rewards" && (
             <RewardsTab
+              onReload={loadAll}
+              sourceError={regionalSourceError}
               competitions={competitions}
               regionalLeagues={regionalLeagues}
               rewardSource={rewardSource}

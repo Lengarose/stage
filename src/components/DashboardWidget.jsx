@@ -2,8 +2,6 @@ import { useState } from 'react';
 import { GripVertical, X, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const CLIP = { clipPath: "polygon(2% 0, 100% 0, 98% 100%, 0 100%)" };
-
 export default function DashboardWidget({ id, title, children, onRemove, isDragging, dragHandleProps }) {
   const [collapsed, setCollapsed] = useState(false);
 
@@ -13,7 +11,6 @@ export default function DashboardWidget({ id, title, children, onRemove, isDragg
         'overflow-hidden border border-cyan-300/20 bg-[#070b14]/88 backdrop-blur-md transition-all',
         isDragging && 'opacity-50 ring-2 ring-cyan-400/50',
       )}
-      style={CLIP}
       data-widget-id={id}
     >
       <div className="flex items-center justify-between p-4 border-b border-cyan-300/10 bg-cyan-300/[0.03]">
@@ -26,6 +23,7 @@ export default function DashboardWidget({ id, title, children, onRemove, isDragg
         </div>
         <div className="flex items-center gap-1">
           <button
+            type="button"
             onClick={() => setCollapsed(c => !c)}
             className="text-white/40 hover:text-cyan-300 transition-colors p-0.5"
             title={collapsed ? 'Expand' : 'Collapse'}
@@ -34,6 +32,7 @@ export default function DashboardWidget({ id, title, children, onRemove, isDragg
           </button>
           {onRemove && (
             <button
+              type="button"
               onClick={() => onRemove(id)}
               className="text-white/40 hover:text-rose-400 transition-colors p-0.5"
               title="Remove widget"
@@ -44,7 +43,7 @@ export default function DashboardWidget({ id, title, children, onRemove, isDragg
         </div>
       </div>
       {!collapsed && (
-        <div className="p-4 overflow-auto max-h-96">
+        <div className="p-4">
           {children}
         </div>
       )}
