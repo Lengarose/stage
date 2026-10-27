@@ -19,6 +19,7 @@ export default function FeedPostModal({
   likePending = false,
   onDelete,
   renderContent,
+  square = false,
 }) {
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState("");
@@ -72,7 +73,7 @@ export default function FeedPostModal({
   return (
     <div className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4" onClick={onClose}>
       <div
-        className="bg-card border border-border rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col md:flex-row overflow-hidden"
+        className={cn("bg-card border border-border w-full max-w-3xl max-h-[90vh] flex flex-col md:flex-row overflow-hidden", square ? "rounded-none" : "rounded-2xl")}
         onClick={e => e.stopPropagation()}
       >
         {post.media_url ? (
@@ -98,11 +99,11 @@ export default function FeedPostModal({
               <p className="text-[11px] text-muted-foreground">{post.created_date ? new Date(post.created_date).toLocaleDateString() : ""}</p>
             </div>
             {onDelete && (
-              <button type="button" onClick={onDelete} className="text-muted-foreground hover:text-destructive transition-colors p-1.5 rounded-lg hover:bg-destructive/10">
+              <button type="button" aria-label="Delete post" onClick={onDelete} className={cn("text-muted-foreground hover:text-destructive transition-colors p-1.5 hover:bg-destructive/10", square ? "rounded-none" : "rounded-lg")}>
                 <Trash2 className="w-4 h-4" />
               </button>
             )}
-            <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground p-1">
+            <button type="button" aria-label="Close post" onClick={onClose} className="text-muted-foreground hover:text-foreground p-1">
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -164,10 +165,10 @@ export default function FeedPostModal({
                   value={commentText}
                   onChange={e => setCommentText(e.target.value)}
                   placeholder="Add a comment..."
-                  className="flex-1 bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-primary/50"
+                  className={cn("min-w-0 flex-1 bg-secondary border border-border px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-primary/50", square ? "rounded-none" : "rounded-lg")}
                 />
                 <button type="submit" disabled={submitting || !commentText.trim()}
-                  className="px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50">
+                  className={cn("px-3 py-2 text-sm font-medium disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-cyan-400", square ? "rounded-none border border-cyan-400/40 bg-slate-950 text-cyan-300 hover:bg-cyan-950" : "rounded-lg bg-primary text-primary-foreground")}>
                   {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 </button>
               </form>

@@ -7,7 +7,7 @@ import { asObjectArray } from "@/lib/safeData";
 import { loadClubDirectoryPages } from "@/lib/clubDirectoryLoader";
 import { loadPlayerDirectoryPages } from "@/lib/playerDirectoryLoader";
 import { buildPlayerPresidentDirectoryRows, matchesPlayerPresidentQuery } from "@/lib/presidentDirectory";
-import { getCountryDisplayName } from "@/lib/countryDisplay";
+import { getCountryShortName } from "@/lib/countryDisplay";
 
 const PAGE_SIZE = 15;
 
@@ -152,7 +152,7 @@ export default function Presidents() {
                           ) : null}
                         </div>
                         <div className="flex items-center gap-2 text-[11px] text-white/35 mt-0.5 flex-wrap">
-                          {president.country_code ? <span>{getCountryDisplayName(president.country_code)}</span> : null}
+                          {president.country_code ? <span>{getCountryShortName(president.country_code)}</span> : null}
                           {president.management_style ? (
                             <>
                               {president.country_code ? <span>·</span> : null}

@@ -19,6 +19,7 @@ import PlayerAchievementsSection from "@/components/rewards/PlayerAchievementsSe
 import PlayerLifestyleTab from "@/components/lifestyle/PlayerLifestyleTab";
 import PlayerShowcase from "@/components/scouting/PlayerShowcase";
 import GamerProfileHero from "@/components/profile/gamer/GamerProfileHero";
+import { formatProfilePlatform } from "@/lib/profilePlatform";
 import { GamerHeroAction, GamerPlayerPhotoFrame, GamerProfileShell, GamerSectionCard, GamerStatTile, GamerTabNav } from "@/components/profile/gamer/GamerProfileUI";
 import PlayerCareerSummary from "@/components/profile/PlayerCareerSummary";
 import PlayerTransferHistory from "@/components/profile/PlayerTransferHistory";
@@ -387,12 +388,12 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
         )}
         verifiedHandle={
           Number(player.is_verified) === 1 && player.verified_platform_handle
-            ? `${player.verified_platform || "Platform"} · ${player.verified_platform_handle}`
+            ? `${formatProfilePlatform(player.verified_platform, "Platform")} - ${player.verified_platform_handle}`
             : null
         }
         topActions={isOwner ? (
-          <Link to={ownProfilePath}>
-            <GamerHeroAction as="span" className="h-9">
+          <Link to={ownProfilePath} className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/40">
+            <GamerHeroAction as="span" className="min-h-11">
               <Settings className="w-3.5 h-3.5 text-cyan-200/90" /> {t("commonPages.profEditProfile")}
             </GamerHeroAction>
           </Link>

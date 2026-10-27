@@ -36,6 +36,7 @@ import { getFootballRoleBadges, getPlayerManagementBadges } from "@/lib/playerPr
 import { getPlayerProfileTabs } from "@/lib/playerProfileTabs";
 import PlayerShowcase from "@/components/scouting/PlayerShowcase";
 import { hasStagePlus } from "@/lib/subscriptionUtils";
+import { formatProfilePlatform } from "@/lib/profilePlatform";
 
 const POSITIONS = ["GK","CB","LB","RB","CDM","CM","CAM","LM","RM","LW","RW","ST","CF"];
 
@@ -364,7 +365,6 @@ export default function Profile({
   const safeNotifications = asObjectArray(notifications);
   const safeJoinRequests = asObjectArray(joinRequests);
   const safeIdentityClaims = asObjectArray(identityClaims);
-  const unreadCount = safeNotifications.filter(n => !n.read).length;
   const _latestIdentityClaim = safeIdentityClaims[0] || null;
   const pendingIdentityClaim = safeIdentityClaims.find(c => c.status === "pending");
   const profileRoleBadges = getFootballRoleBadges(player);
@@ -391,17 +391,11 @@ export default function Profile({
           onAvatarClick={player?.avatar_url ? () => setAvatarLightboxOpen(true) : undefined}
           verifiedHandle={
             Number(player?.is_verified) === 1 && player?.verified_platform_handle
-              ? `${player.verified_platform || "Platform"} · ${player.verified_platform_handle}`
+              ? `${formatProfilePlatform(player.verified_platform, "Platform")} - ${player.verified_platform_handle}`
               : null
           }
           topActions={(
             <>
-              {unreadCount > 0 ? (
-                <button type="button" onClick={() => setView("notifications")} className="relative p-2.5 rounded-full border border-white/10 bg-black/40 backdrop-blur-md hover:bg-black/60 transition-colors">
-                  <Bell className="w-4 h-4 text-white" />
-                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-primary text-[9px] flex items-center justify-center font-bold">{unreadCount}</span>
-                </button>
-              ) : null}
               {safeJoinRequests.length > 0 ? (
                 <button type="button" onClick={() => setView("requests")} className="relative p-2.5 rounded-full border border-white/10 bg-black/40 backdrop-blur-md hover:bg-black/60 transition-colors">
                   <UserCheck className="w-4 h-4 text-white" />
@@ -409,7 +403,7 @@ export default function Profile({
                 </button>
               ) : null}
               {canUsePlayerProfile ? (
-                <GamerHeroAction onClick={() => setView("edit_player")}>
+                <GamerHeroAction className="min-h-11" onClick={() => setView("edit_player")}>
                   <Settings className="w-4 h-4 text-cyan-200/90" /> {t("commonPages.profEditProfile")}
                 </GamerHeroAction>
               ) : null}

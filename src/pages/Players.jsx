@@ -7,7 +7,7 @@ import { useTranslation } from "@/hooks/useTranslation";
 import { asObjectArray, parseJsonArray } from "@/lib/safeData";
 import { filterPublicPlayerProfiles } from "@/lib/playerDirectory";
 import { loadPlayerDirectoryPages } from "@/lib/playerDirectoryLoader";
-import { getCountryDisplayName } from "@/lib/countryDisplay";
+import { getCountryShortName } from "@/lib/countryDisplay";
 
 const PLATFORMS = ["All Platforms", "PlayStation", "Xbox", "PC"];
 const POSITIONS = ["All Positions", "GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LM", "RM", "LW", "RW", "ST", "CF"];
@@ -198,7 +198,7 @@ export default function Players({ tournamentId } = {}) {
                           )}
                         </div>
                         <div className="flex items-center gap-2 text-[11px] text-white/35 mt-0.5 flex-wrap">
-                          {(player.country || player.country_code) && <span>{getCountryDisplayName(player.country_code, player.country)}</span>}
+                          {(player.country || player.country_code) && <span>{getCountryShortName(player.country_code, player.country)}</span>}
                           {player.platform && <><span>·</span><span>{player.platform}</span></>}
                           {club && (
                             <>

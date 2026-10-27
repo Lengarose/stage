@@ -1,0 +1,81 @@
+<!doctype html>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+<body style="margin:0"><div id="root"></div><script type="module">
+// Local-only fixture using both real profile routes and mocked business calls.
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import {MemoryRouter,Routes,Route,Outlet} from 'react-router-dom';
+import RefreshRuntime from '/@react-refresh';
+RefreshRuntime.injectIntoGlobalHook(window);
+window.$RefreshReg$=()=>{}; window.$RefreshSig$=()=>type=>type;
+window.__vite_plugin_react_preamble_installed__=true;
+await import('/src/index.css');
+await import('/node_modules/@fontsource/anton/index.css');
+const params=new URLSearchParams(location.search);
+const clubView=params.get('view')==='club';
+const clubMember=clubView&&params.get('member')==='1';
+document.documentElement.className=params.get('theme')==='light'?'theme-white':'theme-dark dark';
+const {stageClient}=await import('/src/api/stageClient.js');
+const transparent=new URL('/src/assets/Stadium%20Logo.png',location.origin).href;
+const player={id:'qa-profile',user_id:'qa-user',email:'profile@example.test',gamertag:params.get('name')??'Test Player',position:'CDM',secondary_position:'CM',platform:params.get('platform')||'PlayStation',country:params.get('country')??'DR Congo',country_code:params.get('countrycode')||'',is_verified:1,verified_platform:params.get('platform')||'PlayStation',verified_platform_handle:'TestHandle',avatar_url:params.has('missing')?undefined:transparent,overall_rating:78,shirt_number:6,subscription:'free',created_date:'2026-01-01'};
+if(params.has('missing')){delete player.position;delete player.secondary_position;delete player.platform;delete player.country;delete player.country_code;delete player.is_verified;delete player.verified_platform_handle;}
+const club={id:'qa-club',name:'Test Club',tag:'TEST',platform:params.get('platform')||'PlayStation',region:'Europe',country:'DR Congo',country_code:'CD',logo_url:transparent};
+if(clubMember){player.club_id=club.id;player.role='captain';}
+const user={id:'qa-user',email:player.email,player_id:player.id,role_id:1};
+const visitor={id:'qa-visitor',email:'visitor@example.test',player_id:'qa-visitor-player',role_id:1};
+const owner=clubView?clubMember:params.get('view')!=='public';
+for(const entity of Object.values(stageClient.entities)) {
+  entity.filter=async()=>[];entity.list=async()=>[];entity.get=async()=>null;
+  entity.subscribe=()=>()=>{};
+}
+stageClient.auth.me=async()=>owner?user:visitor;
+stageClient.auth.hasToken=()=>false;
+stageClient.auth.isAuthenticated=async()=>true;
+stageClient.entities.Player.get=async id=>id===player.id?player:{...player,id:visitor.player_id,email:visitor.email};
+stageClient.entities.Club.get=async()=>club;
+stageClient.entities.Player.filter=async filters=>filters.club_id&&clubMember?[player]:[];
+stageClient.http.get=async()=>({});stageClient.http.post=async()=>({});
+stageClient.profileMatches.list=async()=>[];
+stageClient.identityClaims.list=async()=>[];
+stageClient.functions.invoke=async()=>({});
+stageClient.entities.Notification.filter=async()=>[{id:'qa-notification',recipient_email:player.email,read:false,title:'Test notification'}];
+let failPost=false,failUpload=false;
+let posts=params.get('state')==='populated'?[{id:'qa-post',author_email:player.email,author_name:clubView?club.name:player.gamertag,club_id:clubView?club.id:undefined,content:'Existing profile update',created_date:'2026-10-27T10:00:00Z',likes:[],likes_count:0,comments_count:0}]:[];
+stageClient.entities.Post.filter=async()=>{
+  if(params.get('state')==='loading')return new Promise(()=>{});
+  if(params.get('state')==='error')throw Error('Test feed load failure');
+  return structuredClone(posts);
+};
+stageClient.entities.Post.create=async body=>{
+  await new Promise(resolve=>setTimeout(resolve,400));
+  if(failPost)throw Error('Test publish failure');
+  const row={...body,id:`qa-post-${posts.length}`,created_date:new Date().toISOString(),likes:[],likes_count:0,comments_count:0};
+  posts.unshift(row);return structuredClone(row);
+};
+stageClient.integrations.Core.UploadFile=async()=>{
+  await new Promise(resolve=>setTimeout(resolve,400));
+  if(failUpload)throw Error('Test upload failure');
+  return {file_url:transparent};
+};
+stageClient.posts.likeToggle=async id=>({post:posts.find(p=>p.id===id)});
+const {AuthProvider}=await import('/src/lib/AuthContext.jsx');
+const {TranslationProvider}=await import('/src/lib/TranslationContext.jsx');
+const {default:Profile}=await import('/src/pages/Profile.jsx');
+const {default:PlayerProfile}=await import('/src/pages/PlayerProfile.jsx');
+const {default:ClubDetail}=await import('/src/pages/ClubDetail.jsx');
+const {default:NotificationBell}=await import('/src/components/NotificationBell.jsx');
+function Shell(){return React.createElement('div',{className:'flex h-screen flex-col overflow-hidden bg-background'},
+  React.createElement('header',{className:'flex h-16 shrink-0 items-center gap-4 px-4 border-b border-border'},
+    React.createElement('a',{href:'?view=owner'},'My Profile'),React.createElement('a',{href:'?view=public'},'Player Profile'),
+    React.createElement('button',{className:'hidden sm:block',type:'button',onClick:()=>{failPost=!failPost;}},'Toggle post failure'),
+    React.createElement('button',{className:'hidden sm:block',type:'button',onClick:()=>{failUpload=!failUpload;}},'Toggle upload failure'),
+    React.createElement(NotificationBell)),
+  React.createElement('main',{className:'flex min-h-0 flex-1 flex-col overflow-hidden'},React.createElement(Outlet)));}
+ReactDOM.createRoot(document.getElementById('root')).render(
+  React.createElement(MemoryRouter,{initialEntries:[clubView?'/clubs/qa-club':owner?'/profile':'/players/qa-profile']},
+    React.createElement(TranslationProvider,null,React.createElement(AuthProvider,null,
+      React.createElement(Routes,null,React.createElement(Route,{element:React.createElement(Shell)},
+        React.createElement(Route,{path:'/profile',element:React.createElement(Profile)}),
+        React.createElement(Route,{path:'/players/:id',element:React.createElement(PlayerProfile)}),
+        React.createElement(Route,{path:'/clubs/:id',element:React.createElement(ClubDetail)})))))));
+</script></body></html>

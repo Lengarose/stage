@@ -52,8 +52,8 @@ const NAME_TO_CODE_HINTS = [
   [/belg/i, "BE"],
   [/brazil/i, "BR"],
   [/canada/i, "CA"],
-  [/democratic republic of (the )?congo|dr congo|drc|congo kinshasa/i, "CD"],
-  [/republic of congo|congo brazzaville/i, "CG"],
+  [/democratic republic of (the )?congo|d\.?\s*r\.?\s*congo|\bdrc\b|congo[\s(-]+kinshasa/i, "CD"],
+  [/republic of (the )?congo|congo[\s(-]+brazzaville/i, "CG"],
   [/england/i, "ENG"],
   [/france|french/i, "FR"],
   [/german/i, "DE"],
@@ -108,5 +108,10 @@ export function getPlayerNationality(player) {
     code,
     label: getCountryDisplayName(code || player?.country_code, player?.country),
   };
+}
+
+/** Compact human-readable label, never an API/ISO country identifier. */
+export function getCountryShortName(code, country) {
+  return normalizeCountryCode(code, country) === "CD" ? "DRC" : getCountryDisplayName(code, country);
 }
 

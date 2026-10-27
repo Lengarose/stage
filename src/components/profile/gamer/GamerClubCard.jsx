@@ -1,5 +1,6 @@
 import { Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatProfilePlatform } from "@/lib/profilePlatform";
 
 export function GamerClubPhotoFrame({
   club,
@@ -52,7 +53,7 @@ export function GamerClubPhotoFrame({
         {club?.tag ? (
           <p className="font-heading text-xl font-black uppercase leading-none tracking-normal text-amber-300 drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)]">[{club.tag}]</p>
         ) : null}
-        <p className="text-[10px] font-bold text-white/50 mt-0.5 truncate">{club?.platform || "—"}</p>
+        <p className="text-[10px] font-bold text-white/50 mt-0.5 truncate">{formatProfilePlatform(club?.platform)}</p>
       </div>
       {children}
     </Component>

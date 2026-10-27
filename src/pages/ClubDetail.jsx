@@ -56,7 +56,7 @@ import FixtureSchedulerPanel from "@/components/schedule/FixtureSchedulerPanel";
 import { getPrimaryClubRole, mergeStaffRolesIntoPlayers, normalizeClubRole } from "@/lib/clubStaffRoles";
 import { buildClubTabGroups, clubTabLabels } from "@/lib/clubOfficeTabs";
 import { hasStagePlus } from "@/lib/subscriptionUtils";
-import { getPlayerNationality, normalizeCountryCode } from "@/lib/countryDisplay";
+import { getCountryShortName, getPlayerNationality, normalizeCountryCode } from "@/lib/countryDisplay";
 import { displayNamedFounder, isNamedFounder } from "@/lib/founderDisplay";
 import { withCanonicalRegionalLeagueName } from "@/lib/qualificationConfig";
 
@@ -1701,7 +1701,7 @@ function NationalityRow({ player }) {
     >
       <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white/82 drop-shadow">Nationality</span>
       <span className="flex min-w-0 items-center border border-white/15 bg-black/55 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.1em] text-white shadow-[0_0_18px_rgba(0,0,0,0.28)]">
-        <span className="truncate">{nationality.label}</span>
+        <span className="truncate">{getCountryShortName(nationality.code, player.country)}</span>
       </span>
           </div>
   );

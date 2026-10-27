@@ -1,9 +1,13 @@
 import { Link } from "react-router-dom";
 import { BadgeCheck, Gamepad2, Shield, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { PAGE_BANNER_HEIGHT_CLASS } from "@/lib/pageBanner";
 import PageBannerShell from "@/components/PageBannerShell";
 import AdaptiveBannerBackground from "@/components/profile/AdaptiveBannerBackground";
+import { formatProfilePlatform } from "@/lib/profilePlatform";
+import { getCountryShortName, getPlayerNationality } from "@/lib/countryDisplay";
+import { getCountryFlag } from "@/lib/allCountries";
+import ProfileBannerDivider from "./ProfileBannerDivider";
+import ProfileBannerIdentity, { PROFILE_BANNER_SIZE } from "./ProfileBannerIdentity";
 import {
   GamerMetaPill,
   GamerPlayerCard,
@@ -25,8 +29,32 @@ function GamerProfileHero({
   stickyLayout = false,
   stickyDockChildren = null,
 }) {
+  const nationality = getPlayerNationality(player);
+  const countryFlag = getCountryFlag(nationality.code) || String(player?.country || "").match(/^\p{Regional_Indicator}{2}/u)?.[0] || "";
+  const identity = (
+      <>
+        <p className="font-heading text-[10px] font-black uppercase tracking-[0.34em] text-cyan-200/55">Player Profile</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="min-w-0 [overflow-wrap:anywhere] font-heading text-2xl sm:text-4xl lg:text-6xl font-black uppercase tracking-normal leading-none drop-shadow-[0_8px_28px_rgba(0,0,0,0.85)]">
+            {player?.gamertag || user?.full_name || "Player"}
+          </h1>
+          {Number(player?.is_verified) === 1 ? (
+            <span className="inline-flex items-center gap-1 rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-cyan-300">
+              <BadgeCheck className="w-3.5 h-3.5" /> EA
+            </span>
+          ) : null}
+        </div>
+        <div className="player-profile-metadata flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-white/70">
+          {player?.position ? <span className="inline-flex items-center gap-1.5"><Target className="w-3 h-3 shrink-0 text-cyan-400" />{formatPositions ? formatPositions(player) : player.position}</span> : null}
+          {player?.platform ? <span className="inline-flex items-center gap-1.5"><Gamepad2 className="w-3 h-3 shrink-0 text-amber-400" />{formatProfilePlatform(player.platform)}</span> : null}
+          {player?.country || player?.country_code ? <span>{countryFlag} {getCountryShortName(player.country_code, player.country)}</span> : null}
+          {club ? <Link to={`/clubs/${club.id}`}><GamerMetaPill className="hover:border-cyan-400/30 hover:text-cyan-300 transition-colors"><Shield className="w-3 h-3" />{club.name}</GamerMetaPill></Link> : null}
+        </div>
+        {verifiedHandle ? <p className="[overflow-wrap:anywhere] text-xs font-medium text-cyan-300/80">{verifiedHandle}</p> : null}
+      </>
+  );
   const banner = (
-    <div className={cn("relative w-full overflow-hidden", stickyLayout ? "h-full" : PAGE_BANNER_HEIGHT_CLASS)}>
+    <div className={cn("relative w-full overflow-hidden", PROFILE_BANNER_SIZE)}>
       <AdaptiveBannerBackground
         bannerUrl={player?.banner_url}
         bannerPosition={player?.banner_position || "50% 64%"}
@@ -37,8 +65,10 @@ function GamerProfileHero({
       <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-[#060912] via-[#060912]/78 to-transparent" />
       <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/14 via-transparent to-amber-500/12" />
       <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-[#060912] via-[#060912]/55 to-transparent" />
+      <ProfileBannerDivider />
       {topLeftActions ? <div className="absolute top-4 left-4 z-20 flex items-center gap-2">{topLeftActions}</div> : null}
       {topActions ? <div className="absolute top-4 right-4 z-20 flex items-center gap-2">{topActions}</div> : null}
+      <ProfileBannerIdentity>{identity}</ProfileBannerIdentity>
     </div>
   );
 
@@ -47,38 +77,9 @@ function GamerProfileHero({
       <div className="flex flex-col lg:flex-row gap-5 lg:gap-8 items-start">
         <GamerPlayerCard player={player} onAvatarClick={onAvatarClick} />
 
-        <div className="flex-1 min-w-0 space-y-3 pt-2 lg:pt-10">
+        <div className="w-full flex-1 min-w-0 space-y-3 pt-2 lg:pt-40">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0 space-y-2">
-              <p className="font-heading text-[10px] font-black uppercase tracking-[0.34em] text-cyan-200/55">Player Profile</p>
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="font-heading text-4xl sm:text-5xl md:text-6xl font-black uppercase tracking-tight leading-none drop-shadow-[0_8px_28px_rgba(0,0,0,0.85)]">
-                  {player?.gamertag || user?.full_name || "Player"}
-                </h1>
-                {Number(player?.is_verified) === 1 ? (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-cyan-300">
-                    <BadgeCheck className="w-3.5 h-3.5" /> EA
-                  </span>
-                ) : null}
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                {player?.position ? (
-                  <GamerMetaPill><Target className="w-3 h-3 text-cyan-400" />{formatPositions ? formatPositions(player) : player.position}</GamerMetaPill>
-                ) : null}
-                {player?.platform ? (
-                  <GamerMetaPill><Gamepad2 className="w-3 h-3 text-amber-400" />{player.platform}</GamerMetaPill>
-                ) : null}
-                {player?.country ? <GamerMetaPill>{player.country}</GamerMetaPill> : null}
-                {club ? (
-                  <Link to={`/clubs/${club.id}`}>
-                    <GamerMetaPill className="hover:border-cyan-400/30 hover:text-cyan-300 transition-colors">
-                      <Shield className="w-3 h-3" />{club.name}
-                    </GamerMetaPill>
-                  </Link>
-                ) : null}
-              </div>
-
               {roleBadges.length > 0 ? (
                 <div className="flex flex-wrap gap-1.5">
                   {roleBadges.map((role) => (
@@ -121,11 +122,6 @@ function GamerProfileHero({
           </div>
 
           {player?.bio ? <p className="text-sm text-white/65 leading-relaxed max-w-2xl">{player.bio}</p> : null}
-          {verifiedHandle ? (
-            <p className="text-xs text-cyan-300/80">
-              {verifiedHandle}
-            </p>
-          ) : null}
           {children}
         </div>
       </div>
@@ -136,6 +132,7 @@ function GamerProfileHero({
     return (
       <PageBannerShell
         banner={banner}
+        bannerClassName="h-auto sm:h-auto xl:h-auto"
         className="bg-transparent"
         dockClassName="bg-transparent"
         dockScroll={false}

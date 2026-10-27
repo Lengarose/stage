@@ -6,6 +6,7 @@ import TransferBadge from "./TransferBadge";
 import { calculatePlayerValue, formatSTC, getValueTier } from "@/lib/playerValue";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/hooks/useTranslation";
+import { getCountryShortName } from "@/lib/countryDisplay";
 
 const PAGE_SIZE = 8;
 
@@ -59,7 +60,7 @@ function TransferScoutCard({ entry, active, onSelect }) {
           <TransferBadge type={badgeType} daysLeft={days_left} />
           {player.is_verified ? <Star className="h-3.5 w-3.5 shrink-0 fill-[#f5c542] text-[#f5c542]" /> : null}
         </div>
-        <p className="truncate text-[9px] uppercase tracking-[0.2em] text-white/38">{player.country || player.platform || "Global"}</p>
+        <p className="truncate text-[9px] uppercase tracking-[0.2em] text-white/38">{player.country || player.country_code ? getCountryShortName(player.country_code, player.country) : player.platform || "Global"}</p>
         <h3 className="mt-0.5 truncate font-heading text-lg font-black uppercase leading-none text-white">
           {player.gamertag || "Unknown"}
         </h3>
