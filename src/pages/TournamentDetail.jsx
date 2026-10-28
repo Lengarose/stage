@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import {
   advanceTournamentRound,
@@ -18,7 +18,7 @@ import {
   simulateTournamentScore,
   withdrawTournamentClub,
 } from "@/api/tournamentActions";
-import { Trophy, ArrowLeft, Users, Calendar, Shield, Check, Play, Flag, BookOpen, Download, Coins, ExternalLink, Image as ImageIcon, Link2 } from "lucide-react";
+import { Trophy, ArrowLeft, Users, Shield, Check, Play, Flag, BookOpen, Download, Coins, ExternalLink, Image as ImageIcon, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -38,7 +38,11 @@ import TournamentStandingsTabs from "../components/TournamentStandingsTabs";
 import TournamentLeaderboard from "../components/TournamentLeaderboard";
 import MatchStatsModal from "../components/MatchStatsModal";
 import EditTournamentDialog from "../components/EditTournamentDialog";
-import PlayerRegistrantList from "../components/PlayerRegistrantList";
+import ParticipantDirectory from '@/components/competition/ParticipantDirectory';
+import CompetitionTextTabs from '@/components/competition/CompetitionTextTabs';
+import { TournamentBanner, TournamentPrizeSummary, TournamentChampion } from '@/components/competition/TournamentPresentation';
+import { GostTrophy } from '@/pages/Competitions';
+import { formatProfilePlatform } from '@/lib/profilePlatform';
 import { isWallClockPast, toMysqlDateTime, toDatetimeLocalValue } from "@/lib/momentDate";
 import { swalAlert, swalConfirm } from "@/lib/swal";
 import { getTournamentEntryCost } from "@/lib/subscriptionUtils";
@@ -54,7 +58,7 @@ function requiresClubTournamentAdminReview(tournament) {
   return !String(tournament.creator_gamertag || "").trim();
 }
 
-export default function TournamentDetail() {
+function TournamentDetailContent() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { t, language } = useTranslation();
@@ -152,14 +156,22 @@ export default function TournamentDetail() {
   const [streamDialogOpen, setStreamDialogOpen] = useState(false);
   const [streamUrl, setStreamUrl] = useState("");
   const [takeoverClub, setTakeoverClub] = useState(null);
-  const [activeTab, setActiveTab] = useState("bracket");
+  const [searchParams,setSearchParams]=useSearchParams();
+  const activeTab=searchParams.get('tab') || (['completed','archived'].includes(tournament?.status)&&tournament?.type==='league'?'league_standings':'bracket');
+  const setActiveTab=value=>setSearchParams(previous=>{const next=new URLSearchParams(previous);next.set('tab',value);return next;});
+  const [presentation,setPresentation]=useState(null);
+  const [presentationError,setPresentationError]=useState('');
+  const [loadError,setLoadError]=useState('');
+  const [loadRevision,setLoadRevision]=useState(0);
   const [inviteBusy, setInviteBusy] = useState(false);
 
   useEffect(() => {
+    let active=true;
     async function load() {
       try {
         const isAuthed = await stageClient.auth.isAuthenticated().catch(() => false);
         const u = isAuthed ? await stageClient.auth.me().catch(() => null) : null;
+        if(!active)return;
         setUser(u);
 
         // Each call gets its own fallback so a single failure can never block
@@ -171,16 +183,19 @@ export default function TournamentDetail() {
           : { player: null, club: null };
         setMyClub(myResolvedClub || null);
         const [tData, clubData, matchData] = await Promise.all([
-          fetchTournamentPublic(id).then(t => t ? [t] : []).catch(() => []),
-          stageClient.entities.Club.list("-rating", 200).catch(() => []),
+          fetchTournamentPublic(id).then(t => t ? [t] : []),
+          stageClient.http.get(`/public/tournaments/${encodeURIComponent(id)}/presentation`).then(data=>({data,error:null})).catch(e=>({data:null,error:e.message})),
           fetchTournamentMatches(id).then(rows => ({ rows, error: null })).catch(error => ({ rows: [], error: error.message || 'Could not load the complete tournament fixture feed.' })),
         ]);
+        if(!active)return;
         const t = tData[0] || null;
+        const participantData=clubData.data;
+        setPresentation(participantData);setPresentationError(clubData.error || '');setLoadError('');
         setTournament(t ? { ...t, standings_load_error: matchData.error } : null);
-        setAllClubs(clubData);
+        setAllClubs([...(participantData?.participants || []), ...(myResolvedClub && !participantData?.participants?.some(p=>p.id===myResolvedClub.id) ? [myResolvedClub] : [])]);
         setMatches(matchData.rows);
         if (t) {
-          setClubs(clubData.filter(c => t.registered_clubs?.includes(c.id)));
+          setClubs((participantData?.participants || []).filter(c => t.registered_clubs?.includes(c.id)));
         }
         if (myPl) {
           setMyPlayer(myPl);
@@ -200,29 +215,30 @@ export default function TournamentDetail() {
           }
         }
       } catch (err) {
-        console.error('[TournamentDetail.load]', err);
+        if(active)setLoadError(err.message || 'Tournament could not be loaded.');
       } finally {
-        setLoading(false);
+        if(active)setLoading(false);
       }
     }
     load();
 
     const unsubMatches = stageClient.entities.Match.subscribe((event) => {
-      if (event.data?.tournament_id === id) {
-        fetchTournamentMatches(id).then(setMatches);
+      if (active && event.data?.tournament_id === id) {
+        fetchTournamentMatches(id).then(rows=>{if(active)setMatches(rows);}).catch(e=>{if(active)setPresentationError(e.message);});
       }
     });
     const unsubTournament = stageClient.entities.Tournament.subscribe((event) => {
-      if (event.data?.id === id) {
+      if (active && event.data?.id === id) {
         setTournament(prev => ({ ...(prev || {}), ...event.data }));
       }
     }, { id });
 
     return () => {
+      active=false;
       unsubMatches();
       unsubTournament();
     };
-  }, [id]);
+  }, [id,loadRevision]);
 
   useEffect(() => {
     if (tournament?.type === "group_stage" && matches.length > 0) {
@@ -237,6 +253,8 @@ export default function TournamentDetail() {
           wins: club.W,
           draws: club.D,
           losses: club.L,
+          goalsFor: club.GF,
+          goalsAgainst: club.GA,
           goalDiff: club.GD,
           points: club.Pts,
         })),
@@ -249,8 +267,8 @@ export default function TournamentDetail() {
     let stopped = false;
     async function refreshTournament() {
       try {
-        const [nextTournament, nextMatches] = await Promise.all([fetchTournamentPublic(id), fetchTournamentMatches(id)]);
-        if (!stopped) { setTournament(nextTournament); setMatches(nextMatches); }
+        const [nextTournament, nextMatches, nextPresentation] = await Promise.all([fetchTournamentPublic(id), fetchTournamentMatches(id), stageClient.http.get(`/public/tournaments/${encodeURIComponent(id)}/presentation`)]);
+        if (!stopped) { setTournament(nextTournament); setMatches(nextMatches); setPresentation(nextPresentation); setPresentationError(''); setAllClubs([...(nextPresentation.participants || []), ...(myClub && !nextPresentation.participants?.some(p=>p.id===myClub.id) ? [myClub] : [])]); }
       } catch (error) {
         if (!stopped) setTournament(previous => previous ? { ...previous, standings_load_error: error.message || 'Complete fixture feed unavailable' } : previous);
       }
@@ -258,7 +276,7 @@ export default function TournamentDetail() {
     const timer = window.setInterval(refreshTournament, 15000);
     window.addEventListener("focus", refreshTournament);
     return () => { stopped = true; clearInterval(timer); window.removeEventListener("focus", refreshTournament); };
-  }, [id]);
+  }, [id,myClub?.id]);
 
   async function registerClub() {
     const effectiveId = takeoverClub ? takeoverClub.id : (myClub?.id || myPlayer?.club_id);
@@ -360,7 +378,8 @@ export default function TournamentDetail() {
   }
 
   async function registerPlayer() {
-    if (!tournament) return;
+    if (loadError) return <div role="alert" className="p-8">{loadError}<button type="button" onClick={()=>{setLoading(true);setLoadRevision(n=>n+1);}} className="ml-4 min-h-11 text-primary">Retry</button></div>;
+  if (!tournament) return;
     if (!myPlayer) {
       await swalAlert(t("tournamentDetail.needPlayerProfile") || "Create your player profile before registering.");
       return;
@@ -799,9 +818,7 @@ export default function TournamentDetail() {
       ? myPlayerRegistrationProof?.rules_accepted_at
       : myClubRegistrationProof?.rules_accepted_at
   );
-  const registeredCount = isPlayerTournament
-    ? (tournament.registered_players?.length || 0)
-    : (tournament.registered_clubs?.length || 0);
+  const registeredCount = presentation?.participants?.length ?? new Set((isPlayerTournament ? tournament.registered_players : tournament.registered_clubs) || []).size;
   const isFull = registeredCount >= tournament.max_teams;
   const entryCreditsNeeded = tournament.entry_credits ?? 50;
   const entryStcNeeded = tournament.entry_fee_stc ?? 0;
@@ -912,88 +929,23 @@ export default function TournamentDetail() {
   ];
 
   return (
-    <div className="h-full min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-background">
+    <div className="competition-surface min-h-screen min-w-0 bg-background">
       {/* ── HERO CONTENT ──────────────────────────────── */}
-      <div className="relative border-b border-cyan-400/10 bg-[#050b14]">
-        <div className="absolute inset-0" style={heroStyle} />
-        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(1,8,18,0.98)_0%,rgba(1,8,18,0.64)_42%,rgba(1,8,18,0.86)_100%)] pointer-events-none" />
-        <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-background via-background/70 to-transparent pointer-events-none" />
-        <div className="absolute inset-0 opacity-35 pointer-events-none bg-[radial-gradient(ellipse_at_50%_0%,rgba(103,232,249,0.24),transparent_45%)]" />
-        <div className="relative max-w-7xl mx-auto px-4 lg:px-8">
-          <button type="button" onClick={() => navigate(-1)}
-            className="mt-4 inline-flex h-10 max-w-[240px] items-center justify-center gap-2 border border-cyan-200/25 bg-black/24 px-4 font-heading text-xs font-black uppercase tracking-[0.12em] text-cyan-50/95 shadow-[0_0_24px_-16px_rgba(0,229,255,0.9)] backdrop-blur-md transition-all hover:border-cyan-200/55 hover:bg-cyan-300/10 hover:text-white hover:shadow-[0_0_24px_-10px_rgba(0,229,255,0.9)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/50"
-            style={{ clipPath: "polygon(10% 0, 100% 0, 90% 100%, 0 100%)" }}>
-            <ArrowLeft className="w-4 h-4 text-cyan-200/90" /> Back
-          </button>
-
-          <div className="grid gap-6 pb-10 pt-7 lg:grid-cols-[160px_minmax(0,1fr)_auto] lg:items-end">
-            {tournament.trophy_url && (
-              <div className="relative hidden h-40 w-36 shrink-0 place-items-center sm:grid">
-                <img src={tournament.trophy_url} alt="Trophy"
-                  className="relative h-36 w-36 object-contain drop-shadow-[0_0_26px_rgba(255,255,255,0.35)]" />
-              </div>
-            )}
-
-            <div className="flex-1 min-w-0">
-              <div className="mb-3 flex flex-wrap items-center gap-2">
-                <span className="px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] ring-1"
-                  style={{ borderColor: `${accentColor}60`, color: accentColor, backgroundColor: `${accentColor}18`, clipPath: "polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%)" }}>
-                  {tournament.type?.replace(/_/g, " ")}
-                </span>
-                <span className={cn("px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] ring-1",
-                  tournament.status === "registration" ? "text-cyan-200 ring-cyan-300/35 bg-cyan-300/10" :
-                  tournament.status === "in_progress" ? "text-cyan-200 ring-cyan-300/35 bg-cyan-300/10" :
-                  tournament.status === "completed" ? "text-amber-200 ring-amber-300/35 bg-amber-300/10" :
-                  "text-white/50 ring-white/15 bg-white/5"
-                )}
-                  style={{ clipPath: "polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%)" }}>
-                  {tournament.status?.replace(/_/g, " ")}
-                </span>
-                {tournament.platform && <span className="text-[10px] uppercase tracking-[0.22em] text-white/40">{tournament.platform}</span>}
-                {tournament.region && <span className="text-[10px] uppercase tracking-[0.22em] text-white/40">{tournament.region}</span>}
-                {tournament.country_code && (
-                  <span className="px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-white/55 ring-1 ring-white/15 bg-white/[0.06]"
-                    style={{ clipPath: "polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%)" }}>
-                    🌍 {COUNTRIES.find(c => c.code === tournament.country_code)?.name || tournament.country_code}
-                  </span>
-                )}
-              </div>
-
-              <h1 className="font-heading font-black text-3xl sm:text-5xl lg:text-6xl uppercase text-white leading-none tracking-tight"
-                style={{ transform: "skewX(-6deg)", textShadow: "0 2px 32px rgba(0,0,0,0.9)" }}>
-                {tournament.name}
-              </h1>
-              {tournament.description && (
-                <p className="font-subtitle text-sm text-white/55 mt-2 max-w-xl line-clamp-2">{tournament.description}</p>
-              )}
-
-              <div className="mt-5 flex flex-wrap items-center gap-3 text-xs text-white/55">
-                <span className="inline-flex items-center gap-2 bg-white/[0.06] px-3 py-1.5 ring-1 ring-white/10"
-                  style={{ clipPath: "polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%)" }}>
-                  <Users className="w-3.5 h-3.5" />
-                  {registeredCount}/{tournament.max_teams} {isPlayerTournament ? t("tournamentDetail.players") : t("tournamentDetail.teams")}
-                </span>
-                <span className="inline-flex items-center gap-2 bg-white/[0.06] px-3 py-1.5 ring-1 ring-white/10"
-                  style={{ clipPath: "polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%)" }}>
-                  <Calendar className="w-3.5 h-3.5" />
-                  {tournament.start_date ? new Date(tournament.start_date).toLocaleDateString() : t("tournamentDetail.tbd")}
-                </span>
-                {isAdmin && (
-                  <Link to={isPlayerTournament ? `/tournaments/${id}/players` : `/tournaments/${id}/clubs`}
-                    className="inline-flex items-center gap-2 bg-primary/20 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-primary ring-1 ring-primary/35 transition-colors hover:bg-primary/30"
-                    style={{ clipPath: "polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%)" }}>
-                    <Users className="w-3 h-3" /> {isPlayerTournament ? t("tournamentDetail.registeredPlayers") : t("tournamentDetail.registeredClubs")}
-                  </Link>
-                )}
-              </div>
+      <div className="relative border-b border-border bg-background">
+        <TournamentBanner tournament={tournament}/>
+        <div className="relative mx-auto max-w-7xl px-4 lg:px-8">
+          <Link to="/tournaments" className="inline-flex min-h-11 items-center gap-2 py-3 text-sm text-white"><ArrowLeft size={17}/>Back to tournaments</Link>
+          <div className="grid min-h-[280px] items-end gap-6 pb-8 pt-10 lg:grid-cols-[minmax(0,1fr)_auto]">
+            <div className="flex min-w-0 flex-wrap items-end gap-5 text-white">
+              <div className="gost-detail-trophy w-28 shrink-0 sm:w-36"><GostTrophy compact trophy={presentation?.trophy} guidance="Trophy unavailable."/></div>
+              <div className="min-w-0 flex-1 basis-52"><h1 className="break-words font-heading text-3xl uppercase leading-tight sm:text-5xl">{tournament.name}</h1><p className="mt-3 text-sm font-semibold uppercase">{isPlayerTournament?'Player tournament':'Club tournament'}</p><p className="mt-2 text-sm text-white/80">{tournament.type?.replaceAll('_',' ')} · {formatProfilePlatform(tournament.platform,'Platform unavailable',{preserveUnspecified:true})} · {tournament.region || 'Scope unavailable'}</p><p className="mt-2 text-sm text-white/80">{registeredCount} / {tournament.max_teams} {isPlayerTournament?'players':'clubs'} · Starts: {tournament.start_date?new Date(tournament.start_date).toLocaleDateString():'Not scheduled'}</p><p className="mt-2 text-sm capitalize text-white/80">{tournament.status}</p></div>
             </div>
-
             <div className="flex shrink-0 flex-col items-stretch gap-3 lg:items-end">
               {showRulesConsentPanel && (
                 <div className="w-full max-w-md bg-black/35 p-4 text-left ring-1 ring-white/10"
-                  style={{ clipPath: "polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%)" }}>
+                  style={{  }}>
                   <p className="font-heading text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100/70">{rules.title}</p>
-                  <div className="mt-2 max-h-48 overflow-y-auto">
+                  <div className="mt-2">
                     <p className="whitespace-pre-wrap text-sm leading-relaxed text-white/75">{rules.body}</p>
                   </div>
                   {rules.rulesFileUrl && (
@@ -1016,7 +968,7 @@ export default function TournamentDetail() {
                     onClick={saveRulesAcceptance}
                     disabled={!rulesChecked || savingRules}
                     className="mt-3 h-10 w-full rounded-none bg-cyan-400 text-black hover:bg-cyan-300 disabled:opacity-55"
-                    style={{ clipPath: "polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)" }}
+                    style={{  }}
                   >
                     {savingRules
                       ? (t("tournamentDetail.savingRules") || "Saving...")
@@ -1046,7 +998,7 @@ export default function TournamentDetail() {
                       }}
                       disabled={registeringClub || !hasSavedRulesAcceptance || (!takeoverClub && !canAfford)}
                       className="h-10 min-w-[210px] rounded-none border border-cyan-200/25 bg-black/24 px-7 font-heading text-xs font-black uppercase tracking-[0.12em] text-cyan-50/95 shadow-[0_0_24px_-16px_rgba(0,229,255,0.9)] backdrop-blur-md transition-all hover:border-cyan-200/55 hover:bg-cyan-300/10 hover:text-white hover:shadow-[0_0_24px_-10px_rgba(0,229,255,0.9)] focus-visible:ring-2 focus-visible:ring-cyan-300/50 disabled:border-white/10 disabled:text-white/45 disabled:opacity-55"
-                      style={{ clipPath: "polygon(8% 0, 100% 0, 92% 100%, 0 100%)" }}>
+                      style={{  }}>
                       {registeringClub ? "Registering..." : (takeoverClub ? t("tournamentDetail.registerClubNamed", { name: takeoverClub.name }) : t("tournamentDetail.registerMyClub"))}
                     </Button>
                 );
@@ -1054,7 +1006,7 @@ export default function TournamentDetail() {
 
               {!isPlayerTournament && myClubRegistrationPending && tournament.status === "registration" && (
                 <div className="bg-warning/10 px-4 py-3 text-xs text-warning shadow-lg ring-1 ring-warning/30"
-                  style={{ clipPath: "polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%)" }}>
+                  style={{  }}>
                   <span className="font-black uppercase tracking-wider">Pending admin approval</span>
                   <p className="mt-1 text-warning/75">Your EA FC club name is waiting for verification.</p>
                 </div>
@@ -1066,7 +1018,7 @@ export default function TournamentDetail() {
                   onClick={registerPlayer}
                   disabled={!hasSavedRulesAcceptance || !canAffordPlayerEntry}
                   className="h-12 rounded-none bg-gradient-to-r from-cyan-500 to-blue-500 px-5 font-heading text-sm font-black uppercase tracking-wide text-white shadow-[0_0_24px_rgba(34,211,238,0.18)] hover:from-cyan-400 hover:to-blue-400 disabled:opacity-55"
-                  style={{ clipPath: "polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%)" }}
+                  style={{  }}
                 >
                     <Users className="w-4 h-4 mr-2" /> {t("tournamentDetail.registerAsPlayer")}
                     <span className="ml-1 opacity-70 text-xs">({entryCreditsNeeded}✧{entryStcNeeded > 0 ? ` + ${entryStcNeeded.toLocaleString()} STC` : ""})</span>
@@ -1080,7 +1032,7 @@ export default function TournamentDetail() {
                   </span>
                   <Button size="sm" variant="outline" onClick={withdrawFromTournament}
                     className="h-8 rounded-none border-red-300/35 bg-transparent text-xs text-red-200 hover:bg-red-400/10"
-                    style={{ clipPath: "polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%)" }}>
+                    style={{  }}>
                     {t("tournamentDetail.withdraw")}
                   </Button>
                 </div>
@@ -1091,7 +1043,7 @@ export default function TournamentDetail() {
 
               {(rules?.body || tournament.rules_file_url) && (
                 <Button type="button" variant="outline" size="sm" onClick={() => setRulesModalOpen(true)} className="rounded-none border-white/15 bg-black/25 text-xs text-white/60 hover:bg-white/10"
-                  style={{ clipPath: "polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)" }}>
+                  style={{  }}>
                   <BookOpen className="w-3.5 h-3.5 mr-1.5" />
                   {t("tournamentDetail.viewRules")}
                 </Button>
@@ -1112,7 +1064,7 @@ export default function TournamentDetail() {
               onClick={copyInviteLink}
               disabled={inviteBusy}
               className="h-10 rounded-none bg-cyan-400 px-5 font-heading text-xs font-black uppercase tracking-[0.12em] text-black hover:bg-cyan-300 disabled:opacity-55"
-              style={{ clipPath: "polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)" }}
+              style={{  }}
             >
               <Link2 className="w-4 h-4 mr-2" />
               {inviteBusy ? t("tournamentDetail.copyingInvite") : t("tournamentDetail.inviteLink")}
@@ -1121,33 +1073,15 @@ export default function TournamentDetail() {
         </div>
       )}
 
+      <TournamentPrizeSummary data={presentation} error={presentationError} retry={()=>setLoadRevision(n=>n+1)}/>
       {/* ── INFO STRIP ────────────────────────────────── */}
-      {(tournament.entry_fee_stc > 0 || effectiveClubId || (isPlayerTournament && myPlayer) || canManageTournament) && (
+      {((tournament.status === 'registration' && (effectiveClubId || (isPlayerTournament && myPlayer))) || canManageTournament) && (
         <div className="border-y border-cyan-300/10 bg-[#06111f]/95">
           <div className="max-w-7xl mx-auto px-4 lg:px-8 py-3 flex flex-wrap items-center gap-3">
-            {tournament.entry_fee_stc > 0 && (
-              <span className="inline-flex min-h-10 items-center gap-2 bg-black/20 px-4 text-xs text-white/65 ring-1 ring-cyan-300/10"
-                style={{ clipPath: "polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)" }}>
-                <Coins className="w-3.5 h-3.5 text-amber-300" />
-                <span className="font-heading uppercase tracking-[0.16em] text-white/40">{t("tournamentDetail.prize")}</span>
-                <strong className="text-amber-200">{tournament.prize_pool_stc
-                  ? `${tournament.prize_pool_stc.toLocaleString()} STC`
-                  : `${(tournament.entry_fee_stc * registeredCount).toLocaleString()} STC`}</strong>
-                {tournament.prize_winner_stc && (
-                  <span className="ml-1 text-white/35">
-                    ({t("tournamentDetail.prizeBreakdown", {
-                      first: tournament.prize_winner_stc.toLocaleString(),
-                      second: (tournament.prize_runner_up_stc || 0).toLocaleString(),
-                      third: (tournament.prize_semi_final_stc || 0).toLocaleString(),
-                    })})
-                  </span>
-                )}
-              </span>
-            )}
-            {isPlayerTournament && myPlayer && (
+            {tournament.status === "registration" && isPlayerTournament && myPlayer && !myPlayerRegistered && (
               <>
                 <span className="inline-flex min-h-10 items-center gap-2 bg-black/20 px-4 text-xs text-white/65 ring-1 ring-cyan-300/10"
-                  style={{ clipPath: "polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)" }}>
+                  style={{  }}>
                   <Shield className="w-3 h-3 text-amber-300" />
                   <span className="font-heading uppercase tracking-[0.16em] text-white/40">{t("tournamentDetail.credits")}</span>
                   <strong className={cn("text-amber-200", (user?.credits ?? 0) < entryCreditsNeeded && "text-red-300")}>
@@ -1157,7 +1091,7 @@ export default function TournamentDetail() {
                 </span>
                 {entryStcNeeded > 0 && (
                   <span className="inline-flex min-h-10 items-center gap-2 bg-black/20 px-4 text-xs text-white/65 ring-1 ring-cyan-300/10"
-                    style={{ clipPath: "polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)" }}>
+                    style={{  }}>
                     <Coins className="w-3 h-3 text-amber-300" />
                     <span className="font-heading uppercase tracking-[0.16em] text-white/40">STC</span>
                     <strong className={cn("text-amber-200", (myPlayer?.stc ?? 0) < entryStcNeeded && "text-red-300")}>
@@ -1168,20 +1102,20 @@ export default function TournamentDetail() {
                 )}
               </>
             )}
-            {!isPlayerTournament && effectiveClubId && (() => {
+            {tournament.status === "registration" && !isPlayerTournament && effectiveClubId && !myClubRegistered && (() => {
               const myClubData = effectiveClub || allClubs.find(c => c.id === effectiveClubId);
               if (!myClubData) return null;
               return (
                 <>
                   <span className="inline-flex min-h-10 items-center gap-2 bg-black/20 px-4 text-xs text-white/65 ring-1 ring-cyan-300/10"
-                    style={{ clipPath: "polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)" }}>
+                    style={{  }}>
                     <Shield className="w-3 h-3 text-amber-300" />
                     <span className="font-heading uppercase tracking-[0.16em] text-white/40">{t("tournamentDetail.credits")}</span>
                     <strong className="text-amber-200">{(user?.credits ?? 0).toLocaleString()}</strong>
                   </span>
                   {(tournament.entry_fee_stc ?? 0) > 0 && (
                     <span className="inline-flex min-h-10 items-center gap-2 bg-black/20 px-4 text-xs text-white/65 ring-1 ring-cyan-300/10"
-                      style={{ clipPath: "polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)" }}>
+                      style={{  }}>
                       <Coins className="w-3 h-3 text-amber-300" />
                       <span className="font-heading uppercase tracking-[0.16em] text-white/40">STC</span>
                       <strong className="text-amber-200">{(myClubData.stc ?? 0).toLocaleString()}</strong>
@@ -1197,7 +1131,7 @@ export default function TournamentDetail() {
                   type="button"
                   onClick={registerPlayer}
                   className="h-10 rounded-none bg-cyan-400 text-black leading-relaxed hover:bg-cyan-300 disabled:opacity-55"
-                  style={{ clipPath: "polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)" }}
+                  style={{  }}
                   disabled={!hasSavedRulesAcceptance || !canAffordPlayerEntry}
                 >
                   <Users className="w-4 h-4 mr-2" /> {t("tournamentDetail.registerAsPlayer")} <span className="ml-1 opacity-70 text-xs">({entryCreditsNeeded} credits{entryStcNeeded > 0 ? ` + ${entryStcNeeded.toLocaleString()} STC` : ""})</span>
@@ -1208,7 +1142,7 @@ export default function TournamentDetail() {
             {canOfficializeTournament && (
               <Button type="button" onClick={officializeCurrentTournament} size="sm"
                 className="h-9 rounded-none border border-amber-300/30 bg-amber-300/10 text-xs text-amber-200 hover:bg-amber-300/15"
-                style={{ clipPath: "polygon(9px 0, 100% 0, calc(100% - 9px) 100%, 0 100%)" }}>
+                style={{  }}>
                 <Trophy className="w-3 h-3 mr-1.5" /> {t("tournamentDetail.officializeTournament")}
               </Button>
             )}
@@ -1216,21 +1150,21 @@ export default function TournamentDetail() {
             {canEndLeagueTournament && (
               <Button type="button" onClick={endLeagueTournament} size="sm"
                 className="h-9 rounded-none border border-amber-300/30 bg-amber-300/10 text-xs text-amber-200 hover:bg-amber-300/15"
-                style={{ clipPath: "polygon(9px 0, 100% 0, calc(100% - 9px) 100%, 0 100%)" }}>
+                style={{  }}>
                 <Trophy className="w-3 h-3 mr-1.5" /> End Tournament
               </Button>
             )}
 
             {canManageTournament && ["registration", "in_progress"].includes(tournament.status) && registeredCount >= 2 && matches.length === 0 && (
               <Button type="button" onClick={generateDraw} size="sm" className="h-9 rounded-none border border-cyan-300/25 bg-cyan-300/10 text-xs text-cyan-100 hover:bg-cyan-300/15"
-                style={{ clipPath: "polygon(9px 0, 100% 0, calc(100% - 9px) 100%, 0 100%)" }}>
+                style={{  }}>
                 🎲 {t("tournamentDetail.generateDraw")}
               </Button>
             )}
 
             {canManageTournament && ["registration", "in_progress"].includes(tournament.status) && matches.length > 0 && !allMatchesPlayed && !groupStageComplete && (
               <Button type="button" onClick={clearDraw} size="sm" variant="outline" className="h-9 rounded-none border-cyan-300/25 bg-transparent text-xs text-cyan-100 hover:bg-cyan-300/10"
-                style={{ clipPath: "polygon(9px 0, 100% 0, calc(100% - 9px) 100%, 0 100%)" }}>
+                style={{  }}>
                 🔄 {t("tournamentDetail.regenerateDraw")}
               </Button>
             )}
@@ -1238,28 +1172,28 @@ export default function TournamentDetail() {
             {canManageTournament && tournament.status === "registration" && registeredCount >= 2 && (
               <Button type="button" onClick={() => initializeTournament(tournament, registeredClubs)} size="sm"
                 className="h-9 rounded-none bg-cyan-400 text-xs text-black hover:bg-cyan-300"
-                style={{ clipPath: "polygon(9px 0, 100% 0, calc(100% - 9px) 100%, 0 100%)" }}>
+                style={{  }}>
                 <Play className="w-3 h-3 mr-1.5" /> {t("tournamentDetail.startTournament")}
               </Button>
             )}
 
             {canManageTournament && ["registration", "in_progress"].includes(tournament.status) && !allMatchesPlayed && (
               <Button type="button" onClick={cancelTournament} size="sm" variant="outline" className="h-9 rounded-none border-white/15 bg-transparent text-xs text-white/55 hover:bg-white/10"
-                style={{ clipPath: "polygon(9px 0, 100% 0, calc(100% - 9px) 100%, 0 100%)" }}>
+                style={{  }}>
                 {t("competitionFlow.cancel")}
               </Button>
             )}
 
             {canManageTournament && !allMatchesPlayed && (
               <Button type="button" onClick={() => setEditDialogOpen(true)} size="sm" variant="outline" className="h-9 rounded-none border-cyan-300/25 bg-transparent text-xs text-cyan-100 hover:bg-cyan-300/10"
-                style={{ clipPath: "polygon(9px 0, 100% 0, calc(100% - 9px) 100%, 0 100%)" }}>
+                style={{  }}>
                 {t("tournamentDetail.edit")}
               </Button>
             )}
 
             {isAdmin && ["cancelled", "registration", "completed"].includes(tournament.status) && (
               <Button type="button" onClick={deleteTournament} size="sm" variant="outline" className="h-9 rounded-none border-red-300/35 bg-transparent text-xs text-red-200 hover:bg-red-400/10"
-                style={{ clipPath: "polygon(9px 0, 100% 0, calc(100% - 9px) 100%, 0 100%)" }}>
+                style={{  }}>
                 {['completed','archived'].includes(tournament.status) ? 'Archive' : t("tournamentDetail.delete")}
               </Button>
             )}
@@ -1267,66 +1201,16 @@ export default function TournamentDetail() {
         </div>
       )}
 
-      {/* ── CHAMPION BANNER ───────────────────────────── */}
-      {championName && (
-        <div className="border-b border-warning/25 bg-gradient-to-r from-warning/8 via-warning/12 to-transparent">
-          <div className="max-w-7xl mx-auto px-4 lg:px-8 py-4 flex items-center gap-4">
-            {tournament.trophy_url && (
-              <img src={tournament.trophy_url} alt="Trophy"
-                className="w-12 h-12 object-contain shrink-0 drop-shadow-[0_0_16px_rgba(251,191,36,0.9)] animate-pulse-glow" />
-            )}
-            <div className="w-11 h-11 rounded-xl border-2 border-warning/40 overflow-hidden bg-secondary shrink-0">
-              {winnerClub?.logo_url
-                ? <img src={winnerClub.logo_url} alt={championName} className="w-full h-full object-cover" style={{ objectPosition: winnerClub.logo_position || "50% 50%" }} />
-                : <Trophy className="w-5 h-5 text-warning m-3" />}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[10px] uppercase tracking-widest text-warning/50 font-black">{t("tournamentDetail.champion")}</p>
-              <h2 className="font-heading text-lg font-black text-warning uppercase leading-tight truncate"
-                style={{ transform: "skewX(-4deg)" }}>
-                {championName}
-              </h2>
-              {winnerPoints !== null && winnerClub && <p className="text-xs text-warning/55">{t("tournamentDetail.pointsPlatform", { points: winnerPoints, platform: winnerClub.platform })}</p>}
-            </div>
-          </div>
-        </div>
-      )}
+      <TournamentChampion champion={presentation?.champion}/>
 
-      {/* ── TAB NAVIGATION ────────────────────────────── */}
-      <div className="sticky top-0 z-20 border-b border-white/10 bg-[#050b14]/95 backdrop-blur-xl">
-        <div className="max-w-7xl mx-auto px-4 lg:px-8">
-          <div className="flex min-w-max items-center gap-6 overflow-x-auto pt-4">
-            {tabs.map(tab => (
-              <button key={tab.value} type="button" onClick={() => setActiveTab(tab.value)}
-                className={cn(
-                  "relative shrink-0 pb-3 pt-1 font-heading text-[11px] font-black uppercase tracking-[0.16em] transition-colors whitespace-nowrap",
-                  activeTab === tab.value
-                    ? tab.danger ? "text-red-200" : "text-cyan-100"
-                    : tab.danger
-                      ? "text-red-200/45 hover:text-red-100"
-                      : "text-white/45 hover:text-white/75"
-                )}>
-                {tab.label}
-                {activeTab === tab.value && (
-                  <span className={cn(
-                    "absolute inset-x-0 -bottom-px h-[2px]",
-                    tab.danger
-                      ? "bg-gradient-to-r from-red-300 via-red-200 to-transparent"
-                      : "bg-gradient-to-r from-cyan-300 via-blue-400 to-transparent"
-                  )} />
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
+      <div className="mx-auto max-w-7xl border-b border-border px-4 lg:px-8"><CompetitionTextTabs items={tabs} value={activeTab} onChange={setActiveTab}/></div>
 
       {/* ── MAIN CONTENT ──────────────────────────────── */}
       <div className="max-w-7xl mx-auto px-4 lg:px-8 py-6 space-y-5">
 
 
         {activeTab === "bracket" && (
-          <TournamentStages
+          <TournamentStages naturalScroll
             tournament={tournament} matches={visibleFixtureMatches} clubs={allClubs} user={user} player={myPlayer} isAdmin={isAdmin}
             onSchedule={match => { setScheduleMatch(match); setScheduleDate(toDatetimeLocalValue(match.scheduled_date || match.home_proposed_date)); setScheduleDialogOpen(true); }}
             onGameDay={openGameDay}
@@ -1350,58 +1234,10 @@ export default function TournamentDetail() {
 
         {/* ── LEADERBOARD TAB ─── */}
         {activeTab === "leaderboard" && (
-          <TournamentLeaderboard tournamentId={id} />
+          <TournamentLeaderboard tournamentId={id} naturalScroll />
         )}
 
-        {/* ── TEAMS TAB ─── */}
-        {activeTab === "teams" && (
-          isPlayerTournament ? (
-            (() => {
-              const registeredPlayerIds = tournament.registered_players || [];
-              if (registeredPlayerIds.length === 0) return (
-                <div className="relative overflow-hidden border border-cyan-200/15 bg-[#07121f]/90 p-10 text-center"
-                  style={{ clipPath: "polygon(18px 0, 100% 0, calc(100% - 18px) 100%, 0 100%)" }}>
-                  <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-slate-200/55 to-transparent" />
-                  <Users className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-                  <p className="text-muted-foreground text-sm">{t("commonPages.cdNoPlayers")}</p>
-                </div>
-              );
-              return <PlayerRegistrantList playerIds={registeredPlayerIds} />;
-            })()
-          ) : (
-            registeredClubs.length === 0 ? (
-              <div className="relative overflow-hidden border border-cyan-200/15 bg-[#07121f]/90 p-10 text-center"
-                style={{ clipPath: "polygon(18px 0, 100% 0, calc(100% - 18px) 100%, 0 100%)" }}>
-                <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-slate-200/55 to-transparent" />
-                <Users className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-                <p className="text-muted-foreground text-sm">{t("commonPages.tdNoTeams")}</p>
-              </div>
-            ) : (
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {registeredClubs.map((club, i) => (
-                  <Link key={club.id} to={`/clubs/${club.id}`} className="block group">
-                    <div className="relative flex min-h-[86px] items-center gap-3 overflow-hidden border border-cyan-200/12 bg-[#07121f]/90 p-4 transition-all hover:border-cyan-200/35 hover:bg-cyan-300/[0.045]"
-                      style={{ clipPath: "polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%)" }}>
-                      <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-slate-200/40 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-                      <span className="flex h-8 w-9 shrink-0 items-center justify-center border border-cyan-200/15 bg-white/[0.04] text-xs font-black text-muted-foreground"
-                        style={{ clipPath: "polygon(7px 0, 100% 0, calc(100% - 7px) 100%, 0 100%)" }}>{i + 1}</span>
-                      <div className="w-11 h-11 bg-secondary border border-cyan-200/15 overflow-hidden shrink-0"
-                        style={{ clipPath: "polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%)" }}>
-                        {club.logo_url
-                          ? <img src={club.logo_url} alt={club.name} className="w-full h-full object-cover" style={{ objectPosition: club.logo_position || "50% 50%" }} />
-                          : <Shield className="w-5 h-5 text-muted-foreground m-2.5" />}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-heading text-sm font-black uppercase tracking-wide text-foreground truncate">{club.name} <span className="text-xs text-primary font-mono">[{club.tag}]</span></p>
-                        <p className="text-xs text-muted-foreground">{club.platform} · Rating: {club.rating || 0}</p>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )
-          )
-        )}
+        {activeTab === 'teams' && (presentationError ? <div role="alert">{presentationError}<button type="button" className="ml-3 min-h-11 text-primary" onClick={()=>setLoadRevision(n=>n+1)}>Retry</button></div> : <ParticipantDirectory participants={presentation?.participants || []} player={isPlayerTournament} myId={isPlayerTournament?myPlayer?.id:myClub?.id}/>)}
 
         {/* ── ADMIN TAB ─── */}
         {isAdmin && activeTab === "admin" && (
@@ -1483,7 +1319,7 @@ export default function TournamentDetail() {
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(34,211,238,0.18),transparent_42%)]" />
             <div className="relative flex items-start gap-4">
               <div className="grid h-14 w-12 shrink-0 place-items-center bg-cyan-300/10 ring-1 ring-cyan-300/25"
-                style={{ clipPath: "polygon(14% 0, 100% 0, 86% 100%, 0 100%)" }}>
+                style={{  }}>
                 <Shield className="h-6 w-6 text-cyan-200" />
               </div>
               <div className="min-w-0">
@@ -1498,7 +1334,7 @@ export default function TournamentDetail() {
           </div>
           <div className="space-y-5 px-6 pb-6 pt-5">
             <div className="bg-cyan-300/[0.06] p-4 ring-1 ring-cyan-300/15"
-              style={{ clipPath: "polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%)" }}>
+              style={{  }}>
               <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-200">Admin verification</p>
               <p className="mt-2 text-sm leading-relaxed text-white/62">
                 Enter the exact EA FC Pro Clubs name your team uses in-game. Admin will use it to verify that your club exists before approving this entry.
@@ -1517,12 +1353,12 @@ export default function TournamentDetail() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-black/25 p-3 ring-1 ring-cyan-300/12"
-                style={{ clipPath: "polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)" }}>
+                style={{  }}>
                 <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/45">Credits</p>
                 <p className="font-heading text-2xl font-black text-amber-200">{tournament.entry_credits ?? 50}</p>
               </div>
               <div className="bg-black/25 p-3 ring-1 ring-cyan-300/12"
-                style={{ clipPath: "polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)" }}>
+                style={{  }}>
                 <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/45">Club STC</p>
                 <p className="font-heading text-2xl font-black text-amber-200">{(tournament.entry_fee_stc ?? 0).toLocaleString()}</p>
               </div>
@@ -1535,7 +1371,7 @@ export default function TournamentDetail() {
               onClick={registerClub}
               disabled={registeringClub || !hasSavedRulesAcceptance || (requiresClubRegistrationReview && !eaClubName.trim())}
               className="h-12 w-full rounded-none bg-cyan-400 font-heading text-sm font-black uppercase tracking-[0.16em] text-black hover:bg-cyan-300 disabled:opacity-45"
-              style={{ clipPath: "polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%)" }}
+              style={{  }}
             >
               {registeringClub ? "Registering..." : "Submit Registration"}
             </Button>
@@ -1548,7 +1384,7 @@ export default function TournamentDetail() {
           tournament={tournament}
           open={editDialogOpen}
           onClose={() => setEditDialogOpen(false)}
-          onSave={(updates) => setTournament(prev => ({ ...prev, ...updates }))}
+          onSave={(updates) => { setTournament(prev => ({ ...prev, ...updates })); setLoadRevision(v => v + 1); }}
         />
       )}
 
@@ -1697,3 +1533,5 @@ export default function TournamentDetail() {
     </div>
   );
 }
+
+export default function TournamentDetail(){const {id}=useParams();return <TournamentDetailContent key={id}/>;}

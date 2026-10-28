@@ -16,6 +16,7 @@ export default function ImagePositionEditor({
   onConfirm,
   previewPlayer,
   previewClub,
+  positionOnly = false,
 }) {
   const [x, setX] = useState(50);
   const [y, setY] = useState(50);
@@ -26,8 +27,8 @@ export default function ImagePositionEditor({
     if (!open) return;
     if (initialPosition) {
       const parts = initialPosition.split(" ");
-      setX(parseFloat(parts[0]) || 50);
-      setY(parseFloat(parts[1]) || 50);
+      setX(Number.isFinite(parseFloat(parts[0])) ? parseFloat(parts[0]) : 50);
+      setY(Number.isFinite(parseFloat(parts[1])) ? parseFloat(parts[1]) : 50);
     } else {
       setX(50);
       setY(50);
@@ -36,7 +37,7 @@ export default function ImagePositionEditor({
   }, [open, initialPosition, initialZoom, aspect]);
 
   const position = `${x}% ${y}%`;
-  const bgSize   = `${zoom}%`;
+  const bgSize   = positionOnly ? 'cover' : `${zoom}%`;
 
   function startDrag(clientX, clientY) {
     dragRef.current = { startX: clientX, startY: clientY, startBgX: x, startBgY: y };
@@ -98,7 +99,7 @@ export default function ImagePositionEditor({
           {dialogTitle}
         </DialogTitle>
         <DialogDescription className="sr-only">
-          Drag to reposition the image and use sliders to adjust zoom and alignment.
+          {positionOnly ? 'Adjust the original image alignment.' : 'Drag to reposition the image and use sliders to adjust zoom and alignment.'}
         </DialogDescription>
         <div className="space-y-5 p-4 sm:p-6">
 
@@ -233,7 +234,7 @@ export default function ImagePositionEditor({
 
           {/* Sliders */}
           <div className="space-y-4">
-            <SliderRow label="Zoom" value={zoom} min={100} max={500} onChange={setZoom} />
+            {!positionOnly && <SliderRow label="Zoom" value={zoom} min={100} max={500} onChange={setZoom} />}
             <div className="grid gap-4 sm:grid-cols-2">
               <SliderRow label="Horizontal" value={x} min={0} max={100} onChange={setX} />
               <SliderRow label="Vertical"   value={y} min={0} max={100} onChange={setY} />

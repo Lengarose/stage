@@ -2,28 +2,29 @@ import { useEffect, useState } from 'react';
 import { stageClient } from '@/api/stageClient';
 import { swalPrompt } from '@/lib/swal';
 
-export default function CompetitionTrophySelector({ competitionId }) {
+export default function CompetitionTrophySelector({ competitionId, sourceType = 'competition' }) {
+  const path = sourceType === 'regional_league' ? `/regional-public/${encodeURIComponent(competitionId)}/trophy` : `/gost/${encodeURIComponent(competitionId)}/trophy`;
   const [data, setData] = useState(null);
   const [selected, setSelected] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   async function load() {
-    const result = await stageClient.http.get(`/gost/${encodeURIComponent(competitionId)}/trophy`);
+    const result = await stageClient.http.get(path);
     setData(result); setSelected(result.selected_id || '');
   }
   useEffect(() => {
     let active = true;
-    stageClient.http.get(`/gost/${encodeURIComponent(competitionId)}/trophy`).then(result => {
+    stageClient.http.get(path).then(result => {
       if (active) { setData(result); setSelected(result.selected_id || ''); }
     }).catch(e => { if (active) setError(e.message); });
     return () => { active = false; };
-  }, [competitionId]);
+  }, [competitionId, path]);
   async function save() {
     const reason = await swalPrompt('Reason for changing this competition’s trophy artwork. Captured editions and earned trophies will not change.');
     if (!reason) return;
     setBusy(true); setError('');
     try {
-      await stageClient.http.post(`/gost/${encodeURIComponent(competitionId)}/trophy`, { trophy_item_id: selected || null, revision: data.revision, reason });
+      await stageClient.http.post(path, { trophy_item_id: selected || null, revision: data.revision, reason });
       await load();
     } catch (e) { setError(e.message); } finally { setBusy(false); }
   }

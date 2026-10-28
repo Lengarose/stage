@@ -12,48 +12,49 @@ function safeImage(url) {
   return typeof url === 'string' && /^(\/uploads\/[^\\\s]*|https?:\/\/[^\s]+)$/.test(url) ? url : null;
 }
 function rowData(row) { return { ...parse(row.data_json), id: row.id, status: row.status || parse(row.data_json).status }; }
-function resolveAssignment(source, settings, items) {
-  const reverse = items.filter(item => item.linked_source_type === 'competition' && item.linked_source_id === source.id);
+function resolveAssignment(source, settings, items, sourceType = 'competition') {
+  const reverse = items.filter(item => item.linked_source_type === sourceType && item.linked_source_id === source.id);
   const ids = [...new Set([settings.trophy_item_id, source.trophy_item_id, ...reverse.map(item => item.id)].filter(Boolean))];
   if (ids.length > 1) return { state: 'conflict', trophy: null, ids, guidance: 'Conflicting explicit trophy links. Review Rewards and the Trophies catalogue before assigning a design.' };
   const item = items.find(item => item.id === ids[0]);
   if (!ids.length) return { state: 'unassigned', trophy: null, ids, guidance: 'Assign a competition trophy in Admin → GOST.' };
-  if (!item || item.tournament_id || item.linked_source_id && (item.linked_source_type !== 'competition' || item.linked_source_id !== source.id)) {
+  if (!item || item.tournament_id || item.linked_source_id && (item.linked_source_type !== sourceType || item.linked_source_id !== source.id)) {
     return { state: 'invalid', trophy: null, ids, guidance: 'The assigned trophy is missing or belongs to another event. Review Admin → GOST.' };
   }
   return { state: 'assigned', trophy: publicTrophy(item), ids, guidance: null };
 }
-async function assignment(id, query = EXECUTESQL, lock = false) {
-  const [record] = await query(`SELECT * FROM league_entities WHERE entity_type='competition' AND id=?${lock ? ' FOR UPDATE' : ''}`, [id]);
+async function assignment(id, query = EXECUTESQL, lock = false, sourceType = 'competition') {
+  if (!['competition', 'regional_league'].includes(sourceType)) throw fail('Unsupported trophy source');
+  const [record] = await query(`SELECT * FROM league_entities WHERE entity_type='${sourceType}' AND id=?${lock ? ' FOR UPDATE' : ''}`, [id]);
   if (!record) throw fail('Competition not found', 404);
   const source = rowData(record);
-  const [meta] = await query("SELECT * FROM league_entities WHERE entity_type='reward_configuration' AND id=?", [rewards.key('competition', id)]);
+  const [meta] = await query("SELECT * FROM league_entities WHERE entity_type='reward_configuration' AND id=?", [rewards.key(sourceType, id)]);
   const settings = parse(meta?.data_json);
   const items = await query(`SELECT * FROM trophy_items ORDER BY id${lock ? ' FOR UPDATE' : ''}`);
   const revision = crypto.createHash('sha256').update(JSON.stringify([source, settings, items.map(i => [i.id, i.name, i.image_url, i.linked_source_type, i.linked_source_id, i.tournament_id])])).digest('hex');
-  return { source, settings, items, revision, ...resolveAssignment(source, settings, items) };
+  return { source, settings, items, revision, ...resolveAssignment(source, settings, items, sourceType) };
 }
-async function assign(id, input, admin, transaction = withTransaction) {
+async function assign(id, input, admin, transaction = withTransaction, sourceType = 'competition') {
   if (!admin?.id || ![0, 2].includes(Number(admin.role_id))) throw fail('Admin access required', 403);
   if (!String(input.reason || '').trim()) throw fail('A change reason is required');
   if (input.trophy_item_id !== null && typeof input.trophy_item_id !== 'string') throw fail('Select a catalogue trophy');
   return transaction(async query => {
-    const before = await assignment(id, query, true);
+    const before = await assignment(id, query, true, sourceType);
     if (before.revision !== input.revision) throw fail('Trophy configuration changed. Reload before saving.', 409);
     const selected = input.trophy_item_id || null;
     const nextSource = { ...before.source };
     delete nextSource.trophy_item_id;
     const nextSettings = { ...before.settings, trophy_item_id: selected };
-    const resolved = resolveAssignment(nextSource, nextSettings, before.items);
+    const resolved = resolveAssignment(nextSource, nextSettings, before.items, sourceType);
     if (selected && resolved.state !== 'assigned' || !selected && resolved.ids.length) throw fail(resolved.guidance || 'Remove the legacy catalogue link before clearing this assignment.', 409);
     if (!selected || before.items.some(item => item.id === selected)) {
-      await query("INSERT INTO league_entities (id,entity_type,data_json,status,created_date,updated_date) VALUES (?,'reward_configuration',?,'active',NOW(),NOW()) ON DUPLICATE KEY UPDATE data_json=VALUES(data_json),updated_date=NOW()", [rewards.key('competition', id), JSON.stringify(nextSettings)]);
-      if (before.source.trophy_item_id !== undefined) await query("UPDATE league_entities SET data_json=?,updated_date=NOW() WHERE id=? AND entity_type='competition'", [JSON.stringify(nextSource), id]);
-      await rewards.audit(query, admin, 'assign_competition_trophy', 'competition', id,
-        { trophy_item_id: before.settings.trophy_item_id || null, legacy_trophy_item_id: before.source.trophy_item_id || null, reverse_ids: before.items.filter(i => i.linked_source_type === 'competition' && i.linked_source_id === id).map(i => i.id) },
+      await query("INSERT INTO league_entities (id,entity_type,data_json,status,created_date,updated_date) VALUES (?,'reward_configuration',?,'active',NOW(),NOW()) ON DUPLICATE KEY UPDATE data_json=VALUES(data_json),updated_date=NOW()", [rewards.key(sourceType, id), JSON.stringify(nextSettings)]);
+      if (before.source.trophy_item_id !== undefined) await query(`UPDATE league_entities SET data_json=?,updated_date=NOW() WHERE id=? AND entity_type='${sourceType}'`, [JSON.stringify(nextSource), id]);
+      await rewards.audit(query, admin, `assign_${sourceType}_trophy`, sourceType, id,
+        { trophy_item_id: before.settings.trophy_item_id || null, legacy_trophy_item_id: before.source.trophy_item_id || null, reverse_ids: before.items.filter(i => i.linked_source_type === sourceType && i.linked_source_id === id).map(i => i.id) },
         { trophy_item_id: selected, edition_snapshots_unchanged: true }, input.reason);
     }
-    return assignment(id, query);
+    return assignment(id, query, false, sourceType);
   });
 }
 function seasonState(season) {

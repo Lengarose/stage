@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom';
+import { isStageResult } from '@/lib/tournamentStages';
 import { cn } from "@/lib/utils";
 import { Trophy } from "lucide-react";
 import UCLStandings from "./UCLStandings";
@@ -12,22 +14,22 @@ export default function TournamentStandingsTabs({ tournament, matches, registere
   const ids = tournament?.[player ? 'registered_players' : 'registered_clubs'] || [];
   const participants = ids.map(id => tournament?.standing_participants?.find(p => String(p.id) === String(id)) || registeredClubs.find(c => String(c.id) === String(id)) || { id });
   const options = { ...tournament, tournament_id: tournament.id, participants };
-  const panelClip = { clipPath: "polygon(18px 0, 100% 0, calc(100% - 18px) 100%, 0 100%)" };
 
   // ── League Standings ──────────────────────────────────────────────────────
   const LeagueStandings = () => {
     const { rows: standings, issues } = calculateStandings(matches, options);
     if (standings.length === 0) return (
-      <div className="bg-card border border-border rounded-xl p-8 text-center">
+      <div className="bg-card border border-border rounded-none p-8 text-center">
         <Trophy className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
         <p className="text-muted-foreground text-sm">No registered participants yet.</p>
       </div>
     );
-    const allDone = tournament.status === 'completed' && !issues.length && standings.every(r => r.rank !== 1 || r.id === standings[0].id);
+    const championId = player ? tournament.winner_player_id : tournament.winner_club_id;
+    const allDone = ['completed','archived'].includes(tournament.status) && !issues.length && championId && String(championId) === String(standings[0]?.id);
     const total = standings.length;
-    const relegZone = total >= 6 ? 3 : total >= 4 ? 2 : total >= 3 ? 1 : 0;
+    const relegZone = 0;
     return (
-      <div className="relative overflow-hidden border border-cyan-200/15 bg-[#07121f]/90 p-4 shadow-[0_0_38px_rgba(148,163,184,0.08)]" style={panelClip}>
+      <div className="relative overflow-hidden border border-cyan-200/15 bg-background p-4 shadow-[0_0_38px_rgba(148,163,184,0.08)]">
         <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-slate-200/55 to-transparent" />
         <StandingsWarnings issues={issues} />
         {tournament.status === 'completed' && standings.some((row,i) => i > 0 && row.rank === standings[i-1].rank) && <p role="status" className="mb-3 text-warning">{t('tournamentDetail.standingsTied', 'Finishing positions remain tied under the sporting criteria. Qualification and paid positions require review.')}</p>}
@@ -38,7 +40,7 @@ export default function TournamentStandingsTabs({ tournament, matches, registere
           </div>
         )}
         <div className="overflow-x-auto border border-white/10 bg-black/20">
-          <table className="w-full text-xs">
+          <table className="w-full min-w-[620px] text-xs">
             <thead>
               <tr className="border-b border-white/10 bg-white/[0.035] text-xs text-muted-foreground uppercase tracking-wider">
                 <th className="text-left px-2 py-2.5">#</th>
@@ -47,8 +49,8 @@ export default function TournamentStandingsTabs({ tournament, matches, registere
                 <th className="px-1.5 py-2.5 text-center">W</th>
                 <th className="px-1.5 py-2.5 text-center">D</th>
                 <th className="px-1.5 py-2.5 text-center">L</th>
-                <th className="hidden sm:table-cell px-1.5 py-2.5 text-center">GF</th>
-                <th className="hidden sm:table-cell px-1.5 py-2.5 text-center">GA</th>
+                <th className="px-1.5 py-2.5 text-center">GF</th>
+                <th className="px-1.5 py-2.5 text-center">GA</th>
                 <th className="px-1.5 py-2.5 text-center">GD</th>
                 <th className="px-1.5 py-2.5 text-center font-bold text-foreground">Pts</th>
               </tr>
@@ -70,15 +72,15 @@ export default function TournamentStandingsTabs({ tournament, matches, registere
                       <div className="flex items-center gap-1.5">
                         {isChamp && <Trophy className="w-3 h-3 text-warning shrink-0" />}
                         {row.avatar_url && <img src={row.avatar_url} alt="" className="h-6 w-6 object-cover" />}
-                        <span className="truncate">{row.name}</span>
+                        <Link to={`/${player ? 'players' : 'clubs'}/${encodeURIComponent(row.id)}`} className="min-h-10 py-2 font-semibold">{row.name}</Link>
                       </div>
                     </td>
                     <td className="px-1.5 py-2 text-center text-muted-foreground">{row.P}</td>
                     <td className="px-1.5 py-2 text-center text-success">{row.W}</td>
                     <td className="px-1.5 py-2 text-center text-muted-foreground">{row.D}</td>
                     <td className="px-1.5 py-2 text-center text-destructive">{row.L}</td>
-                    <td className="hidden sm:table-cell px-1.5 py-2 text-center text-muted-foreground">{row.GF}</td>
-                    <td className="hidden sm:table-cell px-1.5 py-2 text-center text-muted-foreground">{row.GA}</td>
+                    <td className="px-1.5 py-2 text-center text-muted-foreground">{row.GF}</td>
+                    <td className="px-1.5 py-2 text-center text-muted-foreground">{row.GA}</td>
                     <td className="px-1.5 py-2 text-center text-muted-foreground">{row.GD > 0 ? "+" : ""}{row.GD}</td>
                     <td className="px-1.5 py-2 text-center font-bold text-cyan-100">{row.Pts}</td>
                   </tr>
@@ -94,16 +96,16 @@ export default function TournamentStandingsTabs({ tournament, matches, registere
   // ── Group Stage Standings ──────────────────────────────────────────────────
   const GroupStandings = () => {
     const groupMatches = matches.filter(m => m.type === "group" || m.type === "group_stage" || !m.type);
-    const allGroupDone = groupMatches.length > 0 && groupMatches.every(m => m.status === "completed" || m.status === "forfeit");
+    const allGroupDone = groupMatches.length > 0 && groupMatches.every(isStageResult);
 
     if (groupStandingsData.length === 0) return (
-      <div className="bg-card border border-border rounded-xl p-8 text-center">
+      <div className="bg-card border border-border rounded-none p-8 text-center">
         <Trophy className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
         <p className="text-muted-foreground text-sm">Group standings will appear as matches are completed.</p>
       </div>
     );
     return (
-      <div className="relative space-y-6 overflow-hidden border border-cyan-200/15 bg-[#07121f]/90 p-4 shadow-[0_0_38px_rgba(148,163,184,0.08)]" style={panelClip}>
+      <div className="relative space-y-6 overflow-hidden border border-cyan-200/15 bg-background p-4 shadow-[0_0_38px_rgba(148,163,184,0.08)]">
         <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-slate-200/55 to-transparent" />
         {allGroupDone && (
           <div className="flex flex-wrap gap-2">
@@ -117,7 +119,7 @@ export default function TournamentStandingsTabs({ tournament, matches, registere
             <div key={group.groupIndex}>
               <h3 className="leading-relaxed text-base font-bold text-foreground mb-2">Group {group.groupName}</h3>
               <div className="overflow-x-auto border border-white/10 bg-black/20">
-                <table className="w-full text-xs">
+                <table className="w-full min-w-[620px] text-xs">
                   <thead>
                     <tr className="border-b border-white/10 bg-white/[0.035] text-xs text-muted-foreground uppercase tracking-wider">
                       <th className="text-left px-2 py-2">#</th>
@@ -126,12 +128,15 @@ export default function TournamentStandingsTabs({ tournament, matches, registere
                       <th className="px-1.5 py-2 text-center">W</th>
                       <th className="px-1.5 py-2 text-center">D</th>
                       <th className="px-1.5 py-2 text-center">L</th>
+                      <th className="px-1.5 py-2 text-center">GF</th>
+                      <th className="px-1.5 py-2 text-center">GA</th>
                       <th className="px-1.5 py-2 text-center">GD</th>
                       <th className="px-1.5 py-2 text-center font-bold text-foreground">Pts</th>
                     </tr>
                   </thead>
                   <tbody>
                     {group.standings.map((row, i) => {
+                      const profile = participants.find(p => String(p.id) === String(row.id));
                       const qualifies = allGroupDone && i < 2;
                       const eliminated = allGroupDone && i >= groupSize - 1 && groupSize > 2;
                       const isBoundary = allGroupDone && i === 1;
@@ -146,13 +151,16 @@ export default function TournamentStandingsTabs({ tournament, matches, registere
                           <td className="px-2 py-2 font-medium text-foreground max-w-[90px] truncate">
                             <div className="flex items-center gap-1.5">
                               {qualifies && <span className="w-1.5 h-1.5 rounded-full bg-success shrink-0" />}
-                              <span className="truncate">{row.name}</span>
+                              {(profile?.avatar_url || profile?.logo_url) && <img src={profile.avatar_url || profile.logo_url} alt="" className="h-6 w-6 shrink-0 object-contain" />}
+                              <Link to={`/${player ? 'players' : 'clubs'}/${encodeURIComponent(row.id)}`} className="min-h-10 py-2 font-semibold">{row.name}</Link>
                             </div>
                           </td>
                           <td className="px-1.5 py-2 text-center text-muted-foreground">{row.played}</td>
                           <td className="px-1.5 py-2 text-center text-success">{row.wins}</td>
                           <td className="px-1.5 py-2 text-center text-muted-foreground">{row.draws}</td>
                           <td className="px-1.5 py-2 text-center text-destructive">{row.losses}</td>
+                          <td className="px-1.5 py-2 text-center text-muted-foreground">{row.goalsFor}</td>
+                          <td className="px-1.5 py-2 text-center text-muted-foreground">{row.goalsAgainst}</td>
                           <td className="px-1.5 py-2 text-center text-muted-foreground">{row.goalDiff > 0 ? "+" : ""}{row.goalDiff}</td>
                           <td className="px-1.5 py-2 text-center font-bold text-cyan-100">{row.points}</td>
                         </tr>

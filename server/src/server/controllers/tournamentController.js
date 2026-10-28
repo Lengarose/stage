@@ -189,6 +189,11 @@ router.post('/', async (req, res) => {
 router.patch('/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    const presentation = require('../services/tournamentPresentationService');
+    if (presentation.fields.some(field => Object.hasOwn(req.body || {}, field))) {
+      if (Object.keys(req.body).some(field => !presentation.fields.includes(field) && field !== 'reason')) return res.status(400).json({ error: 'Separate presentation edits from tournament lifecycle actions' });
+      return res.json(await presentation.edit(id, req.body, req.user));
+    }
     const existing = await new Tournament().selectOne(id);
     if (!existing.length) return res.status(404).json({ error: 'Not found' });
     if(['completed','archived'].includes(existing[0].status))return res.status(409).json({error:'Completed history is read-only. Use archive or explicit audited history review.'});
@@ -202,7 +207,7 @@ router.patch('/:id', async (req, res) => {
     res.json(record);
   } catch (err) {
     console.error(err);
-    res.status(err.statusCode || 500).json({ error: err.message });
+    res.status(err.status || err.statusCode || 500).json({ error: err.message });
   }
 });
 

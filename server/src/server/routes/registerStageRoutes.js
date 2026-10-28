@@ -3,6 +3,7 @@ function registerStageRoutes(app, { verifyToken }) {
   app.use('/api/stage/auth', require('../controllers/authController'));
   app.use('/api/stage/auth', require('../controllers/oauthController'));
   app.use('/api/stage/public', require('../controllers/publicTournamentController'));
+  app.use('/api/stage/public', require('../controllers/tournamentPresentationController')({ publicRead: true }));
 
   app.use('/api/stage/upload', verifyToken, require('../controllers/uploadController'));
   app.use('/api/stage/functions', verifyToken, require('../controllers/functionsController'));
@@ -16,9 +17,11 @@ function registerStageRoutes(app, { verifyToken }) {
   app.use('/api/stage/match-highlights', verifyToken, require('../controllers/matchHighlightController'));
   app.use('/api/stage/schedule', verifyToken, require('../controllers/scheduleCalendarController'));
   app.use('/api/stage/tournaments', verifyToken, require('../controllers/tournamentController'));
+  app.use('/api/stage/tournaments', verifyToken, require('../controllers/tournamentPresentationController')());
   app.use('/api/stage/competition-engine', verifyToken, require('../controllers/competitionEngineController'));
   app.use('/api/stage/competition-views', verifyToken, require('../controllers/competitionViewsController'));
   app.use('/api/stage/gost', verifyToken, require('../controllers/gostOverviewController'));
+  app.use('/api/stage/regional-public', verifyToken, require('../controllers/regionalPublicController'));
 
   const { makeRouter: makeCompetitionEngineEntityRouter } = require('../controllers/competitionEngineEntityController');
   app.use('/api/stage/competition-instances', verifyToken, makeCompetitionEngineEntityRouter({

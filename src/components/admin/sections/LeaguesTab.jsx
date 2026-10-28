@@ -1410,6 +1410,7 @@ export default function LeaguesTab({
                   const fixturesGenerated = isTruthyEntityFlag(league.fixtures_generated);
                   return (
                     <div key={league.id} className="border border-border rounded p-3 space-y-2">
+                      <CompetitionTrophySelector competitionId={league.id} sourceType="regional_league" />
                       <div className="flex items-center gap-2">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">

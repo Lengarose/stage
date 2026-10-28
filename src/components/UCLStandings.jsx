@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { cn } from "@/lib/utils";
 import { Trophy } from "lucide-react";
 import { calculateStandings } from '@/lib/standingsCore';
@@ -24,10 +25,9 @@ export default function UCLStandings({ matches, registeredClubs, tournament }) {
   const showZones = standard && !issues.length && sorted.every(r => r.P === 8)
     && sorted.every((r, i) => i === 0 || i >= 24 || r.rank === i + 1)
     && matches.some(m => ['ucl_playoff','ucl_r16','ucl_qf','ucl_sf','final'].includes(m.type));
-  const panelClip = { clipPath: "polygon(18px 0, 100% 0, calc(100% - 18px) 100%, 0 100%)" };
 
   return (
-    <div className="relative space-y-3 overflow-hidden border border-cyan-200/15 bg-[#07121f]/90 p-4 shadow-[0_0_38px_rgba(148,163,184,0.08)]" style={panelClip}>
+    <div className="relative space-y-3 overflow-hidden border border-cyan-200/15 bg-background p-4 shadow-[0_0_38px_rgba(148,163,184,0.08)]">
       <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-slate-200/55 to-transparent" />
       {showZones ? (
         <div className="flex flex-wrap gap-2">
@@ -45,7 +45,7 @@ export default function UCLStandings({ matches, registeredClubs, tournament }) {
       <StandingsWarnings issues={issues} />
 
       <div className="overflow-x-auto border border-white/10 bg-black/20">
-        <table className="w-full text-xs">
+        <table className="w-full min-w-[620px] text-xs">
           <thead>
             <tr className="border-b border-white/10 bg-white/[0.035] text-xs text-muted-foreground uppercase tracking-wider">
               <th className="px-2 py-2 text-left w-7">#</th>
@@ -54,8 +54,8 @@ export default function UCLStandings({ matches, registeredClubs, tournament }) {
               <th className="px-1.5 py-2 text-center">W</th>
               <th className="px-1.5 py-2 text-center">D</th>
               <th className="px-1.5 py-2 text-center">L</th>
-              <th className="hidden sm:table-cell px-1.5 py-2 text-center">GF</th>
-              <th className="hidden sm:table-cell px-1.5 py-2 text-center">GA</th>
+              <th className="px-1.5 py-2 text-center">GF</th>
+              <th className="px-1.5 py-2 text-center">GA</th>
               <th className="px-1.5 py-2 text-center">GD</th>
               <th className="px-1.5 py-2 text-center font-bold text-foreground">Pts</th>
             </tr>
@@ -87,14 +87,14 @@ export default function UCLStandings({ matches, registeredClubs, tournament }) {
                   </td>
                   <td className="px-2 py-1.5">
                     {row.avatar_url && <img src={row.avatar_url} alt="" className="mr-2 inline-block h-6 w-6 object-cover" />}
-                    <span className="font-semibold text-foreground">{row.name}</span>
+                    <Link to={`/${tournament?.participant_type === 'player' ? 'players' : 'clubs'}/${encodeURIComponent(row.id)}`} className="inline-flex min-h-10 items-center font-semibold text-foreground">{row.name}</Link>
                   </td>
                   <td className="px-1.5 py-1.5 text-center text-muted-foreground">{row.P}</td>
                   <td className="px-1.5 py-1.5 text-center text-success font-medium">{row.W}</td>
                   <td className="px-1.5 py-1.5 text-center text-muted-foreground">{row.D}</td>
                   <td className="px-1.5 py-1.5 text-center text-destructive">{row.L}</td>
-                  <td className="hidden sm:table-cell px-1.5 py-1.5 text-center text-muted-foreground">{row.GF}</td>
-                  <td className="hidden sm:table-cell px-1.5 py-1.5 text-center text-muted-foreground">{row.GA}</td>
+                  <td className="px-1.5 py-1.5 text-center text-muted-foreground">{row.GF}</td>
+                  <td className="px-1.5 py-1.5 text-center text-muted-foreground">{row.GA}</td>
                   <td className="px-1.5 py-1.5 text-center text-muted-foreground">{row.GD > 0 ? `+${row.GD}` : row.GD}</td>
                   <td className="px-1.5 py-1.5 text-center">
                     <span className="font-bold text-primary">{row.Pts}</span>

@@ -1,15 +1,16 @@
 import { useRef, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight, Shield, Trophy } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { buildTournamentStages, canScheduleTournamentMatch, isStageResult, stageMatchSections, stageAggregate } from "@/lib/tournamentStages";
+import { buildTournamentStages, canScheduleTournamentMatch, isStageResult, stageMatchSections, stageAggregate, stageInitialSelection } from "@/lib/tournamentStages";
 import { canOpenTournamentGameDay } from "@/lib/tournamentGameDay";
 import {penaltyOutcome} from '@/lib/penaltyOutcome';
 
-export default function TournamentStages({ tournament, matches, clubs, user, player, onSchedule, onGameDay, onStats, onSimulate, onResolve, isAdmin, renderStandings, onDetails, canSchedule = canScheduleTournamentMatch }) {
+export default function TournamentStages({ tournament, matches, clubs, user, player, onSchedule, onGameDay, onStats, onSimulate, onResolve, isAdmin, renderStandings, onDetails, initialFixtureId = null, naturalScroll = false, canSchedule = canScheduleTournamentMatch }) {
   const stages = buildTournamentStages(tournament, matches);
-  const [selected, setSelected] = useState(null);
+  const initial = stageInitialSelection(stages, initialFixtureId);
+  const [selected, setSelected] = useState(initial.stage);
   const [modal, setModal] = useState(null);
-  const [day, setDay] = useState(null);
+  const [day, setDay] = useState(initial.day);
   const trigger = useRef(null);
   const fullStage = stages.find(s => s.id === selected) || stages.find(s => s.matches.some(m => !isStageResult(m))) || stages.find(s => !s.matches.length) || stages[stages.length - 1];
   const days = s => ["league","group"].includes(s?.id) ? [...new Set(s.matches.map(m=>Number(m.round || 1)))].sort((a,b)=>a-b) : [];
@@ -77,7 +78,7 @@ export default function TournamentStages({ tournament, matches, clubs, user, pla
     <section className="min-w-0 border border-border bg-card">
       <div className="flex flex-wrap items-center gap-3 border-b border-border p-4"><Trophy className="h-4 w-4 text-primary" /><label htmlFor="tournament-stage" className="text-sm font-bold">Stage</label><select id="tournament-stage" value={stage.id} onChange={e => setSelected(e.target.value)} className="min-w-0 max-w-full border border-border bg-background px-3 py-2 text-sm text-foreground">{stages.map(s => <option value={s.id} key={s.id}>{s.label}</option>)}</select></div>
       {dayNavigation(fullStage,day,setDay)}
-      <div key={stage.id} tabIndex={0} role="region" aria-label={`${stage.label} matches and standings`} className="max-h-[65vh] min-h-64 overflow-y-auto overscroll-contain">
+      <div key={stage.id} tabIndex={0} role="region" aria-label={`${stage.label} matches and standings`} className={naturalScroll ? 'min-h-64' : 'max-h-[65vh] min-h-64 overflow-y-auto overscroll-contain'}>
         {stage.id === "final" && stages.some(s => s.id === "third") && <p className="border-b border-border p-4 text-sm text-warning">The Final must be scheduled after the Third-Place Playoff. Complete the playoff before reporting the Final.</p>}
         {tournament.status === "registration" && stage.matches.length > 0 && <p className="border-b border-border px-4 py-3 text-xs text-primary">Draw preview — tournament has not started yet.</p>}
         {stage.matches.length ? matchList(stage, stage.matches, true) : <p className="p-8 text-center text-sm text-muted-foreground">{empty(stage)}</p>}

@@ -1117,6 +1117,34 @@ html, body {
   width: 12px;
   border-top: 1px solid hsl(var(--primary));
 }
+
+.competition-text-tabs button {
+  min-height: 44px;
+  padding: 6px 0;
+  color: hsl(var(--foreground));
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  outline: none;
+}
+.competition-text-tabs button:hover,
+.competition-text-tabs button:focus-visible,
+.competition-text-tabs button[aria-current='page'] {
+  text-shadow: 0 0 12px hsl(var(--foreground) / 0.6);
+}
+.competition-text-tabs button:focus-visible {
+  font-weight: 800;
+  text-shadow: 0 0 6px hsl(var(--foreground)), 0 0 16px hsl(var(--foreground) / 0.8);
+}
+.competition-surface { min-width: 0; }
+.regional-smoke {
+  mask-image: linear-gradient(90deg, transparent, black 20%, black 80%, transparent);
+}
+.competition-surface button,
+.competition-surface input,
+.competition-surface select,
+.competition-surface .rounded-xl,
+.competition-surface .rounded-lg { border-radius: 0; }
 .theme-light .gost-detail {
   --gost-accent: var(--gost-accent-light);
 }

@@ -27,6 +27,7 @@ export default function EditTournamentDialog({ tournament, open, onClose, onSave
   const [posEditorOpen, setPosEditorOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
   const [trophyFile, setTrophyFile] = useState(null);
   const [trophyPreview, setTrophyPreview] = useState(tournament.trophy_url || null);
   const bannerInputRef = useRef(null);
@@ -45,16 +46,22 @@ export default function EditTournamentDialog({ tournament, open, onClose, onSave
   async function handleBannerPositionSave(imageUrl, position) {
     setPosEditorOpen(false);
     setForm(f => ({ ...f, banner_position: position }));
+    if (!bannerFile) return;
     setUploading(true);
+    setError('');
+    try {
     const { file_url } = await stageClient.integrations.Core.UploadFile({ file: bannerFile });
     setForm(f => ({ ...f, banner_url: file_url }));
     setBannerPreview(file_url);
     setBannerFile(null);
-    setUploading(false);
+    } catch (e) { setError(e.message); }
+    finally { setUploading(false); }
   }
 
   async function handleSave() {
     setSaving(true);
+    setError('');
+    try {
     let trophy_url = trophyPreview || tournament.trophy_url || "";
     if (trophyFile) {
       const res = await stageClient.integrations.Core.UploadFile({ file: trophyFile });
@@ -69,16 +76,17 @@ export default function EditTournamentDialog({ tournament, open, onClose, onSave
       banner_position: form.banner_position,
       trophy_url,
     };
-    await stageClient.entities.Tournament.update(tournament.id, updates);
-    setSaving(false);
+    await stageClient.http.post(`/tournaments/${encodeURIComponent(tournament.id)}/presentation`, updates);
     onSave(updates);
     onClose();
+    } catch (e) { setError(e.message); }
+    finally { setSaving(false); }
   }
 
   return (
     <>
       <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose?.(); }}>
-        <DialogContent className="bg-card border-border max-h-[90vh] overflow-y-auto">
+        <DialogContent className="bg-card border-border max-h-[90vh] overflow-y-auto !rounded-none">
           <DialogHeader>
             <DialogTitle className="text-xl">Edit Tournament</DialogTitle>
           </DialogHeader>
@@ -97,6 +105,7 @@ export default function EditTournamentDialog({ tournament, open, onClose, onSave
             </div>
 
             {/* Banner */}
+            {(bannerPreview || form.banner_url) && <button type="button" onClick={() => setPosEditorOpen(true)} className="min-h-11 text-sm text-primary">Adjust banner crop</button>}
             <div>
               <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">Tournament Banner</label>
               {bannerPreview || form.banner_url ? (
@@ -147,6 +156,7 @@ export default function EditTournamentDialog({ tournament, open, onClose, onSave
             </div>
 
             {/* Trophy Upload */}
+            {(bannerPreview || form.banner_url) && <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)] items-start gap-3"><figure><div className="aspect-[3/1] w-full bg-secondary" style={{backgroundImage:`url(${bannerPreview || form.banner_url})`,backgroundSize:'cover',backgroundPosition:form.banner_position}}/><figcaption className="mt-1 text-xs text-muted-foreground">Desktop crop</figcaption></figure><figure><div className="aspect-[4/5] w-full bg-secondary" style={{backgroundImage:`url(${bannerPreview || form.banner_url})`,backgroundSize:'cover',backgroundPosition:form.banner_position}}/><figcaption className="mt-1 text-xs text-muted-foreground">Mobile crop</figcaption></figure></div>}
             <div>
               <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">🏆 Tournament Trophy (PNG only)</label>
               {trophyFile || trophyPreview ? (
@@ -166,7 +176,8 @@ export default function EditTournamentDialog({ tournament, open, onClose, onSave
                 onChange={e => { if (e.target.files[0]) { setTrophyFile(e.target.files[0]); setTrophyPreview(null); } }} />
             </div>
 
-            <Button onClick={handleSave} disabled={saving || !form.name} className="w-full bg-primary text-primary-foreground">
+            {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+            <Button onClick={handleSave} disabled={saving || uploading || Boolean(bannerFile) || !form.name} className="w-full bg-primary text-primary-foreground">
               {saving ? "Saving..." : "Save Changes"}
             </Button>
           </div>
@@ -179,6 +190,8 @@ export default function EditTournamentDialog({ tournament, open, onClose, onSave
           onClose={() => setPosEditorOpen(false)}
           imageUrl={bannerPreview}
           aspect="banner"
+          positionOnly
+          initialPosition={form.banner_position}
           onConfirm={handleBannerPositionSave}
         />
       )}
