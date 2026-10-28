@@ -1,0 +1,51 @@
+<!doctype html>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>GOST detail local QA fixtures</title></head>
+<body style="margin:0"><div id="root"></div><script type="module">
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import {MemoryRouter, Routes, Route, Link, useNavigate, useLocation} from 'react-router-dom';
+import RefreshRuntime from '/@react-refresh';
+RefreshRuntime.injectIntoGlobalHook(window);
+window.$RefreshReg$=()=>{};window.$RefreshSig$=()=>type=>type;window.__vite_plugin_react_preamble_installed__=true;
+await import('/src/index.css');
+await import('/node_modules/@fontsource/anton/index.css');
+const params=new URLSearchParams(location.search);
+document.documentElement.className=params.has('light')?'theme-light':'theme-dark dark';
+const {stageClient}=await import('/src/api/stageClient.js');
+const names=['supreme','elite','challenger'];
+const state=params.get('state')||'draft';
+const count=state==='draft'?0:state==='partial'?12:36;
+const journey={kind:'ucl',text:'Top eight directly qualify for Round of 16. Positions 9–24 contest the two-legged playoff; its eight winners join the direct qualifiers.'};
+const prizes={participation:'100.00',winner_bonus:'300.00',runner_up_bonus:'200.00',budget:'4100.00',participant_basis:36};
+const competitions=names.map((slug,i)=>({id:slug,slug,name:`STAGE ${slug[0].toUpperCase()+slug.slice(1)} League`,tier:i+1,assignment:{state:'unassigned',trophy:null},editions:Array.from({length:26},(_,j)=>({id:`${slug}-${26-j}`,label:`Season ${26-j}`,season_number:26-j,status:j===0?['partial','full'].includes(state)?'draft':state:'archived',state:j?'Archived':state,maximum:36,trophy:null,prizes:params.has('noRewards')?null:prizes,journey,winner:j?'QA Club 01':null,runner_up:j?'QA Club 02':null,completed_at:j?'2026-09-01T12:00:00Z':null})),journey}));
+competitions.forEach(c=>{c.archive=c.editions.filter(s=>s.status==='archived');c.current=c.editions[0];});
+if(params.has('brokenImage'))competitions[0].assignment={state:'assigned',trophy:{id:'qa-broken',name:'QA unavailable artwork',image_url:'/uploads/qa-image-missing.png'}};
+const clubs=Array.from({length:36},(_,i)=>({id:`club-${i+1}`,name:`QA Club ${String(i+1).padStart(2,'0')}`,logo_url:null,country_code:['BE','FR','GB'][i%3],regional_league_id:`regional-${i%3}`,regional_league_name:['QA Benelux League','QA French League','QA English League'][i%3],qualification_position:i%6+1,available:true}));
+let failed=false;
+stageClient.http.get=async path=>{
+  if(path==='/gost/overview')return {competitions};
+  if(path.endsWith('?review=standings'))return {missing:[],duplicates:[],invalid:[],mismatches:[],conflicts:[],requires_review:false};
+  if(params.has('failure')&&!failed){failed=true;throw new Error('Controlled local loading failure');}
+  const id=path.includes('/editions/')?path.split('/editions/')[1].split('/')[0]:path.replace(/\/statistics(?:\?.*)?$/,'').split('/').pop();
+  const comp=competitions.find(c=>c.editions.some(s=>s.id===id));
+  const edition=comp?.editions.find(s=>s.id===id);
+  if(!edition)throw new Error(`No QA response for ${path}`);
+  if(params.has('slow')&&id.endsWith('-25'))await new Promise(resolve=>setTimeout(resolve,1500));
+  const n=id.endsWith('-26')?count:36;
+  const match={id:'qa-final',fixture_id:'qa-fixture',match_id:'qa-match',type:'knockout_final',home_club_id:'club-1',away_club_id:'club-2',home_club_name:'QA Club 01',away_club_name:'QA Club 02',home_score:2,away_score:2,decided_on_penalties:1,penalty_winner_side:'home',winner_club_id:'club-1',stats_processed:1,result_state:'CONFIRMED',status:'completed'};
+  const scheduled={...match,id:'qa-scheduled',match_id:null,type:'league',status:'scheduled',home_score:null,away_score:null,stats_processed:0,result_state:null,decided_on_penalties:0,penalty_winner_side:null,winner_club_id:null,scheduled_date:'2026-11-12T19:00:00Z',scheduling_status:'confirmed'};
+  const matches=['completed','archived'].includes(edition.status)?[match]:['league_phase','knockout'].includes(edition.status)?[scheduled]:[];
+  if(path.endsWith('/clubs'))return {season:{id,status:edition.status},participants:clubs.slice(0,n)};
+  if(path.includes('/statistics'))return {categories:{participants:['goals'],players:[],goalkeepers:[]},participants:{goals:[]},players:{},goalkeepers:{}};
+  return {root:{id,name:comp.name,status:edition.status,format:'league_36_8md'},edition_id:id,participants:clubs.slice(0,n),matches,standings:[]};
+};
+for(const entity of Object.values(stageClient.entities)){entity.filter=async()=>[];entity.list=async()=>[];entity.get=async()=>null;}
+stageClient.auth.me=async()=>({id:'qa-user',player_id:'qa-player',email:'qa@example.test'});
+stageClient.entities.Player.get=async()=>({id:'qa-player',club_id:'club-2',gamertag:'QA viewer'});
+stageClient.entities.Club.get=async()=>({id:'club-2',name:'QA Club 02'});
+const {default:CompetitionDetail}=await import('/src/pages/CompetitionDetail.jsx');
+const slug=names.includes(params.get('slug'))?params.get('slug'):'supreme';
+const initial=`/competitions/${slug}?tab=${params.get('tab')||'overview'}`;
+function QaNavigation(){const navigate=useNavigate();const location=useLocation();return React.createElement('aside',{className:'flex flex-wrap gap-4 border-b border-border bg-background px-5 py-2 text-xs text-muted-foreground'},'LOCAL QA · sample records, not live data',...names.map(name=>React.createElement(Link,{key:name,to:`/competitions/${name}`,className:'text-primary'},name)),React.createElement('button',{type:'button',onClick:()=>navigate(-1)},'QA Back'),React.createElement('button',{type:'button',onClick:()=>navigate(1)},'QA Forward'),React.createElement('output',{'aria-label':'QA current route'},location.pathname+location.search));}
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(MemoryRouter,{initialEntries:[initial]},React.createElement('div',{},React.createElement(QaNavigation),React.createElement(Routes,{},React.createElement(Route,{path:'/competitions/:slug',element:React.createElement(CompetitionDetail)}),React.createElement(Route,{path:'*',element:React.createElement('p',{},'QA navigation destination')})))));
+</script></body></html>

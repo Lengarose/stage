@@ -13,6 +13,7 @@ function createRouter({ query = EXECUTESQL, transaction = withTransaction } = {}
     return user;
   }
   router.get('/overview', wrap(async (req, res) => res.json(await service.overview(query))));
+  router.get('/:id/editions/:seasonId/clubs', wrap(async (req, res) => res.json(await service.directory(req.params.id, req.params.seasonId, query))));
   router.get('/:id/trophy', wrap(async (req, res) => {
     await admin(req);
     const result = await service.assignment(req.params.id, query);

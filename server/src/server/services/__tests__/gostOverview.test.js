@@ -87,3 +87,30 @@ test('prize totals require an established basis; format controls journey', () =>
   assert.equal(service.journeyFor(null, {}).kind, 'unavailable');
   assert.equal(service.safeImage('javascript:alert(1)'), null);
 });
+
+test('directory deduplicates confirmed participants, preserves qualification snapshots and excludes candidates and standings-only clubs', () => {
+  const season = { id: 'edition', registered_club_ids: ['registered', 'registered'] };
+  const confirmed = { id: 'q', target_season_id: 'edition', status: 'confirmed', club_id: 'qualified', regional_league_id: 'historical-league', regional_league_name: 'Old regional name', regional_finish_position: 4 };
+  const entries = [confirmed, { ...confirmed, id: 'retry' }, { ...confirmed, club_id: 'candidate', status: 'pending' }, { ...confirmed, club_id: 'other-edition', target_season_id: 'different' }];
+  const clubs = [{ id: 'qualified', name: 'Current name', country_code: 'BE', regional_position: 17 }, { id: 'unrelated', name: 'Unrelated' }];
+  const directory = service.participantDirectory(season, entries, clubs, [{ id: 'historical-league', name: 'Renamed league' }]);
+  assert.deepEqual(directory.map(c => c.id).sort(), ['qualified', 'registered']);
+  assert.equal(directory.find(c => c.id === 'qualified').qualification_position, 4);
+  assert.equal(directory.find(c => c.id === 'qualified').regional_league_name, 'Old regional name');
+  assert.equal(directory.find(c => c.id === 'registered').qualification_position, null);
+  assert.deepEqual(service.participantDirectory(season, entries, clubs, [], ['qualified']).map(c => c.id), ['qualified']);
+  const conflict = service.participantDirectory(season, [...entries, { ...confirmed, regional_finish_position: 5 }], clubs, []);
+  assert.equal(conflict.find(c => c.id === 'qualified').qualification_conflict, true);
+  assert.equal(conflict.find(c => c.id === 'qualified').qualification_position, null);
+});
+
+test('all editions remain accessible beyond the former 20-row limit without substituting current historical prizes', async () => {
+  const env = fixture();
+  for (let i = 3; i <= 30; i++) env.rows.push({ id: `season-${i}`, entity_type: 'competition_season', status: 'archived', data_json: JSON.stringify({ competition_id: 'sup', season_number: i }) });
+  const result = (await service.overview(env.query)).competitions[0];
+  assert.equal(result.editions.length, 30);
+  assert.equal(result.archive.length, 29);
+  assert.equal(result.editions.find(s => s.id === 'past').trophy.name, 'Captured cup');
+  assert.equal(result.editions.find(s => s.id === 'past').prizes, null);
+  assert.equal(env.writes.length, 0);
+});

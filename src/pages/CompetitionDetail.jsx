@@ -2,41 +2,17 @@ import { useState, useEffect } from "react";
 import { useParams, useSearchParams, Link } from "react-router-dom";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { useTranslation } from "@/hooks/useTranslation";
-import { Trophy, Shield, ChevronLeft, ChevronDown, Star, CheckCircle2, ExternalLink } from "lucide-react";
-import TrophyHistorySection from "@/components/rewards/TrophyHistorySection";
-import FixtureSchedulerPanel from "@/components/schedule/FixtureSchedulerPanel";
+import { Trophy, Shield, ArrowLeft, ArrowRight, ChevronRight, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getCompetitionMeta, sortStandings } from "@/lib/competitionUtils";
-import StandingsIntegrityNotice from '@/components/StandingsIntegrityNotice';
+import StandingsIntegrityNotice from "@/components/StandingsIntegrityNotice";
 import { isAppAdminUser } from "@/lib/adminAuth";
-import { createMatchFromFixture } from "@/lib/gameDayIntegration";
-import { swalAlert, swalConfirm } from "@/lib/swal";
-import PageBannerShell from "@/components/PageBannerShell";
 import LeagueCompetitionStages from "@/components/LeagueCompetitionStages";
 import TournamentLeaderboard from "@/components/TournamentLeaderboard";
-import { penaltyOutcome, isOfficialDisplayResult } from '@/lib/penaltyOutcome';
-
-const PHASE_LABEL = {
-  league: "League Phase",
-  playoff_round: "Playoff Round",
-  knockout_r16: "Round of 16",
-  knockout_qf: "Quarter-Finals",
-  knockout_sf: "Semi-Finals",
-  knockout_final: "Final",
-};
-
-const STATUS_LABEL = {
-  draft: "Draft",
-  registration: "Registration",
-  league_phase: "League Phase",
-  playoff_round: "Playoff Round",
-  knockout_r16: "Round of 16",
-  knockout_qf: "Quarter-Finals",
-  knockout_sf: "Semi-Finals",
-  knockout_final: "Final",
-  completed: "Completed",
-  archived: "Archived",
-};
+import { penaltyOutcome } from "@/lib/penaltyOutcome";
+import { GostTrophy, GostJourney } from "@/pages/Competitions";
+import { clubPathway, qualificationRange } from "@/lib/gostOverview";
+import { detailTabs, directoryRows, editionSelection, editionProgress, seasonLocation } from "@/lib/gostDetail";
 
 function dedupeCompetitionStandingsByClub(rows = []) {
   const byClub = new Map();
@@ -148,762 +124,200 @@ function StandingsTable({ standings, directSpots = 8, playoffSpots = 16 }) {
   );
 }
 
-function FixtureRow({ fixture, isAdmin, onSubmitResult, legLabel, isFinalLeg, myClub, myEmail, myGamertag }) {
-  const { t } = useTranslation();
-  const [editing, setEditing] = useState(false);
-  const [expanded, setExpanded] = useState(false);
-  const [home, setHome] = useState("");
-  const [away, setAway] = useState("");
-  const [tieWinner, setTieWinner] = useState(""); // for final leg: explicit tie winner override
-  const [saving, setSaving] = useState(false);
 
-  const isKnockout = fixture.phase !== "league";
-  const sched = String(fixture.scheduling_status || "open").toLowerCase();
-  const isMyFixture = Boolean(
-    myClub?.id
-    && (String(fixture.home_club_id) === String(myClub.id) || String(fixture.away_club_id) === String(myClub.id))
-  );
-  const canSchedule = isMyFixture && ["open", "home_proposed", "away_proposed"].includes(sched);
-  // Kickoff only after accept confirms — fixtureBase uses status:"scheduled" while still open.
-  const canOpenGameDay = sched === "confirmed";
+const linkClass = "inline-flex min-h-11 items-center gap-2 py-2 font-semibold text-primary focus-visible:ring-2 focus-visible:ring-primary";
+const heading = "font-heading text-2xl font-bold uppercase italic sm:text-3xl";
+const money = value => `${Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 })} STC`;
+const phaseName = value => ({ knockout_r16: 'Round of 16', knockout_qf: 'Quarterfinals', knockout_sf: 'Semifinals', knockout_final: 'Final', playoff_round: 'Knockout playoff' })[value] || String(value || 'Season preparation').replace(/_/g, ' ');
+const displayDate = value => {
+  if (!value) return '';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '' : date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+};
 
-  async function save() {
-    setSaving(true);
-    const hs = parseInt(home) || 0;
-    const as_ = parseInt(away) || 0;
-    // For league fixtures, auto-determine winner. For knockout leg 2, use explicit override if set.
-    const winnerId = isFinalLeg && tieWinner
-      ? tieWinner
-      : (hs > as_ ? fixture.home_club_id : as_ > hs ? fixture.away_club_id : "");
-    const winnerName = winnerId === fixture.home_club_id ? fixture.home_club_name
-      : winnerId === fixture.away_club_id ? fixture.away_club_name : "";
+function LoadError({ message, retry }) {
+  return <div role="alert" className="border-y border-border py-8"><p className="text-destructive">{message}</p><button type="button" onClick={retry} className={linkClass}>Retry <ArrowRight size={16} /></button></div>;
+}
 
-    await stageClient.functions.invoke("competitionFixtureResult", {
-      fixture_id: fixture.id,
-      home_score: hs,
-      away_score: as_,
-      winner_club_id: winnerId,
-      winner_club_name: winnerName,
-      reason: "Submitted from competition detail",
-    });
-    setSaving(false);
-    setEditing(false);
-    onSubmitResult?.();
-  }
+function ClubCrest({ club }) {
+  const [failed, setFailed] = useState(false);
+  return club.logo_url && !failed ? <img src={club.logo_url} onError={() => setFailed(true)} alt="" className="h-11 w-11 shrink-0 object-contain" /> : <Shield aria-hidden="true" className="h-11 w-11 shrink-0 text-muted-foreground/50" />;
+}
 
-  async function openGameDay() {
-    const match = await createMatchFromFixture(fixture, "competition").catch(() => null);
-    const matchId = match?.id || fixture.match_id;
-    if (matchId) window.location.assign(`/game-day?match=${encodeURIComponent(matchId)}`);
-  }
-
-  const isDone = isOfficialDisplayResult(fixture);
-  return (
-    <div className={cn(
-      "border-b border-border/40 last:border-0",
-      isDone ? "opacity-90" : "hover:bg-secondary/20",
-      isMyFixture && "bg-primary/5",
-    )}>
-      <div className={cn(
-        "flex items-center gap-3 px-4 py-3",
-      )}>
-      {legLabel && (
-        <span className="text-[9px] text-muted-foreground uppercase tracking-widest font-bold shrink-0 w-8">{legLabel}</span>
-      )}
-      <div className="flex-1 grid grid-cols-[1fr_auto_1fr] gap-2 items-center">
-        {/* Home */}
-        <div className="flex items-center gap-2 justify-end">
-          <span className="text-xs font-semibold text-foreground text-right">{fixture.home_club_name}</span>
-          {fixture.home_club_logo_url
-            ? <img src={fixture.home_club_logo_url} alt="" className="w-5 h-5 object-contain shrink-0" />
-            : <Shield className="w-4 h-4 text-muted-foreground/30 shrink-0" />}
-        </div>
-        {/* Score */}
-        <div className="text-center shrink-0">
-          {isDone ? (
-            <span className="font-black text-sm text-foreground tabular-nums px-2">
-              {fixture.home_score} — {fixture.away_score}
-            </span>
-          ) : editing ? (
-            <div className="flex items-center gap-1">
-              <input value={home} onChange={e => setHome(e.target.value)} className="w-8 text-center bg-secondary border border-border rounded text-xs py-0.5 text-foreground" placeholder="0" />
-              <span className="text-muted-foreground text-xs">—</span>
-              <input value={away} onChange={e => setAway(e.target.value)} className="w-8 text-center bg-secondary border border-border rounded text-xs py-0.5 text-foreground" placeholder="0" />
-            </div>
-          ) : (
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider px-2">vs</span>
-          )}
-        </div>
-        {/* Away */}
-        <div className="flex items-center gap-2 justify-start">
-          {fixture.away_club_logo_url
-            ? <img src={fixture.away_club_logo_url} alt="" className="w-5 h-5 object-contain shrink-0" />
-            : <Shield className="w-4 h-4 text-muted-foreground/30 shrink-0" />}
-          <span className="text-xs font-semibold text-foreground">{fixture.away_club_name}</span>
-        </div>
+export function GostClubDirectory({ participants, myClub }) {
+  const [search, setSearch] = useState('');
+  const [league, setLeague] = useState('');
+  const [order, setOrder] = useState('asc');
+  const rows = directoryRows(participants, search, league, order);
+  const leagues = [...new Map(participants.filter(c => c.regional_league_id).map(c => [c.regional_league_id, c.regional_league_name || 'Regional league unavailable'])).entries()].sort((a,b) => a[1].localeCompare(b[1]));
+  return <section>
+    <div className="flex flex-wrap items-end justify-between gap-5 pb-6">
+      <div><h2 className={heading}>Qualified clubs</h2><p className="mt-2 text-sm text-muted-foreground">Confirmed participants in this edition.</p></div>
+      <div className="flex w-full flex-wrap gap-3 lg:w-auto">
+        <label className="relative w-full min-w-0 flex-none sm:w-64 sm:flex-1"><span className="sr-only">Search clubs</span><Search size={17} className="absolute left-3 top-3.5 text-muted-foreground" /><input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search clubs..." className="h-11 w-full rounded-none border border-border bg-background pl-10 pr-3 text-sm" /></label>
+        <select aria-label="Regional league" value={league} onChange={e => setLeague(e.target.value)} className="h-11 min-w-0 max-w-full flex-1 border border-border bg-background px-3 text-sm sm:flex-none"><option value="">All regional leagues</option>{leagues.map(([id,name]) => <option key={id} value={id}>{name}</option>)}</select>
+        <select aria-label="Club sort order" value={order} onChange={e => setOrder(e.target.value)} className="h-11 min-w-0 flex-1 border border-border bg-background px-3 text-sm sm:flex-none"><option value="asc">Club name A–Z</option><option value="desc">Club name Z–A</option></select>
       </div>
+    </div>
+    <p role="status" className="mb-4 text-sm text-muted-foreground">Showing {rows.length} of {participants.length} clubs</p>
+    <div className="hidden grid-cols-[1.2fr_1fr_0.6fr_20px] gap-4 border-b border-border px-4 py-3 text-xs uppercase text-muted-foreground md:grid"><span>Club</span><span>Regional league</span><span>Qualified as</span><span /></div>
+    {rows.map(club => <Link key={club.id} to={`/clubs/${encodeURIComponent(club.id)}`} className={cn("grid grid-cols-[1fr_20px] items-center gap-3 border-b border-l-4 border-border px-3 py-4 transition hover:bg-secondary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary md:grid-cols-[1.2fr_1fr_0.6fr_20px] md:gap-4", myClub?.id === club.id ? "border-l-primary bg-primary/5" : "border-l-transparent")}>
+      <div className="flex min-w-0 items-center gap-4"><ClubCrest club={club} /><div className="min-w-0"><div className="flex flex-wrap items-center gap-x-3"><span className="break-words font-bold">{club.name}</span>{myClub?.id === club.id && <span className="text-xs font-semibold uppercase text-primary">Your club</span>}</div><p className="text-sm text-muted-foreground">{club.country_code || 'Country unavailable'}</p><div className="mt-2 text-sm text-muted-foreground md:hidden">{club.regional_league_name || 'Regional league unavailable'} · {club.qualification_position ? `Position ${club.qualification_position}` : club.qualification_conflict ? 'Qualification needs review' : 'Position unavailable'}</div></div></div>
+      <span className="hidden text-sm text-muted-foreground md:block">{club.regional_league_name || 'Regional league unavailable'}</span><span className="hidden text-sm md:block">{club.qualification_position ? `Position ${club.qualification_position}` : club.qualification_conflict ? 'Needs review' : 'Unavailable'}</span><ChevronRight size={18} aria-hidden="true" />
+    </Link>)}
+    {!rows.length && <div className="border-y border-border py-10"><p>{participants.length ? 'No clubs match the selected filters.' : 'No confirmed clubs yet.'}</p>{participants.length > 0 && <button type="button" className={linkClass} onClick={() => { setSearch(''); setLeague(''); setOrder('asc'); }}>Clear filters</button>}</div>}
+    <p className="mt-5 text-xs text-muted-foreground">Qualification positions refer to the regional season that qualified the club, not its current standings.</p>
+  </section>;
+}
 
-      {!isDone && (
-        <span className="shrink-0 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border border-border text-muted-foreground">
-          {sched.replace(/_/g, " ")}
-        </span>
-      )}
+function ClubPathway({ identity, participants, season, matches, slug }) {
+  const club = identity?.club || identity?.presidentClub;
+  const [path, setPath] = useState(null);
+  const own = participants.find(c => c.id === club?.id);
+  useEffect(() => {
+    let active = true;
+    if (!club || own) return;
+    async function load() {
+      try {
+        const [standings, entries] = await Promise.all([
+          stageClient.entities.RegionalLeagueStanding.filter({ club_id: club.id }, '-season_number', 100),
+          stageClient.entities.QualificationEntry.filter({ club_id: club.id }, '-created_date', 100),
+        ]);
+        const leagues = await Promise.all([...new Set(standings.map(s => s.league_id).filter(Boolean))].map(id => stageClient.entities.RegionalLeague.get(id)));
+        if (active) setPath(clubPathway(club, leagues.filter(Boolean), standings, entries));
+      } catch { if (active) setPath({ text: 'Regional pathway could not be loaded.', href: '/leagues' }); }
+    }
+    void load();
+    return () => { active = false; };
+  }, [club?.id, own?.id]);
+  const next = matches.find(m => m.home_club_id === club?.id || m.away_club_id === club?.id);
+  return <section className="min-w-0 lg:border-l lg:border-border lg:pl-8"><h2 className={heading}>Your club’s pathway</h2>
+    <p className="mt-3 text-sm leading-relaxed text-muted-foreground">Finish in positions {qualificationRange(slug)} of Regional Division 1 to qualify.</p>
+    {identity === undefined ? <p className="mt-3 text-sm">Loading your club...</p> : identity === null ? <p className="mt-3 text-sm">Your club identity could not be loaded.</p> : own ? <><p className="mt-3 font-semibold">{own.name} · Confirmed participation</p><p className="mt-2 text-sm text-muted-foreground">{phaseName(season.status)}</p>{next && <p className="mt-2 text-sm">Next scheduled fixture: {next.home_club_name} vs {next.away_club_name} · {displayDate(next.scheduled_date)}</p>}</> : <p className="mt-3 text-sm text-muted-foreground">{club ? path?.text || 'Loading regional pathway...' : 'Your final regional position determines your GOST competition.'}</p>}
+    <Link to={path?.href || '/leagues'} className={linkClass}>Explore regional leagues <ArrowRight size={17} /></Link>
+  </section>;
+}
 
-      {canOpenGameDay && !isDone && (
-        <button
-          type="button"
-          onClick={openGameDay}
-          className="inline-flex shrink-0 items-center gap-1 rounded border border-primary/30 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-primary hover:bg-primary/10"
-        >
-          GameDay <ExternalLink className="w-3 h-3" />
-        </button>
-      )}
+function MatchPreview({ matches, onStages, empty }) {
+  return <div className="mt-3">{matches.length ? matches.slice(0, 3).map(match => <div key={match.id} className="flex flex-wrap items-center justify-between gap-x-3 border-b border-border py-3 text-sm">
+    <span>{match.home_club_name || 'Home club'} <strong>{match.home_score != null && match.away_score != null ? `${match.home_score} – ${match.away_score}` : 'vs'}</strong> {match.away_club_name || 'Away club'}</span>
+    <span className="text-muted-foreground">{displayDate(match.scheduled_date)}</span>
+    {match.match_id ? <Link to={`/game-day?match=${encodeURIComponent(match.match_id)}`} className={linkClass}>GAMEDAY <ArrowRight size={15} /></Link> : <button type="button" onClick={onStages} className={linkClass}>Match details <ArrowRight size={15} /></button>}
+  </div>) : <p className="text-sm text-muted-foreground">{empty}</p>}</div>;
+}
 
-      {/* Admin controls */}
-      {isAdmin && !isDone && (
-        <div className="shrink-0 flex flex-col gap-1 items-end">
-          {editing ? (
-            <div className="flex gap-1 items-start">
-              <div className="flex flex-col gap-1">
-                {/* Leg 2 of knockout: show explicit winner override for ET/pens */}
-                {isFinalLeg && isKnockout && (
-                  <select
-                    value={tieWinner}
-                    onChange={e => setTieWinner(e.target.value)}
-                    className="text-[9px] bg-secondary border border-border rounded px-1 py-0.5 text-foreground w-36"
-                  >
-                    <option value="">Tie winner (optional)</option>
-                    <option value={fixture.home_club_id}>{fixture.home_club_name} wins</option>
-                    <option value={fixture.away_club_id}>{fixture.away_club_name} wins</option>
-                  </select>
-                )}
-              </div>
-              <button onClick={save} disabled={saving} className="text-[10px] px-2 py-1 rounded bg-success/20 text-success border border-success/30 font-bold">{saving ? "..." : "Save"}</button>
-              <button onClick={() => setEditing(false)} className="text-[10px] px-2 py-1 rounded border border-border text-muted-foreground">×</button>
-            </div>
-          ) : (
-            <button onClick={() => setEditing(true)} className="text-[10px] px-2 py-1 rounded border border-border text-muted-foreground hover:text-foreground">{t("commonPages.cpResult")}</button>
-          )}
-        </div>
-      )}
-      {isDone && (
-        <CheckCircle2 className="w-3.5 h-3.5 text-success/60 shrink-0" />
-      )}
-      {canSchedule && (
-        <button
-          type="button"
-          onClick={() => setExpanded((v) => !v)}
-          className="shrink-0 text-[10px] px-2 py-1 rounded border border-border text-muted-foreground hover:text-foreground"
-        >
-          {expanded ? "Hide schedule" : "Schedule"}
-        </button>
-      )}
+function Rewards({ edition, trophy }) {
+  const prizes = edition.prizes;
+  return <section><h2 className={heading}>Prizes and trophy</h2>{prizes ? <><dl className="mt-5 max-w-3xl divide-y divide-border">{[['participation', 'Participation payment per eligible club'], ['winner_bonus', 'Winner’s additional STC prize'], ['runner_up_bonus', 'Runner-up’s additional STC prize']].map(([key,label]) => <div key={key} className="flex flex-wrap justify-between gap-3 py-4"><dt>{label}</dt><dd className="font-bold">{money(prizes[key])}</dd></div>)}</dl><p className="mt-5 text-sm text-muted-foreground">Winner and runner-up receive their additional prize in addition to participation money.</p><p className="mt-3 text-sm">Winner’s total: <strong>{money(Number(prizes.participation) + Number(prizes.winner_bonus))}</strong> · Runner-up’s total: <strong>{money(Number(prizes.participation) + Number(prizes.runner_up_bonus))}</strong></p>{prizes.budget && <p className="mt-3 text-sm text-muted-foreground">Configured budget for {prizes.participant_basis} captured clubs: {money(prizes.budget)}. This is not an amount distributed.</p>}</> : <p className="mt-5 text-muted-foreground">Rewards not configured or no captured configuration is available for this edition.</p>}<p className="mt-6">Winner’s trophy: <strong>{trophy?.name || 'No captured or assigned trophy available'}</strong></p></section>;
+}
+
+function EditionContent({ competition, edition, identity, activeTab, setTab, selectSeason, reloadOverview }) {
+  const [data, setData] = useState(null);
+  const [error, setError] = useState('');
+  const [revision, setRevision] = useState(0);
+  useEffect(() => {
+    let active = true;
+    let request = 0;
+    async function load() {
+      const token = ++request;
+      try {
+        const [directory, view] = await Promise.all([
+          stageClient.http.get(`/gost/${encodeURIComponent(competition.id)}/editions/${encodeURIComponent(edition.id)}/clubs`),
+          stageClient.http.get(`/competition-views/competition_season/${encodeURIComponent(edition.id)}`),
+        ]);
+        if (!directory.season || !Array.isArray(directory.participants) || !Array.isArray(view.matches) || !Array.isArray(view.standings)) throw new Error('Incomplete edition response. Check that the matching backend is deployed.');
+        if (active && token === request) { setData({ ...directory, ...view, participants: directory.participants }); setError(''); }
+      } catch (e) { if (active && token === request) setError(`Club or season data could not be loaded: ${e.message}`); }
+    }
+    void load();
+    window.addEventListener('focus', load);
+    return () => { active = false; window.removeEventListener('focus', load); };
+  }, [competition.id, edition.id, revision]);
+  if (error) return <LoadError message={error} retry={() => { setRevision(n => n + 1); reloadOverview(); }} />;
+  if (!data) return <p role="status" className="py-12">Loading edition...</p>;
+  const { season, participants, matches, standings } = data;
+  const progress = editionProgress(season, participants, matches);
+  const trophy = progress.finished ? edition.trophy : edition.trophy || competition.assignment?.trophy;
+  const myClub = identity?.club || identity?.presidentClub;
+  const onStages = () => setTab('stages');
+  const final = progress.final;
+  const winner = edition.winner || (final?.winner_club_id === final?.home_club_id ? final?.home_club_name : final?.winner_club_id === final?.away_club_id ? final?.away_club_name : null);
+  const runner = edition.runner_up || (final?.winner_club_id && final.winner_club_id === final.home_club_id ? final.away_club_name : final?.winner_club_id && final.winner_club_id === final.away_club_id ? final.home_club_name : null);
+  return <>
+    {activeTab === 'overview' && <>
+      <div className="grid gap-8 border-b border-border pb-7 lg:grid-cols-[1.25fr_1fr]">
+        <section className="min-w-0"><h2 className={heading}>{progress.title}</h2>
+          <p className="mt-3 text-sm text-muted-foreground">{progress.finished ? `Champion: ${winner || 'Not recorded'} · Runner-up: ${runner || 'Not recorded'}` : participants.length ? 'Confirmed clubs are preparing for or competing in this edition.' : 'Confirmed clubs will appear after regional qualification is finalised.'}</p>
+          {final && <><p className="mt-3 font-bold">{final.home_club_name} {final.home_score} – {final.away_score} {final.away_club_name}</p>{penaltyOutcome(final) && <p className="mt-2 text-sm">{penaltyOutcome(final)}</p>}</>}
+          <dl className="mt-6 flex flex-wrap gap-x-8 gap-y-4"><div><dt className="text-xs uppercase text-muted-foreground">Confirmed clubs</dt><dd className="mt-1 text-2xl font-bold">{participants.length}{edition.maximum ? ` / ${edition.maximum}` : ''}</dd></div><div className="border-l border-border pl-8"><dt className="text-xs uppercase text-muted-foreground">Season status</dt><dd className="mt-1 font-bold capitalize">{phaseName(season.status)}</dd></div>{progress.required.length > 0 && <div><dt className="text-xs uppercase text-muted-foreground">Confirmed matches</dt><dd className="mt-1 font-bold">{progress.played.length} / {progress.required.length}</dd></div>}</dl>
+          {progress.finished ? <div className="mt-3 flex flex-wrap gap-6"><button type="button" className={linkClass} onClick={() => setTab('table')}>Final standings <ArrowRight size={16} /></button><button type="button" className={linkClass} onClick={() => setTab('history')}>Season history <ArrowRight size={16} /></button></div> : <Link to="/leagues" className={`mt-3 ${linkClass}`}>Explore regional leagues <ArrowRight size={17} /></Link>}
+        </section>
+        <ClubPathway identity={identity} participants={participants} season={season} matches={progress.upcoming} slug={competition.slug} />
       </div>
-      {penaltyOutcome(fixture)&&<p className="px-4 pb-3 text-xs text-primary">{penaltyOutcome(fixture)}</p>}
-      {expanded && canSchedule && (
-        <div className="px-4 pb-3">
-          <FixtureSchedulerPanel
-            fixture={fixture}
-            fixtureType="competition"
-            myClub={myClub}
-            myEmail={myEmail}
-            myGamertag={myGamertag}
-            onUpdate={onSubmitResult}
-          />
-        </div>
-      )}
-    </div>
-  );
+      <section className="border-b border-border py-7"><h2 className={heading}>Competition journey</h2><div className="mt-5"><GostJourney journey={edition.journey || competition.journey} /></div></section>
+      <div className="grid gap-8 py-7 lg:grid-cols-2"><section><h2 className={heading}>Fixtures and results</h2><h3 className="mt-5 text-sm font-bold">Upcoming fixtures</h3><MatchPreview matches={progress.upcoming} onStages={onStages} empty="No scheduled fixtures yet." /><h3 className="mt-5 text-sm font-bold">Recent confirmed results</h3><MatchPreview matches={[...progress.played].reverse()} onStages={onStages} empty="No confirmed results yet." /><button type="button" className={linkClass} onClick={onStages}>View stages <ArrowRight size={17} /></button></section><section className="lg:border-l lg:border-border lg:pl-8"><h2 className={heading}>Prizes and trophy</h2><p className="mt-4 text-sm text-muted-foreground">{edition.prizes ? 'Participation payment for every eligible club, with additional prizes for the winner and runner-up.' : 'Reward configuration is unavailable for this edition.'}</p><button type="button" className={linkClass} onClick={() => setTab('rewards')}>View reward details <ArrowRight size={17} /></button></section></div>
+    </>}
+    {activeTab === 'clubs' && <GostClubDirectory participants={participants} myClub={myClub} />}
+    {activeTab === 'table' && <><StandingsIntegrityNotice kind="competition_season" editionId={edition.id} isAdmin={isAppAdminUser(identity?.user)} onRefresh={() => setRevision(n => n + 1)} /><StandingsTable standings={dedupeCompetitionStandingsByClub(standings)} /></>}
+    {activeTab === 'stages' && <LeagueCompetitionStages key={edition.id} kind="competition_season" editionId={edition.id} myClub={myClub} myEmail={identity?.user?.email || identity?.player?.email || ''} myGamertag={identity?.player?.gamertag || ''} renderStandings={() => <StandingsTable standings={dedupeCompetitionStandingsByClub(standings)} />} />}
+    {activeTab === 'stats' && <TournamentLeaderboard key={edition.id} tournamentId={edition.id} title="Season Statistics" statisticsUrl={`/competition-views/competition_season/${encodeURIComponent(edition.id)}/statistics`} />}
+    {activeTab === 'rewards' && <Rewards edition={edition} trophy={trophy} />}
+    {activeTab === 'history' && <section><h2 className={heading}>Season history</h2><div className="mt-5">{competition.archive.length ? competition.archive.map(s => <button type="button" key={s.id} onClick={() => selectSeason(s.id, true)} className="flex min-h-20 w-full flex-wrap items-center justify-between gap-3 border-b border-border py-4 text-left hover:bg-secondary/30 focus-visible:ring-2 focus-visible:ring-primary"><div><strong>{s.label}</strong>{s.trophy?.name && <p className="mt-1 text-sm text-muted-foreground">Trophy: {s.trophy.name}</p>}<p className="mt-1 text-sm text-muted-foreground">{s.state}{s.completed_at ? ` · ${displayDate(s.completed_at)}` : ''}</p></div><span className="text-sm">Champion: {s.winner || 'Not recorded'} · Runner-up: {s.runner_up || 'Not recorded'}</span><ArrowRight size={17} /></button>) : <p>No completed or archived editions yet.</p>}</div></section>}
+  </>;
 }
 
-function TieCard({ leg1, leg2, isAdmin, onRefresh, label, myClub, myEmail, myGamertag }) {
-  const { t } = useTranslation();
-  const done1 = isOfficialDisplayResult(leg1);
-  const done2 = isOfficialDisplayResult(leg2);
-
-  let agg1 = 0, agg2 = 0;
-  if (done1 && leg1) { agg1 += leg1.home_score ?? 0; agg2 += leg1.away_score ?? 0; }
-  if (done2 && leg2) { agg1 += leg2.away_score ?? 0; agg2 += leg2.home_score ?? 0; }
-
-  const hasAgg = done1 || done2;
-  const rowProps = { isAdmin, onSubmitResult: onRefresh, myClub, myEmail, myGamertag };
-
-  return (
-    <div className="bg-card border border-border rounded overflow-hidden">
-      {label && (
-        <div className="px-4 py-2.5 bg-secondary/40 border-b border-border flex items-center justify-between gap-2">
-          <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{label}</span>
-          {hasAgg && (
-            <span className={cn("text-[10px] font-black tabular-nums",
-              agg1 > agg2 ? "text-foreground" : agg2 > agg1 ? "text-muted-foreground" : "text-warning"
-            )}>
-              Agg: {agg1} – {agg2}
-              {agg1 === agg2 && done1 && done2 && !penaltyOutcome(leg2) && <span className="text-warning ml-1">(tied)</span>}
-            </span>
-          )}
-        </div>
-      )}
-      {leg1 && <FixtureRow fixture={leg1} {...rowProps} legLabel="Leg 1" />}
-      {leg2 && <FixtureRow fixture={leg2} {...rowProps} legLabel="Leg 2" isFinalLeg />}
+function CompetitionPage({ slug }) {
+  const [params, setParams] = useSearchParams();
+  const [competition, setCompetition] = useState(null);
+  const [identity, setIdentity] = useState(undefined);
+  const [error, setError] = useState('');
+  const [revision, setRevision] = useState(0);
+  const meta = getCompetitionMeta(slug);
+  const activeTab = detailTabs.includes(params.get('tab')) ? params.get('tab') : 'overview';
+  useEffect(() => {
+    let active = true;
+    let request = 0;
+    async function load() {
+      const token = ++request;
+      try {
+        const response = await stageClient.http.get('/gost/overview');
+        const found = response.competitions.find(c => c.slug === slug);
+        if (!found) throw new Error('Competition not found.');
+        if (!Array.isArray(found.editions)) throw new Error('The GOST detail page needs the matching backend update.');
+        if (active && token === request) { setCompetition(found); setError(''); }
+      } catch (e) { if (active && token === request) setError(e.message); }
+    }
+    void load();
+    window.addEventListener('focus', load);
+    return () => { active = false; window.removeEventListener('focus', load); };
+  }, [slug, revision]);
+  useEffect(() => {
+    let active = true;
+    resolveMyPlayerAndClub().then(value => { if (active) setIdentity(value); }).catch(() => { if (active) setIdentity(null); });
+    return () => { active = false; };
+  }, []);
+  const edition = competition ? editionSelection(competition.editions, params.get('season')) : null;
+  const historical = ['completed', 'archived'].includes(edition?.status);
+  const trophy = historical ? edition?.trophy : competition?.assignment?.trophy || edition?.trophy;
+  const setTab = tab => setParams(previous => { const next = new URLSearchParams(previous); next.set('tab', tab); return next; });
+  const selectSeason = (id, overview = false) => setParams(previous => seasonLocation(previous, id, overview));
+  return <main className="gost-detail min-h-screen bg-background px-5 py-7 text-foreground sm:px-8" style={{ '--primary': 'var(--gost-accent)', '--gost-accent-dark': ({ supreme: '199 95% 60%', elite: '48 96% 53%', challenger: '142 71% 45%' })[slug], '--gost-accent-light': ({ supreme: '200 98% 32%', elite: '40 93% 29%', challenger: '142 72% 29%' })[slug] }}>
+    <div className="mx-auto max-w-7xl min-w-0">
+      <Link to="/competitions" className={linkClass}><ArrowLeft size={17} /> All GOST competitions</Link>
+      <header className="grid grid-cols-[80px_minmax(0,1fr)] items-center gap-5 py-5 sm:grid-cols-[180px_minmax(0,1fr)] lg:grid-cols-[220px_minmax(0,1fr)_auto]">
+        <div className="gost-detail-trophy"><GostTrophy compact trophy={trophy} guidance={historical ? 'Historical trophy unavailable.' : 'Trophy not assigned.'} /></div>
+        <div className="min-w-0"><p className="mb-3 text-sm font-semibold uppercase text-primary">● Tier {['I', 'II', 'III'][meta.tier - 1]}</p><h1 className="break-words font-heading text-2xl font-black uppercase italic leading-tight sm:text-5xl lg:text-6xl">{(competition?.name || meta.name).replace(/^STAGE\s+/i, '')}</h1><p className="mt-3 text-lg">Global Official Stage Tournaments</p><p className="mt-3 text-sm text-muted-foreground">Regional Division 1 · Positions {qualificationRange(slug)} qualify</p></div>
+        <div className="col-span-2 flex flex-wrap items-center gap-5 sm:col-span-1 sm:col-start-2 lg:col-start-auto"><label className="max-w-full"><span className="sr-only">Competition season</span><select aria-label="Competition season" value={edition?.id || ''} onChange={e => selectSeason(e.target.value)} disabled={!competition?.editions.length} className="h-11 max-w-full border border-border bg-background px-3 text-sm">{!edition && <option value="">Select season</option>}{competition?.editions.map(s => <option value={s.id} key={s.id}>{s.label} · {s.state}</option>)}</select></label><span className="border-l border-border pl-5 text-sm capitalize">{edition ? phaseName(edition.status) : 'No edition selected'}</span></div>
+      </header>
+      {error ? <LoadError message={error} retry={() => setRevision(n => n + 1)} /> : !competition ? <p role="status" className="py-12">Loading competition...</p> : <>
+        <nav aria-label="Competition sections" className="mb-7 flex flex-wrap gap-x-4 border-y border-border sm:gap-x-7">{detailTabs.map(tab => <button type="button" key={tab} onClick={() => setTab(tab)} aria-current={activeTab === tab ? 'page' : undefined} className={cn("min-h-12 border-b-2 px-1 text-sm capitalize transition focus-visible:ring-2 focus-visible:ring-primary", activeTab === tab ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>{tab}</button>)}</nav>
+        {edition ? <EditionContent key={`${competition.id}:${edition.id}`} competition={competition} edition={edition} identity={identity} activeTab={activeTab} setTab={setTab} selectSeason={selectSeason} reloadOverview={() => setRevision(n => n + 1)} /> : <p className="py-12">{params.get('season') ? 'This edition does not belong to this competition or is unavailable. Choose an available season.' : 'No edition announced.'}</p>}
+      </>}
     </div>
-  );
-}
-
-function FixturesPanel({ fixtures, isAdmin, onRefresh, myClub, myEmail, myGamertag }) {
-  const { t } = useTranslation();
-  if (!fixtures.length) return (
-    <div className="border border-dashed border-border rounded p-12 text-center">
-      <p className="text-sm text-muted-foreground uppercase tracking-widest">{t("commonPages.cpNoFixtures")}</p>
-    </div>
-  );
-
-  const leagueFixtures = fixtures.filter(f => f.phase === "league");
-  const knockoutFixtures = fixtures.filter(f => f.phase !== "league");
-  const rowProps = { isAdmin, onSubmitResult: onRefresh, myClub, myEmail, myGamertag };
-
-  // League: group by matchday
-  const byMatchday = {};
-  leagueFixtures.forEach(f => {
-    const k = f.matchday || 1;
-    if (!byMatchday[k]) byMatchday[k] = [];
-    byMatchday[k].push(f);
-  });
-
-  // Knockout: group by phase, then by tie_id
-  const knockoutPhaseOrder = ["playoff_round", "knockout_r16", "knockout_qf", "knockout_sf", "knockout_final"];
-  const byPhase = {};
-  knockoutFixtures.forEach(f => {
-    if (!byPhase[f.phase]) byPhase[f.phase] = {};
-    const key = f.tie_id || `single-${f.id}`;
-    if (!byPhase[f.phase][key]) byPhase[f.phase][key] = [];
-    byPhase[f.phase][key].push(f);
-  });
-
-  return (
-    <div className="space-y-6">
-      {/* League phase by matchday */}
-      {Object.keys(byMatchday).length > 0 && (
-        <div className="space-y-3">
-          {Object.entries(byMatchday).sort(([a], [b]) => Number(a) - Number(b)).map(([md, rows]) => (
-            <div key={md} className="bg-card border border-border rounded overflow-hidden">
-              <div className="px-4 py-2.5 bg-secondary/40 border-b border-border">
-                <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Matchday {md}</span>
-              </div>
-              {rows.map(f => <FixtureRow key={f.id} fixture={f} {...rowProps} />)}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Knockout phases as two-legged tie cards */}
-      {knockoutPhaseOrder.filter(p => byPhase[p]).map(phase => {
-        const ties = byPhase[phase];
-        const tieKeys = Object.keys(ties).sort((a, b) => {
-          const bpA = ties[a][0]?.bracket_position ?? 99;
-          const bpB = ties[b][0]?.bracket_position ?? 99;
-          return bpA - bpB;
-        });
-        return (
-          <div key={phase} className="space-y-2">
-            <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground px-1 mb-2">
-              {PHASE_LABEL[phase] || phase}
-            </h3>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-              {tieKeys.map((tieKey, ti) => {
-                const legs = ties[tieKey].sort((a, b) => (a.leg ?? 1) - (b.leg ?? 1));
-                const [leg1, leg2] = legs;
-                const isFinal = phase === "knockout_final";
-                if (isFinal) {
-                  return (
-                    <div key={tieKey} className="lg:col-span-2 max-w-lg">
-                      <div className="bg-card border border-border rounded overflow-hidden">
-                        <div className="px-4 py-2.5 bg-secondary/40 border-b border-border">
-                          <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{t("commonPages.cpFinal")}</span>
-                        </div>
-                        <FixtureRow fixture={leg1} {...rowProps} />
-                      </div>
-                    </div>
-                  );
-                }
-                const bp = leg1?.bracket_position ?? ti + 1;
-                return (
-                  <TieCard
-                    key={tieKey}
-                    leg1={leg1}
-                    leg2={leg2}
-                    isAdmin={isAdmin}
-                    onRefresh={onRefresh}
-                    label={`Tie ${bp}`}
-                    myClub={myClub}
-                    myEmail={myEmail}
-                    myGamertag={myGamertag}
-                  />
-                );
-              })}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function QualificationPanel({ entries }) {
-  const { t } = useTranslation();
-  const pending = entries.filter(e => e.status === "pending");
-  return (
-    <div className="space-y-4">
-      {pending.length > 0 && (
-        <div className="border border-warning/20 bg-warning/5 rounded p-3 text-xs text-warning">
-          {pending.length} pending qualification entr{pending.length === 1 ? "y" : "ies"} awaiting admin confirmation.
-        </div>
-      )}
-      {!entries.length ? (
-        <div className="border border-dashed border-border rounded p-12 text-center">
-          <p className="text-sm text-muted-foreground uppercase tracking-widest">{t("commonPages.cpNoQualification")}</p>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {entries.map(e => (
-            <div key={e.id} className="bg-card border border-border rounded p-3 flex items-center gap-3">
-              {e.club_logo_url
-                ? <img src={e.club_logo_url} alt={e.club_name} className="w-8 h-8 object-contain shrink-0" />
-                : <Shield className="w-6 h-6 text-muted-foreground/30 shrink-0" />}
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-foreground truncate">{e.club_name}</p>
-                <p className="text-[10px] text-muted-foreground">{e.regional_league_name || e.source_type} · Pos. {e.regional_finish_position || "—"}</p>
-              </div>
-              <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider shrink-0",
-                e.status === "confirmed" ? "text-success border-success/30 bg-success/5" :
-                e.status === "pending" ? "text-warning border-warning/30 bg-warning/5" :
-                e.status === "rejected" ? "text-destructive border-destructive/30 bg-destructive/5" :
-                "text-muted-foreground border-border"
-              )}>{e.status}</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+  </main>;
 }
 
 export default function CompetitionDetail() {
-  const { t } = useTranslation();
   const { slug } = useParams();
-  const [searchParams] = useSearchParams();
-  const requestedSeasonId = searchParams.get('season');
-  const meta = getCompetitionMeta(slug);
-
-  const [competition, setCompetition] = useState(null);
-  const [allSeasons, setAllSeasons] = useState([]);
-  const [selectedSeason, setSelectedSeason] = useState(null);
-  const [standings, setStandings] = useState([]);
-  const [fixtures, setFixtures] = useState([]);
-  const [qualEntries, setQualEntries] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [myClub, setMyClub] = useState(null);
-  const [myEmail, setMyEmail] = useState("");
-  const [myGamertag, setMyGamertag] = useState("");
-  const [seasonPickerOpen, setSeasonPickerOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState("overview");
-  const [adminCompetitionBusy, setAdminCompetitionBusy] = useState("");
-
-  useEffect(() => { loadComp(); }, [slug, requestedSeasonId]);
-  useEffect(() => { if (selectedSeason) loadSeasonData(selectedSeason); }, [selectedSeason?.id]);
-
-  async function loadComp() {
-    setLoading(true);
-    try {
-      const [comps, identity] = await Promise.all([
-        stageClient.entities.Competition.filter({ slug }, null, 1).catch(() => []),
-        resolveMyPlayerAndClub().catch(() => ({})),
-      ]);
-      const user = identity?.user || null;
-      setIsAdmin(isAppAdminUser(user));
-      setMyClub(identity?.club || identity?.presidentClub || null);
-      setMyEmail(user?.email || identity?.player?.email || "");
-      setMyGamertag(identity?.player?.gamertag || user?.email || "");
-      const comp = comps[0];
-      if (!comp) { setLoading(false); return; }
-      setCompetition(comp);
-      const seasons = await stageClient.entities.CompetitionSeason.filter(
-        { competition_id: comp.id }, "-season_number", 20
-      ).catch(() => []);
-      if (requestedSeasonId && !seasons.some(s => s.id === requestedSeasonId)) {
-        const requested = await stageClient.entities.CompetitionSeason.get(requestedSeasonId).catch(() => null);
-        if (requested?.competition_id === comp.id) seasons.push(requested);
-      }
-      setAllSeasons(seasons);
-      const active = seasons.find(s => s.id === requestedSeasonId) || seasons.find(s => s.status !== "completed" && s.status !== "archived" && s.status !== "draft") || seasons.find(s => s.status !== "archived" && s.status !== "draft") || seasons[0];
-      if (active) setSelectedSeason(active);
-      else setLoading(false);
-    } catch (err) {
-      console.error("[CompetitionDetail] loadComp:", err);
-      setLoading(false);
-    }
-  }
-
-  async function loadSeasonData(season) {
-    setLoading(true);
-    try {
-      const [rows, fx, qual] = await Promise.all([
-        stageClient.http.get(`/competition-views/competition_season/${encodeURIComponent(season.id)}`).then(view => view.standings).catch(() => []),
-        stageClient.entities.CompetitionFixture.filter({ season_id: season.id }, "matchday", 300).catch(() => []),
-        stageClient.entities.QualificationEntry.filter({ target_season_id: season.id }, null, 50).catch(() => []),
-      ]);
-      setStandings(rows);
-      setFixtures(fx);
-      setQualEntries(qual);
-    } catch (err) {
-      console.error("[CompetitionDetail] loadSeasonData:", err);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleAdminGenerateFixtures() {
-    if (!selectedSeason) return;
-    if (fixtures.length > 0 || selectedSeason.fixtures_generated) {
-      await swalAlert("Fixtures are already generated for this GOST season.");
-      return;
-    }
-    const fixtureStandings = dedupeCompetitionStandingsByClub(standings);
-    if (fixtureStandings.length < 4) {
-      await swalAlert("Add at least 4 clubs in Admin → GOST before generating fixtures.");
-      return;
-    }
-    const targetClubs = Number(selectedSeason.max_clubs || selectedSeason.target_clubs || selectedSeason.max_clubs_per_season || 36);
-    const warning = fixtureStandings.length < targetClubs
-      ? `\n\nThis season is not full (${fixtureStandings.length}/${targetClubs}). This is okay for admin testing.`
-      : "";
-    const ok = await swalConfirm(`Generate fixtures for ${selectedSeason.competition_name} ${selectedSeason.season_label || `S${selectedSeason.season_number}`}?${warning}`);
-    if (!ok) return;
-    setAdminCompetitionBusy("generate");
-    try {
-      const { generateLeaguePhaseFixtures } = await import("@/lib/competitionUtils");
-      await generateLeaguePhaseFixtures(selectedSeason, fixtureStandings);
-      await loadComp();
-      setActiveTab("fixtures");
-    } catch (err) {
-      await swalAlert(`Could not generate fixtures: ${err?.message || "Unknown error"}`);
-    } finally {
-      setAdminCompetitionBusy("");
-    }
-  }
-
-  async function handleAdminSimulateFixtures() {
-    if (!selectedSeason) return;
-    const unplayed = fixtures.filter(f => f.status !== "completed" && f.status !== "forfeit" && !f.stats_processed);
-    if (!unplayed.length) {
-      await swalAlert("No unplayed GOST fixtures to simulate.");
-      return;
-    }
-    const ok = await swalConfirm(`Simulate ${unplayed.length} unplayed GOST fixture${unplayed.length === 1 ? "" : "s"}? This will enter scores and update the table.`);
-    if (!ok) return;
-    setAdminCompetitionBusy("simulate");
-    try {
-      const response = await stageClient.functions.invoke("simulateCompetitionFixtures", {
-        season_id: selectedSeason.id,
-        reason: `Admin simulated GOST fixtures from public ${selectedSeason.competition_name} page`,
-      });
-      const data = response?.data || response || {};
-      await loadSeasonData(selectedSeason);
-      setActiveTab("table");
-      await swalAlert(`Simulated ${data.simulated || 0} fixture${Number(data.simulated || 0) === 1 ? "" : "s"}.`);
-    } catch (err) {
-      await swalAlert(`Could not simulate fixtures: ${err?.message || "Unknown error"}`);
-    } finally {
-      setAdminCompetitionBusy("");
-    }
-  }
-
-  const completedFixtures = fixtures.filter(f => f.status === "completed" || f.status === "forfeit");
-  const upcomingFixtures = fixtures.filter(f => f.status === "scheduled" || f.status === "awaiting_result" || f.status === "postponed");
-  const uniqueStandings = dedupeCompetitionStandingsByClub(standings);
-  const sortedRows = sortStandings(uniqueStandings);
-  const selectedSeasonRegisteredCount = Array.isArray(selectedSeason?.registered_club_ids)
-    ? new Set(selectedSeason.registered_club_ids.map(String)).size
-    : 0;
-  const qualificationClubCount = new Set(qualEntries.map(entry => entry.club_id).filter(Boolean).map(String)).size;
-  const observedClubCount = Math.max(
-    selectedSeasonRegisteredCount,
-    uniqueStandings.length,
-    qualificationClubCount
-  );
-  const displayedClubCount = observedClubCount || Number(selectedSeason?.num_clubs) || 0;
-  const historySeasons = allSeasons.filter(s => s.status === "completed" || s.status === "archived");
-  const publicTabs = [
-    { value: "overview", label: "Overview" },
-    { value: "clubs", label: `Clubs (${uniqueStandings.length})` },
-    { value: "fixtures", label: `Stages (${fixtures.length})` },
-    { value: "table", label: "Table" },
-    { value: "stats", label: "Stats" },
-    { value: "rewards", label: "Rewards" },
-    ...(historySeasons.length ? [{ value: "history", label: "History" }] : []),
-  ];
-
-  return (
-    <PageBannerShell
-      className="bg-background"
-      dockClassName="bg-background"
-      banner={(
-        <>
-          {competition?.banner_url && (
-            <img src={competition.banner_url} alt="" className="absolute inset-0 h-full w-full object-cover" />
-          )}
-          {!competition?.banner_url && (
-            <div
-              className="absolute inset-0"
-              style={{ background: `radial-gradient(circle at 72% 20%, ${meta.color}33, transparent 34%), linear-gradient(135deg, rgba(7,16,28,0.98), rgba(2,6,23,0.86))` }}
-            />
-          )}
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-cyan-200/35 shadow-[0_0_28px_4px_rgba(34,211,238,0.42)]" />
-          <div
-            className="pointer-events-none absolute bottom-0 left-[8%] h-[3px] w-[52%] bg-gradient-to-r from-transparent via-cyan-300/80 to-transparent"
-            style={{ transform: "skewX(-18deg)", filter: "drop-shadow(0 0 16px rgba(34,211,238,0.85))" }}
-          />
-          <div className="relative mx-auto flex max-w-7xl px-4 py-8 lg:px-8 lg:py-10">
-            <Link
-              to="/competitions"
-              className="inline-flex h-12 min-w-[150px] items-center justify-center gap-3 px-7 font-heading text-sm font-black uppercase tracking-[0.18em] text-cyan-50/95 shadow-[0_0_24px_-16px_rgba(34,211,238,0.9)] backdrop-blur-md transition hover:border-cyan-200/60 hover:bg-cyan-300/10 hover:text-white hover:shadow-[0_0_24px_-10px_rgba(34,211,238,0.9)]"
-              style={{
-                clipPath: "polygon(10% 0, 100% 0, 90% 100%, 0 100%)",
-                background: "linear-gradient(135deg, rgba(8,22,38,0.52), rgba(30,74,118,0.28))",
-                borderTop: "1px solid rgba(186,230,253,0.42)",
-                borderBottom: "1px solid rgba(186,230,253,0.42)",
-              }}
-            >
-              <ChevronLeft className="w-4 h-4 text-cyan-200/95" /> Back
-            </Link>
-          </div>
-        </>
-      )}
-    >
-      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-end gap-3 px-4 pt-4 lg:px-8">
-        <span
-          className={cn("inline-flex min-h-10 items-center px-6 text-[11px] font-black uppercase tracking-[0.18em] backdrop-blur-md", meta.badgeClass)}
-          style={{ clipPath: "polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%)" }}
-        >
-          {["Tier I", "Tier II", "Tier III"][meta.tier - 1]}
-        </span>
-        {selectedSeason && (
-          <span
-            className={cn(
-              "inline-flex min-h-10 items-center px-6 text-[11px] font-black uppercase tracking-[0.18em] backdrop-blur-md",
-              selectedSeason.status === "league_phase" ? "border border-emerald-300/35 bg-emerald-300/10 text-emerald-100"
-              : selectedSeason.status === "registration" ? "border border-cyan-200/35 bg-cyan-300/10 text-cyan-100"
-              : selectedSeason.status === "completed" ? "border border-white/15 bg-white/5 text-white/65"
-              : "border border-amber-300/35 bg-amber-300/10 text-amber-100"
-            )}
-            style={{ clipPath: "polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%)" }}
-          >
-            {STATUS_LABEL[selectedSeason.status] || selectedSeason.status.replace(/_/g, " ")}
-          </span>
-        )}
-
-        {allSeasons.length > 0 && (
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setSeasonPickerOpen(v => !v)}
-              className="inline-flex min-h-10 items-center gap-2 px-6 text-[11px] font-black uppercase tracking-[0.18em] text-cyan-100 backdrop-blur-md transition hover:text-white"
-              style={{
-                clipPath: "polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%)",
-                background: "linear-gradient(135deg, rgba(8,22,38,0.52), rgba(30,74,118,0.24))",
-                borderTop: "1px solid rgba(186,230,253,0.34)",
-                borderBottom: "1px solid rgba(186,230,253,0.34)",
-              }}
-            >
-              {selectedSeason ? (selectedSeason.season_label || `Season ${selectedSeason.season_number}`) : "Select Season"}
-              <ChevronDown className="w-3.5 h-3.5 text-cyan-100/70" />
-            </button>
-            {seasonPickerOpen && (
-              <div className="absolute right-0 top-full z-20 mt-2 min-w-[180px] border border-border bg-card shadow-lg">
-                {allSeasons.map(s => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => { setSelectedSeason(s); setSeasonPickerOpen(false); }}
-                    className={cn(
-                      "flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left text-sm transition-colors hover:bg-secondary/60",
-                      selectedSeason?.id === s.id ? "font-bold text-primary" : "text-foreground"
-                    )}
-                  >
-                    {s.season_label || `Season ${s.season_number}`}
-                    <span className={cn("border px-1.5 py-0.5 text-[9px] font-bold uppercase",
-                      s.status === "archived" ? "text-muted-foreground/50 border-border/50" :
-                      s.status === "draft" ? "text-muted-foreground border-border" :
-                      s.status === "completed" ? "text-muted-foreground border-border" :
-                      s.status === "league_phase" ? "text-success border-success/30" :
-                      "text-primary border-primary/30"
-                    )}>{STATUS_LABEL[s.status] || s.status}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* ── Main content ────────────────────────────────────── */}
-      <div className="max-w-7xl mx-auto px-4 lg:px-8 py-6">
-        {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-          </div>
-        ) : !competition ? (
-          <div className="border border-dashed border-border rounded p-16 text-center">
-            <Trophy className="w-10 h-10 text-muted-foreground/20 mx-auto mb-4" />
-            <p className="text-sm text-muted-foreground uppercase tracking-widest">{t("commonPages.cpNotFound")}</p>
-            <p className="text-xs text-muted-foreground mt-2">{t("commonPages.cpNotSeeded")}</p>
-          </div>
-        ) : !selectedSeason ? (
-          <div className="border border-dashed border-border rounded p-16 text-center">
-            <Star className="w-10 h-10 text-muted-foreground/20 mx-auto mb-4" />
-            <p className="text-sm text-muted-foreground uppercase tracking-widest">{t("commonPages.cpNoSeason")}</p>
-            {isAdmin && <p className="text-xs text-muted-foreground mt-2">Create the first season from Admin → Leagues.</p>}
-          </div>
-        ) : (
-          <div className="space-y-6">
-            <section className="grid gap-3 md:grid-cols-3">
-              <div className="border border-cyan-300/15 bg-cyan-300/[0.035] p-4" style={{ clipPath: "polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%)" }}>
-                <p className="font-heading text-xs font-black uppercase tracking-[0.18em] text-cyan-200">GOST event</p>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  Global Official Stage Tournaments are the top official events. Clubs reach them through Regional League performance.
-                </p>
-              </div>
-              <div className="border border-cyan-300/15 bg-cyan-300/[0.035] p-4" style={{ clipPath: "polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%)" }}>
-                <p className="font-heading text-xs font-black uppercase tracking-[0.18em] text-cyan-200">Tournament route</p>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  Qualified clubs move through the league phase, playoff route and knockout rounds until the final champion is decided.
-                </p>
-              </div>
-              <div className="border border-cyan-300/15 bg-cyan-300/[0.035] p-4" style={{ clipPath: "polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%)" }}>
-                <p className="font-heading text-xs font-black uppercase tracking-[0.18em] text-cyan-200">What to follow</p>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  Use the tabs to check qualified clubs, fixtures, the table, stats, rewards and previous seasons.
-                </p>
-              </div>
-            </section>
-
-            <div className="flex gap-7 overflow-x-auto">
-              {publicTabs.map(tab => (
-                <button
-                  key={tab.value}
-                  type="button"
-                  onClick={() => setActiveTab(tab.value)}
-                  className={cn(
-                    "relative shrink-0 px-1 py-3 text-xs font-black uppercase tracking-[0.18em] transition",
-                    activeTab === tab.value ? "text-primary" : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  {tab.label}
-                  {activeTab === tab.value && (
-                    <span className="absolute inset-x-0 bottom-0 h-[3px] bg-gradient-to-r from-transparent via-cyan-300 to-transparent shadow-[0_0_16px_rgba(34,211,238,0.85)]" />
-                  )}
-                </button>
-              ))}
-            </div>
-
-            {activeTab === "overview" && (
-              <div className="grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
-                <div className="border border-primary/20 bg-card/80 p-5" style={{ clipPath: "polygon(2% 0, 100% 0, 98% 100%, 0 100%)" }}>
-                  <h2 className="font-heading text-2xl uppercase text-foreground">Tournament Format</h2>
-                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                    Official STAGE tournaments are qualification-only events. Clubs qualify through Regional League Division 1 positions and then play the STAGE tournament format.
-                  </p>
-                  {isAdmin ? (
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        disabled={adminCompetitionBusy === "generate" || fixtures.length > 0 || selectedSeason?.fixtures_generated || standings.length < 4}
-                        onClick={handleAdminGenerateFixtures}
-                        className="inline-flex h-8 items-center border border-primary/35 bg-primary/10 px-3 text-[10px] font-black uppercase tracking-[0.14em] text-primary transition hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-45">
-                        {adminCompetitionBusy === "generate" ? "Generating..." : "Generate Fixtures"}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={adminCompetitionBusy === "simulate" || fixtures.length === 0}
-                        onClick={handleAdminSimulateFixtures}
-                        className="inline-flex h-8 items-center border border-warning/35 bg-warning/10 px-3 text-[10px] font-black uppercase tracking-[0.14em] text-warning transition hover:bg-warning/20 disabled:cursor-not-allowed disabled:opacity-45">
-                        {adminCompetitionBusy === "simulate" ? "Simulating..." : "Simulate"}
-                      </button>
-                      <Link
-                        to="/admin/gost"
-                        className="inline-flex h-8 items-center border border-white/10 bg-black/20 px-3 text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground transition hover:text-foreground">
-                        Admin GOST
-                      </Link>
-                    </div>
-                  ) : null}
-                  <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
-                    {[
-                      ["Clubs", displayedClubCount],
-                      ["Fixtures", fixtures.length],
-                      ["Completed", completedFixtures.length],
-                      ["Qualifiers", qualEntries.length],
-                    ].map(([label, value]) => (
-                      <div key={label} className="border border-white/10 bg-black/25 p-3">
-                        <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
-                        <p className="font-heading text-3xl text-foreground">{value}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <QualificationPanel entries={qualEntries} />
-              </div>
-            )}
-
-            {activeTab === "clubs" && (
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {sortedRows.length ? sortedRows.map((row, index) => (
-                  <Link key={row.id} to={`/clubs/${row.club_id}`} className="flex items-center gap-3 border border-border bg-card/80 p-4 transition hover:border-primary/40">
-                    {row.club_logo_url
-                      ? <img src={row.club_logo_url} alt="" className="h-11 w-11 object-contain" />
-                      : <Shield className="h-9 w-9 text-muted-foreground/40" />}
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-bold text-foreground">{index + 1}. {row.club_name}</p>
-                      <p className="text-xs text-muted-foreground">{row.points || 0} pts · {row.played || 0} played</p>
-                    </div>
-                  </Link>
-                )) : <p className="text-sm text-muted-foreground">No clubs qualified yet.</p>}
-              </div>
-            )}
-
-            {selectedSeason && <StandingsIntegrityNotice kind="competition_season" editionId={selectedSeason.id} isAdmin={isAdmin} onRefresh={() => loadSeasonData(selectedSeason)} />}
-            {activeTab === "table" && (
-              <StandingsTable
-                standings={uniqueStandings}
-                directSpots={8}
-                playoffSpots={16}
-                totalClubs={displayedClubCount || uniqueStandings.length}
-              />
-            )}
-
-            {activeTab === "fixtures" && selectedSeason && <LeagueCompetitionStages kind="competition_season" editionId={selectedSeason.id} myClub={myClub} myEmail={myEmail} myGamertag={myGamertag} renderStandings={()=> <StandingsTable standings={uniqueStandings} />} />}
-            {activeTab === "stats" && selectedSeason && <TournamentLeaderboard tournamentId={selectedSeason.id} title="Season Statistics" statisticsUrl={`/competition-views/competition_season/${encodeURIComponent(selectedSeason.id)}/statistics`} />}
-
-            {activeTab === "rewards" && (
-              <TrophyHistorySection
-                sourceId={competition.id}
-                trophyImageUrl={competition.trophy_image_url}
-                className="bg-card border border-border p-4"
-              />
-            )}
-
-            {activeTab === "history" && (
-              <div className="space-y-2">
-                {historySeasons.map(season => (
-                  <button key={season.id} type="button" onClick={() => setSelectedSeason(season)} className="flex w-full items-center justify-between border border-border bg-card/70 p-4 text-left hover:border-primary/40">
-                    <span className="font-bold text-foreground">{season.season_label || `Season ${season.season_number}`}</span>
-                    <span className="text-xs uppercase tracking-wider text-muted-foreground">{STATUS_LABEL[season.status] || season.status}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </PageBannerShell>
-  );
+  return <CompetitionPage key={slug} slug={slug} />;
 }

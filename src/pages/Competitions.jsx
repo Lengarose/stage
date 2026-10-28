@@ -9,11 +9,11 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/compone
 const action = 'inline-flex min-h-11 items-center gap-2 py-2 font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary';
 const money = value => `${Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 })} STC`;
 
-export function GostTrophy({ trophy, guidance }) {
+export function GostTrophy({ trophy, guidance, compact = false }) {
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [trophy?.id, trophy?.image_url]);
   return <div className="flex h-64 items-center justify-center sm:h-72 lg:h-80">
-    {trophy?.image_url && !failed ? <img src={trophy.image_url} alt={trophy.name || 'Competition trophy'} onError={() => setFailed(true)} className="h-full w-full max-w-64 object-contain" /> : <div className="max-w-56 space-y-3 text-center text-sm text-muted-foreground"><Trophy className="mx-auto h-12 w-12 opacity-40" aria-hidden="true" /><p>{failed ? 'Trophy artwork unavailable. Review the image in Admin → Trophies.' : guidance || 'No captured trophy design available.'}</p></div>}
+    {trophy?.image_url && !failed ? <img src={trophy.image_url} alt={trophy.name || 'Competition trophy'} onError={() => setFailed(true)} className="h-full w-full max-w-64 object-contain" /> : <div className="max-w-56 space-y-3 text-center text-sm text-muted-foreground"><Trophy className="mx-auto h-12 w-12 opacity-40" aria-hidden="true" /><p>{failed ? compact ? 'Artwork unavailable.' : 'Trophy artwork unavailable. Review the image in Admin → Trophies.' : guidance || 'No captured trophy design available.'}</p></div>}
   </div>;
 }
 
@@ -23,7 +23,7 @@ export function GostJourney({ journey }) {
     <p className="sr-only">{journey.text}</p>
     <div aria-hidden="true" className="flex flex-col items-start gap-5 text-sm lg:flex-row lg:items-center lg:justify-between lg:gap-3">
       <div className="font-semibold">League phase</div><ArrowRight className="h-4 w-4 shrink-0 rotate-90 text-primary lg:rotate-0" />
-      <div className="space-y-4 border-l border-primary/60 pl-4"><div><strong>Top 8</strong><p className="text-xs text-muted-foreground">Direct qualification</p></div><div><strong>Positions 9–24</strong><div className="mt-1 flex flex-wrap items-center gap-2"><ArrowRight className="h-4 w-4 text-primary" /><div><strong className="text-xs">Two-legged playoff</strong><p className="text-xs text-muted-foreground">8 winners advance</p></div></div></div></div>
+      <div className="gost-journey-branches relative space-y-4 border-x border-primary/60 px-4"><div><strong>Top 8</strong><p className="text-xs text-muted-foreground">Direct qualification</p></div><div><strong>Positions 9–24</strong><div className="mt-1 flex flex-wrap items-center gap-2"><ArrowRight className="h-4 w-4 text-primary" /><div><strong className="text-xs">Two-legged playoff</strong><p className="text-xs text-muted-foreground">8 winners advance</p></div></div></div></div>
       {['Round of 16', 'Quarterfinals', 'Semifinals', 'Final'].map(label => <div key={label} className="flex items-center gap-3"><ArrowRight className="h-4 w-4 shrink-0 text-primary" /><span className="font-semibold">{label}</span></div>)}
     </div><p className="mt-5 text-xs text-muted-foreground">Positions 25 and below are eliminated after the league phase.</p>
   </div>;

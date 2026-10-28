@@ -1102,3 +1102,26 @@ html, body {
     overflow-y: clip;
   }
 }
+
+.gost-detail-trophy > div {
+  height: 160px;
+}
+.gost-detail {
+  --gost-accent: var(--gost-accent-dark);
+}
+.gost-journey-branches::after {
+  content: '';
+  position: absolute;
+  right: -13px;
+  top: 50%;
+  width: 12px;
+  border-top: 1px solid hsl(var(--primary));
+}
+.theme-light .gost-detail {
+  --gost-accent: var(--gost-accent-light);
+}
+@media (min-width: 640px) {
+  .gost-detail-trophy > div {
+    height: 220px;
+  }
+}
