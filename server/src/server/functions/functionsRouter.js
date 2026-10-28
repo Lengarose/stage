@@ -18,6 +18,7 @@ function createFunctionsRouter(handlers) {
         : 500;
       const payload = { error: err.message };
       if (err?.code) payload.code = String(err.code);
+      if (err?.conflict) payload.conflict = { guard: err.conflict.guard, fields: err.conflict.fields };
       res.status(status).json(payload);
     }
   });

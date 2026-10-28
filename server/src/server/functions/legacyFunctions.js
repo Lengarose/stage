@@ -1035,8 +1035,15 @@ async function filterEligibleMatchStats(stats) {
   return { playerStats, rejectedStats };
 }
 
-async function processMatchCompletion(match, acceptedSubmission, secondarySubmission = null) {
-  await require('../services/tournamentProgressionService').assertTournamentMatchAction(match, { result: true });
+async function processMatchCompletion(match, acceptedSubmission, secondarySubmission = null, confirmationPatch = null) {
+  function checkCompletedReview(current) {
+    if (!confirmationPatch) return;
+    const history = JSON.parse(confirmationPatch.result_history || '[]');
+    const receipt = history.at(-1);
+    if (!require('../lib/matchResultNegotiation').matchingConfirmationReceipt(match,current,receipt.side,receipt.review_action)) {
+      throw require('../lib/matchResultNegotiation').httpError('A different result was processed. Refresh and review the official report.',409,'RESULT_CHANGED');
+    }
+  }
   const matchId = match.id;
   const homeScore = Number(acceptedSubmission.home_score || 0);
   const awayScore = Number(acceptedSubmission.away_score || 0);
@@ -1078,6 +1085,7 @@ async function processMatchCompletion(match, acceptedSubmission, secondarySubmis
   const freshRows = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [matchId]);
   const fresh = freshRows[0] || match;
   if (Number(fresh.stats_processed || 0) === 1) {
+    checkCompletedReview(fresh);
     await settleCompletedMatchWager(fresh).catch((err) => {
       console.error('[matchKickoff wager settlement]', err.message);
     });
@@ -1086,6 +1094,7 @@ async function processMatchCompletion(match, acceptedSubmission, secondarySubmis
     });
     return { data: { status: 'completed', skipped: true } };
   }
+  await require('../services/tournamentProgressionService').assertTournamentMatchAction(match, { result: true });
 
   const decidedOnPenalties = Number(
     acceptedSubmission.decided_on_penalties ?? fresh.decided_on_penalties ?? 0
@@ -1106,10 +1115,12 @@ async function processMatchCompletion(match, acceptedSubmission, secondarySubmis
   const applied = await withTransaction(async query => {
     if (match.tournament_id && match.tournament_id !== 'ranked') await query('SELECT id FROM tournaments WHERE id=? FOR UPDATE', [match.tournament_id]);
     const [locked] = await query('SELECT * FROM matches WHERE id = ? LIMIT 1 FOR UPDATE', [matchId]);
-    if (Number(locked?.report_finalized || 0) === 1 || Number(locked?.stats_processed || 0) === 1) return false;
-    if (locked) require('../lib/matchResultNegotiation').assertResultSnapshotCurrent(match,locked);
+    if (!locked) throw require('../lib/matchResultNegotiation').httpError('Match not found.',404,'MATCH_NOT_FOUND');
+    if (Number(locked?.report_finalized || 0) === 1 || Number(locked?.stats_processed || 0) === 1) { checkCompletedReview(locked); return false; }
+    require('../lib/matchResultNegotiation').assertResultSnapshotCurrent(match,locked,'finalisation');
     const tieResult = await require('../services/penaltyPolicyService').validateMatchPenalty(locked || match, {home_score:homeScore,away_score:awayScore}, {decided_on_penalties:decidedOnPenalties,penalty_winner_side:penaltyWinnerSide}, query);
     await require('../services/tournamentProgressionService').assertTournamentMatchAction(locked || match, { result: true }, query);
+    if (confirmationPatch) await require('../lib/matchResultWrite').writeGuardedMatchPatch(query, matchId, confirmationPatch, locked, match);
     if (fresh.home_player_id || fresh.away_player_id) {
       const winnerPlayerId = winnerIsHome ? fresh.home_player_id : winnerIsAway ? fresh.away_player_id : null;
       await query('UPDATE matches SET winner_player_id=?, winner_player_name=? WHERE id=?', [winnerPlayerId, winnerIsHome ? fresh.home_player_name : winnerIsAway ? fresh.away_player_name : null, matchId]);
@@ -8849,13 +8860,15 @@ const HANDLERS = {
 
     async function loadActorMatch() {
       const rows = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [match_id]);
-      if (!rows.length) throw new Error('Match not found');
+      if (!rows.length) throw require('../lib/matchResultNegotiation').httpError('Match not found.',404,'MATCH_NOT_FOUND');
+      await resolveMatchActorSide(rows[0], _auth_user_id);
       const settled = await matchResultNegotiationService.settleMatchDeadlines(rows[0]);
       const match = settled.match || (await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [match_id]))[0];
       const actor = await resolveMatchActorSide(match, _auth_user_id);
       const isHomeSubmission = actor.side === 'home';
-      if (expected_result_snapshot != null) require('../lib/matchResultNegotiation').assertResultSnapshotCurrent(expected_result_snapshot,match);
-      await require('../services/tournamentProgressionService').assertTournamentMatchAction(match, { result: true });
+      const completedRetry = ['confirm_result','accept_correction'].includes(action) && require('../lib/matchResultNegotiation').matchingConfirmationReceipt(expected_result_snapshot,match,actor.side,action);
+      if (expected_result_snapshot != null && !completedRetry) require('../lib/matchResultNegotiation').assertResultSnapshotCurrent(expected_result_snapshot,match,'browser_review');
+      if (!completedRetry) await require('../services/tournamentProgressionService').assertTournamentMatchAction(match, { result: true });
       const requestedHomeSide = is_home_team === true || is_home_team === 'true' || is_home_team === 1 || is_home_team === '1';
       if (typeof is_home_team !== 'undefined' && requestedHomeSide !== isHomeSubmission) {
         const err = new Error('Submitted match side does not match your team.');
@@ -8863,7 +8876,7 @@ const HANDLERS = {
         err.code = 'MATCH_SIDE_MISMATCH';
         throw err;
       }
-      return { match, actor, isHomeSubmission };
+      return { match, actor, isHomeSubmission, completedRetry };
     }
 
     async function maybeOcr() {
@@ -8893,8 +8906,8 @@ const HANDLERS = {
     }
 
     if (action === 'confirm_result') {
-      const { match: m, actor } = await loadActorMatch();
-      const result = await matchResultNegotiationService.confirmResult(m, actor, negotiationArgs);
+      const { match: m, actor, completedRetry } = await loadActorMatch();
+      const result = completedRetry ? await processMatchCompletion(m,m) : await matchResultNegotiationService.confirmResult(m, actor, negotiationArgs);
       await broadcastMatchById(match_id);
       return result;
     }
@@ -8907,8 +8920,8 @@ const HANDLERS = {
     }
 
     if (action === 'accept_correction') {
-      const { match: m, actor } = await loadActorMatch();
-      const result = await matchResultNegotiationService.acceptCorrection(m, actor);
+      const { match: m, actor, completedRetry } = await loadActorMatch();
+      const result = completedRetry ? await processMatchCompletion(m,m) : await matchResultNegotiationService.acceptCorrection(m, actor);
       await broadcastMatchById(match_id);
       return result;
     }

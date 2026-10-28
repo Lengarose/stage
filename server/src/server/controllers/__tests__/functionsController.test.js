@@ -46,7 +46,7 @@ function loadFunctionsRouterWithDbMock(executesql, options = {}) {
     id: dbPath,
     filename: dbPath,
     loaded: true,
-    exports: { EXECUTESQL: executesql, pool: options.pool || { promise: () => ({ getConnection: async () => ({ beginTransaction: async () => {}, commit: async () => {}, rollback: async () => {}, release() {}, query: async (sql, values) => [await executesql(sql, values), []] }) }) } },
+    exports: { EXECUTESQL: executesql, withTransaction: async fn => fn(executesql), pool: options.pool || { promise: () => ({ getConnection: async () => ({ beginTransaction: async () => {}, commit: async () => {}, rollback: async () => {}, release() {}, query: async (sql, values) => [await executesql(sql, values), []] }) }) } },
   };
   const tournamentProgressionPath = path.resolve(__dirname, '../../services/tournamentProgressionService.js');
   require.cache[tournamentProgressionPath] = {
@@ -3428,6 +3428,8 @@ function clubResultSqlMock(match, updates = []) {
       match.away_score = params[1];
       match.result_state = params[10] || match.result_state;
       match.report_finalized = 1;
+      match.decided_on_penalties = params[8];
+      match.penalty_winner_side = params[9];
       return { affectedRows: 1 };
     }
     if (/UPDATE matches SET/.test(sql)) {
@@ -3436,6 +3438,7 @@ function clubResultSqlMock(match, updates = []) {
       keys.forEach((key, index) => {
         match[key] = params[index];
       });
+      if (/stats_processed = 1/.test(sql)) match.stats_processed = 1;
       return { affectedRows: 1 };
     }
     if (/UPDATE clubs SET/.test(sql)) {
@@ -3492,7 +3495,7 @@ test('matchKickoff confirmation persists an unequal return-leg shootout and ordi
   assert.equal(completed.params[12],3);assert.equal(completed.params[13],3);
   const retry=makeJsonResponse();
   await postFunctionHandler(router)({params:{name:'matchKickoff'},user:{id:'user-1'},body:{action:'confirm_result',match_id:match.id,is_home_team:false,expected_result_snapshot:reviewed}},retry);
-  assert.equal(retry.statusCode,409);assert.equal(updates.filter(call=>/UPDATE matches SET status='completed'/.test(call.sql)).length,1);
+  assert.equal(retry.statusCode,200,retry.body?.error);assert.equal(retry.body.data.skipped,true);assert.equal(updates.filter(call=>/UPDATE matches SET status='completed'/.test(call.sql)).length,1);
 });
 
 test('matchKickoff completes when both sides submit the same score even if proofs are unreadable', async () => {

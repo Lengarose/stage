@@ -1,3 +1,5 @@
+import snapshotContract from '../../server/src/server/lib/resultSnapshotContract.json' with { type: 'json' };
+
 export function isSubmittedFlag(value) {
   return Boolean(Number(value));
 }
@@ -211,7 +213,29 @@ export function pickMyClubForMatch(game, clubs) {
 }
 
 export function resultSnapshot(game) {
-  return Object.fromEntries(['home_submission','away_submission','result_state','status','result_history','home_dispute_submission','away_dispute_submission'].map(key=>[key,game[key]??null]));
+  return Object.fromEntries([...snapshotContract.jsonFields,...snapshotContract.stateFields,'result_submit_side',...snapshotContract.counterFields].map(key=>[key,game[key]??null]));
+}
+
+export function sameResultSnapshot(before, after) {
+  const stable = value => Array.isArray(value) ? value.map(stable) : value && typeof value === 'object' ? Object.fromEntries(Object.keys(value).sort().map(key => [key, stable(value[key])])) : value;
+  const canonical = game => Object.entries(resultSnapshot(game)).map(([key, value]) => {
+    if (snapshotContract.jsonFields.includes(key)) {
+      let parsed = value;
+      if (key !== 'result_history' && typeof parsed === 'string' && !parsed.trim()) parsed = null;
+      if (typeof parsed === 'string') { try { parsed = JSON.parse(parsed); } catch { return ['malformed-json', parsed]; } }
+      if (key === 'result_history') {
+        if (parsed == null) parsed = [];
+        if (!Array.isArray(parsed)) return ['invalid-shape', stable(parsed)];
+        if (Array.isArray(parsed)) parsed = parsed.filter(event => !snapshotContract.ignoredHistoryEvents.includes(event?.event));
+      } else if (parsed != null && (typeof parsed !== 'object' || Array.isArray(parsed))) return ['invalid-shape', stable(parsed)];
+      return ['json', stable(parsed)];
+    }
+    if (key === 'result_submit_side') return String(value || 'home').toLowerCase();
+    if (snapshotContract.counterFields.includes(key)) return Number(value || 0);
+    if (value == null) return null;
+    return key === 'status' ? String(value).trim().toLowerCase() : String(value).trim().toUpperCase();
+  });
+  return JSON.stringify(canonical(before)) === JSON.stringify(canonical(after));
 }
 
 // Phase 2 — seats no longer gate kickoff. A scheduled match the actor takes

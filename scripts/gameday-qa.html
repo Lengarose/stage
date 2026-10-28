@@ -16,23 +16,34 @@ const player={id:'qa-home',gamertag:'Test Home',email:'qa@example.test',position
 const games=['tournament','supreme','elite','challenger','regional','friendly'].map((category,i)=>({id:`qa-${i}`,home_player_id:player.id,home_player_name:player.gamertag,away_player_id:'qa-away',away_player_name:`Test Away ${i+1}`,home_player_email:player.email,mode:'solo',type:category==='tournament'?'knockout':category==='friendly'?'friendly':'ranked',category,competition_name:`QA ${category}`,competition_key:`edition-${category}`,tournament_id:category==='tournament'?'qa-cup':null,status:i===0?'in_progress':i===1?'scheduled':'completed',result_state:i<2?'AWAITING_RESULT':'CONFIRMED',home_score:i===0?0:2,away_score:i===0?0:1,stats_processed:i<2?0:1,scheduled_date:'2026-10-27T19:00:00Z',display_date:'2026-10-27T19:00:00Z',scheduling_status:'confirmed',updated_date:'2026-10-27T19:00:00Z'}));
 const match=id=>games.find(g=>g.id===id)||games[0];
 if(params.has('friendlyReport'))Object.assign(games[0],{type:'friendly',tournament_id:null,competition_name:'QA friendly'});
+if(params.has('confirm')){
+  Object.assign(player,{id:'qa-away',gamertag:'Test Away'});
+  Object.assign(games[0],{type:'friendly',tournament_id:null,competition_name:'QA arranged draw',result_state:'AWAITING_AWAY_CONFIRMATION',result_home_submitted:1,result_away_submitted:0,result_submit_side:'home',home_submission:JSON.stringify({home_score:2,away_score:2,player_stats:[],goal_events:[],decided_on_penalties:0,penalty_winner_side:null}),away_submission:null,result_history:[{event:'initial_result',side:'home'}],home_score:2,away_score:2});
+}
 if(params.has('club')){player.club_id='qa-club';Object.assign(games[0],{mode:'club',home_club_id:'qa-club',away_club_id:'qa-other',home_club_name:'QA Home FC',away_club_name:'QA Away FC',home_owner_email:player.email});}
 stageClient.auth.isAuthenticated=async()=>true;
 stageClient.auth.hasToken=()=>false;
 stageClient.auth.me=async()=>({id:'qa-user',email:player.email,player_id:player.id});
 for(const entity of Object.values(stageClient.entities)){entity.list=async()=>[];entity.filter=async()=>[];entity.get=async()=>null;entity.subscribe=()=>()=>{};}
-stageClient.entities.Player.get=async id=>id===player.id?player:{id:'qa-away',gamertag:'Test Away'};
+stageClient.entities.Player.get=async id=>id===player.id?player:{id,gamertag:id==='qa-home'?'Test Home':'Test Away'};
 stageClient.entities.Player.filter=async()=>params.has('club')?Array.from({length:11},(_,i)=>({id:`qa-squad-${i}`,gamertag:`QA Player ${i+1}`,position:i?'ST':'GK'})):[];
 stageClient.entities.Club.get=async id=>({id,name:id==='qa-club'?'QA Home FC':'QA Away FC',owner_email:player.email});
 stageClient.entities.Match.filter=async()=>games;
-stageClient.entities.Match.get=async id=>({...match(id)});
+stageClient.entities.Match.get=async id=>{const game=structuredClone(match(id));if(params.has('confirm')&&game.home_submission)game.home_submission=Object.fromEntries(Object.entries(JSON.parse(game.home_submission)).reverse());return {...game,updated_date:'unrelated presentation update'};};
 stageClient.entities.Tournament.filter=async()=>[{id:'qa-cup',name:'QA Cup',participant_type:'player',type:'knockout'}];
 stageClient.entities.GameDayConfig.filter=async()=>[{banner_url:'/src/assets/Banner.jpg'}];
-stageClient.functions.invoke=async(name,args)=>{if(args.action==='submit_result')throw Error('Controlled submission failure: your report has not been sent.');return {data:{}};};
+let changed=false;
+stageClient.functions.invoke=async(name,args)=>{
+  if(args.action==='confirm_result'&&params.has('confirm')){
+    if(params.has('conflict')&&!changed){changed=true;games[0].home_submission=JSON.stringify({...JSON.parse(games[0].home_submission),home_score:3});games[0].home_score=3;throw Object.assign(Error('A newer result proposal is available. Refresh and review it before confirming.'),{data:{code:'RESULT_CHANGED'}});}
+    Object.assign(games[0],{status:'completed',result_state:'CONFIRMED',stats_processed:1,report_finalized:1});return {data:{status:'completed'}};
+  }
+  if(args.action==='submit_result')throw Error('Controlled submission failure: your report has not been sent.');return {data:{}};
+};
 stageClient.http.get=async(path,query={})=>{
   if(params.has('missingBackend')&&(path.startsWith('/game-day/')||path==='/match-highlights'))throw Object.assign(Error('Route not found'),{status:404});
   if(path==='/game-day/matches'){if(params.has('error'))throw Error('Controlled match loading failure');return query.offset?[]:games;}
-  if(path.endsWith('/penalties'))return {applicable:Number(query.home_score)===Number(query.away_score),required:true,decidingLeg:true,legs:1,aggregate:{home:Number(query.home_score),away:Number(query.away_score)}};
+  if(path.endsWith('/penalties'))return {applicable:!params.has('confirm')&&Number(query.home_score)===Number(query.away_score),required:!params.has('confirm'),decidingLeg:true,legs:1,aggregate:{home:Number(query.home_score),away:Number(query.away_score)}};
   if(path.endsWith('/history'))return {total:3,homeWins:2,awayWins:0,draws:1,chronology:'Local QA history, not live competition data.',meetings:[{...games[2],id:'qa-prior',home_score:2,away_score:1,competition_name:'QA previous competition'}]};
   if(path==='/match-highlights')return {items:[{id:'qa-image',image_url:'/src/assets/Banner.jpg',caption:'Local QA image, not published',can_remove:true}],total:1,can_upload:true};
   return {};

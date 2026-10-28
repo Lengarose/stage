@@ -1,6 +1,7 @@
 'use strict';
 
-const { EXECUTESQL } = require('../db/database');
+const { EXECUTESQL, withTransaction } = require('../db/database');
+const { writeGuardedMatchPatch } = require('../lib/matchResultWrite');
 const {
   fixtureScoreFromSubmission,
 } = require('./scoreProofService');
@@ -20,8 +21,8 @@ const {
   settleDeadlinesPure,
   scoresAgree,
   httpError,
-  RESULT_SNAPSHOT_FIELDS,
-  resultSnapshotValues,
+  assertResultSnapshotCurrent,
+  resultSnapshotFingerprint,
 } = require('../lib/matchResultNegotiation');
 const {validateMatchPenalty}=require('./penaltyPolicyService');
 
@@ -42,15 +43,20 @@ function parseHistory(raw) {
 }
 
 async function patchMatch(matchId, fields, expected = null) {
+  if (expected) return withTransaction(async query => {
+    const [current] = await query('SELECT * FROM matches WHERE id = ? LIMIT 1 FOR UPDATE', [matchId]);
+    if (!current) throw httpError('Match not found.',404,'MATCH_NOT_FOUND');
+    assertResultSnapshotCurrent(expected, current, 'locked_update');
+    return writeGuardedMatchPatch(query, matchId, fields, current, expected);
+  });
   const keys = Object.keys(fields).filter((key) => fields[key] !== undefined);
   if (!keys.length) return;
   const sets = keys.map((key) => `\`${key}\` = ?`).join(', ');
-  const guard = expected ? `${RESULT_SNAPSHOT_FIELDS.map(key => `${key} <=> ${key === 'result_history' ? 'CAST(? AS JSON)' : '?'}`).join(' AND ')} AND COALESCE(stats_processed,0)=0 AND COALESCE(report_finalized,0)=0 AND ` : '';
   const result = await EXECUTESQL(
-    `UPDATE matches SET ${sets}, updated_date = NOW() WHERE ${guard}id = ?`,
-    [...keys.map((key) => fields[key]), ...(expected ? resultSnapshotValues(expected) : []), matchId]
+    `UPDATE matches SET ${sets}, updated_date = NOW() WHERE id = ?`,
+    [...keys.map((key) => fields[key]), matchId]
   );
-  if (expected && result.affectedRows === 0) throw httpError('This result changed while the request was being processed. Refresh the match and review the latest proposal before retrying.',409,'RESULT_CHANGED');
+  return result;
 }
 
 async function loadMatch(matchId) {
@@ -64,7 +70,7 @@ function sideName(match, side) {
 }
 
 function appendHistory(match, event) {
-  const history = parseHistory(match.result_history);
+  const history = [...parseHistory(match.result_history)];
   history.push({ at: new Date().toISOString(), ...event });
   return JSON.stringify(history.slice(-40));
 }
@@ -179,12 +185,13 @@ async function notifyDispute(match, toSide, eventKey) {
   });
 }
 
-async function finalizeOfficial(match, accepted, secondary, resultState) {
+async function finalizeOfficial(match, accepted, secondary, resultState, matchPatch = null) {
   Object.assign(accepted, await validateMatchPenalty(match, accepted, accepted));
   accepted.result_state = resultState;
   await require('./tournamentProgressionService').assertTournamentMatchAction(match, { result: true });
   const { processMatchCompletion } = require('../functions/legacyFunctions');
-  const result = await processMatchCompletion(match, accepted, secondary || null);
+  const result = await processMatchCompletion(match, accepted, secondary || null, matchPatch);
+  if (result.data?.skipped) return result;
   const scores = { home_score: accepted.home_score, away_score: accepted.away_score };
   const eventKey = resultState === RESULT_STATES.AUTO_CONFIRMED_TIMEOUT ? 'auto_confirmed_timeout' : 'result_confirmed';
   const title = eventKey === 'auto_confirmed_timeout' ? 'Result auto-confirmed' : 'Result confirmed';
@@ -195,7 +202,10 @@ async function finalizeOfficial(match, accepted, secondary, resultState) {
 }
 
 function acceptedForMatch(match, homeSub, awaySub, options) {
-  const scoreSource = options?.useAway && awaySub ? awaySub : (homeSub || awaySub);
+  const submitSide = currentSubmitSide(match);
+  const original = submitSide === 'away' ? awaySub : homeSub;
+  const correction = submitSide === 'away' ? homeSub : awaySub;
+  const scoreSource = options?.useAway ? (correction || original) : (original || correction);
   return {
     home_score: scoreSource.home_score,
     away_score: scoreSource.away_score,
@@ -223,12 +233,14 @@ async function applyTimeoutSettlement(match, decision) {
   const awaySub = parseSubmission(match.away_submission);
   const useAway = decision.appliedFrom === 'away_correction' || Boolean(decision.useAwayCorrection);
   const appliedFrom = decision.appliedFrom || (useAway ? 'away_correction' : 'original_submission');
-  const primary = useAway ? (awaySub || homeSub) : (homeSub || awaySub);
+  const original = currentSubmitSide(match) === 'home' ? homeSub : awaySub;
+  const correction = currentSubmitSide(match) === 'home' ? awaySub : homeSub;
+  const primary = useAway ? (correction || original) : (original || correction);
   // Final confirmation belongs to the locked completion transaction, not the timeout preview.
   const timeoutPatch = { ...decision.patch };
   if (decision.autoConfirm) { delete timeoutPatch.status; delete timeoutPatch.result_state; }
 
-  await patchMatch(match.id, {
+  const historyPatch = {
     ...timeoutPatch,
     result_history: appendHistory(match, {
       event: decision.event,
@@ -236,8 +248,14 @@ async function applyTimeoutSettlement(match, decision) {
       home_score: primary?.home_score ?? null,
       away_score: primary?.away_score ?? null,
       patch: decision.patch,
+      ...(decision.autoConfirm ? { side: 'system', review_action: 'timeout', review_fingerprint: resultSnapshotFingerprint(match), decided_on_penalties: primary?.decided_on_penalties || 0, penalty_winner_side: primary?.penalty_winner_side || null } : {}),
     }),
-  }, match);
+  };
+  if (decision.autoConfirm && primary) {
+    const accepted = acceptedForMatch(match, homeSub, awaySub, { useAway, resultState: RESULT_STATES.AUTO_CONFIRMED_TIMEOUT });
+    return finalizeOfficial(match, accepted, null, RESULT_STATES.AUTO_CONFIRMED_TIMEOUT, historyPatch);
+  }
+  await patchMatch(match.id, historyPatch, match);
   const fresh = await loadMatch(match.id);
   if (!decision.autoConfirm) {
     if (decision.event === 'home_submit_window_passed') {
@@ -251,15 +269,8 @@ async function applyTimeoutSettlement(match, decision) {
     return { data: { status: 'settled', result_state: fresh.result_state, event: decision.event }, match: fresh };
   }
 
-  if (!primary) {
-    await patchMatch(fresh.id, { result_state: RESULT_STATES.RESULT_OVERDUE, status: 'in_progress' });
-    return { data: { status: 'overdue', result_state: RESULT_STATES.RESULT_OVERDUE }, match: await loadMatch(fresh.id) };
-  }
-  const accepted = acceptedForMatch(fresh, homeSub, awaySub, {
-    useAway,
-    resultState: RESULT_STATES.AUTO_CONFIRMED_TIMEOUT,
-  });
-  return finalizeOfficial(fresh, accepted, null, RESULT_STATES.AUTO_CONFIRMED_TIMEOUT);
+  await patchMatch(fresh.id, { result_state: RESULT_STATES.RESULT_OVERDUE, status: 'in_progress' }, fresh);
+  return { data: { status: 'overdue', result_state: RESULT_STATES.RESULT_OVERDUE }, match: await loadMatch(fresh.id) };
 }
 
 async function settleMatchDeadlines(match, now = new Date()) {
@@ -452,20 +463,20 @@ async function confirmResult(match, actor, args) {
   };
   const confirmColumn = actor.side === 'home' ? 'home_submission' : 'away_submission';
   const confirmFlag = actor.side === 'home' ? 'result_home_submitted' : 'result_away_submitted';
-  await patchMatch(match.id, {
+  const matchPatch = {
     [confirmColumn]: stringify(
       actor.side === 'home'
         ? { ...homeSub, ...confirmSheet, home_score: scoreSource.home_score, away_score: scoreSource.away_score }
         : confirmSheet
     ),
     [confirmFlag]: 1,
-    result_history: appendHistory(match, { event: 'confirmed', side: actor.side }),
-  }, match);
-  const fresh = await loadMatch(match.id);
+    result_history: appendHistory(match, { event: 'confirmed', side: actor.side, review_action: 'confirm_result', review_fingerprint: resultSnapshotFingerprint(match), home_score: scoreSource.home_score, away_score: scoreSource.away_score, decided_on_penalties: scoreSource.decided_on_penalties || 0, penalty_winner_side: scoreSource.penalty_winner_side || null }),
+  };
+  const fresh = { ...match, ...matchPatch };
   const nextHome = parseSubmission(fresh.home_submission);
   const nextAway = parseSubmission(fresh.away_submission);
   const accepted = acceptedForMatch(fresh, nextHome, nextAway, { resultState: RESULT_STATES.CONFIRMED });
-  return finalizeOfficial(fresh, accepted, null, RESULT_STATES.CONFIRMED);
+  return finalizeOfficial(match, accepted, null, RESULT_STATES.CONFIRMED, matchPatch);
 }
 
 async function proposeCorrection(match, actor, args) {
@@ -523,15 +534,14 @@ async function acceptCorrection(match, actor) {
   }
   const homeSub = parseSubmission(match.home_submission);
   const awaySub = parseSubmission(match.away_submission);
-  await patchMatch(match.id, {
-    result_history: appendHistory(match, { event: 'correction_accepted', side: actor.side }),
-  }, match);
-  const fresh = await loadMatch(match.id);
-  const accepted = acceptedForMatch(fresh, homeSub, awaySub, {
+  const corrected = currentSubmitSide(match) === 'home' ? awaySub : homeSub;
+  if (!corrected) throw httpError('No correction to accept.',409,'NO_SUBMITTED_RESULT');
+  const matchPatch = { result_history: appendHistory(match, { event: 'correction_accepted', side: actor.side, review_action: 'accept_correction', review_fingerprint: resultSnapshotFingerprint(match), home_score: corrected.home_score, away_score: corrected.away_score, decided_on_penalties: corrected.decided_on_penalties || 0, penalty_winner_side: corrected.penalty_winner_side || null }) };
+  const accepted = acceptedForMatch(match, homeSub, awaySub, {
     useAway: true,
     resultState: RESULT_STATES.CONFIRMED,
   });
-  return finalizeOfficial(fresh, accepted, null, RESULT_STATES.CONFIRMED);
+  return finalizeOfficial(match, accepted, null, RESULT_STATES.CONFIRMED, matchPatch);
 }
 
 async function counterResult(match, actor, args, proofOcr) {

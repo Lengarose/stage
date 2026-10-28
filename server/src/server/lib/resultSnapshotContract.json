@@ -1,0 +1,6 @@
+{
+  "jsonFields": ["home_submission", "away_submission", "result_history", "home_dispute_submission", "away_dispute_submission"],
+  "stateFields": ["result_state", "status"],
+  "counterFields": ["correction_count", "home_counter_count"],
+  "ignoredHistoryEvents": ["reminder_sent", "report_viewed", "deadline_checked"]
+}

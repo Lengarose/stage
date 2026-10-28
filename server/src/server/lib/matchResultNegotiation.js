@@ -77,7 +77,38 @@ function httpError(message, status, code) {
   return err;
 }
 
-const RESULT_SNAPSHOT_FIELDS = ['home_submission', 'away_submission', 'result_state', 'status', 'result_history', 'home_dispute_submission', 'away_dispute_submission'];
+const snapshotContract = require('./resultSnapshotContract.json');
+const RESULT_SNAPSHOT_FIELDS = [...snapshotContract.jsonFields, ...snapshotContract.stateFields, 'result_submit_side', ...snapshotContract.counterFields];
+
+function stableJson(value) {
+  if (Array.isArray(value)) return value.map(stableJson);
+  if (value && typeof value === 'object') return Object.fromEntries(Object.keys(value).sort().map(key => [key, stableJson(value[key])]));
+  return value;
+}
+
+function canonicalSnapshotValue(key, value) {
+  if (snapshotContract.jsonFields.includes(key)) {
+    let parsed = value ?? null;
+    if (key !== 'result_history' && typeof parsed === 'string' && !parsed.trim()) parsed = null;
+    if (typeof parsed === 'string') {
+      try { parsed = JSON.parse(parsed); } catch { return ['malformed-json', parsed]; }
+    }
+    if (key === 'result_history') {
+      if (parsed == null) parsed = [];
+      if (!Array.isArray(parsed)) return ['invalid-shape', stableJson(parsed)];
+      if (Array.isArray(parsed)) parsed = parsed.filter(event => !snapshotContract.ignoredHistoryEvents.includes(event?.event));
+    } else if (parsed != null && (typeof parsed !== 'object' || Array.isArray(parsed))) return ['invalid-shape', stableJson(parsed)];
+    return ['json', stableJson(parsed)];
+  }
+  if (key === 'result_submit_side') return String(value || 'home').toLowerCase();
+  if (snapshotContract.counterFields.includes(key)) return Number(value || 0);
+  if (value == null) return null;
+  return key === 'status' ? String(value).trim().toLowerCase() : String(value).trim().toUpperCase();
+}
+
+function resultSnapshotFingerprint(match) {
+  return require('crypto').createHash('sha256').update(JSON.stringify([String(match.id || ''), ...RESULT_SNAPSHOT_FIELDS.map(key => canonicalSnapshotValue(key, match[key]))])).digest('hex');
+}
 
 function resultSnapshotValues(match) {
   return RESULT_SNAPSHOT_FIELDS.map(key => {
@@ -86,15 +117,36 @@ function resultSnapshotValues(match) {
   });
 }
 
-function assertResultSnapshotCurrent(expected, current) {
-  const canonical = value => {
-    if (typeof value === 'string') { try { return JSON.stringify(JSON.parse(value)); } catch { return value; } }
-    return value;
-  };
-  const before = resultSnapshotValues(expected), after = resultSnapshotValues(current);
-  if (before.some((value, index) => canonical(value) !== canonical(after[index]))) {
-    throw httpError('This result changed while the request was being processed. Refresh the match and review the latest proposal before retrying.', 409, 'RESULT_CHANGED');
+function assertResultSnapshotCurrent(expected, current, guard = 'snapshot') {
+  const invalid = snapshotContract.jsonFields.filter(key => ['malformed-json','invalid-shape'].includes(canonicalSnapshotValue(key,current[key])[0]));
+  if (invalid.length) {
+    const error = httpError('Stored result data needs review before this report can be processed.',409,'INVALID_RESULT_DATA');
+    error.conflict = { guard, fields: invalid };
+    throw error;
   }
+  // Older clients supplied the original JSON/lifecycle snapshot without these
+  // extra scalar fields. Their complete submissions/history still protect review.
+  const optional = ['result_submit_side', ...snapshotContract.counterFields];
+  const fields = RESULT_SNAPSHOT_FIELDS.filter(key => !(optional.includes(key) && !Object.hasOwn(expected,key)) && JSON.stringify(canonicalSnapshotValue(key, expected[key])) !== JSON.stringify(canonicalSnapshotValue(key, current[key])));
+  if (fields.length) {
+    const error = httpError('A newer result proposal or match state is available. Refresh and review it before confirming.', 409, 'RESULT_CHANGED');
+    error.conflict = { guard, fields };
+    throw error;
+  }
+}
+
+function matchingConfirmationReceipt(expected, current, side, action) {
+  if (!expected || Number(current.report_finalized) !== 1 || !['CONFIRMED', 'AUTO_CONFIRMED_TIMEOUT'].includes(current.result_state) || current.status !== 'completed') return false;
+  let history;
+  try { history = typeof current.result_history === 'string' ? JSON.parse(current.result_history) : current.result_history; } catch { return false; }
+  if (!Array.isArray(history)) return false;
+  const last = history.filter(event => !snapshotContract.ignoredHistoryEvents.includes(event?.event)).at(-1);
+  const reviewed = { ...expected, id: current.id };
+  for (const field of ['result_submit_side', ...snapshotContract.counterFields]) if (!Object.hasOwn(expected,field)) reviewed[field] = current[field];
+  return last?.review_fingerprint === resultSnapshotFingerprint(reviewed) && last.side === side && last.review_action === action
+    && Number(last.home_score) === Number(current.home_score) && Number(last.away_score) === Number(current.away_score)
+    && Number(last.decided_on_penalties || 0) === Number(current.decided_on_penalties || 0)
+    && (last.penalty_winner_side || null) === (current.penalty_winner_side || null);
 }
 
 function normalizePenaltySelection({
@@ -276,6 +328,9 @@ function formatScoreLine(homeScore, awayScore, homeName = 'Home', awayName = 'Aw
 
 module.exports = {
   RESULT_SNAPSHOT_FIELDS,
+  canonicalSnapshotValue,
+  resultSnapshotFingerprint,
+  matchingConfirmationReceipt,
   resultSnapshotValues,
   assertResultSnapshotCurrent,
   RESULT_STATES,

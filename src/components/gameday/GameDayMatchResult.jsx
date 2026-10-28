@@ -53,7 +53,7 @@ async function getOfficialEventAvailabilityFixtureId(game, clubId) {
  * Goals/assists per player are derived from the goal events automatically.
  * Player ratings are still entered individually.
  */
-export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam, onSubmitted, onBeforeSubmit, onBusyChange }) {
+export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam, onSubmitted, onBeforeSubmit, onBusyChange, onConflict }) {
   const isClubMatch   = isClubGameDayMatch(game);
   const [homeScore,   setHomeScore]   = useState(0);
   const [awayScore,   setAwayScore]   = useState(0);
@@ -329,9 +329,10 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
   // ── Submit ─────────────────────────────────────────────────────────────────
 
   const [submitError, setSubmitError] = useState("");
+  const submitLock = useRef(false);
 
   async function submit(actionOverride) {
-    if(submitting||uploadingProof)return;
+    if(submitLock.current||submitting||uploadingProof)return;
     if(backendUnavailable){
       setSubmitError('Result reporting is unavailable until the GameDay backend is updated.');
       return;
@@ -353,6 +354,7 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
       return;
     }
 
+    submitLock.current=true;
     setSubmitting(true);
     setSubmitError("");
     try {
@@ -437,7 +439,9 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
       // Server enforces the same lock with a 409 + code=AWAITING_HOME_SUBMISSION.
       // apiFetch surfaces the server payload as err.data, so look there first.
       const code = err?.data?.code || err?.code;
-      if (code === "PROOF_REQUIRED") {
+      if (['RESULT_CHANGED','RESULT_ALREADY_PROCESSED','RESULT_GUARD_MISMATCH','INVALID_RESULT_DATA'].includes(code)) {
+        setSubmitError(err.message);onConflict?.(err.message);
+      } else if (code === "PROOF_REQUIRED") {
         setSubmitError("Upload screenshot proof before submitting.");
       } else if (code === "AWAITING_CONFIRMATION" || code === "RESULT_ALREADY_SUBMITTED") {
         setSubmitError(err.message || 'The match state changed. Your input is retained; reopen the report to review the current claim.');
@@ -447,6 +451,7 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
         setSubmitError(err?.message || "Could not submit result. Try again.");
       }
     } finally {
+      submitLock.current=false;
       setSubmitting(false);
     }
   }

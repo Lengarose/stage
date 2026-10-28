@@ -1,7 +1,9 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-let row, finalized, writes;
+let row, finalized, writes, transactionQueue = Promise.resolve();
+const { assertResultSnapshotCurrent } = require('../../lib/matchResultNegotiation');
+const { writeGuardedMatchPatch } = require('../../lib/matchResultWrite');
 const clone = value => JSON.parse(JSON.stringify(value));
 const first = {id:'leg1',tournament_id:'cup',type:'quarter_final',tie_id:'tie',round:1,leg:1,home_player_id:'a',away_player_id:'b',home_score:2,away_score:1,status:'completed',result_state:'CONFIRMED'};
 const proposal = side => ({home_score:2,away_score:1,decided_on_penalties:1,penalty_winner_side:side,player_stats:[],goal_events:[]});
@@ -15,10 +17,10 @@ const query = async (sql, args=[]) => {
   if (sql.startsWith('SELECT * FROM matches WHERE id')) return [clone(row)];
   if (sql.startsWith('UPDATE matches SET')) {
     const keys=[...sql.split(' WHERE ')[0].matchAll(/`(\w+)` = \?/g)].map(m=>m[1]);
-    if (sql.includes('home_submission <=>')) {
+    if (sql.includes('BINARY home_submission <=>')) {
       const version=args.slice(keys.length,-1);
       const same=(a,b)=>JSON.stringify(a == null ? null : typeof a === 'string' && /^[\[{]/.test(a) ? JSON.parse(a) : a)===JSON.stringify(b == null ? null : typeof b === 'string' && /^[\[{]/.test(b) ? JSON.parse(b) : b);
-      const fields=['home_submission','away_submission','result_state','status','result_history','home_dispute_submission','away_dispute_submission'];
+      const fields=require('../../lib/matchResultNegotiation').RESULT_SNAPSHOT_FIELDS;
       if (fields.some((key,i)=>!same(row[key],version[i])) || Number(row.stats_processed)===1 || Number(row.report_finalized)===1) return {affectedRows:0};
     }
     keys.forEach((key,i)=>{row[key]=args[i];});writes.push(keys);return {affectedRows:1};
@@ -26,13 +28,19 @@ const query = async (sql, args=[]) => {
   throw Error(`Unexpected workflow SQL: ${sql}`);
 };
 function stub(relative,exports) {const id=require.resolve(relative);require.cache[id]={id,filename:id,loaded:true,exports};}
-stub('../../db/database',{EXECUTESQL:query,pool:{}});
+function transaction(fn) {
+  const pending=transactionQueue.then(async()=>{const before=clone(row);try{return await fn(query);}catch(e){row=before;throw e;}});
+  transactionQueue=pending.catch(()=>{});return pending;
+}
+stub('../../db/database',{EXECUTESQL:query,withTransaction:transaction,pool:{}});
 stub('../messageDeliveryService',{sendActionMessage:async()=>{}});
 stub('../matchNotificationService',{notifyMatchSide:async()=>{},resolveMatchSideEmails:async()=>[]});
 stub('../tournamentProgressionService',{assertTournamentMatchAction:async()=>{}});
-stub('../../functions/legacyFunctions',{processMatchCompletion:async(match,accepted)=>{
+stub('../../functions/legacyFunctions',{processMatchCompletion:async(match,accepted,secondary,patch)=>transaction(async q=>{
+  assertResultSnapshotCurrent(match,row);
+  if(patch)await writeGuardedMatchPatch(q,match.id,patch,clone(row));
   finalized.push(clone(accepted));Object.assign(row,{status:'completed',result_state:'CONFIRMED',stats_processed:1,...accepted});return {data:{status:'completed'}};
-}});
+})});
 const service = require('../matchResultNegotiationService');
 
 test('confirmation uses the stored unequal-leg proposal and preserves its penalty winner',async()=>{
