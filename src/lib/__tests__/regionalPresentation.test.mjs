@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { regionalSystems, selectRegionalEdition } from '../regionalPresentation.js';
+import { regionalSystems, selectRegionalEdition, regionalHref } from '../regionalPresentation.js';
 import { stageInitialSelection, buildTournamentStages } from '../tournamentStages.js';
 import { formatProfilePlatform } from '../profilePlatform.js';
 import { isBannerStickyFullBleedRoute } from '../pageBanner.js';
@@ -31,4 +31,18 @@ test('competition platform labels preserve unknown PlayStation generation',()=>{
  assert.equal(formatProfilePlatform('PlayStation','Unavailable',{preserveUnspecified:true}),'PlayStation');
  assert.equal(formatProfilePlatform('PS5','Unavailable',{preserveUnspecified:true}),'PS5');
  assert.equal(formatProfilePlatform('PS4','Unavailable',{preserveUnspecified:true}),'PS4');
+});
+
+test('permanent routes select the explicit current edition and preserve exact historical links across reset series',()=>{
+ const first={...base,id:'original',permanent_league_id:'original',division_key:'original',stable_slug:base.slug,status:'archived',is_current:false};
+ const second={...first,id:'season-two',slug:base.slug+'-s2',season_number:2};
+ const fresh={...first,id:'fresh',slug:base.slug+'-reset-1',season_number:1,reset_series:1,season_label:'Series 1 · Season 1',status:'registration',is_current:true};
+ const rows=[first,second,fresh];
+ assert.equal(regionalSystems(rows)[0].editions.length,1);
+ assert.equal(regionalSystems(rows)[0].divisions,1);
+ assert.equal(selectRegionalEdition(rows,base.slug).id,'fresh');
+ assert.equal(selectRegionalEdition(rows,base.slug,'season-two').id,'season-two');
+ assert.equal(regionalHref(second),`/leagues/${base.slug}?season=season-two`);
+ assert.equal(regionalSystems(rows,{archive:true})[0].editions.length,2);
+ assert.equal(regionalSystems(rows.map(row=>({...row,retired:true}))).length,0);
 });

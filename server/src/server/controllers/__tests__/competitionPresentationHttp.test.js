@@ -18,6 +18,20 @@ test('regional history retains captured roster, prizes and trophy art while curr
  assert.equal(publicEdition({...root,registered_club_ids:undefined},[],[],[],[]).participant_count,null);
  const legacy=publicEdition({...root,reward_snapshot:[{position:1,stc_amount:'99.00',position_label:'Winner'}]},[],[],[],[]);
  assert.equal(legacy.rewards.rows[0].stc_amount,'99.00');assert.equal(legacy.rewards.origin,'saved edition snapshot');
+ for(const status of ['reset','superseded','cancelled','abandoned'])assert.equal(publicEdition({...root,status},[],[],[],[]).rewards,null,'invalidated past editions must not inherit current prize defaults');
+});
+test('regional public catalogue resolves current editions through originals while retaining historical identity and trophy snapshots',async()=>{
+ const entity=(record)=>({id:record.id,entity_type:'regional_league',data_json:JSON.stringify(record)});
+ const parent={id:'original',slug:'uk-ireland-div-1',name:'Permanent Premier',region_slug:'uk-ireland',division:1,platform:'cross-platform',season_number:1,status:'archived',current_edition_id:'series-one',trophy_item_id:'permanent-cup'};
+ const child={...parent,id:'series-one',slug:'uk-ireland-div-1-reset-1',name:'Season label',permanent_league_id:'original',status:'registration',reset_series:1,season_label:'Series 1 · Season 1',trophy_item_id:null};
+ const records=[entity(parent),entity(child)];
+ const query=async sql=>sql.includes('FROM trophy_items')?[{id:'permanent-cup',name:'Permanent trophy',image_url:'/uploads/cup.png',linked_source_id:'original',linked_source_type:'regional_league'}]:sql.includes('FROM league_entities')?records:[];
+ const result=await require('../../services/regionalPublicService').overview(query);
+ assert.equal(result.editions.filter(e=>e.is_current).length,1);
+ const current=result.editions.find(e=>e.is_current);
+ assert.equal(current.id,'series-one');assert.equal(current.stable_slug,parent.slug);assert.equal(current.division_key,parent.id);
+ assert.equal(current.trophy.name,'Permanent trophy');
+ assert.equal(result.editions.find(e=>e.id===parent.id).trophy,null,'missing historical snapshots do not inherit today artwork');
 });
 test('regional public reads, catalogue assignment and tournament presentation are exercised over isolated HTTP',async()=>{
  const entity=(id,entity_type,data)=>({id,entity_type,data_json:JSON.stringify(data)});

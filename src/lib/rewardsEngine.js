@@ -44,6 +44,7 @@ export async function saveRewardConfigs(sourceId,sourceType,sourceName,rows,opti
 export async function ensureDefaultRewardConfigs(sourceId,sourceType,sourceName,source={},maxPositions=36) {
   const config=await getRewardConfiguration(sourceId,sourceType);
   if(config.version || config.rows.length || sourceType!=='regional_league')return config.rows;
+  if(![1,2].includes(Number(config.source?.division)))return config.rows;
   const rows=getDefaultRewardRowsForSource(sourceType,config.source,maxPositions);
   return (await saveRewardConfigs(sourceId,sourceType,sourceName,rows,{version:config.version,revision:config.revision,participant_count:maxPositions,reason:'Initialize the agreed shared regional schedule for a new edition'})).rows;
 }

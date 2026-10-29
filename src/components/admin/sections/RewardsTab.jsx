@@ -6,7 +6,6 @@ import { OFFICIAL_STAGE_TOURNAMENT_MAX_CLUBS } from "@/lib/qualificationConfig";
 import { getRegionalLeagueMaxClubs } from "@/lib/regionalLeagueRules";
 import { useTranslation } from "@/hooks/useTranslation";
 import { Coins } from "lucide-react";
-import { regionalRewardSources } from '@/lib/regionalRewardSources';
 import RegionalEditionReview from '@/components/rewards/RegionalEditionReview';
 
 export default function RewardsTab({
@@ -43,7 +42,7 @@ export default function RewardsTab({
               if (!comp) return null;
               const active = rewardSource?.id === comp.id;
               return (
-                <button key={tier.slug} onClick={() => setRewardSource({ id: comp.id, type: "competition", name: comp.name, slug: comp.slug, tier: comp.tier, trophy_image_url: comp.trophy_image_url || "" })}
+                <button type="button" key={tier.slug} onClick={() => setRewardSource({ id: comp.id, type: "competition", name: comp.name, slug: comp.slug, tier: comp.tier, trophy_image_url: comp.trophy_image_url || "" })}
                   className={cn("w-full text-left p-3 rounded border text-xs font-bold transition-all",
                     active ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
                   )} style={{ borderLeftColor: active ? undefined : tier.color, borderLeftWidth: 2 }}>
@@ -55,17 +54,17 @@ export default function RewardsTab({
           </div>
           <div className="space-y-1.5">
             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-primary">Regional Leagues</p>
-            {regionalRewardSources(regionalLeagues).map(league => {
+            {regionalLeagues.map(league => {
               const active = rewardSource?.id === league.id;
               return (
-                <button type="button" key={league.id} onClick={() => setRewardSource({ id: league.id, type: "regional_league", name: league.name, division: league.division || 1, max_clubs: getRegionalLeagueMaxClubs(league), trophy_image_url: league.trophy_image_url || "" })}
+                <button type="button" key={league.id} onClick={() => setRewardSource({ ...league, id: league.permanent_league_id || league.id, type: "regional_league", name: league.name, division: league.division || 1, max_clubs: getRegionalLeagueMaxClubs(league), trophy_image_url: league.trophy_image_url || "" })}
                   className={cn("w-full text-left p-3 rounded border text-xs font-bold transition-all",
                     active ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
                   )}>
-                  {league.name}{league.status==='archived'?' · Archived':''}
+                  {league.name}{league.retired || league.retired_at ? ' · Retired' : ''}
                   <span className="block text-[11px] font-normal mt-0.5">
-                    {t("admin.rewards.leagueMeta", { division: league.division || 1, season: league.season_number })}
-                    {' · '}{league.region_slug || league.region || 'Region unspecified'}{' · '}{league.platform || 'Platform unspecified'}{' · '}{league.status || 'Status unspecified'}
+                    Division {league.division || 1} · {league.current_edition ? `Season ${league.current_edition.season_number} · ${league.current_edition.status}` : 'Current edition unavailable'}
+                    {' · '}{league.region_slug || league.region || 'Region unspecified'}{' · '}{league.platform || 'Platform unspecified'}
                   </span>
                   <span className="block break-all text-[10px] font-normal">ID: {league.id}</span>
                   {league.stored_name && league.stored_name !== league.name && <span className="block text-[10px]">Stored name: {league.stored_name}</span>}
@@ -82,6 +81,10 @@ export default function RewardsTab({
       {rewardSource && (
         <div className="bg-card border border-border rounded p-5 space-y-4">
           <p className="text-sm font-bold text-foreground">{rewardSource.name}</p>
+          {rewardSource.type === 'regional_league' && <>
+            <p className="text-xs text-muted-foreground">Permanent league defaults. Historical snapshots and payouts remain attached to their original editions.</p>
+            <div className="flex flex-wrap gap-3 text-xs">{(rewardSource.editions || []).map(edition => <a key={edition.id} className="text-primary" href={`/leagues/${encodeURIComponent(rewardSource.stable_slug || rewardSource.slug || rewardSource.id)}?season=${encodeURIComponent(edition.id)}&tab=rewards`}>{edition.season_label || `Season ${edition.season_number}`} · {edition.status}</a>)}</div>
+          </>}
           <RewardConfigPanel
             key={`${rewardSource.type}:${rewardSource.id}:${rewardSource.division??''}:${configurationRefresh}`}
             sourceId={rewardSource.id}

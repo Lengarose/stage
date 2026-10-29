@@ -10,7 +10,7 @@ function fixture() {
     if (/FROM users/.test(sql)) return [{ id: values[0], email: 'admin@test.local', role_id: values[0] === 'admin' ? 2 : 1 }];
     if (/information_schema.tables/.test(sql)) return names.map(name => ({ name }));
     if (/@@transaction_isolation/.test(sql)) return [{ isolation_level: 'REPEATABLE-READ' }];
-    if (/regional-edition-write-lock/.test(sql)) return [];
+    if (/regional-edition-write-lock|league-lifecycle-write-lock/.test(sql)) return [];
     if (/INSERT INTO admin_audit_log/.test(sql)) { audits.push({ id: values[0], values }); return {}; }
     if (/SELECT \* FROM admin_audit_log/.test(sql)) return audits.filter(row => row.id === values[0]);
     if (/INSERT INTO `league_entities`/.test(sql)) {
@@ -27,6 +27,9 @@ function fixture() {
       rows.set(id, { ...rows.get(id), ...Object.fromEntries(indexed.map(key => [key, record[key] ?? null])), data_json: values[0], regional_edition_key: values[1], updated_date: 'changed-' + audits.length }); return {};
     }
     if (/UPDATE league_entities SET regional_edition_key=/.test(sql)) { rows.get(values[1]).regional_edition_key = values[0]; return {}; }
+    if (/UPDATE league_entities SET regional_league_key=NULL/.test(sql)) { rows.get(values[0]).regional_league_key=null; return {}; }
+    if (/UPDATE league_entities SET regional_league_key=/.test(sql)) { rows.get(values[1]).regional_league_key=values[0]; return {}; }
+    if (/UPDATE trophy_items SET linked_source_id=/.test(sql)) { const item=tables.trophy_items.find(row=>row.id===values[1]&&row.linked_source_id===values[2]);if(item)item.linked_source_id=values[0];return {}; }
     if (/DELETE FROM league_entities WHERE id/.test(sql)) { rows.delete(values[0]); return {}; }
     if (/SELECT \* FROM league_entities WHERE entity_type='regional_league'/.test(sql)) return [...rows.values()].filter(row => row.entity_type === 'regional_league').sort((a, b) => a.id.localeCompare(b.id));
     if (/SELECT \* FROM `league_entities` WHERE id/.test(sql)) return rows.has(values[0]) ? [rows.get(values[0])] : [];
@@ -81,10 +84,10 @@ test('concurrent seeds, retry recovery, divisions, seasons, platforms and protec
   const initial = [...env.rows.values()][0];
   assert.equal((await env.create({ ...base, id: 'stale-browser-new-id', platform: 'crossplay' })).body.id, initial.id);
   await service.create({ ...base, slug: 'north-america-div-2', division: 2 }, { id: 'admin' });
-  await service.create({ ...base, slug: 'north-america-div-1-s2', season_number: 2 }, { id: 'admin' });
+  await assert.rejects(service.create({ ...base, slug: 'north-america-div-1-s2', season_number: 2 }, { id: 'admin' }), /protected next-season/);
   await service.create({ ...base, platform: 'PlayStation' }, { id: 'admin' });
   await service.create({ ...base, platform: 'Xbox' }, { id: 'admin' });
-  assert.equal(env.rows.size, 5, 'legitimate scope differences must survive');
+  assert.equal(env.rows.size, 4, 'legitimate platform/division differences survive; new editions use rollover');
   const consoleRecord = [...env.rows.values()].find(row => row.platform === 'playstation');
   await assert.rejects(service.update(consoleRecord.id, { platform: 'crossplay' }, { id: 'admin' }), /already exists/);
   await assert.rejects(service.create(base, { id: 'stranger' }), /Admin/);
@@ -105,6 +108,75 @@ test('next-season creation is idempotent and conflicting links are preserved', a
   const parent = env.rows.get('parent-fixture');
   parent.data_json = JSON.stringify({ ...JSON.parse(parent.data_json), next_season_id: 'unrelated-fixture' });
   await assert.rejects(service.nextSeason('parent-fixture', { id: 'admin' }), /different record/);
+});
+
+test('generic regional updates cannot perform closed lifecycle actions or invalidate an edition', async () => {
+  const env = fixture(), service = require('../../services/regionalEditionService');
+  env.legacy({ id: 'edition', name: 'League', slug: 'uk-ireland-div-1', region_slug: 'uk-ireland', division: 1, season_number: 1, platform: 'cross-platform', status: 'registration' });
+  const before = JSON.stringify([...env.rows]);
+  for (const status of ['completed', 'archived', 'reset', 'cancelled', 'canceled', 'superseded', 'abandoned', 'retired', ' RESET ']) {
+    await assert.rejects(service.update('edition', { status }, { id: 'admin' }), /dedicated league lifecycle action/);
+  }
+  await assert.rejects(service.update('edition', { edition_invalidated: true }, { id: 'admin' }), /reviewed league lifecycle/);
+  assert.equal(JSON.stringify([...env.rows]), before); assert.equal(env.audits.length, 0);
+});
+
+test('old reset series and stale Regional editions cannot create or relink successors', async () => {
+  const base = { name: 'League', slug: 'uk-ireland-div-1', region_slug: 'uk-ireland', division: 1, season_number: 1, platform: 'cross-platform', status: 'completed' };
+  for (const mode of ['series', 'pointer', 'newer']) {
+    const env = fixture(), service = require('../../services/regionalEditionService');
+    env.legacy({ ...base, id: 'original', ...(mode === 'pointer' ? { current_edition_id: 'another-edition' } : {}) });
+    if (mode !== 'pointer') env.legacy({ ...base, id: 'later', permanent_league_id: 'original', slug: mode === 'series' ? 'uk-ireland-div-1-reset-1' : 'uk-ireland-div-1-s3', reset_series: mode === 'series' ? 1 : 0, season_number: mode === 'series' ? 1 : 3 });
+    const before = JSON.stringify([...env.rows]);
+    await assert.rejects(service.nextSeason('original', { id: 'admin' }), /historical|stale/);
+    assert.equal(JSON.stringify([...env.rows]), before); assert.equal(env.audits.length, 0);
+  }
+});
+
+test('historical Regional rollover retries return their existing successor without rewinding current selection', async () => {
+  const env = fixture(), service = require('../../services/regionalEditionService');
+  env.legacy({ id: 'original', name: 'League', slug: 'uk-ireland-div-1', region_slug: 'uk-ireland', division: 1, season_number: 1, platform: 'cross-platform', status: 'completed' });
+  const second = (await service.nextSeason('original', { id: 'admin' })).record;
+  env.legacy({ ...second, status: 'completed' });
+  const third = (await service.nextSeason(second.id, { id: 'admin' })).record;
+  const before = JSON.stringify([...env.rows]), audits = env.audits.length;
+  assert.equal((await service.nextSeason('original', { id: 'admin' })).record.id, second.id);
+  assert.equal(JSON.parse(env.rows.get('original').data_json).current_edition_id, third.id);
+  assert.equal(JSON.stringify([...env.rows]), before); assert.equal(env.audits.length, audits);
+  env.legacy({ ...third, id: 'reset-current', reset_series: 1, season_number: 1, slug: 'uk-ireland-div-1-reset-1' });
+  assert.equal((await service.nextSeason('original', { id: 'admin' })).record.id, second.id);
+  assert.equal(JSON.parse(env.rows.get('original').data_json).current_edition_id, third.id);
+});
+
+test('Regional rollover preserves the indexed reset series and includes it in the season label', async () => {
+  const env = fixture(), service = require('../../services/regionalEditionService');
+  const base = { name: 'League', region_slug: 'uk-ireland', division: 2, platform: 'cross-platform', season_number: 1 };
+  env.legacy({ ...base, id: 'original', slug: 'uk-ireland-div-2', status: 'reset', current_edition_id: 'reset-current' });
+  env.legacy({ ...base, id: 'reset-current', slug: 'uk-ireland-div-2-reset-2', permanent_league_id: 'original', reset_series: 2, status: 'completed' });
+  const result = await service.nextSeason('reset-current', { id: 'admin' });
+  assert.equal(result.record.season_label, 'Series 2 \u00b7 Season 2');
+  assert.equal(env.rows.get(result.record.id).reset_series, 2);
+});
+
+test('a retired permanent Regional league cannot open or start its draft child', async () => {
+  const env = fixture(), service = require('../../services/regionalEditionService');
+  const base = { name: 'League', region_slug: 'uk-ireland', division: 1, platform: 'cross-platform' };
+  env.legacy({ ...base, id: 'original', slug: 'uk-ireland-div-1', season_number: 1, status: 'completed', retired_at: '2026-10-29' });
+  env.legacy({ ...base, id: 'child', slug: 'uk-ireland-div-1-s2', permanent_league_id: 'original', season_number: 2, status: 'draft' });
+  const before = JSON.stringify([...env.rows]);
+  for (const status of ['registration', 'in_progress', 'active']) await assert.rejects(service.update('child', { status }, { id: 'admin' }), /Retired leagues/);
+  assert.equal(JSON.stringify([...env.rows]), before); assert.equal(env.audits.length, 0);
+});
+
+test('only an authorised abandoned Regional edition can roll over from cancelled status', async () => {
+  const env = fixture(), service = require('../../services/regionalEditionService');
+  const root = { id: 'original', name: 'League', region_slug: 'uk-ireland', division: 1, platform: 'cross-platform', slug: 'uk-ireland-div-1', season_number: 1, status: 'cancelled' };
+  env.legacy(root);
+  await assert.rejects(service.nextSeason(root.id, { id: 'admin' }), /authorised Abandon/);
+  env.legacy({ ...root, abandoned_at: '2026-10-29', abandonment_reason: 'Withdrawals' });
+  const next = await service.nextSeason(root.id, { id: 'admin' });
+  assert.equal(next.record.season_number, 2); assert.deepEqual(next.record.registered_club_ids, []);
+  assert.equal((await service.nextSeason(root.id, { id: 'admin' })).record.id, next.record.id);
 });
 
 test('review preview is read only; dependent histories and stale states block repair; safe repair is idempotent', async () => {

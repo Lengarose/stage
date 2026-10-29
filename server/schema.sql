@@ -2191,12 +2191,19 @@ CREATE TABLE IF NOT EXISTS league_entities (
   platform          VARCHAR(50)  DEFAULT NULL,
   season_number     INT          DEFAULT NULL,
   regional_edition_key VARCHAR(64) DEFAULT NULL,
+  regional_league_key VARCHAR(64) DEFAULT NULL,
+  competition_edition_key VARCHAR(64) DEFAULT NULL,
+  permanent_league_id VARCHAR(36) DEFAULT NULL,
+  reset_series INT DEFAULT 0,
   created_date      DATETIME     DEFAULT CURRENT_TIMESTAMP,
   updated_date      DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_le_type        (entity_type),
   INDEX idx_le_type_status (entity_type, status),
   INDEX idx_le_slug        (entity_type, slug),
   UNIQUE KEY idx_le_regional_edition (regional_edition_key),
+  UNIQUE KEY idx_le_regional_permanent (regional_league_key),
+  UNIQUE KEY idx_le_competition_edition (competition_edition_key),
+  UNIQUE KEY idx_le_parent_series_season (permanent_league_id, reset_series, season_number),
   INDEX idx_le_league      (entity_type, league_id),
   INDEX idx_le_season      (entity_type, season_id),
   INDEX idx_le_comp        (entity_type, competition_id)
@@ -2206,6 +2213,13 @@ CREATE TABLE IF NOT EXISTS league_entities (
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='league_entities' AND column_name='regional_edition_key'),'SELECT 1','ALTER TABLE league_entities ADD COLUMN regional_edition_key VARCHAR(64) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name='league_entities' AND index_name='idx_le_regional_edition') OR EXISTS(SELECT regional_edition_key FROM league_entities WHERE regional_edition_key IS NOT NULL GROUP BY regional_edition_key HAVING COUNT(*)>1),'SELECT 1','CREATE UNIQUE INDEX idx_le_regional_edition ON league_entities (regional_edition_key)')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='league_entities' AND column_name='competition_edition_key'),'SELECT 1','ALTER TABLE league_entities ADD COLUMN competition_edition_key VARCHAR(64) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name='league_entities' AND index_name='idx_le_competition_edition') OR EXISTS(SELECT competition_edition_key FROM league_entities WHERE competition_edition_key IS NOT NULL GROUP BY competition_edition_key HAVING COUNT(*)>1),'SELECT 1','CREATE UNIQUE INDEX idx_le_competition_edition ON league_entities (competition_edition_key)')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='league_entities' AND column_name='regional_league_key'),'SELECT 1','ALTER TABLE league_entities ADD COLUMN regional_league_key VARCHAR(64) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='league_entities' AND column_name='permanent_league_id'),'SELECT 1','ALTER TABLE league_entities ADD COLUMN permanent_league_id VARCHAR(36) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='league_entities' AND column_name='reset_series'),'SELECT 1','ALTER TABLE league_entities ADD COLUMN reset_series INT DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name='league_entities' AND index_name='idx_le_regional_permanent') OR EXISTS(SELECT regional_league_key FROM league_entities WHERE regional_league_key IS NOT NULL GROUP BY regional_league_key HAVING COUNT(*)>1),'SELECT 1','CREATE UNIQUE INDEX idx_le_regional_permanent ON league_entities (regional_league_key)')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name='league_entities' AND index_name='idx_le_parent_series_season') OR EXISTS(SELECT permanent_league_id,reset_series,season_number FROM league_entities WHERE permanent_league_id IS NOT NULL GROUP BY permanent_league_id,reset_series,season_number HAVING COUNT(*)>1),'SELECT 1','CREATE UNIQUE INDEX idx_le_parent_series_season ON league_entities (permanent_league_id,reset_series,season_number)')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 -- Admin audit log — records moderation/admin actions across all entities.
 CREATE TABLE IF NOT EXISTS admin_audit_log (
   id            VARCHAR(36)  PRIMARY KEY,

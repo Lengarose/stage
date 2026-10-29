@@ -17,9 +17,9 @@ function resolveAssignment(source, settings, items, sourceType = 'competition') 
   const ids = [...new Set([settings.trophy_item_id, source.trophy_item_id, ...reverse.map(item => item.id)].filter(Boolean))];
   if (ids.length > 1) return { state: 'conflict', trophy: null, ids, guidance: 'Conflicting explicit trophy links. Review Rewards and the Trophies catalogue before assigning a design.' };
   const item = items.find(item => item.id === ids[0]);
-  if (!ids.length) return { state: 'unassigned', trophy: null, ids, guidance: 'Assign a competition trophy in Admin → GOST.' };
+  if (!ids.length) return { state: 'unassigned', trophy: null, ids, guidance: sourceType==='regional_league'?'Assign a league trophy in Admin → Regional Leagues.':'Assign a competition trophy in Admin → GOST.' };
   if (!item || item.tournament_id || item.linked_source_id && (item.linked_source_type !== sourceType || item.linked_source_id !== source.id)) {
-    return { state: 'invalid', trophy: null, ids, guidance: 'The assigned trophy is missing or belongs to another event. Review Admin → GOST.' };
+    return { state: 'invalid', trophy: null, ids, guidance: sourceType==='regional_league'?'The assigned trophy is missing or belongs to another event. Review Admin → Regional Leagues.':'The assigned trophy is missing or belongs to another event. Review Admin → GOST.' };
   }
   return { state: 'assigned', trophy: publicTrophy(item), ids, guidance: null };
 }
@@ -28,6 +28,7 @@ async function assignment(id, query = EXECUTESQL, lock = false, sourceType = 'co
   const [record] = await query(`SELECT * FROM league_entities WHERE entity_type='${sourceType}' AND id=?${lock ? ' FOR UPDATE' : ''}`, [id]);
   if (!record) throw fail('Competition not found', 404);
   const source = rowData(record);
+  if(sourceType==='regional_league'&&source.permanent_league_id&&source.permanent_league_id!==id)return assignment(source.permanent_league_id,query,lock,sourceType);
   const [meta] = await query("SELECT * FROM league_entities WHERE entity_type='reward_configuration' AND id=?", [rewards.key(sourceType, id)]);
   const settings = parse(meta?.data_json);
   const items = await query(`SELECT * FROM trophy_items ORDER BY id${lock ? ' FOR UPDATE' : ''}`);
@@ -40,6 +41,7 @@ async function assign(id, input, admin, transaction = withTransaction, sourceTyp
   if (input.trophy_item_id !== null && typeof input.trophy_item_id !== 'string') throw fail('Select a catalogue trophy');
   return transaction(async query => {
     const before = await assignment(id, query, true, sourceType);
+    id=before.source.id;
     if (before.revision !== input.revision) throw fail('Trophy configuration changed. Reload before saving.', 409);
     const selected = input.trophy_item_id || null;
     const nextSource = { ...before.source };
@@ -87,20 +89,22 @@ async function overview(query = EXECUTESQL) {
   return { competitions: byType('competition').filter(c => ['supreme', 'elite', 'challenger'].includes(c.slug)).map(source => {
     const settings = byType('reward_configuration').find(c => c.id === rewards.key('competition', source.id)) || {};
     settings.rows = rewardRows.filter(r => r.source_id === source.id && Number(r.config_version) === Number(settings.version));
-    const seasons = byType('competition_season').filter(s => s.competition_id === source.id).sort((a, b) => Number(b.season_number) - Number(a.season_number) || a.id.localeCompare(b.id));
+    const seasons = byType('competition_season').filter(s => s.competition_id === source.id).sort((a, b) => Number(b.reset_series || 0)-Number(a.reset_series || 0) || Number(b.season_number) - Number(a.season_number) || a.id.localeCompare(b.id));
     const present = season => {
       const captured = byType('competition_settlement').find(s => s.source_type === 'competition_season' && s.source_id === season.id)?.config;
       const award = awards.filter(a => a.source_id === season.id).map(a => parse(a.metadata_json)).find(a => a.version === 1);
-      const historical = ['completed', 'archived'].includes(season.status);
+      const historical = Boolean(season.edition_invalidated) || ['completed', 'archived','reset','superseded','cancelled','abandoned'].includes(season.status);
       const trophy = award ? { id: captured?.trophy_item_id || null, name: award.design_name, image_url: safeImage(award.image_url) } : captured?.trophy_snapshot ? publicTrophy(captured.trophy_snapshot) : publicTrophy(items.find(i => i.id === (captured?.trophy_item_id || season.trophy_item_id)));
       const registered = Array.isArray(season.registered_club_ids) ? new Set(season.registered_club_ids.filter(Boolean)).size : null;
       const basis = captured?.roster ? new Set(captured.roster).size : null;
       const qualified = new Set(byType('qualification_entry').filter(e => e.target_season_id === season.id && e.status === 'confirmed').map(e => e.club_id).filter(Boolean)).size;
       const final = byType('competition_fixture').find(f => f.season_id === season.id && f.phase === 'knockout_final' && isConfirmedResult({ ...f, status: f.status === 'played' ? 'completed' : f.status }));
       const winnerSide = final?.winner_club_id === final?.home_club_id && final?.winner_club_id ? 'home' : final?.winner_club_id === final?.away_club_id && final?.winner_club_id ? 'away' : null;
-      return { id: season.id, season_number: season.season_number, label: season.season_label || `Season ${season.season_number}`, state: seasonState(season), status: season.status, registered, qualified, maximum: Number(season.max_clubs || season.target_clubs || source.max_clubs_per_season) || null, trophy, winner: award?.winning_name || season.winner_club_name || (winnerSide ? final[`${winnerSide}_club_name`] : null), runner_up: season.runner_up_club_name || (winnerSide ? final[`${winnerSide === 'home' ? 'away' : 'home'}_club_name`] : null), completed_at: season.completed_at || null, prizes: prizeDetails(captured || (!historical && settings.version ? settings : null), basis), journey: journeyFor(season, source) };
+      return { id: season.id, season_number: season.season_number, reset_series: season.reset_series || 0, is_current: (source.current_season_id || source.current_edition_id) === season.id, label: season.season_label || `Season ${season.season_number}`, state: seasonState(season), status: season.status, registered, qualified, maximum: Number(season.max_clubs || season.target_clubs || source.max_clubs_per_season) || null, trophy, winner: award?.winning_name || season.winner_club_name || (winnerSide ? final[`${winnerSide}_club_name`] : null), runner_up: season.runner_up_club_name || (winnerSide ? final[`${winnerSide === 'home' ? 'away' : 'home'}_club_name`] : null), completed_at: season.completed_at || null, prizes: prizeDetails(captured || (!historical && settings.version ? settings : null), basis), journey: journeyFor(season, source) };
     };
-    return { id: source.id, slug: source.slug, name: source.name, tier: source.tier, assignment: resolveAssignment(source, settings, items), editions: seasons.map(present), current: seasons.find(s => !['completed', 'archived', 'cancelled'].includes(s.status)) ? present(seasons.find(s => !['completed', 'archived', 'cancelled'].includes(s.status))) : seasons[0] && seasons[0].status !== 'archived' ? present(seasons[0]) : null, archive: seasons.filter(s => ['completed', 'archived'].includes(s.status)).map(present), journey: journeyFor(null, source) };
+    const activeSeasons = seasons.filter(s=>!['completed','archived','cancelled','reset','superseded','abandoned'].includes(s.status));
+    const currentSeason = seasons.find(s=>s.id===(source.current_season_id || source.current_edition_id) && !['reset','superseded','cancelled','abandoned'].includes(s.status)) || (activeSeasons.length===1 ? activeSeasons[0] : activeSeasons.length ? null : seasons.find(s=>s.status==='completed'));
+    return { id: source.id, slug: source.slug, name: source.name, tier: source.tier, assignment: resolveAssignment(source, settings, items), editions: seasons.map(present), current: currentSeason ? present(currentSeason) : null, archive: seasons.filter(s => ['completed', 'archived'].includes(s.status)).map(present), journey: journeyFor(null, source) };
   }) };
 }
 // A captured roster is immutable edition evidence; otherwise registrations and

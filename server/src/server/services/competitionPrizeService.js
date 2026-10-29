@@ -32,7 +32,7 @@ async function editionConfiguration(scope,query) {
   const type=scope.source_type==='regional_league'?'regional_league':'competition';
   const settings=await require('./rewardConfigurationService').read(type,scope.config_source_id,query);
   const roster=require('../lib/componentPrizePlan').eligibleClubIds(scope);
-  if(!settings.version && (settings.rows.length || type==='competition'))return null;
+  if(!settings.version && (settings.rows.length || type==='competition' || Number(scope.root.division)>2))return null;
   const policy=require('../lib/rewardPolicy');
   const rows=settings.version?settings.rows:type==='regional_league'?policy.regionalRows(roster.length,scope.root):[];
   const configuration=require('../lib/rewardPolicy').validateConfiguration(type,type==='regional_league'?rows.filter(r=>Number(r.position)<=roster.length):rows,roster.length);
@@ -47,6 +47,7 @@ async function saveState(query, ctx, state, reason = null) {
 async function capture(kind,id,{admin,reason}={}) {
   return withTransaction(async query => {
     const ctx = await loadPlan(kind,id,query,true);
+    if(ctx.scope.root.edition_invalidated || ['reset','superseded','cancelled','abandoned','retired'].includes(ctx.scope.root.status))throw Object.assign(new Error('Closed or invalidated editions cannot capture new reward promises'),{status:409});
     if (!ctx.saved.config && !['completed','archived'].includes(ctx.scope.root.status)) {
       if(ctx.config?.model) {
         const root={...ctx.scope.root,prize_pool_stc:ctx.config.budget,effective_prize_budget_stc:ctx.config.budget,reward_funding:'system',reward_configuration_version:ctx.config.version};

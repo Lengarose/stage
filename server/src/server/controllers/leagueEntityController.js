@@ -187,6 +187,8 @@ function makeRouter(entityType) {
       catch (err) { res.status(err.status || 500).json({ error: err.message, details: err.details }); }
     };
     router.get('/edition-review', action(req => review.diagnostics(req.user)));
+    router.get('/catalogue', action(req => editions.catalogue(req.user)));
+    router.post('/management', action(req => require('../services/regionalLeagueManagementService').action(req.body || {},req.user)));
     router.post('/edition-review', action(req => review.repair(req.body || {}, req.user)));
     router.post('/seed', action(req => editions.seed(req.body?.definitions, req.user)));
     router.post('/:id/next-season', action(req => editions.nextSeason(req.params.id, req.user)));
@@ -230,7 +232,11 @@ function makeRouter(entityType) {
         const result = await require('../services/regionalEditionService').create(body, req.user);
         return res.status(result.outcome === 'created' ? 201 : 200).json({ ...result.record, creation_outcome: result.outcome });
       }
-      if (FIXTURE_ENTITY_TYPES.has(entityType) || entityType === 'game_day_config' || entityType === 'transfer_room_config') {
+      if (entityType === 'competition_season') {
+        const result=await require('../services/leagueLifecycleService').createInitialCompetitionSeason(body,req.user);
+        return res.status(result.outcome==='created'?201:200).json({...result.record,creation_outcome:result.outcome});
+      }
+      if (FIXTURE_ENTITY_TYPES.has(entityType) || entityType === 'competition' || entityType === 'game_day_config' || entityType === 'transfer_room_config') {
         const admin = await getAdminUser(req).catch(() => null);
         if (!admin) return res.status(403).json({ error: 'Admin access required.' });
       }
@@ -286,7 +292,11 @@ function makeRouter(entityType) {
       if (!existing.length) return res.status(404).json({ error: 'Not found' });
 
       const current = parseRow(existing[0]);
-      if(['regional_league','competition_season'].includes(entityType)&&['completed','archived'].includes(current.status))return res.status(409).json({error:'Completed edition history is read-only; use archive or audited history reset.'});
+      if (entityType==='competition_season') {
+        if(!await getAdminUser(req))return res.status(403).json({error:'Admin access required'});
+        if(['completed','cancelled','abandoned','reset','superseded'].includes(req.body?.status) || ['competition_id','season_number','reset_series','next_season_id','previous_season_id'].some(k=>Object.hasOwn(req.body || {},k)&&req.body[k]!==current[k]))return res.status(409).json({error:'Use the reviewed season lifecycle action for completion, abandonment, rollover or identity changes.'});
+      }
+      if(['regional_league','competition_season'].includes(entityType)&&['completed','archived','reset','superseded','cancelled','abandoned'].includes(current.status))return res.status(409).json({error:'Closed edition history is read-only; use archive or audited history review.'});
       const rawBody = req.body || {};
       if (existing[0].entity_type !== entityType) return res.status(404).json({error:'Not found'});
       if (FIXTURE_ENTITY_TYPES.has(entityType)) {
@@ -332,6 +342,7 @@ function makeRouter(entityType) {
   // DELETE /:id
   router.delete('/:id', async (req, res) => {
     try {
+      if(['competition','competition_season'].includes(entityType))return res.status(409).json({error:'Permanent competition and edition history must be retired, archived or reset through the reviewed lifecycle workflow.'});
       if (entityType === 'regional_league') {
         await require('../services/regionalEditionService').admin(req.user);
         return res.status(409).json({ error: 'Use the dry-run edition review before removing a regional league. No records were deleted.' });

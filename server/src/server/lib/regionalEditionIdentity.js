@@ -30,6 +30,9 @@ function identity(input) {
     if ((regionAliases[slugRegion] || slugRegion) !== region) fail('Slug region contradicts region_slug');
   }
   const fields = { region_slug: region, division, platform, season_number: season };
+  const series = Number(input.reset_series || 0);
+  if (!Number.isSafeInteger(series) || series < 0) fail('Invalid reset series', 400);
+  if (series) fields.reset_series = series;
   const key = crypto.createHash('sha256').update(JSON.stringify(fields)).digest('hex');
   return { ...fields, key, canonical_slug: `${region}-div-${division}${season === 1 ? '' : `-s${season}`}` };
 }

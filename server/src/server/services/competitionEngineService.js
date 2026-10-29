@@ -199,6 +199,8 @@ function parseLeagueEntityRow(row) {
     region: row.region ?? data.region,
     platform: row.platform ?? data.platform,
     season_number: row.season_number ?? data.season_number,
+    permanent_league_id: row.permanent_league_id ?? data.permanent_league_id,
+    reset_series: row.reset_series ?? data.reset_series,
     created_date: row.created_date,
     updated_date: row.updated_date,
   };
@@ -726,15 +728,31 @@ async function assertStandingParticipants(type, column, edition, fixture) {
   return null;
 }
 
+async function withSourceResultTransaction(work) {
+  if (progressionQueries.getStore()) return work();
+  return database.withTransaction(query => progressionQueries.run(query, work));
+}
+
+async function writableSourceFixture(type, kind, id, parentKey) {
+  const sql = `SELECT * FROM league_entities WHERE id = ? AND entity_type = '${type}' LIMIT 1`;
+  const [stored] = await EXECUTESQL(sql, [id]);
+  if (!stored) return null;
+  const before = parseLeagueEntityRow(stored);
+  await require('./leagueLifecycleService').assertEditionWritable(progressionQueries.getStore(), kind, before[parentKey]);
+  // Re-read after the edition lock: a concurrent result may have committed while
+  // this transaction waited, so the earlier snapshot cannot decide idempotency.
+  const [locked] = await EXECUTESQL(`${sql} FOR UPDATE`, [id]);
+  const fixture = locked ? parseLeagueEntityRow(locked) : null;
+  if (!fixture || fixture[parentKey] !== before[parentKey]) {
+    const error = new Error('Source fixture changed while locking its edition'); error.status = 409; throw error;
+  }
+  return fixture;
+}
+
 async function syncCompetitionFixtureResult(match, sourceFixtureId) {
-  const rows = await EXECUTESQL(
-    `SELECT * FROM league_entities
-      WHERE id = ? AND entity_type = 'competition_fixture'
-      LIMIT 1`,
-    [sourceFixtureId],
-  );
-  if (!rows.length) return { synced: false, reason: 'competition_fixture_not_found' };
-  const fixture = parseLeagueEntityRow(rows[0]);
+  if (!progressionQueries.getStore()) return withSourceResultTransaction(() => syncCompetitionFixtureResult(match, sourceFixtureId));
+  const fixture = await writableSourceFixture('competition_fixture', 'competition_season', sourceFixtureId, 'season_id');
+  if (!fixture) return { synced: false, reason: 'competition_fixture_not_found' };
   const integrityWarning = String(fixture.phase || 'league') === 'league' ? await assertStandingParticipants('competition_standing', 'season_id', fixture.season_id, fixture) : null;
   if (fixture.stats_processed === true || Number(fixture.stats_processed || 0) === 1 || String(fixture.stats_processed || '').toLowerCase() === 'true') {
     return { synced: false, reason: 'already_processed' };
@@ -805,14 +823,9 @@ async function syncCompetitionFixtureResult(match, sourceFixtureId) {
 }
 
 async function syncRegionalLeagueFixtureResult(match, sourceFixtureId) {
-  const rows = await EXECUTESQL(
-    `SELECT * FROM league_entities
-      WHERE id = ? AND entity_type = 'regional_league_fixture'
-      LIMIT 1`,
-    [sourceFixtureId],
-  );
-  if (!rows.length) return { synced: false, reason: 'regional_league_fixture_not_found' };
-  const fixture = parseLeagueEntityRow(rows[0]);
+  if (!progressionQueries.getStore()) return withSourceResultTransaction(() => syncRegionalLeagueFixtureResult(match, sourceFixtureId));
+  const fixture = await writableSourceFixture('regional_league_fixture', 'regional_league', sourceFixtureId, 'league_id');
+  if (!fixture) return { synced: false, reason: 'regional_league_fixture_not_found' };
   const integrityWarning = await assertStandingParticipants('regional_league_standing', 'league_id', fixture.league_id, fixture);
   if (fixture.stats_processed === true || Number(fixture.stats_processed || 0) === 1 || String(fixture.stats_processed || '').toLowerCase() === 'true') {
     return { synced: false, reason: 'already_processed' };
@@ -908,35 +921,57 @@ async function listLegacyRegionalLeagueStandings(leagueId) {
   return sortStandingRows(rows.map(parseLeagueEntityRow));
 }
 
-async function selectLinkedRegionalLeague(league) {
-  if (!league?.linked_league_slug) return null;
-  const rows = await EXECUTESQL(
-    `SELECT * FROM league_entities
-      WHERE entity_type = 'regional_league'
-        AND slug = ?
-      LIMIT 1`,
-    [league.linked_league_slug],
-  ).catch(async () => EXECUTESQL(
-    `SELECT * FROM league_entities
-      WHERE entity_type = 'regional_league'
-        AND JSON_UNQUOTE(JSON_EXTRACT(data_json, '$.slug')) = ?
-      LIMIT 1`,
-    [league.linked_league_slug],
-  ).catch(() => []));
-  return rows.length ? parseLeagueEntityRow(rows[0]) : null;
+function resolveRegionalLeagueEdition(league, division, rows, { linked = false } = {}) {
+  const { identity, fail } = require('../lib/regionalEditionIdentity');
+  const { permanentId } = require('../lib/regionalLeagueHierarchy');
+  const source = identity(league);
+  const records = rows.map(row => row.data_json === undefined ? row : parseLeagueEntityRow(row));
+  let families;
+  if (linked) {
+    const byId = league.linked_league_id ? records.filter(row => row.id === league.linked_league_id) : [];
+    const bySlug = league.linked_league_slug ? records.filter(row => row.slug === league.linked_league_slug) : [];
+    families = new Set((byId.length ? byId : bySlug).map(permanentId));
+    if (league.linked_league_id && !byId.length) fail('Linked permanent league is unavailable; review division links');
+    if (families.size !== 1 || (byId.length && bySlug.some(row => !families.has(permanentId(row))))) fail('Linked league identity is missing or ambiguous; review division links');
+  } else {
+    families = new Set();
+    for (const row of records) {
+      let candidate;
+      try { candidate = identity(row); } catch (error) {
+        if (row.region_slug === league.region_slug && row.platform === league.platform && Number(row.division) === Number(division)) throw error;
+        continue;
+      }
+      if (candidate.region_slug === source.region_slug && candidate.platform === source.platform && candidate.division === Number(division)) families.add(permanentId(row));
+    }
+    if (!families.size) return null;
+    if (families.size !== 1) fail('Multiple permanent leagues match the target division; review identities before assigning outcomes');
+  }
+  const [parentId] = families;
+  const definition = records.find(row => row.id === parentId && permanentId(row) === row.id);
+  if (!definition || definition.retired || definition.retired_at || definition.status === 'retired') fail('Target permanent league is missing or retired');
+  const target = identity(definition);
+  if (parentId === permanentId(league) || target.region_slug !== source.region_slug || target.platform !== source.platform || target.division !== Number(division)) fail('Linked league does not match the required regional division and platform');
+  const family = records.filter(row => permanentId(row) === parentId);
+  const matching = family.filter(row => {
+    const candidate = identity(row);
+    if (candidate.region_slug !== source.region_slug || candidate.platform !== source.platform || candidate.division !== Number(division)) fail('Target editions disagree with their permanent league identity');
+    return candidate.season_number === source.season_number && Number(row.reset_series || 0) === Number(league.reset_series || 0);
+  });
+  if (matching.length !== 1) fail('Target division must have exactly one edition in the same season and reset series');
+  const edition = matching[0];
+  if (edition.edition_invalidated || ['reset', 'cancelled', 'canceled', 'abandoned', 'superseded', 'retired'].includes(edition.status)) fail('Target division edition is closed or invalidated');
+  return edition;
+}
+
+async function selectLinkedRegionalLeague(league, division) {
+  if (!league?.linked_league_id && !league?.linked_league_slug) return null;
+  const rows = await EXECUTESQL("SELECT * FROM league_entities WHERE entity_type = 'regional_league'");
+  return resolveRegionalLeagueEdition(league, division, rows, { linked: true });
 }
 
 async function selectRegionalLeagueByDivision(league, division) {
-  const rows = await EXECUTESQL(
-    `SELECT * FROM league_entities
-      WHERE entity_type = 'regional_league'
-        AND JSON_UNQUOTE(JSON_EXTRACT(data_json, '$.region_slug')) = ?
-        AND JSON_UNQUOTE(JSON_EXTRACT(data_json, '$.platform')) = ?
-        AND CAST(JSON_UNQUOTE(JSON_EXTRACT(data_json, '$.division')) AS UNSIGNED) = ?
-      LIMIT 1`,
-    [league.region_slug, league.platform, division],
-  ).catch(() => []);
-  return rows.length ? parseLeagueEntityRow(rows[0]) : null;
+  const rows = await EXECUTESQL("SELECT * FROM league_entities WHERE entity_type = 'regional_league'");
+  return resolveRegionalLeagueEdition(league, division, rows);
 }
 
 async function legacyCompetitionPhaseExists(seasonId, phase) {
@@ -1307,7 +1342,7 @@ async function advanceLegacyOfficialCompetitionUnlocked(fixture) {
 async function processRegionalDivisionOneEnd(league, standings) {
   const sorted = sortStandingRows(standings);
   const total = sorted.length;
-  const linkedLeague = await selectLinkedRegionalLeague(league);
+  const linkedLeague = await selectLinkedRegionalLeague(league, Number(league.division || 1) + 1);
   const lowerLeague = linkedLeague || (await selectRegionalLeagueByDivision(league, Number(league.division || 1) + 1));
   let qualified = 0;
   let relegated = 0;
@@ -1388,7 +1423,8 @@ async function processRegionalDivisionOneEnd(league, standings) {
 async function processRegionalDivisionTwoEnd(league, standings) {
   const sorted = sortStandingRows(standings);
   const total = sorted.length;
-  const upperLeague = await selectLinkedRegionalLeague(league);
+  const upperLeague = await selectLinkedRegionalLeague(league, Number(league.division || 1) - 1)
+    || await selectRegionalLeagueByDivision(league, Number(league.division || 1) - 1);
   const lowerLeague = await selectRegionalLeagueByDivision(league, Number(league.division || 1) + 1);
   const promotedRows = upperLeague ? sorted.slice(0, Math.min(PROMOTION_SPOTS, total)) : [];
   let promoted = 0;
@@ -1473,6 +1509,7 @@ async function advanceLeagueEdition(kind, fixture, { dryRun = false, admin = nul
   if (!dryRun) await prizes.capture(kind,id);
   const result = await database.withTransaction(async query => {
     const scope = await new (require('../models/competitionScopeModel').CompetitionScopeModel)().selectOne(kind,id,query,!dryRun);
+    if (scope.root.edition_invalidated || ['reset','cancelled','abandoned','superseded','retired'].includes(scope.root.status)) return {advanced:false,reason:'Edition is closed or invalidated'};
     const requestedPhase = fixture.phase || 'league';
     fixture = {...fixture,...scope.fixtures.find(f=>(f.phase || 'league') === requestedPhase),phase:requestedPhase,draw_mode:scope.root.draw_mode,fixed_pairings:scope.root.fixed_pairings};
     const readiness = require('../lib/leagueRoundReadiness').roundReadiness(scope,fixture.phase || 'league');
@@ -1978,7 +2015,7 @@ async function advanceCommunityTournamentIfReady(match) {
 }
 
 async function markEngineFixtureCompleted(match) {
-  const fixtureRows = await model.selectFixtureByMatch(match.id);
+  const fixtureRows = await EXECUTESQL('SELECT * FROM competition_fixtures WHERE match_id = ? LIMIT 1 FOR UPDATE', [match.id]);
   if (!fixtureRows.length) return null;
   const fixture = fixtureRows[0];
   const homeScore = Number(match.home_score || 0);
@@ -2196,20 +2233,27 @@ async function syncMatchResultToSource(matchOrId) {
     : matchOrId;
   if (!match?.id || match.status !== 'completed') return { synced: false, reason: 'match_not_completed' };
 
-  const engineFixture = await markEngineFixtureCompleted(match);
-  let sourceType = match.source_fixture_type || null;
-  let sourceId = match.source_fixture_id || null;
-  if (sourceType === 'competition_engine' && engineFixture) {
-    sourceType = engineFixture.legacy_fixture_type;
-    sourceId = engineFixture.legacy_fixture_id;
-  }
-
-  let legacyResult = { synced: false, reason: 'no_supported_source' };
-  if (sourceId && (sourceType === 'competition' || sourceType === 'competition_fixture')) {
-    legacyResult = await syncCompetitionFixtureResult(match, sourceId);
-  } else if (sourceId && (sourceType === 'regional_league' || sourceType === 'regional_league_fixture')) {
-    legacyResult = await syncRegionalLeagueFixtureResult(match, sourceId);
-  }
+  const { engineFixture, sourceType, legacyResult } = await withSourceResultTransaction(async () => {
+    const [mapped] = await EXECUTESQL('SELECT * FROM competition_fixtures WHERE match_id = ? LIMIT 1', [match.id]);
+    let sourceType = match.source_fixture_type || null;
+    let sourceId = match.source_fixture_id || null;
+    if (sourceType === 'competition_engine' && mapped) {
+      sourceType = mapped.legacy_fixture_type;
+      sourceId = mapped.legacy_fixture_id;
+    }
+    let legacyResult = { synced: false, reason: 'no_supported_source' };
+    if (sourceId && (sourceType === 'competition' || sourceType === 'competition_fixture')) {
+      legacyResult = await syncCompetitionFixtureResult(match, sourceId);
+    } else if (sourceId && (sourceType === 'regional_league' || sourceType === 'regional_league_fixture')) {
+      legacyResult = await syncRegionalLeagueFixtureResult(match, sourceId);
+    }
+    if (mapped && ['competition_fixture_not_found', 'regional_league_fixture_not_found'].includes(legacyResult.reason)) {
+      const error = new Error('Mapped source fixture is unavailable; result sync requires review'); error.status = 409; throw error;
+    }
+    // Mirror writes follow the edition guard and commit with the legacy standings.
+    const engineFixture = await markEngineFixtureCompleted(match);
+    return { engineFixture, sourceType, legacyResult };
+  });
 
   const ready = engineFixture
     ? await notifyPhaseReady(engineFixture)
@@ -2357,6 +2401,7 @@ async function submitResult({ matchId, side, submittedByUserId, scoreHome, score
 }
 
 module.exports = {
+  resolveRegionalLeagueEdition,
   backfillCommunityTournaments,
   backfillLeagueEntities,
   createMatchFromFixture,

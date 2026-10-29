@@ -11,6 +11,7 @@ async function read(type,id,query=EXECUTESQL,lock=false) {
   const [record]=await query(`SELECT * FROM league_entities WHERE id=? AND entity_type=?${lock?' FOR UPDATE':''}`,[id,type]);
   if(!record)throw fail('Reward source not found',404);
   const source={...parse(record.data_json),id:record.id};
+  if(type==='regional_league'&&source.permanent_league_id&&source.permanent_league_id!==id)return read(type,source.permanent_league_id,query,lock);
   const [meta]=await query("SELECT * FROM league_entities WHERE id=? AND entity_type='reward_configuration'",[key(type,id)]);
   const settings=meta?parse(meta.data_json):{};
   const all=await query('SELECT * FROM reward_configs WHERE source_type=? AND source_id=? ORDER BY config_version,position,id',[type,id]);
@@ -24,7 +25,7 @@ async function read(type,id,query=EXECUTESQL,lock=false) {
       if(validated.budget!==settings.budget)issues.push('Stored budget differs from the complete configured schedule');
     }catch(error){issues.push(error.message);}
   }
-  const proposed=type==='regional_league'?regionalRows(count,source):['participation','winner_bonus','runner_up_bonus'].map(component_key=>({component_key,stc_amount:''}));
+  const proposed=type==='regional_league'?([1,2].includes(Number(source.division || 1))?regionalRows(count,source):rows):['participation','winner_bonus','runner_up_bonus'].map(component_key=>({component_key,stc_amount:''}));
   if(type==='regional_league'&&Number(source.division)===2&&version&&rows.some((r,i)=>String(r.stc_amount)!==proposed[i]?.stc_amount))issues.push('Division 2 saved configuration differs from the shared schedule. Review before applying; captured editions remain unchanged.');
   return {source_type:type,source_id:id,source_name:source.name,source,version,revision:revision(rows),participant_count:count,rows,proposed,issues,settings};
 }
@@ -35,6 +36,7 @@ async function save(type,id,input,admin,transactionQuery) {
   if(!admin?.id || !String(input.reason||'').trim())throw fail('Admin identity and change reason required',403);
   const replace=async query=>{
     const old=await read(type,id,query,true);
+    id=old.source.id;
     if(Number(input.version)!==old.version || input.revision!==old.revision)throw fail('Reward configuration changed. Reload before saving.',409);
     const config=validateConfiguration(type,input.rows,Number(input.participant_count));
     if(input.trophy_item_id) {
@@ -77,6 +79,7 @@ async function reviewDivisionTwo(query=EXECUTESQL) {
   const result=[];
   for(const record of sources) {
     const source=parse(record.data_json);
+    if(source.permanent_league_id && source.permanent_league_id!==record.id)continue;
     if(Number(source.division)!==2)continue;
     const config=await read('regional_league',record.id,query);
     const snapshot=snapshots.map(r=>parse(r.data_json)).find(s=>s.source_type==='regional_league'&&s.source_id===record.id&&s.config);

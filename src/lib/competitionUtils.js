@@ -91,25 +91,6 @@ export function assignMatchdays(clubs) {
 
 // ─── Internal helpers ──────────────────────────────────────────────────────────
 
-function circleMethod(clubs) {
-  const n = clubs.length;
-  if (n % 2 !== 0) throw new Error("circleMethod requires an even number of clubs");
-  const circle = clubs.slice();
-  const rounds = [];
-  for (let r = 0; r < n - 1; r++) {
-    const day = [];
-    for (let i = 0; i < n / 2; i++) {
-      day.push({ home: circle[i], away: circle[n - 1 - i] });
-    }
-    rounds.push(day);
-    // Rotate circle[1..n-1]: last element moves to position 1
-    const last = circle[n - 1];
-    for (let i = n - 1; i > 1; i--) circle[i] = circle[i - 1];
-    circle[1] = last;
-  }
-  return rounds;
-}
-
 function fixtureBase(season) {
   const now = new Date();
   return {
@@ -131,10 +112,6 @@ function fixtureBase(season) {
   };
 }
 
-function standingToClub(s) {
-  return { id: s.club_id, name: s.club_name, logo_url: s.club_logo_url || "", tag: s.club_tag || "" };
-}
-
 function fixtureClubFields(prefix, club) {
   return {
     [`${prefix}_club_id`]: club.id || club.club_id,
@@ -147,57 +124,14 @@ function fixtureClubFields(prefix, club) {
 // ─── League phase (8-matchday format for 36 clubs) ─────────────────────────────
 
 /**
- * Generate league-phase fixtures from standings.
- * Honors season.num_league_matchdays (even, >=2), capped at available
- * circle-method rounds × 2 (home + away). Writes the actual count back.
+ * Request an authoritative league-phase draw for the exact selected edition.
+ * The server validates registrations, configuration and existing fixtures.
  */
-export async function generateLeaguePhaseFixtures(season, standings) {
-  await stageClient.http.post(`/competition-views/competition_season/${encodeURIComponent(season.id)}/reconcile`,{action:'capture_rewards',reason:'Capture GOST rewards before fixture generation'});
-  const clubs = sortStandings(standings).map(standingToClub);
-  if (clubs.length < 4) throw new Error("Need at least 4 clubs to generate fixtures.");
-  // Ensure even number for circle method
-  const n = clubs.length % 2 === 0 ? clubs.length : clubs.length - 1;
-  const evenClubs = clubs.slice(0, n);
-  const allRounds = circleMethod(evenClubs);
-  const uniqueCircleRounds = allRounds.length; // n - 1
-
-  let desiredTotal = Number(season.num_league_matchdays);
-  if (!Number.isFinite(desiredTotal) || desiredTotal < 2) desiredTotal = 8;
-  desiredTotal = Math.floor(desiredTotal);
-  if (desiredTotal % 2 !== 0) desiredTotal += 1;
-  desiredTotal = Math.max(2, desiredTotal);
-  const maxTotal = uniqueCircleRounds * 2;
-  desiredTotal = Math.min(desiredTotal, maxTotal);
-  const numUniqueRounds = desiredTotal / 2;
-
-  const matchdays = [
-    ...allRounds.slice(0, numUniqueRounds),
-    ...allRounds.slice(0, numUniqueRounds).map(day =>
-      day.map(({ home, away }) => ({ home: away, away: home }))
-    ),
-  ];
-
-  const base = fixtureBase(season);
-  const ops = matchdays.flatMap((day, mdIdx) =>
-    day.map(({ home, away }) =>
-      stageClient.entities.CompetitionFixture.create({
-        ...base,
-        ...fixtureClubFields("home", home),
-        ...fixtureClubFields("away", away),
-        phase: "league",
-        matchday: mdIdx + 1,
-      })
-    )
+export async function generateLeaguePhaseFixtures(season, _standings) {
+  return stageClient.http.post(
+    `/competition-views/competition_season/${encodeURIComponent(season.id)}/lifecycle`,
+    { action: "draw", season_number: season.season_number || 1 }
   );
-
-  await Promise.all(ops);
-  await stageClient.entities.CompetitionSeason.update(season.id, {
-    status: "league_phase",
-    league_matchday_total: matchdays.length,
-    num_league_matchdays: matchdays.length,
-    current_matchday: 1,
-    fixtures_generated: true,
-  });
 }
 
 // ─── Playoff round (positions 9-24, 8 two-legged ties) ────────────────────────
@@ -798,64 +732,9 @@ export async function processCompetitionSeasonEnd(season, standings, competition
  * Fixtures are created unscheduled. Home clubs propose a kickoff time from the
  * fixture; GameDay is created only after the away club accepts.
  */
-export async function generateRegionalLeagueFixtures(league, clubs) {
-  await stageClient.http.post(`/competition-views/regional_league/${encodeURIComponent(league.id)}/reconcile`,{action:'capture_rewards',reason:'Capture regional rewards before fixture generation'});
-  if (!stageClient.entities.RegionalLeagueFixture) {
-    throw new Error("RegionalLeagueFixture schema not published yet. Publish it on app.stageClient.com to enable fixture generation.");
-  }
-  if (clubs.length < 2) throw new Error("Need at least 2 clubs to generate fixtures.");
-  const evenClubs = clubs.length % 2 === 0 ? clubs : [...clubs, { id: "__bye__", name: "BYE" }];
-  const allRounds = circleMethod(evenClubs);
-
-  const leagueBase = {
-    league_id:     league.id,
-    league_name:   league.name,
-    region_slug:   league.region_slug || "",
-    division:      league.division || 1,
-    season_number: league.season_number || 1,
-    status:        "unscheduled",
-    stats_processed: false,
-    home_score: null,
-    away_score: null,
-    scheduling_status: "open",
-    window_start: null,
-    window_end:   null,
-    window_days:  null,
-    proposal_count: 0,
-  };
-
-  // First leg (matchdays 1…n-1) + second leg mirror (matchdays n…2(n-1))
-  const matchdays = [
-    ...allRounds,
-    ...allRounds.map(day => day.map(({ home, away }) => ({ home: away, away: home }))),
-  ];
-
-  const ops = matchdays.flatMap((day, mdIdx) =>
-    day
-      .filter(({ home, away }) => home.id !== "__bye__" && away.id !== "__bye__")
-      .map(({ home, away }) =>
-        stageClient.entities.RegionalLeagueFixture.create({
-          ...leagueBase,
-          home_club_id:       home.id,
-          home_club_name:     home.name,
-          home_club_logo_url: home.logo_url || "",
-          home_club_tag:      home.tag || "",
-          away_club_id:       away.id,
-          away_club_name:     away.name,
-          away_club_logo_url: away.logo_url || "",
-          away_club_tag:      away.tag || "",
-          matchday: mdIdx + 1,
-        })
-      )
+export async function generateRegionalLeagueFixtures(league, _clubs) {
+  return stageClient.http.post(
+    `/competition-views/regional_league/${encodeURIComponent(league.id)}/lifecycle`,
+    { action: "draw", season_number: league.season_number || 1 }
   );
-
-  await Promise.all(ops);
-  await stageClient.entities.RegionalLeague.update(league.id, {
-    status: league.status || "in_progress",
-    num_clubs: clubs.length,
-    fixtures_generated: true,
-    seeding_mode: false,
-    placement_locked: true,
-    launch_seeding_closed_at: league.launch_seeding_closed_at || new Date().toISOString(),
-  });
 }

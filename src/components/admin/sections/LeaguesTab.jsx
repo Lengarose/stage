@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import SeasonCard from "@/components/admin/seasons/SeasonCard";
+import RegionalLeagueManagementPanel from '@/components/admin/RegionalLeagueManagementPanel';
+import { fixtureState, submitEditionLifecycle, adminEndpointError } from '@/lib/adminLeagueLifecycle';
 import CompetitionTrophySelector from '@/components/admin/CompetitionTrophySelector';
 import { stageClient } from "@/api/stageClient";
 import {
@@ -60,26 +61,6 @@ function getCompetitionSeasonClubCount(season, standingsCount = 0, qualification
   );
 }
 
-function standingActivityScore(row) {
-  return Number(row?.played || 0) * 1000
-    + Number(row?.points || 0) * 100
-    + Number(row?.wins || 0) * 10
-    + Number(row?.goal_difference || 0);
-}
-
-function dedupeStandingRowsByClub(rows = []) {
-  const byClub = new Map();
-  for (const row of rows || []) {
-    if (!row?.club_id) continue;
-    const key = String(row.club_id);
-    const current = byClub.get(key);
-    if (!current || standingActivityScore(row) > standingActivityScore(current)) {
-      byClub.set(key, row);
-    }
-  }
-  return [...byClub.values()];
-}
-
 export default function LeaguesTab({
   mode = "all",
   seedCompetitions,
@@ -108,6 +89,9 @@ export default function LeaguesTab({
   setRejectNotesDialog,
   setRejectNotes,
   regionalLeagues,
+  regionalEditions = [],
+  regionalDefinitions = [],
+  regionalSourceError = '',
   qualEntries,
   confirmQualEntry,
   rejectQualEntry,
@@ -169,6 +153,8 @@ export default function LeaguesTab({
   const [simulatingLeagueFixtures, setSimulatingLeagueFixtures] = useState(null);
   const [simulatingCompetitionFixtures, setSimulatingCompetitionFixtures] = useState(null);
   const [generatingCompetitionFixtures, setGeneratingCompetitionFixtures] = useState(null);
+  const [editionSelection, setEditionSelection] = useState({});
+  const [lifecycleBusy, setLifecycleBusy] = useState(null);
   const activeStandingClubIds = useMemo(
     () => new Set((standingsList || []).filter(row => !row.is_excluded).map(row => String(row.club_id))),
     [standingsList]
@@ -347,13 +333,14 @@ export default function LeaguesTab({
     let preview;
     try {const response=await stageClient.functions.invoke('adminResetLeagueCompetitionData',{scope,dry_run:true});preview=response?.data||response;}
     catch(error){await swalAlert(`Could not review reset scope: ${error.message}`);return;}
+    if (!preview?.revision || (preview.blockers?.length)) { await swalAlert(`Reset is blocked or has no review revision. ${JSON.stringify(preview)}`); return; }
     const label = scope === "gost"
       ? "GOST"
       : scope === "regional"
         ? "Regional League"
         : "Regional League and GOST";
     const ok = await swalConfirm(
-      `This resets all ${label} history in the selected scope: ${preview.editions?.length||0} editions, ${preview.award_count||0} honours, ${preview.placement_count||0} placements, ${preview.club_achievement_count||0} club achievements and ${preview.player_achievement_count||0} player achievements. Title counts are recalculated for ${preview.affected_owners?.length||0} affected owners. Unrelated honours and confirmed financial history stay intact.\n\nReward configs, trophy designs, clubs and players stay available. Continue?`,
+      `This resets all ${label} history in the selected scope: ${preview.editions?.length||0} editions, ${preview.award_count||0} honours, ${preview.placement_count||0} placements, ${preview.club_achievement_count||0} club achievements and ${preview.player_achievement_count||0} player achievements. Title counts are recalculated for ${preview.affected_owners?.length||0} affected owners. Unrelated honours and confirmed financial history stay intact.\n\nReward configs, trophy designs, clubs and players stay available. This is a fresh start, not New Season rollover. Consequences: ${JSON.stringify(preview.consequences || preview)}. Continue?`,
       {
         title: `Reset ${label} data?`,
         confirmText: "Continue",
@@ -538,34 +525,23 @@ export default function LeaguesTab({
     if (!season?.id) return;
     setGeneratingCompetitionFixtures(season.id);
     try {
-      const standings = dedupeStandingRowsByClub(
-        await (stageClient.entities.CompetitionStanding?.filter({ season_id: season.id }, null, 100) ?? Promise.resolve([])).catch(() => [])
-      );
-      if (standings.length < 4) {
-        await swalAlert("Add at least 4 clubs before generating GOST fixtures.");
-        return;
-      }
-      const targetClubs = Number(season.max_clubs || season.target_clubs || season.max_clubs_per_season || OFFICIAL_STAGE_TOURNAMENT_MAX_CLUBS);
-      const warning = standings.length < targetClubs
-        ? `\n\nThis season is not full (${standings.length}/${targetClubs}). For testing, fixtures will be generated with the clubs currently added.`
-        : "";
-      const ok = await swalConfirm(`Generate GOST fixtures for ${season.competition_name} ${season.season_label || `S${season.season_number}`}?${warning}`);
-      if (!ok) return;
-      const { generateLeaguePhaseFixtures } = await import("@/lib/competitionUtils");
-      await generateLeaguePhaseFixtures({ ...season, num_league_matchdays: season.num_league_matchdays || season.league_matchday_total || 8 }, standings);
+      const reason = await swalPrompt(`Reason for drawing fixtures for ${season.competition_name}, Season ${season.season_number}. Production format rules apply.`);
+      if (!reason || !await swalConfirm(`Draw fixtures for exactly Season ${season.season_number} of ${season.competition_name}?`)) return;
+      await submitEditionLifecycle(stageClient, 'competition_season', season, 'draw', reason, true);
       await loadAll?.();
       if (fixturesPanel?.type === "competition" && fixturesPanel.id === season.id) {
         await loadFixturesForPanel?.(fixturesPanel);
       }
-      await swalAlert(`GOST fixtures generated for ${standings.length} clubs.`);
+      await swalAlert('GOST fixture draw completed.');
     } catch (err) {
-      await swalAlert(`Could not generate GOST fixtures: ${err?.message || err?.error || "Unknown error"}`);
+      await swalAlert(adminEndpointError(err));
     } finally {
       setGeneratingCompetitionFixtures(null);
     }
   }
 
   async function simulateCompetitionFixtures(season) {
+    if (!fixtureState(season).canSimulate) { await swalAlert(fixtureState(season).explanation); return; }
     const ok = await swalConfirm(`Simulate all unplayed fixtures for ${season.competition_name} ${season.season_label || `S${season.season_number}`}? This will enter scores and update the table.`);
     if (!ok) return;
 
@@ -592,6 +568,7 @@ export default function LeaguesTab({
   }
 
   async function simulateRegionalLeagueFixtures(league) {
+    if (!fixtureState(league).canSimulate) { await swalAlert(fixtureState(league).explanation); return; }
     const ok = await swalConfirm(`Simulate all unplayed fixtures for ${league.name}? This will enter scores and update the table.`);
     if (!ok) return;
 
@@ -615,6 +592,36 @@ export default function LeaguesTab({
     } finally {
       setSimulatingLeagueFixtures(null);
     }
+  }
+
+  async function editionAction(kind, edition, action) {
+    if (lifecycleBusy) return;
+    setLifecycleBusy(edition.id);
+    try {
+      const impact = action === 'abandon'
+        ? 'Abandonment stops this edition without unsupported champions, trophies, titles or prizes. Qualification and promotion may be blocked; financial obligations remain subject to policy.'
+        : 'Completion validates the required fixtures, resolved results, disputes and final stages before awarding outcomes.';
+      const reason = await swalPrompt(`Reason to ${action} ${edition.name || edition.competition_name}, Season ${edition.season_number}. ${impact}`);
+      if (!reason || !await swalConfirm(`Confirm ${action} for exactly Season ${edition.season_number} (edition ${edition.id}). ${impact}`)) return;
+      await submitEditionLifecycle(stageClient, kind, edition, action, reason, true);
+      await loadAll?.();
+      if (fixturesPanel?.id === edition.id) await loadFixturesForPanel?.(fixturesPanel);
+      if (standingsPanel?.id === edition.id) await loadStandingsForPanel?.(standingsPanel);
+    } catch (error) { await swalAlert(adminEndpointError(error)); }
+    finally { setLifecycleBusy(null); }
+  }
+
+  async function gostSeasonAction(season, action) {
+    setLifecycleBusy(season.id);
+    try {
+      if (!await swalConfirm(`${action === 'archive' ? 'Archive' : 'Create the next season after'} ${season.competition_name}, Season ${season.season_number}?`)) return;
+      const { archiveCompetitionSeason, createNextCompetitionSeason } = await import('@/lib/seasonLifecycle');
+      const competition = competitions.find(item => item.id === season.competition_id);
+      if (action === 'archive') await archiveCompetitionSeason(season, competition);
+      else await createNextCompetitionSeason(season, competition);
+      await loadAll?.();
+    } catch (error) { await swalAlert(adminEndpointError(error)); }
+    finally { setLifecycleBusy(null); }
   }
 
   const seedModalLeague = useMemo(
@@ -1071,20 +1078,25 @@ export default function LeaguesTab({
           const targetClubs = getCompetitionSeasonTargetClubs(s);
           const displayedClubCount = getCompetitionSeasonClubCount(s, standingsCount, qualificationCount);
           const canAddTestClubs = ["draft", "qualification", "registration"].includes(status) && !fixturesGenerated;
-          const canGenerateFixtures = !fixturesGenerated && displayedClubCount >= 4;
-          const canSimulateFixtures = fixturesGenerated || status === "league_phase";
+          const fixtureStatus = fixtureState(s);
+          const canGenerateFixtures = fixtureStatus.canDraw || (!fixturesGenerated && Number(s.actual_fixtures_count) === 0 && canAddTestClubs && displayedClubCount >= targetClubs);
+          const canSimulateFixtures = fixtureStatus.canSimulate;
           return (
             <div key={s.id} className="space-y-2">
-              <SeasonCard
-                season={s}
-                standingsCount={standingsCount}
-                qualificationCount={qualificationCount}
-                onRefresh={loadAll}
-              />
+              <div className="flex flex-wrap items-center gap-3 border-b border-border py-3">
+                <p className="min-w-0 flex-1 text-sm font-bold">{s.competition_name} · {s.season_label || `Season ${s.season_number}`} · {getSeasonStatusLabel(t, s.status)}</p>
+                {!['completed', 'archived', 'abandoned', 'cancelled'].includes(status) && <>
+                  <button type="button" disabled={Boolean(lifecycleBusy)} onClick={() => editionAction('competition_season', s, 'complete')} className="min-h-10 text-xs text-warning disabled:opacity-50">Complete season</button>
+                  <button type="button" disabled={Boolean(lifecycleBusy)} onClick={() => editionAction('competition_season', s, 'abandon')} className="min-h-10 text-xs text-destructive disabled:opacity-50">Abandon season</button>
+                </>}
+                {status === 'completed' && <button type="button" disabled={Boolean(lifecycleBusy)} onClick={() => gostSeasonAction(s, 'archive')} className="min-h-10 text-xs text-primary">Archive</button>}
+                {(['completed', 'archived', 'abandoned'].includes(status) || (status==='cancelled' && s.abandoned_at)) && <button type="button" disabled={Boolean(lifecycleBusy)} onClick={() => gostSeasonAction(s, 'create_next')} className="min-h-10 text-xs text-primary">New Season</button>}
+              </div>
               <div className="rounded border border-border bg-secondary/20 p-3">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                   <div className="min-w-0">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-foreground">GOST admin test controls</p>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-foreground">GOST edition controls</p>
+                    <p className="text-xs text-muted-foreground">{fixtureStatus.explanation}</p>
                     <p className="text-[10px] text-muted-foreground">
                       {displayedClubCount}/{targetClubs} clubs · {registeredIds.size} registered · {standingsCount} standings · {fixturesGenerated ? "fixtures generated" : "fixtures not generated"} · {availableClubs.length} clubs available for testing
                     </p>
@@ -1120,7 +1132,7 @@ export default function LeaguesTab({
                       disabled={!canGenerateFixtures || generatingCompetitionFixtures === s.id}
                       onClick={() => generateCompetitionFixturesForAdmin(s)}
                       className="h-8 rounded border-primary/30 px-3 text-[11px] font-bold uppercase tracking-wider text-primary hover:bg-primary/10">
-                      {generatingCompetitionFixtures === s.id ? "Generating..." : "Generate fixtures"}
+                      {generatingCompetitionFixtures === s.id ? "Drawing..." : "Draw Fixtures"}
                     </Button>
                     <Button
                       type="button"
@@ -1377,6 +1389,7 @@ export default function LeaguesTab({
 
   {/* Regional Leagues — editable rules */}
   <div className={cn("bg-card border border-border rounded p-5 space-y-4", !showRegional && "hidden")}>
+    {regionalSourceError && <p role="alert" className="text-sm text-destructive">{regionalSourceError}</p>}
     <div className="flex items-center justify-between gap-3">
       <div>
         <h3 className="font-heading text-base uppercase tracking-tight text-foreground">{t("admin.leagues.regionalLeagues")}</h3>
@@ -1389,29 +1402,45 @@ export default function LeaguesTab({
       </Button>
     </div>
 
+    {showRegional && <RegionalLeagueManagementPanel definitions={regionalDefinitions} trophyItems={trophyItems} onRefresh={loadAll} />}
+
     {regionalLeagues.length > 0 && (
       <div className="space-y-4">
-        {REGIONS.map(region => {
-          const div1 = regionalLeagues.find(l => l.region_slug === region.slug && (l.division || 1) === 1);
-          const div2 = regionalLeagues.find(l => l.region_slug === region.slug && l.division === 2);
-          if (!div1 && !div2) return null;
+        {[...new Set(regionalLeagues.map(league => league.region_slug || 'unspecified'))].map(regionSlug => {
+          const region = REGIONS.find(item => item.slug === regionSlug) || { slug: regionSlug, name: regionSlug };
+          const divisions = regionalLeagues.filter(league => (league.region_slug || 'unspecified') === regionSlug)
+            .sort((a, b) => Number(a.division || 1) - Number(b.division || 1) || String(a.platform).localeCompare(String(b.platform)));
           return (
             <div key={region.slug}>
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5">{region.name}</p>
               <div className="space-y-1.5">
-                {[div1, div2].filter(Boolean).map(league => {
+                {divisions.map(currentEdition => {
+                  const permanentId = currentEdition.permanent_league_id || currentEdition.id;
+                  const editions = [...new Map([currentEdition, ...regionalEditions.filter(row => (row.permanent_league_id || row.id) === permanentId), ...(currentEdition.editions || [])].map(row => [row.id, row])).values()];
+                  if (currentEdition.identity_conflict && !currentEdition.current_edition_id && !editionSelection[permanentId]) return <div key={permanentId} className="space-y-2 border border-warning p-3">
+                    <p role="alert" className="text-sm text-warning">{currentEdition.name}: current edition is ambiguous. Review league identities or select an exact edition.</p>
+                    <select aria-label={`Edition for ${currentEdition.name}`} className="max-w-full border border-border bg-background p-2 text-sm" value="" onChange={e => setEditionSelection(previous => ({ ...previous, [permanentId]: e.target.value }))}><option value="">Select exact edition</option>{editions.map(edition => <option key={edition.id} value={edition.id}>Season {edition.season_number} · {edition.status} · {edition.id}</option>)}</select>
+                  </div>;
+                  const selectedId = editionSelection[permanentId] || currentEdition.id;
+                  const selectedEdition = regionalEditions.find(row => row.id === selectedId) || editions.find(row => row.id === selectedId) || currentEdition;
+                  const league = { ...selectedEdition, permanent_league_id: permanentId, stable_slug: currentEdition.stable_slug || currentEdition.slug };
                   const isEditingL = editingLeague === league.id;
                   const availableClubs = getAvailableClubsForLeague(league);
                   const selectedClubIds = getSelectedClubIdsForLeague(league.id);
                   const capacityRemaining = Math.max(0, getRegionalLeagueMaxClubs(league) - Number(league.num_clubs || 0));
                   const canAdminAddClub = !["in_progress", "active", "completed", "archived"].includes(String(league.status || "").toLowerCase());
                   const seedingOpen = isRegionalLeagueSetupSeedingOpen(league) || isFirstSeasonAdminSeedingOpen(league);
-                  const canSimulateFixtures = String(league.status || "").toLowerCase() === "in_progress";
-                  const fixturesGenerated = isTruthyEntityFlag(league.fixtures_generated);
+                  const fixtureStatus = fixtureState(league);
+                  const canSimulateFixtures = fixtureStatus.canSimulate;
                   return (
-                    <div key={league.id} className="border border-border rounded p-3 space-y-2">
-                      <CompetitionTrophySelector competitionId={league.id} sourceType="regional_league" />
-                      <div className="flex items-center gap-2">
+                    <div key={permanentId} className="border border-border rounded p-3 space-y-2">
+                      <CompetitionTrophySelector competitionId={league.permanent_league_id || league.id} sourceType="regional_league" />
+                      <label className="block text-xs">Season<select className="ml-2 max-w-full rounded border border-border bg-background p-2" value={league.id} onChange={e => setEditionSelection(previous => ({ ...previous, [permanentId]: e.target.value }))}>
+                        {editions.map(edition => <option key={edition.id} value={edition.id}>{edition.season_label || `Season ${edition.season_number}`} · {edition.status}{edition.id === currentEdition.id ? ' · Current' : ''}</option>)}
+                      </select></label>
+                      <p className="break-all text-xs text-muted-foreground">Permanent ID: {permanentId} · Edition: {league.id} · {league.platform}</p>
+                      <p className="text-xs text-muted-foreground">{fixtureStatus.explanation}</p>
+                      <div className="flex flex-wrap items-center gap-2">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider shrink-0">D{league.division || 1}</span>
@@ -1436,7 +1465,7 @@ export default function LeaguesTab({
                           }}>
                           {isEditingL ? <X className="w-3 h-3" /> : <Pencil className="w-3 h-3" />}
                         </Button>
-                        <Link to={`/leagues/${league.slug}`}>
+                        <Link to={`/leagues/${league.stable_slug}?season=${encodeURIComponent(league.id)}`}>
                           <Button size="sm" variant="outline" className="h-7 text-xs rounded border-border text-muted-foreground hover:text-foreground shrink-0">{t("admin.actions.view")}</Button>
                         </Link>
                         {league.status === "draft" && (
@@ -1452,11 +1481,11 @@ export default function LeaguesTab({
                             {generatingRegionalFixtures === league.id ? t("admin.leagues.starting") : t("admin.leagues.startLeague")}
                           </Button>
                         )}
-                        {league.status === "in_progress" && !fixturesGenerated && (
+                        {fixtureStatus.canDraw && (
                           <Button size="sm" disabled={generatingRegionalFixtures === league.id}
                             onClick={() => generateRegionalFixturesForAdmin(league)}
                             className="h-7 text-xs rounded bg-primary/20 text-primary hover:bg-primary/30 border-0 shrink-0">
-                            {generatingRegionalFixtures === league.id ? "Generating..." : t("admin.leagues.generateFixtures")}
+                            {generatingRegionalFixtures === league.id ? "Drawing..." : "Draw Fixtures"}
                           </Button>
                         )}
                         {league.status === "in_progress" && (
@@ -1466,6 +1495,8 @@ export default function LeaguesTab({
                             {processingLeagueEnd === league.id ? t("admin.leagues.processing") : t("admin.leagues.endSeason")}
                           </Button>
                         )}
+                        {!['completed', 'archived', 'abandoned', 'cancelled'].includes(league.status) && <button type="button" disabled={Boolean(lifecycleBusy)} onClick={() => editionAction('regional_league', league, 'abandon')} className="min-h-10 text-xs text-destructive disabled:opacity-50">Abandon season</button>}
+                        {Number(league.actual_fixtures_count) > 0 && <button type="button" onClick={() => loadFixturesForPanel({ type: 'league', id: league.id, name: league.name })} className="min-h-10 text-xs text-primary">View Fixtures</button>}
                         {league.status === "completed" && (
                           <>
                             <Button size="sm" variant="outline" onClick={() => leagueLifecycleAction(league, "archive")}
@@ -1478,7 +1509,7 @@ export default function LeaguesTab({
                             </Button>
                           </>
                         )}
-                        {league.status === "archived" && (
+                        {(league.status === "archived" || (league.status === 'cancelled' && league.abandoned_at)) && (
                           <Button size="sm" onClick={() => leagueLifecycleAction(league, "create_next")}
                             className="h-7 text-xs rounded bg-success/20 text-success hover:bg-success/30 border-0 shrink-0">
                             {t("admin.leagues.newSeason")}

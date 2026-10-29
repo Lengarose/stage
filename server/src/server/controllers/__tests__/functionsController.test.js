@@ -127,6 +127,29 @@ function makeFinanceReadyClub(overrides = {}) {
   };
 }
 
+test('Regional and GOST simulation require an active edition and drawn fixtures and never replay resolved or disputed fixtures', async () => {
+  for (const [name, kind, field] of [['simulateRegionalLeagueFixtures','regional_league','league_id'],['simulateCompetitionFixtures','competition_season','season_id']]) {
+    for (const scenario of ['empty','inactive','resolved']) {
+      const writes=[];
+      const query=async(sql,values=[])=>{
+        if(sql.includes('FROM users'))return [{id:values[0],email:'fixture-admin@test.local',role_id:0}];
+        if(sql==='SELECT * FROM league_entities WHERE id=? AND entity_type=? FOR UPDATE')return [{id:values[0],entity_type:values[1],status:scenario==='inactive'?'draft':'in_progress',...(values[1]==='competition_season'?{competition_id:'permanent'}:{}),data_json:'{}'}];
+        if(sql.includes(`entity_type = '${kind==='regional_league'?'regional_league_fixture':'competition_fixture'}'`))return scenario==='resolved' ? [
+          {id:'played',status:'completed',data_json:JSON.stringify({stats_processed:true,status:'completed'})},
+          {id:'disputed',status:'disputed',data_json:JSON.stringify({status:'disputed',result_state:'DISPUTED'})},
+        ]:[];
+        writes.push(sql);throw new Error(`Unexpected simulation write/query: ${sql}`);
+      };
+      const response=makeJsonResponse();
+      const handler=postFunctionHandler(loadFunctionsRouterWithDbMock(query));
+      await handler({params:{name},body:{[field]:'edition'},user:{id:'admin'}},response);
+      if(scenario==='resolved'){assert.equal(response.statusCode,200,response.body?.error);assert.equal(response.body.data.simulated,0);}
+      else assert.match(response.body.error,scenario==='empty'?/Draw Fixtures/:/active edition/);
+      assert.deepEqual(writes,[],'No result, audit, finance or progression write occurs');
+    }
+  }
+});
+
 function isClubFinanceUsageQuery(sql) {
   return /SELECT\s+COALESCE\(SUM\(CASE WHEN status = 'active' THEN weekly_salary_stc ELSE 0 END\), 0\) AS active_wages/.test(sql);
 }
@@ -308,6 +331,7 @@ test('competitionFixtureResult processes fixture and triggers central progressio
     async rollback() {},
     release() {},
     async query(sql, params = []) {
+      if (sql === 'SELECT * FROM league_entities WHERE id=? AND entity_type=? FOR UPDATE') return [[{ id: 'season-1', status: 'league_phase', data_json: '{}' }], []];
       if (/SELECT \* FROM league_entities\s+WHERE id = \? AND entity_type = 'competition_fixture'/.test(sql)) {
         return [[fixture], []];
       }
@@ -445,6 +469,7 @@ test('regionalLeagueFixtureResult processes fixture and triggers central progres
     async rollback() {},
     release() {},
     async query(sql, params = []) {
+      if (sql === 'SELECT * FROM league_entities WHERE id=? AND entity_type=? FOR UPDATE') return [[{ id: 'league-1', status: 'in_progress', data_json: '{}' }], []];
       queries.push({ sql, params });
       if (/SELECT \* FROM league_entities\s+WHERE id = \? AND entity_type = 'regional_league_fixture'/.test(sql)) {
         return [[fixture], []];

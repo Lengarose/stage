@@ -47,7 +47,8 @@ import {
 } from "../lib/qualificationConfig";
 import { swalAlert, swalConfirm, swalPrompt } from "@/lib/swal";
 import { calculatePrizePool } from "@/lib/prizeDefaults";
-import { loadRegionalRewardSources } from '@/lib/regionalRewardSources';
+import { loadRegionalLeagueCatalogue, regionalRewardSources } from '@/lib/regionalRewardSources';
+import { submitEditionLifecycle, adminEndpointError, loadEditionFixtureCount } from '@/lib/adminLeagueLifecycle';
 import { ensureDefaultRewardConfigs, getRewardConfiguration } from '@/lib/rewardsEngine';
 import { canResolveDisputeWithScore } from "@/lib/gameDayResultFlow";
 import { toMysqlDateTime } from "@/lib/momentDate";
@@ -226,6 +227,11 @@ export default function Admin(props) {
   const [schedulingAdminBusy, setSchedulingAdminBusy] = useState(null);
   const [creatingLeagueSeason, setCreatingLeagueSeason] = useState(false);
   const [regionalLeagues, setRegionalLeagues] = useState([]);
+  const [regionalEditions, setRegionalEditions] = useState([]);
+  const [regionalDefinitions, setRegionalDefinitions] = useState([]);
+  const regionalPermanentSources = regionalRewardSources(regionalDefinitions, regionalLeagues, regionalEditions);
+  const fixturePanelRequest = useRef(0);
+  const standingPanelRequest = useRef(0);
   const [regionalSourceError, setRegionalSourceError] = useState('');
   const [seedingRegionalLeagues, setSeedingRegionalLeagues] = useState(false);
   const [processingLeagueEnd, setProcessingLeagueEnd] = useState(null);
@@ -348,7 +354,7 @@ export default function Admin(props) {
         stageClient.entities.CompetitionSeason.list("-season_number", 30).catch(() => []),
         (stageClient.entities.CompetitionStanding?.list("-updated_date", 500) ?? Promise.resolve([])).catch(() => []),
         stageClient.entities.QualificationEntry.filter({ status: "pending" }, null, 50).catch(() => []),
-        loadRegionalRewardSources(stageClient).catch(err => { setRegionalSourceError(err.message || 'Could not load regional reward sources.'); return null; }),
+        loadRegionalLeagueCatalogue(stageClient).catch(err => { setRegionalSourceError(adminEndpointError(err)); return null; }),
         (stageClient.entities.RegionalLeagueFixture?.filter({ scheduling_status: "expired" }, null, 50) ?? Promise.resolve([])).catch(() => []),
         (stageClient.entities.CompetitionFixture?.filter({ scheduling_status: "expired" }, null, 50) ?? Promise.resolve([])).catch(() => []),
         (stageClient.entities.SeasonRegistration?.list("-applied_at", 200) ?? Promise.resolve([])).catch(() => []),
@@ -376,7 +382,8 @@ export default function Admin(props) {
       setTournaments((allTournaments || []).filter(t => !["archived", "cancelled"].includes(String(t.status || "").toLowerCase())));
       setTrophyItems(allTrophies);
       setCompetitions(allComps);
-      setCompSeasons(allCompSeasons);
+      const withFixtureCount = (kind, edition) => loadEditionFixtureCount(stageClient, kind, edition).catch(() => edition);
+      setCompSeasons(await Promise.all(allCompSeasons.map(edition => withFixtureCount('competition_season', edition))));
       const nextCompetitionStandingCounts = {};
       const nextCompetitionStandingClubIds = {};
       for (const row of asObjectArray(allCompetitionStandings)) {
@@ -391,14 +398,17 @@ export default function Admin(props) {
       setCompetitionStandingCountsBySeason(nextCompetitionStandingCounts);
       setCompetitionStandingClubIdsBySeason(nextCompetitionStandingClubIds);
       setQualEntries(allQual);
-      const canonicalRegionalLeagues = (allRegLeagues || regionalLeagues).map(withCanonicalRegionalLeagueName);
+      const countedRegionalEditions = await Promise.all((allRegLeagues?.editions || []).map(edition => withFixtureCount('regional_league', edition)));
+      const canonicalRegionalLeagues = (allRegLeagues?.leagues || []).map(edition => withCanonicalRegionalLeagueName({ ...edition, actual_fixtures_count: countedRegionalEditions.find(row => row.id === edition.id)?.actual_fixtures_count ?? edition.actual_fixtures_count }));
       setRegionalLeagues(canonicalRegionalLeagues);
+      setRegionalEditions(countedRegionalEditions);
+      setRegionalDefinitions(allRegLeagues?.definitions || []);
       setRegApplications(await cleanupStaleSeasonRegistrations(allRegApps));
       setLifestyleItems(allLifestyleItems);
       seedDefaultRewardConfigsForSources([
         ...allComps.map(c => ({ id: c.id, type: "competition", name: c.name, slug: c.slug, tier: c.tier })),
-        ...canonicalRegionalLeagues
-          .filter(l => allRegLeagues && !l.identity_conflict && !l.identity_unverified && l.status !== "archived")
+        ...regionalRewardSources(allRegLeagues?.definitions || [], canonicalRegionalLeagues, countedRegionalEditions)
+          .filter(l => allRegLeagues && !l.identity_conflict && !l.identity_unverified && !l.retired && !l.retired_at)
           .map(l => ({ id: l.id, type: "regional_league", name: l.name, division: l.division || 1, max_clubs: getRegionalLeagueMaxClubs(l) })),
       ]).catch(() => {});
       await loadInternationalTournaments({ withSquads: false });
@@ -614,7 +624,8 @@ export default function Admin(props) {
 
   async function seedDefaultRewardConfig(sourceId, sourceType, sourceName, source, maxPositions) {
     if (!sourceId) return;
-    await ensureDefaultRewardConfigs(sourceId,sourceType,sourceName,source,maxPositions);
+    const permanentSourceId = sourceType === 'regional_league' ? source?.permanent_league_id || sourceId : sourceId;
+    await ensureDefaultRewardConfigs(permanentSourceId,sourceType,sourceName,source,maxPositions);
   }
 
   async function seedDefaultRewardConfigsForSources(sources) {
@@ -1042,21 +1053,14 @@ export default function Admin(props) {
   async function processLeagueEnd(league) {
     setProcessingLeagueEnd(league.id);
     try {
-      const standings = await stageClient.entities.RegionalLeagueStanding.filter({ league_id: league.id }, null, 50).catch(() => []);
-      if (!standings.length) {
-        await swalAlert(t("admin.alerts.noStandingsForSeasonEnd"));
-        return;
-      }
-      const { processLeagueSeasonEnd } = await import("@/lib/regionalLeagueEngine");
-      const result = await processLeagueSeasonEnd(league, standings, competitions, regionalLeagues);
+      const reason = await swalPrompt(`Reason for completing ${league.name}, Season ${league.season_number}. Required fixtures, results and disputes will be validated.`);
+      if (!reason || !await swalConfirm(`Complete exactly Season ${league.season_number} of ${league.name}?`)) return;
+      await submitEditionLifecycle(stageClient, 'regional_league', league, 'complete', reason, true);
       await loadAll();
-      if (result.type === "div1") {
-        await swalAlert(t("admin.alerts.seasonProcessedQualified", { qualified: result.qualified, relegated: result.relegated }));
-      } else {
-        await swalAlert(t("admin.alerts.seasonProcessedPromoted", { promoted: result.promoted }));
-      }
+      if (fixturesPanel?.type === 'league' && fixturesPanel.id === league.id) await loadFixturesForPanel(fixturesPanel);
+      if (standingsPanel?.type === 'league' && standingsPanel.id === league.id) await loadStandingsForPanel(standingsPanel);
     } catch (err) {
-      await swalAlert(t("admin.alerts.errorWithMessage", { message: err.message }));
+      await swalAlert(adminEndpointError(err));
     } finally {
       setProcessingLeagueEnd(null);
     }
@@ -1065,28 +1069,15 @@ export default function Admin(props) {
   async function generateRegionalFixturesForAdmin(league) {
     setGeneratingRegionalFixtures(league.id);
     try {
-      const standings = await stageClient.entities.RegionalLeagueStanding.filter({ league_id: league.id }, null, 100).catch(() => []);
-      if (standings.length < 2) {
-        await swalAlert(t("admin.alerts.needTwoClubs"));
-        return;
-      }
-      const maxClubs = getRegionalLeagueMaxClubs(league);
-      if (standings.length < maxClubs) {
-        const ok = await swalConfirm(t("admin.alerts.leagueNotFullConfirm", { name: league.name, current: standings.length, max: maxClubs }));
-        if (!ok) return;
-      }
-      const clubsForFixtures = standings.map(s => ({
-        id: s.club_id,
-        name: s.club_name,
-        logo_url: s.club_logo_url || "",
-        tag: s.club_tag || "",
-      }));
-      const { generateRegionalLeagueFixtures } = await import("@/lib/competitionUtils");
-      await generateRegionalLeagueFixtures({ ...league, status: "in_progress" }, clubsForFixtures);
+      const reason = await swalPrompt(`Reason for drawing fixtures for ${league.name}, Season ${league.season_number}. Production participant and schedule rules apply.`);
+      if (!reason || !await swalConfirm(`Draw fixtures for exactly Season ${league.season_number} of ${league.name}? Existing fixtures will not be overwritten.`)) return;
+      await submitEditionLifecycle(stageClient, 'regional_league', league, 'draw', reason, true);
       await loadAll();
+      if (fixturesPanel?.type === 'league' && fixturesPanel.id === league.id) await loadFixturesForPanel(fixturesPanel);
+      if (standingsPanel?.type === 'league' && standingsPanel.id === league.id) await loadStandingsForPanel(standingsPanel);
       await swalAlert(t("admin.alerts.fixturesGenerated", { name: league.name }));
     } catch (err) {
-      await swalAlert(t("admin.alerts.errorWithMessage", { message: err?.message || t("admin.alerts.unknownError") }));
+      await swalAlert(adminEndpointError(err));
     } finally {
       setGeneratingRegionalFixtures(null);
     }
@@ -1203,6 +1194,7 @@ export default function Admin(props) {
   }
 
   async function loadFixturesForPanel(panel) {
+    const request = ++fixturePanelRequest.current;
     setFixturesPanel(panel);
     setFixturesList([]);
     setLoadingFixtures(true);
@@ -1213,13 +1205,14 @@ export default function Admin(props) {
       } else {
         list = await (stageClient.entities.RegionalLeagueFixture?.filter({ league_id: panel.id }, null, 200) ?? Promise.resolve([])).catch(() => []);
       }
-      setFixturesList(list.sort((a, b) => (a.matchday || 0) - (b.matchday || 0)));
+      if (request === fixturePanelRequest.current) setFixturesList(list.sort((a, b) => (a.matchday || 0) - (b.matchday || 0)));
     } finally {
-      setLoadingFixtures(false);
+      if (request === fixturePanelRequest.current) setLoadingFixtures(false);
     }
   }
 
   async function loadStandingsForPanel(panel) {
+    const request = ++standingPanelRequest.current;
     setStandingsPanel(panel);
     setStandingsList([]);
     setLoadingStandings(true);
@@ -1231,9 +1224,9 @@ export default function Admin(props) {
       } else {
         list = await (stageClient.entities.RegionalLeagueStanding?.filter({ league_id: panel.id }, null, 50) ?? Promise.resolve([])).catch(() => []);
       }
-      setStandingsList(list.filter(row => !row.is_excluded).sort((a, b) => (a.position || 99) - (b.position || 99)));
+      if (request === standingPanelRequest.current) setStandingsList(list.filter(row => !row.is_excluded).sort((a, b) => (a.position || 99) - (b.position || 99)));
     } finally {
-      setLoadingStandings(false);
+      if (request === standingPanelRequest.current) setLoadingStandings(false);
     }
   }
 
@@ -1742,6 +1735,9 @@ export default function Admin(props) {
               setRejectNotesDialog={setRejectNotesDialog}
               setRejectNotes={setRejectNotes}
               regionalLeagues={regionalLeagues}
+              regionalEditions={regionalEditions}
+              regionalDefinitions={regionalDefinitions}
+              regionalSourceError={regionalSourceError}
               qualEntries={qualEntries}
               confirmQualEntry={confirmQualEntry}
               rejectQualEntry={rejectQualEntry}
@@ -1869,7 +1865,7 @@ export default function Admin(props) {
               updateTrophyItem={updateTrophyItem}
               trophyItems={trophyItems}
               competitions={competitions}
-              regionalLeagues={regionalLeagues}
+              regionalLeagues={regionalPermanentSources}
             />
           )}
 
@@ -1878,7 +1874,7 @@ export default function Admin(props) {
               onReload={loadAll}
               sourceError={regionalSourceError}
               competitions={competitions}
-              regionalLeagues={regionalLeagues}
+              regionalLeagues={regionalPermanentSources}
               rewardSource={rewardSource}
               setRewardSource={setRewardSource}
             />

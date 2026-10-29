@@ -5,12 +5,14 @@ const { parse } = require('../lib/trophyHistory');
 const art = require('./gostOverviewService');
 const { key } = require('./rewardConfigurationService');
 const policy = require('../lib/rewardPolicy');
+const { buildCatalogue, permanentId } = require('../lib/regionalLeagueHierarchy');
 
-function publicEdition(root, records, items, configs, awards) {
-  const historical = ['completed', 'archived'].includes(root.status);
+function publicEdition(root, records, items, configs, awards, definition = root) {
+  const historical = Boolean(root.edition_invalidated) || ['completed', 'archived','reset','superseded','cancelled','abandoned'].includes(root.status);
   const settlement = records.filter(r => r.entity_type === 'competition_settlement').map(unpack).find(s => s.source_type === 'regional_league' && s.source_id === root.id && String(s.edition_id) === String(root.edition_id || `${root.id}:${root.season_number || 1}`));
-  const settings = parse(records.find(r => r.id === key('regional_league', root.id))?.data_json);
-  const assignment = art.resolveAssignment(root, settings, items, 'regional_league');
+  const sourceId = permanentId(root);
+  const settings = parse(records.find(r => r.id === key('regional_league', sourceId))?.data_json);
+  const assignment = art.resolveAssignment(definition, settings, items, 'regional_league');
   const award = awards.filter(a => a.source_id === root.id && String(a.edition_id) === String(root.edition_id || `${root.id}:${root.season_number || 1}`)).map(a => parse(a.metadata_json)).find(a => a.version === 1);
   const captured = settlement?.config;
   const trophy = historical ? award ? { name: award.design_name, image_url: art.safeImage(award.image_url) } : captured?.trophy_snapshot ? art.publicTrophy(captured.trophy_snapshot) : art.publicTrophy(items.find(i => i.id === captured?.trophy_item_id)) : assignment.trophy;
@@ -21,9 +23,9 @@ function publicEdition(root, records, items, configs, awards) {
   const legacyRows = parse(root.reward_snapshot);
   let rewards = Array.isArray(captured) ? { rows: captured } : captured || (Array.isArray(legacyRows) && legacyRows.length ? { rows: legacyRows, origin: 'saved edition snapshot' } : null);
   if (!rewards && !historical) {
-    const rows = configs.filter(r => r.source_id === root.id && Number(r.config_version) === Number(settings.version));
+    const rows = configs.filter(r => r.source_id === sourceId && Number(r.config_version) === Number(settings.version));
     if (settings.version) rewards = { rows, origin: 'saved configuration' };
-    else if ([1,2].includes(Number(root.division)) && !configs.some(r => r.source_id === root.id)) rewards = { rows: policy.regionalRows(Math.min(20, Number(root.max_clubs) || 20), root), origin: 'approved regional default' };
+    else if ([1,2].includes(Number(root.division)) && !configs.some(r => r.source_id === sourceId)) rewards = { rows: policy.regionalRows(Math.min(20, Number(root.max_clubs) || 20), root), origin: 'approved regional default' };
   }
   return { id: root.id, slug: root.slug, name: root.name, region: root.region, region_slug: root.region_slug, country_code: root.country_code, platform: root.platform, division: root.division, season_number: root.season_number, season_label: root.season_label, status: root.status,
     max_clubs: root.max_clubs || 20, participant_ids, participant_data_available, participant_count: participant_data_available ? participant_ids.length : null, winner_club_id: award?.winning_id || root.winner_club_id, winner_club_name: award?.winning_name || root.winner_club_name, completed_at: root.completed_at,
@@ -36,12 +38,15 @@ async function overview(query = EXECUTESQL) {
   const configs = await query("SELECT source_id,config_version,position,position_label,component_key,stc_amount FROM reward_configs WHERE source_type='regional_league'");
   const awards = await query("SELECT source_id,edition_id,metadata_json FROM trophy_awards WHERE source_type='regional_league' AND owner_type='club' AND status='earned' AND award_role='winner'");
   const unique = [...new Map(records.filter(r => r.entity_type === 'regional_league').map(r => [r.id, r])).values()];
+  const catalogue = buildCatalogue(unique);
   const descriptions = unique.map(describe);
   const groups = new Map();
   for (const d of descriptions) if (d.identity) groups.set(d.identity.key, [...(groups.get(d.identity.key) || []), d.id]);
   return { editions: unique.map(row => {
     const d = descriptions.find(d => d.id === row.id);
-    return { ...publicEdition(unpack(row), records, items, configs, awards), ...(d.identity ? { region_slug: d.identity.region_slug, division: d.identity.division } : {}), system_key: d.identity ? `${d.identity.region_slug}:${d.identity.platform}` : `unverified:${row.id}`, division_key: d.identity ? `${d.identity.region_slug}:${d.identity.platform}:${d.identity.division}` : `unverified:${row.id}`, identity_conflict: Boolean(d.identity && groups.get(d.identity.key).length > 1), identity_unverified: Boolean(d.identity_error || d.indexed_json_differences.length) };
+    const edition = unpack(row), definition = catalogue.definitions.find(p=>p.id===permanentId(edition)) || edition;
+    const current = catalogue.leagues.find(p=>p.permanent_league_id===definition.id);
+    return { ...publicEdition(edition, records, items, configs, awards, definition), permanent_league_id:definition.id,stable_slug:definition.slug,reset_series:edition.reset_series || 0,is_current:current?.current_edition_id===edition.id,retired:current?.retired || false, ...(d.identity ? { region_slug: d.identity.region_slug, division: d.identity.division } : {}), system_key: d.identity ? `${d.identity.region_slug}:${d.identity.platform}` : `unverified:${row.id}`, division_key: definition.id, identity_conflict: Boolean(d.identity && groups.get(d.identity.key).length > 1) || current?.identity_conflict || false, identity_unverified: Boolean(d.identity_error || d.indexed_json_differences.length) };
   }) };
 }
 async function participants(id, query = EXECUTESQL) {

@@ -3,9 +3,11 @@ const crypto = require('crypto');
 const { EXECUTESQL, withTransaction } = require('../db/database');
 const { unpack, describe, fail } = require('../lib/regionalEditionIdentity');
 const editions = require('./regionalEditionService');
+const hierarchy = require('../lib/regionalLeagueHierarchy');
 
 // Explicit business-data allowlist: never read accounts, tokens or credentials.
 const TABLES = ['league_entities', 'matches', 'match_player_stats', 'club_fixture_lineups', 'club_fixture_availability', 'live_matches', 'live_match_events', 'competition_instances', 'competition_participants', 'competition_fixtures', 'competition_schedule_proposals', 'competition_result_submissions', 'competition_phase_states', 'competition_standings', 'competition_payouts', 'reward_configs', 'stc_transactions', 'player_stc_transactions', 'user_purchases', 'trophy_items', 'trophy_awards', 'trophy_placements', 'club_achievements', 'player_achievements', 'fixture_admin_actions', 'inbox_messages', 'notifications', 'predictions', 'rating_history'];
+const infrastructureTypes = new Set(['league_lifecycle_lock', 'regional_edition_lock', 'league_reset_lock']);
 const digest = value => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const rowKey = item => `${item.table}:${item.row.id || digest(item.row)}`;
 const outboundFields = new Set(['match_id', 'fixture_id', 'source_fixture_id', 'legacy_fixture_id', 'competition_instance_id', 'award_id', 'message_id', 'notification_id', 'achievement_id', 'settlement_id']);
@@ -31,6 +33,7 @@ async function readEvidence(query) {
   const gaps = [];
   for (const table of TABLES.filter(table => available.has(table))) {
     for (const row of await query(`SELECT * FROM \`${table}\``)) {
+      if (table === 'league_entities' && infrastructureTypes.has(row.entity_type)) continue;
       rows.push({ table, row });
       for (const [field, value] of Object.entries(row)) if (field.endsWith('_json') && typeof value === 'string' && value.trim()) {
         try { JSON.parse(value); } catch { gaps.push({ table, id: row.id, field, issue: 'Unparseable reference-bearing JSON' }); }
@@ -83,10 +86,43 @@ async function diagnostics(actor, query = EXECUTESQL) {
   const records = rows.map(describe);
   const groups = new Map();
   for (const record of records) if (record.identity) groups.set(record.identity.key, [...(groups.get(record.identity.key) || []), record.id]);
-  return { dry_run: true, records, conflicts: [...groups.entries()].filter(([, ids]) => ids.length > 1).map(([key, ids]) => ({ key, ids, classification: 'logical_identity_conflict', requires_review: true })), financial_mutations: false };
+  const catalogue = hierarchy.buildCatalogue(rows);
+  const permanentGroups = new Map(), catalogueConflicts = [];
+  const definitions = new Map(catalogue.definitions.map(record => [record.id, record]));
+  for (const definition of catalogue.definitions) {
+    try {
+      const key = hierarchy.leagueKey(definition);
+      if (!permanentGroups.has(key)) permanentGroups.set(key, { key, ids: [], edition_ids: [] });
+      const group = permanentGroups.get(key);
+      group.ids.push(definition.id);
+      group.edition_ids.push(...catalogue.editions.filter(record => hierarchy.permanentId(record) === definition.id).map(record => record.id));
+    } catch (error) {
+      catalogueConflicts.push({ permanent_league_id: definition.id, classification: 'unverified_permanent_identity', reason: error.message, requires_review: true });
+    }
+  }
+  const permanentGroupRecords = [...permanentGroups.values()].map(group => ({ ...group, ids: group.ids.sort(), edition_ids: group.edition_ids.sort(), requires_review: group.ids.length > 1 }));
+  const permanentConflicts = permanentGroupRecords.filter(group => group.requires_review).map(group => ({ ...group, classification: 'permanent_identity_conflict' }));
+  for (const league of catalogue.leagues) if (league.identity_conflict || league.identity_unverified) catalogueConflicts.push({ permanent_league_id: league.permanent_league_id, current_edition_id: league.current_edition_id, classification: league.identity_unverified ? 'unverified_catalogue_identity' : 'catalogue_identity_conflict', edition_ids: league.editions.map(record => record.id), requires_review: true });
+  for (const record of catalogue.editions) if (!definitions.has(hierarchy.permanentId(record))) catalogueConflicts.push({ edition_id: record.id, permanent_league_id: hierarchy.permanentId(record), classification: 'orphan_edition', requires_review: true });
+  for (const definition of catalogue.definitions) if (definition.current_edition_id && !catalogue.editions.some(record => record.id === definition.current_edition_id && hierarchy.permanentId(record) === definition.id && !['reset', 'cancelled', 'abandoned', 'superseded', 'retired'].includes(record.status))) catalogueConflicts.push({ permanent_league_id: definition.id, current_edition_id: definition.current_edition_id, classification: 'invalid_current_edition', requires_review: true });
+  return { dry_run: true, records, conflicts: [...groups.entries()].filter(([, ids]) => ids.length > 1).map(([key, ids]) => ({ key, ids, classification: 'logical_identity_conflict', requires_review: true })), permanent_groups: permanentGroupRecords, permanent_conflicts: permanentConflicts, catalogue, catalogue_conflicts: catalogueConflicts, financial_mutations: false };
+}
+async function lockReviewEvidence(query) {
+  // Same connection and order as reset; never wrap this in withMutex, whose
+  // outer transaction would retain the lifecycle row while this one waits.
+  await query("INSERT INTO league_entities (id,entity_type,data_json) VALUES ('league-lifecycle-write-lock','league_lifecycle_lock','{}') ON DUPLICATE KEY UPDATE id=id");
+  await query("SELECT id FROM league_entities WHERE id='league-lifecycle-write-lock' FOR UPDATE");
+  await editions.model.lock(query);
+  const [isolation] = await query('SELECT @@transaction_isolation AS isolation_level');
+  if (!['REPEATABLE-READ', 'SERIALIZABLE'].includes(isolation?.isolation_level)) fail('Review requires REPEATABLE-READ or SERIALIZABLE isolation; no records changed');
+  const tables = await query('SELECT TABLE_NAME AS name FROM information_schema.tables WHERE table_schema=DATABASE()');
+  for (const table of TABLES.filter(name => tables.some(row => row.name === name))) {
+    await query(table === 'league_entities' ? "SELECT * FROM `league_entities` WHERE entity_type NOT IN ('league_lifecycle_lock','regional_edition_lock','league_reset_lock') FOR UPDATE" : `SELECT * FROM \`${table}\` FOR UPDATE`);
+  }
 }
 function repairId(source, canonical) { return digest(['regional-unused-duplicate', source, canonical]).slice(0, 36); }
 async function preview(body, actor, query = EXECUTESQL) {
+  if(body.mode==='consolidate')return consolidationPreview(body,actor,query);
   await editions.admin(actor, query);
   const { source_id: sourceId, canonical_id: canonicalId } = body;
   if (!sourceId || !canonicalId || sourceId === canonicalId) fail('Provide different explicit source_id and canonical_id', 400);
@@ -114,18 +150,12 @@ async function preview(body, actor, query = EXECUTESQL) {
   return { dry_run: true, source_id: sourceId, canonical_id: canonicalId, classification: sameIdentity ? 'logical_identity_conflict' : sourceIdentity && canonicalIdentity ? 'distinct_logical_editions' : 'unverified_identity', canonical_selection: 'Explicit administrator selection; no oldest/newest heuristic', source: describe(source), canonical: describe(canonical), source_inventory: sourceInventory, canonical_inventory: canonicalInventory, configuration_differences: configurationDifferences, revision: digest(state), blockers, changes: blockers.length ? [] : [{ action: 'remove_proven_unused_duplicate', table: 'league_entities', id: sourceId }, { action: 'bind_canonical_identity_key', id: canonicalId, key: canonicalIdentity.key }], preserved: ['All canonical references and both audit histories', 'All results, rewards, financial ledgers and trophy provenance'], financial_mutations: false };
 }
 async function repair(body, actor) {
+  if(body.mode==='consolidate')return consolidate(body,actor);
   if (body.apply !== true) return withTransaction(query => preview(body, actor, query));
   const user = await editions.admin(actor);
   if (!String(body.reason || '').trim()) fail('A review reason is required', 400);
   return withTransaction(async query => {
-    await editions.model.lock(query);
-    const [isolation] = await query('SELECT @@transaction_isolation AS isolation_level');
-    if (!['REPEATABLE-READ', 'SERIALIZABLE'].includes(isolation?.isolation_level)) fail('Repair requires REPEATABLE-READ or SERIALIZABLE isolation; no records changed');
-    await editions.model.selectAll(query, true);
-    // All approved evidence tables are locked, including empty ranges, while
-    // testing non-use. No dependency can be added between preview and deletion.
-    const tables = await query('SELECT TABLE_NAME AS name FROM information_schema.tables WHERE table_schema=DATABASE()');
-    for (const table of TABLES.filter(table => tables.some(row => row.name === table))) await query(`SELECT * FROM \`${table}\` FOR UPDATE`);
+    await lockReviewEvidence(query);
     const report = await preview(body, actor, query);
     if (report.already_applied) return { ...report, dry_run: false };
     if (!body.expected_revision || report.revision !== body.expected_revision) fail('Records changed since preview; review again', 409, report);
@@ -136,4 +166,88 @@ async function repair(body, actor) {
     return { ...report, dry_run: false, applied: true };
   });
 }
-module.exports = { TABLES, references, collect, readEvidence, inventory, diagnostics, preview, repair };
+const REQUESTED_REPAIRS = [
+  { source_id:'46dbb09f-8319-4607-ab97-ec941745bfd8',canonical_id:'c2d6e60f-89e0-4813-81a1-967551d8d69f',region_slug:'uk-ireland',division:1,source_season_number:2 },
+  { source_id:'e582c55b-1e72-45f5-ab63-137c3420404a',canonical_id:'e91c6c27-4fd2-45d9-b6ed-6a3591d7b210',region_slug:'north-america',division:1,source_season_number:1 },
+];
+async function consolidationPreview(body,actor,query=EXECUTESQL) {
+  await editions.admin(actor,query);
+  const rows=await editions.model.selectAll(query);
+  const source=rows.find(r=>r.id===body.source_id),canonical=rows.find(r=>r.id===body.canonical_id);
+  if(!source||!canonical||source.id===canonical.id)fail('Both explicit, different source and retained IDs must exist',404);
+  const s=unpack(source),c=unpack(canonical);
+  const evidence=await readEvidence(query);
+  const sourceInventory=collect(source,evidence),canonicalInventory=collect(canonical,evidence);
+  const blockers=[...evidence.missing.map(t=>`Unavailable evidence table: ${t}`),...(evidence.gaps.length?['Malformed reference JSON requires review']:[])];
+  for(const row of [source,canonical])for(const mismatch of describe(row).indexed_json_differences)blockers.push(`Indexed/JSON identity mismatch in ${row.id}: ${mismatch.field}`);
+  const requested=REQUESTED_REPAIRS.find(p=>p.source_id===source.id&&p.canonical_id===canonical.id);
+  if(REQUESTED_REPAIRS.some(p=>p.source_id===source.id)&&!requested)blockers.push('This requested repair must retain the user-selected original ID.');
+  try {
+    if(hierarchy.leagueKey(s)!==hierarchy.leagueKey(c))blockers.push('Region, division or platform differ; these are not the same permanent league.');
+  }catch(e){blockers.push(`Unverified permanent identity: ${e.message}`);}
+  if(requested&&(s.region_slug!==requested.region_slug || Number(s.division)!==requested.division || Number(s.season_number)!==requested.source_season_number))blockers.push('The supplied source ID no longer matches its reviewed region, division or season.');
+  if(requested&&Number(c.season_number)!==1)blockers.push('The retained original no longer represents the expected original Season 1; review historical provenance.');
+  if(hierarchy.permanentId(c)!==c.id)blockers.push('The retained ID is not a permanent league.');
+  if(s.permanent_league_id&&s.permanent_league_id!==s.id&&s.permanent_league_id!==c.id)blockers.push('Source already belongs to a different permanent league.');
+  if(s.permanent_league_id===c.id)return {dry_run:true,already_applied:true,mode:'consolidate',source_id:s.id,canonical_id:c.id,blockers:[],changes:[],source_inventory:sourceInventory,canonical_inventory:canonicalInventory,financial_mutations:false};
+  let series=Number(s.reset_series || 0), status=s.status;
+  const sameSlot=rows.some(r=>r.id!==s.id&&hierarchy.permanentId(unpack(r))===c.id&&Number(unpack(r).season_number)===Number(s.season_number)&&Number(unpack(r).reset_series || 0)===series);
+  if(sameSlot) {
+    const activityTables=['matches','match_player_stats','regional_league_fixture','regional_league_standing','competition_payouts','stc_transactions','player_stc_transactions','trophy_awards'];
+    const sporting=Object.entries(sourceInventory.dependencies).flatMap(([table,records])=>records.filter(r=>activityTables.includes(table)||activityTables.includes(r.entity_type)));
+    const registered=require('../lib/trophyHistory').parse(sourceInventory.registered_clubs);
+    if(sporting.length || sourceInventory.root_activity.length || (Array.isArray(registered)&&registered.length) || s.winner_club_id || s.fixtures_generated)blockers.push('The reset-era source collides with an existing edition and has activity. Reliable season provenance or backup recovery is required; do not relabel or merge results.');
+    series=Math.max(...rows.filter(r=>hierarchy.permanentId(unpack(r))===c.id).map(r=>Number(unpack(r).reset_series || 0)),0)+1;
+    status='superseded';
+  }
+  const rewards=require('./rewardConfigurationService');
+  const setting=id=>evidence.rows.find(e=>e.table==='league_entities'&&e.row.id===rewards.key('regional_league',id));
+  const parse=require('../lib/trophyHistory').parse;
+  const sSettings=parse(setting(s.id)?.row.data_json),cSettings=parse(setting(c.id)?.row.data_json);
+  const trophyIds=r=>evidence.rows.filter(e=>e.table==='trophy_items'&&e.row.linked_source_type==='regional_league'&&e.row.linked_source_id===r.id).map(e=>e.row.id);
+  const st=[...new Set([s.trophy_item_id,sSettings.trophy_item_id,...trophyIds(s)].filter(Boolean))];
+  const ct=[...new Set([c.trophy_item_id,cSettings.trophy_item_id,...trophyIds(c)].filter(Boolean))];
+  if(st.length>1||ct.length>1||st.length&&ct.length&&st[0]!==ct[0])blockers.push('Default trophy assignments conflict; preserve both and review the explicit catalogue identities.');
+  let transferTrophy=!ct.length&&st.length===1?st[0]:null;
+  const candidateTrophy=transferTrophy || ct[0];
+  const candidateItem=evidence.rows.find(e=>e.table==='trophy_items'&&e.row.id===candidateTrophy)?.row;
+  if(candidateItem?.linked_source_id && (candidateItem.linked_source_type!=='regional_league' || ![s.id,c.id].includes(candidateItem.linked_source_id)))blockers.push('The verified trophy belongs to another competition; its assignment cannot be moved.');
+  if(candidateItem?.linked_source_id===s.id && candidateItem.linked_source_type==='regional_league')transferTrophy=candidateTrophy;
+  if(transferTrophy&&!evidence.rows.some(e=>e.table==='trophy_items'&&e.row.id===transferTrophy&&!e.row.tournament_id))blockers.push('Source trophy design is missing or tournament-specific.');
+  const rewardRows=id=>evidence.rows.filter(e=>e.table==='reward_configs'&&e.row.source_type==='regional_league'&&e.row.source_id===id).map(e=>e.row);
+  const sourceRewards=rewardRows(s.id),canonicalRewards=rewardRows(c.id);
+  if(sourceRewards.length&&!canonicalRewards.length)blockers.push('Source has default reward rows but the retained league has none. Review/default configuration migration is required; historical rows will not be rewritten.');
+  const nextSource={...s,permanent_league_id:c.id,reset_series:series,status, ...(sameSlot?{season_label:'Superseded reset-era record; original season history unavailable',identity_review_required:true}:{})};
+  const current=Number(s.season_number)>Number(c.season_number)&&!sameSlot?s.id:c.current_edition_id || c.id;
+  const nextCanonical={...c,permanent_league_id:c.id,current_edition_id:current,...(transferTrophy?{trophy_item_id:transferTrophy}:{})};
+  const preservedDependencies=Object.entries(sourceInventory.dependencies).map(([table,list])=>({table,count:list.length,ids:list.map(r=>r.id),treatment:'Retain original IDs and references to this season edition; no ledger, match or award rewrite'}));
+  const review={source,canonical,evidence,nextSource,nextCanonical};
+  return {dry_run:true,mode:'consolidate',source_id:s.id,canonical_id:c.id,canonical_selection:'Original permanent identities explicitly selected by the user',revision:digest(review),blockers,
+    before_after:{permanent_league_id:c.id,source_id_becomes_edition:s.id,current_edition_id:current,season_number:s.season_number,reset_series:series},source_inventory:sourceInventory,canonical_inventory:canonicalInventory,
+    dependencies:preservedDependencies,discrepancies:{canonical_completed_without_fixture_evidence:['completed','archived'].includes(c.status)&&!canonicalInventory.dependencies.league_entities.some(r=>r.entity_type==='regional_league_fixture' && unpack(r.record).league_id===c.id),canonical_awards:canonicalInventory.dependencies.trophy_awards.map(r=>r.id),canonical_financial_records:canonicalInventory.dependencies.competition_payouts.map(r=>r.id)},
+    changes:blockers.length?[]:[{action:'convert_independent_identity_to_retained_league_edition',id:s.id,before:s,after:nextSource},{action:'retain_permanent_identity_and_set_current_edition',id:c.id,after:nextCanonical},...(transferTrophy?[{action:'restore_verified_default_trophy',trophy_item_id:transferTrophy,from:s.id,to:c.id}]:[])],
+    final_permanent_entries:[{id:c.id,name:c.name,current_edition_id:current}],historical_access:'Both original record IDs and all fixture/award/financial references remain resolvable; the source is an edition, not another permanent league.',financial_mutations:false,_next:{source:nextSource,canonical:nextCanonical,transferTrophy} };
+}
+async function consolidate(body,actor) {
+  if(body.apply!==true)return withTransaction(query=>consolidationPreview(body,actor,query));
+  if(!String(body.reason || '').trim())fail('A consolidation reason is required',400);
+  await editions.admin(actor);
+  return withTransaction(async query=>{
+    await lockReviewEvidence(query);
+    const admin=await editions.admin(actor,query);
+    const report=await consolidationPreview(body,actor,query);
+    if(report.already_applied)return {...report,dry_run:false};
+    if(report.revision!==body.expected_revision)fail('Records changed since consolidation preview',409);
+    if(report.blockers.length)fail('Consolidation conflicts require resolution',409,report);
+    const {source,canonical,transferTrophy}=report._next;
+    // Release only the redundant permanent key; edition IDs and dependencies survive.
+    await query("UPDATE league_entities SET regional_league_key=NULL WHERE id=? AND entity_type='regional_league'",[source.id]);
+    await editions.model.update(source,require('../lib/regionalEditionIdentity').identity(source).key,query);
+    await editions.model.update(canonical,require('../lib/regionalEditionIdentity').identity(canonical).key,query);
+    await query("UPDATE league_entities SET regional_league_key=? WHERE id=? AND entity_type='regional_league'",[require('../lib/regionalLeagueHierarchy').leagueKey(canonical),canonical.id]);
+    if(transferTrophy)await query("UPDATE trophy_items SET linked_source_id=? WHERE id=? AND linked_source_type='regional_league' AND linked_source_id=?",[canonical.id,transferTrophy,source.id]);
+    await editions.audit(query,admin,'consolidate_permanent_regional_identity',{id:canonical.id,mapping:report.before_after},report,body.reason);
+    return {...report,applied:true,dry_run:false,before_after:report.before_after};
+  });
+}
+module.exports = { TABLES, references, collect, readEvidence, inventory, diagnostics, preview, repair, consolidationPreview, consolidate, REQUESTED_REPAIRS };

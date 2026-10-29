@@ -1,0 +1,30 @@
+<!doctype html>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>League lifecycle local QA</title></head>
+<body style="margin:0"><div id="root"></div><script type="module">
+import React from 'react';
+import {createRoot} from 'react-dom/client';
+import RefreshRuntime from '/@react-refresh';
+RefreshRuntime.injectIntoGlobalHook(window);window.$RefreshReg$=()=>{};window.$RefreshSig$=()=>type=>type;window.__vite_plugin_react_preamble_installed__=true;
+await import('/src/index.css');
+document.documentElement.className='theme-dark dark';
+const {stageClient}=await import('/src/api/stageClient.js');
+const {default:Management}=await import('/src/components/admin/RegionalLeagueManagementPanel.jsx');
+const {fixtureState}=await import('/src/lib/adminLeagueLifecycle.js');
+let definitions=[{id:'fixture-permanent',name:'Premier Division',division:1,platform:'cross-platform',region_slug:'uk-ireland',season_number:1,status:'completed'}];
+stageClient.http.post=async(path,body)=>{
+ if(path.endsWith('/edition-review'))return {dry_run:true,blockers:['Isolated QA: no database evidence or production preview is available.'],canonical_id:body.canonical_id,source_id:body.source_id,financial_mutations:false};
+ if(!path.endsWith('/management'))throw new Error('Unconfigured local fixture action');
+ if(!body.apply)return {revision:'local-fixture-revision',blockers:[],consequences:['Isolated local preview only','No backend or production request'],definition:body.definition,league_id:body.league_id};
+ return {applied:true};
+};
+const h=React.createElement;
+function App(){return h('main',{className:'mx-auto max-w-5xl px-4 py-6 text-foreground'},
+ h('p',{className:'mb-4 border-b border-border pb-3 text-sm text-muted-foreground'},'LOCAL QA: isolated sample records. No database or production requests.'),
+ h('h1',{className:'font-heading text-2xl'},'Regional league lifecycle'),
+ h('div',{className:'grid gap-3 border-y border-border py-4 sm:grid-cols-2'},...[
+  {name:'Season 2: started, no fixtures',status:'in_progress',actual_fixtures_count:0},
+  {name:'Season 2: fixtures drawn',status:'in_progress',actual_fixtures_count:380},
+ ].map(edition=>{const state=fixtureState(edition);return h('section',{key:edition.name,className:'min-w-0'},h('h2',{className:'font-semibold'},edition.name),h('div',{className:'flex gap-4 py-2'},h('button',{type:'button',disabled:!state.canDraw,className:'text-primary disabled:opacity-40'},'Draw Fixtures'),h('button',{type:'button',disabled:!state.canSimulate,className:'text-primary disabled:opacity-40'},'Simulate')),h('p',{className:'text-xs text-muted-foreground'},state.explanation));})),
+ h(Management,{definitions,trophyItems:[],onRefresh:async()=>{}}));}
+createRoot(document.getElementById('root')).render(h(App));
+</script></body></html>

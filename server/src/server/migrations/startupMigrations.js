@@ -1745,6 +1745,19 @@ async function runStartupMigrations() {
   // Legacy regional identities deliberately remain NULL pending explicit review.
   // No historical merge, removal or business-data backfill runs at startup.
   await addCol('league_entities', 'regional_edition_key', 'VARCHAR(64) NULL');
+  await addCol('league_entities', 'regional_league_key', 'VARCHAR(64) NULL');
+  await addCol('league_entities', 'competition_edition_key', 'VARCHAR(64) NULL');
+  const duplicateCompetitionKeys = await EXECUTESQL('SELECT competition_edition_key FROM league_entities WHERE competition_edition_key IS NOT NULL GROUP BY competition_edition_key HAVING COUNT(*) > 1');
+  if (!duplicateCompetitionKeys.length) await addIndex('league_entities', 'idx_le_competition_edition', '(competition_edition_key)', true);
+  else console.error('[migration] Competition edition key conflicts require reviewed repair; unique index was not changed.');
+  await addCol('league_entities', 'permanent_league_id', 'VARCHAR(36) NULL');
+  await addCol('league_entities', 'reset_series', 'INT DEFAULT 0');
+  const duplicatePermanentKeys = await EXECUTESQL('SELECT regional_league_key FROM league_entities WHERE regional_league_key IS NOT NULL GROUP BY regional_league_key HAVING COUNT(*) > 1');
+  if (!duplicatePermanentKeys.length) await addIndex('league_entities', 'idx_le_regional_permanent', '(regional_league_key)', true);
+  else console.error('[migration] Permanent regional key conflicts require reviewed repair; unique index was not changed.');
+  const duplicateParentSeasons = await EXECUTESQL('SELECT permanent_league_id,reset_series,season_number FROM league_entities WHERE permanent_league_id IS NOT NULL GROUP BY permanent_league_id,reset_series,season_number HAVING COUNT(*) > 1');
+  if (!duplicateParentSeasons.length) await addIndex('league_entities', 'idx_le_parent_series_season', '(permanent_league_id,reset_series,season_number)', true);
+  else console.error('[migration] Regional parent/series/season conflicts require reviewed repair; unique index was not changed.');
   const duplicateRegionalKeys = await EXECUTESQL('SELECT regional_edition_key FROM league_entities WHERE regional_edition_key IS NOT NULL GROUP BY regional_edition_key HAVING COUNT(*) > 1');
   if (!duplicateRegionalKeys.length) await addIndex('league_entities', 'idx_le_regional_edition', '(regional_edition_key)', true);
   else console.error('[migration] Regional identity key conflicts require admin review; unique index was not changed.');

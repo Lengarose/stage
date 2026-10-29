@@ -2,9 +2,19 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const test = require('node:test');
 
-function loadService(executesql) {
+function loadService(executesql, edition = { status: 'in_progress' }) {
+  let transactionActive = false;
+  const sourceQuery = executesql;
+  executesql = async (sql, params = []) => {
+    if (sql === 'SELECT * FROM league_entities WHERE id=? AND entity_type=? FOR UPDATE') {
+      assert.equal(transactionActive, true, 'edition guard must use the result-write transaction');
+      if (params[1] === 'competition') return [{ id: params[0], status: 'active', data_json: '{}' }];
+      return edition ? [{ id: params[0], entity_type: params[1], status: edition.status, data_json: JSON.stringify({ competition_id: 'gost', ...edition }) }] : [];
+    }
+    return sourceQuery(sql, params, { inTransaction: transactionActive });
+  };
   let transactionQueue = Promise.resolve();
-  const withTransaction = fn => {const result=transactionQueue.then(()=>fn(executesql));transactionQueue=result.catch(()=>{});return result;};
+  const withTransaction = fn => {const result=transactionQueue.then(async()=>{transactionActive=true;try{return await fn(executesql);}finally{transactionActive=false;}});transactionQueue=result.catch(()=>{});return result;};
   const servicePath = path.resolve(__dirname, '../competitionEngineService.js');
   const dbPath = path.resolve(__dirname, '../../db/database.js');
   const socketPath = path.resolve(__dirname, '../../utils/socketBroadcast.js');
@@ -20,7 +30,7 @@ function loadService(executesql) {
   const prizesPath = path.resolve(__dirname,'../competitionPrizeService.js');
   require.cache[prizesPath] = {id:prizesPath,filename:prizesPath,loaded:true,exports:{capture:async()=>{},review:async()=>({state:'paid'})}};
   const scopePath = path.resolve(__dirname,'../../models/competitionScopeModel.js');
-  require.cache[scopePath] = {id:scopePath,filename:scopePath,loaded:true,exports:{CompetitionScopeModel:class {
+  require.cache[scopePath] = {id:scopePath,filename:scopePath,loaded:true,exports:{unpack: row=>({...JSON.parse(row.data_json || '{}'),...row}),CompetitionScopeModel:class {
     async selectOne(kind,id) {
       const regional = kind === 'regional_league';
       const fixtures = await executesql(regional ? "SELECT * FROM league_entities WHERE entity_type = 'regional_league_fixture' AND league_id = ? LIMIT 1000" : 'SELECT * FROM league_entities WHERE entity_type = ? AND `season_id` = ? LIMIT 1000',regional ? [id] : ['competition_fixture',id]);
@@ -320,6 +330,47 @@ test('syncMatchResultToSource updates regional league fixture and standings serv
   assert.ok(updates.some(update => update.params.includes('regional-fixture-1') && update.data.status === 'played'));
   assert.ok(updates.some(update => update.params.includes('regional-standing-home') && update.data.points === 1 && update.data.draws === 1));
   assert.ok(updates.some(update => update.params.includes('regional-standing-away') && update.data.points === 1 && update.data.draws === 1));
+});
+
+test('raw league result sync blocks closed, reset and invalidated editions before fixture, mirror or standing writes', async () => {
+  for (const kind of ['regional_league', 'competition']) {
+    for (const edition of [{ status: 'cancelled' }, { status: 'abandoned' }, { status: 'reset' }, { status: 'superseded' }, { status: 'retired' }, { status: 'in_progress', edition_invalidated: true }, null]) {
+      const writes = [];
+      const fixtureType = kind === 'regional_league' ? 'regional_league_fixture' : 'competition_fixture';
+      const service = loadService(async (sql, params) => {
+        if (/SELECT \* FROM competition_fixtures WHERE match_id/.test(sql)) return [{ id: 'mirror', legacy_fixture_type: fixtureType, legacy_fixture_id: 'fixture' }];
+        if (sql.includes(`entity_type = '${fixtureType}'`)) return [{ id: 'fixture', entity_type: fixtureType, data_json: JSON.stringify({ league_id: 'edition', season_id: 'edition', home_club_id: 'home', away_club_id: 'away' }) }];
+        if (/^(UPDATE|INSERT|DELETE)/.test(sql)) writes.push({ sql, params });
+        return [];
+      }, edition);
+      await assert.rejects(service.syncMatchResultToSource({ id: 'match', status: 'completed', source_fixture_type: 'competition_engine', source_fixture_id: 'mirror', home_score: 2, away_score: 0 }), { status: edition ? 409 : 404 });
+      assert.deepEqual(writes, [], `${kind}: ${JSON.stringify(edition)} must preserve all result evidence`);
+    }
+  }
+});
+
+test('raw sync rechecks the locked fixture and keeps legacy and mirror writes in the guarded transaction', async () => {
+  for (const kind of ['regional_league', 'competition']) {
+    const fixtureType = kind === 'regional_league' ? 'regional_league_fixture' : 'competition_fixture';
+    const writes = [];
+    let processed = false;
+    const service = loadService(async (sql, params, context) => {
+      if (/SELECT \* FROM competition_fixtures WHERE match_id/.test(sql)) return [{ id: 'mirror', legacy_fixture_type: fixtureType, legacy_fixture_id: 'fixture' }];
+      if (sql.includes(`entity_type = '${fixtureType}'`)) return [{ id: 'fixture', entity_type: fixtureType, data_json: JSON.stringify({ league_id: 'edition', season_id: 'edition', phase: 'league', home_club_id: 'home', away_club_id: 'away', stats_processed: sql.endsWith('FOR UPDATE') && processed }) }];
+      if (/UPDATE league_entities|UPDATE competition_fixtures/.test(sql)) {
+        assert.equal(context.inTransaction, true);
+        writes.push(sql);
+        if (params.includes('fixture')) processed = true;
+        return { affectedRows: 1 };
+      }
+      return [];
+    });
+    const match = { id: 'match', status: 'completed', source_fixture_type: 'competition_engine', source_fixture_id: 'mirror', home_score: 1, away_score: 0 };
+    assert.equal((await service.syncMatchResultToSource(match)).legacy.synced, true);
+    assert.equal((await service.syncMatchResultToSource(match)).legacy.reason, 'already_processed');
+    assert.equal(writes.filter(sql => sql.startsWith('UPDATE league_entities')).length, 1);
+    assert.equal(writes.filter(sql => sql.includes('UPDATE competition_fixtures')).length, 2);
+  }
 });
 
 test('syncMatchResultToSource marks legacy official phase ready when all fixtures are complete', async () => {
@@ -660,14 +711,14 @@ test('advanceRegionalLeagueIfReady processes completed division one qualificatio
       return standings.flatMap((a,i)=>standings.filter((_,j)=>j!==i).map(b=>({id:`${a.club_id}-${b.club_id}`,entity_type:'regional_league_fixture',status:'played',data_json:JSON.stringify({league_id:'league-1',status:'played',home_club_id:a.club_id,away_club_id:b.club_id,home_score:i < standings.indexOf(b) ? 1 : 0,away_score:i < standings.indexOf(b) ? 0 : 1,stats_processed:true})})));
     }
     if (/WHERE id = \? AND entity_type = \? LIMIT 1/.test(sql) && params[1] === 'regional_league') {
-      return [{ id: 'league-1', entity_type: 'regional_league', data_json: JSON.stringify({ id: 'league-1', name: 'EU Division 1', registered_club_ids: standings.map(s=>s.club_id), division: 1, status: 'in_progress', linked_league_slug: 'eu-div-2' }) }];
+      return [{ id: 'league-1', entity_type: 'regional_league', data_json: JSON.stringify({ id: 'league-1', name: 'EU Division 1', registered_club_ids: standings.map(s=>s.club_id), region_slug: 'eu', platform: 'PS5', season_number: 1, division: 1, status: 'in_progress', linked_league_slug: 'eu-div-2' }) }];
     }
-    if (params.includes('eu-div-2')) {
+    if (sql === "SELECT * FROM league_entities WHERE entity_type = 'regional_league'") {
       return [{
         id: 'league-2',
         entity_type: 'regional_league',
         slug: 'eu-div-2',
-        data_json: JSON.stringify({ id: 'league-2', name: 'EU Division 2', division: 2, slug: 'eu-div-2' }),
+        data_json: JSON.stringify({ id: 'league-2', name: 'EU Division 2', region_slug: 'eu', platform: 'PS5', season_number: 1, division: 2, slug: 'eu-div-2' }),
       }];
     }
     if (/entity_type = 'regional_league_standing' AND league_id = \?/.test(sql)) return standings;
@@ -704,6 +755,35 @@ test('advanceRegionalLeagueIfReady processes completed division one qualificatio
     'comp-challenger', 'comp-challenger', 'comp-challenger', 'comp-challenger', 'comp-challenger', 'comp-challenger',
   ]);
   assert.ok(updates.some(update => update.params.includes('regional_league') && update.data.status === 'completed'));
+});
+
+test('regional division resolution uses the permanent link and exact season/reset series rather than row order', () => {
+  const { resolveRegionalLeagueEdition } = loadService(async () => []);
+  const source = { id: 'source-s2', permanent_league_id: 'source', region_slug: 'eu', platform: 'crossplay', division: 3, season_number: 2, reset_series: 1, linked_league_id: 'upper', linked_league_slug: 'eu-div-2' };
+  const root = { id: 'upper', slug: 'eu-div-2', region_slug: 'eu', platform: 'Cross-Platform', division: 2, season_number: 1, reset_series: 0, status: 'completed' };
+  const correct = { ...root, id: 'upper-reset1-s2', permanent_league_id: root.id, slug: 'eu-div-2-s2', season_number: 2, reset_series: 1, status: 'registration' };
+  const rows = [{ ...correct, id: 'latest', season_number: 3, slug: 'eu-div-2-s3' }, { ...correct, id: 'historical', reset_series: 0 }, correct, root];
+  for (const order of [rows, [...rows].reverse()]) {
+    assert.equal(resolveRegionalLeagueEdition(source, 2, order, { linked: true }).id, correct.id);
+    assert.equal(resolveRegionalLeagueEdition(source, 2, order).id, correct.id);
+    assert.equal(resolveRegionalLeagueEdition({ ...source, linked_league_id: undefined }, 2, order, { linked: true }).id, correct.id);
+  }
+  assert.equal(resolveRegionalLeagueEdition(source, 4, rows), null, 'an unconfigured lower division has no relegation target');
+});
+
+test('regional division resolution rejects ambiguous identities, wrong linked scope and missing/invalidated editions', () => {
+  const { resolveRegionalLeagueEdition } = loadService(async () => []);
+  const source = { id: 'source', region_slug: 'eu', platform: 'cross-platform', division: 1, season_number: 2, reset_series: 1, linked_league_id: 'lower' };
+  const root = { id: 'lower', slug: 'eu-div-2', region_slug: 'eu', platform: 'cross-platform', division: 2, season_number: 1 };
+  const child = { ...root, id: 'lower-s2', permanent_league_id: root.id, slug: 'eu-div-2-s2', season_number: 2, reset_series: 1, status: 'completed' };
+  const linked = rows => resolveRegionalLeagueEdition(source, 2, rows, { linked: true });
+  assert.throws(() => linked([root]), /same season and reset series/);
+  assert.throws(() => linked([root, child, { ...child, id: 'duplicate' }]), /exactly one edition/);
+  assert.throws(() => resolveRegionalLeagueEdition(source, 2, [root, child, { ...root, id: 'independent' }]), /Multiple permanent leagues/);
+  assert.throws(() => linked([{ ...root, platform: 'xbox' }, child]), /division and platform/);
+  assert.throws(() => linked([{ ...root, retired: true }, child]), /retired/);
+  for (const patch of [{ edition_invalidated: true }, { status: 'reset' }, { status: 'cancelled' }, { reset_series: 0 }]) assert.throws(() => linked([root, { ...child, ...patch }]), /closed or invalidated|same season and reset series/);
+  assert.throws(() => resolveRegionalLeagueEdition({ ...source, linked_league_slug: 'different-root' }, 2, [root, child, { ...root, id: 'different', slug: 'different-root' }], { linked: true }), /ambiguous/);
 });
 
 test('concurrent last semifinal confirmations persist exactly one final and wait for every aggregate tie', async () => {

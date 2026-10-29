@@ -5743,6 +5743,7 @@ const HANDLERS = {
       );
       if (!fixtureRows.length) throw new Error('Competition fixture not found');
       const fixture = parseLeagueEntityRow(fixtureRows[0]);
+      await require('../services/leagueLifecycleService').assertEditionWritable(query,'competition_season',fixture.season_id,{allowCompleted:false});
       if (fixture.stats_processed === true || Number(fixture.stats_processed || 0) === 1 || String(fixture.stats_processed || '').toLowerCase() === 'true') {
         throw new Error('Fixture result has already been processed');
       }
@@ -5890,6 +5891,7 @@ const HANDLERS = {
       );
       if (!fixtureRows.length) throw new Error('Regional league fixture not found');
       const fixture = parseLeagueEntityRow(fixtureRows[0]);
+      await require('../services/leagueLifecycleService').assertEditionWritable(query,'regional_league',fixture.league_id,{allowCompleted:false});
       if (fixture.stats_processed === true || Number(fixture.stats_processed || 0) === 1 || String(fixture.stats_processed || '').toLowerCase() === 'true') {
         throw new Error('Fixture result has already been processed');
       }
@@ -6569,6 +6571,8 @@ const HANDLERS = {
     const admin = await requireAdminUser(_auth_user_id);
     if (!league_id) throw new Error('league_id required');
     const limit = Number(fixture_limit || 0);
+    const edition=await withTransaction(query=>require('../services/leagueLifecycleService').assertEditionWritable(query,'regional_league',league_id,{allowCompleted:false}));
+    if(!['in_progress','active','league_phase'].includes(edition.status))throw new Error('Simulation requires an active edition');
     const fixtureRows = await EXECUTESQL(
       `SELECT *
          FROM league_entities
@@ -6579,7 +6583,8 @@ const HANDLERS = {
     );
     const fixtures = fixtureRows
       .map(parseLeagueEntityRow)
-      .filter(fixture => !isLeagueFixturePlayed(fixture));
+      .filter(fixture => !isLeagueFixturePlayed(fixture) && !['cancelled','voided','void','reset','superseded','disputed'].includes(fixture.status) && !['DISPUTED','AWAITING_AWAY_CONFIRMATION','AWAITING_HOME_REVIEW'].includes(fixture.result_state));
+    if(!fixtureRows.length)throw new Error('Draw Fixtures before simulation; this edition has no fixtures');
     if (!fixtures.length) {
       return { data: { success: true, simulated: 0, skipped: fixtureRows.length, message: 'No unplayed fixtures to simulate' } };
     }
@@ -6649,6 +6654,8 @@ const HANDLERS = {
     const admin = await requireAdminUser(_auth_user_id);
     if (!season_id) throw new Error('season_id required');
     const limit = Number(fixture_limit || 0);
+    const edition=await withTransaction(query=>require('../services/leagueLifecycleService').assertEditionWritable(query,'competition_season',season_id,{allowCompleted:false}));
+    if(!['in_progress','active','league_phase','knockout','playoff_round','knockout_r16','knockout_qf','knockout_sf','knockout_final'].includes(edition.status))throw new Error('Simulation requires an active edition');
     const fixtureRows = await EXECUTESQL(
       `SELECT *
          FROM league_entities
@@ -6661,7 +6668,8 @@ const HANDLERS = {
     );
     const fixtures = fixtureRows
       .map(parseLeagueEntityRow)
-      .filter(fixture => !isLeagueFixturePlayed(fixture));
+      .filter(fixture => !isLeagueFixturePlayed(fixture) && !['cancelled','voided','void','reset','superseded','disputed'].includes(fixture.status) && !['DISPUTED','AWAITING_AWAY_CONFIRMATION','AWAITING_HOME_REVIEW'].includes(fixture.result_state));
+    if(!fixtureRows.length)throw new Error('Draw Fixtures before simulation; this edition has no fixtures');
     if (!fixtures.length) {
       return { data: { success: true, simulated: 0, skipped: fixtureRows.length, message: 'No unplayed fixtures to simulate' } };
     }
@@ -6729,292 +6737,13 @@ const HANDLERS = {
     reason,
     dry_run = false,
     review_revision,
+    selected_permanent_ids,
+    permanent_ids,
   }) {
-    const admin = await requireAdminUser(_auth_user_id);
-    if (Number(admin.role_id) !== 0) throw new Error('Super admin only');
-    if(dry_run)return {data:await require('../services/competitionHistoryResetService').preview(getLeagueResetScope(scope))};
-    if (String(confirmation || '').trim() !== LEAGUE_RESET_CONFIRMATION) {
-      throw new Error(`Type "${LEAGUE_RESET_CONFIRMATION}" to reset league data`);
-    }
-
-    const resetScope = getLeagueResetScope(scope);
-    const entityTypes = uniqueLeagueResetEntityTypes(resetScope);
-    const placeholders = entityTypes.map(() => '?').join(',');
-
-    const result = await withTransaction(async (query) => {
-      const reviewed=await require('../services/competitionHistoryResetService').preview(resetScope,query,true);
-      if(review_revision!==reviewed.revision)throw Object.assign(new Error('History changed or has not been reviewed. Preview the reset scope again before applying.'),{status:409});
-      const honours=await require('../services/competitionHistoryResetService').revoke(resetScope,query,admin,reason||'Explicit league history reset');
-      const beforeRows = await query(
-        `SELECT entity_type, COUNT(*) AS count
-           FROM league_entities
-          WHERE entity_type IN (${placeholders})
-          GROUP BY entity_type`,
-        entityTypes
-      );
-      const beforeCounts = beforeRows.reduce((acc, row) => {
-        acc[row.entity_type] = Number(row.count || 0);
-        return acc;
-      }, {});
-
-      const legacyFixtureRows = await query(
-        `SELECT id, entity_type
-           FROM league_entities
-          WHERE entity_type IN ('competition_fixture', 'regional_league_fixture')
-            AND entity_type IN (${placeholders})`,
-        entityTypes
-      );
-      const legacyFixtureIds = legacyFixtureRows.map(row => row.id).filter(Boolean);
-      const legacyFixtureTypes = [...new Set(legacyFixtureRows.map(row => row.entity_type).filter(Boolean))];
-
-      const instanceRows = await query(
-        `SELECT id
-           FROM competition_instances
-          WHERE product_type IN ('regional_league', 'official_competition')
-            AND (
-              (? IN ('all', 'regional') AND product_type = 'regional_league')
-              OR (? IN ('all', 'gost') AND product_type = 'official_competition')
-            )
-          FOR UPDATE`,
-        [resetScope, resetScope]
-      ).catch(() => []);
-      const instanceIds = instanceRows.map(row => row.id).filter(Boolean);
-
-      let deletedMatches = 0;
-      if (legacyFixtureIds.length) {
-        const matchParams = [
-          ...legacyFixtureTypes,
-          ...legacyFixtureIds,
-        ];
-        deletedMatches += await deleteRowsIfTableExists(
-          query,
-          'matches',
-          `DELETE FROM matches
-            WHERE source_fixture_type IN (${legacyFixtureTypes.map(() => '?').join(',')})
-              AND source_fixture_id IN (${legacyFixtureIds.map(() => '?').join(',')})`,
-          matchParams
-        );
-
-        deletedMatches += await deleteRowsIfTableExists(
-          query,
-          'matches',
-          `DELETE FROM matches
-            WHERE source_fixture_type IN ('competition', 'regional_league')
-              AND source_fixture_id IN (${legacyFixtureIds.map(() => '?').join(',')})`,
-          legacyFixtureIds
-        );
-      }
-
-      if (instanceIds.length) {
-        deletedMatches += await deleteRowsIfTableExists(
-          query,
-          'matches',
-          `DELETE FROM matches
-            WHERE source_fixture_type = 'competition_engine'
-              AND competition_context IN (${instanceIds.map(() => '?').join(',')})`,
-          instanceIds
-        );
-      }
-
-      const deletedAvailability = legacyFixtureIds.length
-        ? await deleteRowsIfTableExists(
-            query,
-            'club_fixture_availability',
-            `DELETE FROM club_fixture_availability
-              WHERE fixture_id IN (${legacyFixtureIds.map(() => '?').join(',')})`,
-            legacyFixtureIds
-          )
-        : 0;
-
-      const deletedLineups = legacyFixtureIds.length
-        ? await deleteRowsIfTableExists(
-            query,
-            'club_fixture_lineups',
-            `DELETE FROM club_fixture_lineups
-              WHERE fixture_id IN (${legacyFixtureIds.map(() => '?').join(',')})`,
-            legacyFixtureIds
-          )
-        : 0;
-
-      let deletedEngineRows = {
-        result_submissions: 0,
-        schedule_proposals: 0,
-        phase_states: 0,
-        standings: 0,
-        fixtures: 0,
-        participants: 0,
-        instances: 0,
-      };
-      if (instanceIds.length) {
-        deletedEngineRows.result_submissions = await deleteRowsIfTablesExist(
-          query,
-          ['competition_result_submissions', 'competition_fixtures'],
-          `DELETE crs FROM competition_result_submissions crs
-             JOIN competition_fixtures cf ON cf.id = crs.fixture_id
-            WHERE cf.competition_instance_id IN (${instanceIds.map(() => '?').join(',')})`,
-          instanceIds
-        );
-        deletedEngineRows.schedule_proposals = await deleteRowsIfTablesExist(
-          query,
-          ['competition_schedule_proposals', 'competition_fixtures'],
-          `DELETE csp FROM competition_schedule_proposals csp
-             JOIN competition_fixtures cf ON cf.id = csp.fixture_id
-            WHERE cf.competition_instance_id IN (${instanceIds.map(() => '?').join(',')})`,
-          instanceIds
-        );
-        deletedEngineRows.phase_states = await deleteRowsIfTableExists(
-          query,
-          'competition_phase_states',
-          `DELETE FROM competition_phase_states
-            WHERE competition_instance_id IN (${instanceIds.map(() => '?').join(',')})`,
-          instanceIds
-        );
-        deletedEngineRows.standings = await deleteRowsIfTableExists(
-          query,
-          'competition_standings',
-          `DELETE FROM competition_standings
-            WHERE competition_instance_id IN (${instanceIds.map(() => '?').join(',')})`,
-          instanceIds
-        );
-        deletedEngineRows.fixtures = await deleteRowsIfTableExists(
-          query,
-          'competition_fixtures',
-          `DELETE FROM competition_fixtures
-            WHERE competition_instance_id IN (${instanceIds.map(() => '?').join(',')})`,
-          instanceIds
-        );
-        deletedEngineRows.participants = await deleteRowsIfTableExists(
-          query,
-          'competition_participants',
-          `DELETE FROM competition_participants
-            WHERE competition_instance_id IN (${instanceIds.map(() => '?').join(',')})`,
-          instanceIds
-        );
-        deletedEngineRows.instances = await deleteRowsIfTableExists(
-          query,
-          'competition_instances',
-          `DELETE FROM competition_instances
-            WHERE id IN (${instanceIds.map(() => '?').join(',')})`,
-          instanceIds
-        );
-      }
-
-      const deleteEntitiesResult = await query(
-        `DELETE FROM league_entities
-          WHERE entity_type IN (${placeholders})`,
-        entityTypes
-      );
-
-      const achievementTypes = resetScope === 'gost'
-        ? ['competition', 'competition_season', 'competition_fixture', 'official_competition']
-        : resetScope === 'regional'
-          ? ['regional_league', 'regional_league_fixture']
-          : ['competition', 'competition_season', 'competition_fixture', 'official_competition', 'regional_league', 'regional_league_fixture'];
-      const achievementPlaceholders = achievementTypes.map(() => '?').join(',');
-      const deletedClubAchievements = await deleteRowsIfTableExists(
-        query,
-        'club_achievements',
-        `DELETE FROM club_achievements WHERE source_type IN (${achievementPlaceholders})`,
-        achievementTypes
-      );
-      const deletedPlayerAchievements = await deleteRowsIfTableExists(
-        query,
-        'player_achievements',
-        `DELETE FROM player_achievements WHERE source_type IN (${achievementPlaceholders})`,
-        achievementTypes
-      );
-
-      let resetCompetitions = 0;
-      if (resetScope === 'all' || resetScope === 'gost') {
-        const competitionRows = await query(
-          `SELECT * FROM league_entities WHERE entity_type = 'competition' FOR UPDATE`
-        );
-        for (const row of competitionRows) {
-          const competition = parseLeagueEntityRow(row);
-          const nextCompetition = {
-            ...resetLeagueHistoryFields(competition),
-            current_season: 1,
-            season_number: 1,
-            registered_club_ids: [],
-            registered_clubs: [],
-            num_clubs: 0,
-            status: competition.status === 'archived' ? 'draft' : (competition.status || 'draft'),
-            updated_date: new Date().toISOString(),
-          };
-          await updateLeagueEntityData(query, 'competition', competition.id, nextCompetition, {
-            status: nextCompetition.status || null,
-            slug: nextCompetition.slug || null,
-            tier: nextCompetition.tier || null,
-            region: nextCompetition.region || null,
-            platform: nextCompetition.platform || null,
-            is_active: nextCompetition.is_active ?? 1,
-            season_number: nextCompetition.season_number || 1,
-          });
-          resetCompetitions += 1;
-        }
-      }
-
-      let resetRegionalLeagues = 0;
-      if (resetScope === 'all' || resetScope === 'regional') {
-        await require('../services/regionalEditionService').model.lock(query);
-        const regionalRows = await query(
-          `SELECT * FROM league_entities WHERE entity_type = 'regional_league' FOR UPDATE`
-        );
-        require('../services/regionalEditionService').assertResetSafe(regionalRows);
-        for (const row of regionalRows) {
-          const league = parseLeagueEntityRow(row);
-          const nextLeague = {
-            ...resetLeagueHistoryFields(league),
-            edition_id: uuidv4(),
-            season_number: 1,
-            registered_club_ids: [],
-            registered_clubs: [],
-            num_clubs: 0,
-            status: 'registration',
-            updated_date: new Date().toISOString(),
-          };
-          const resetIdentity = require('../lib/regionalEditionIdentity').identity({ ...nextLeague, slug: String(nextLeague.slug).replace(/-s\d+$/, '') });
-          nextLeague.slug = resetIdentity.canonical_slug;
-          await updateLeagueEntityData(query, 'regional_league', league.id, nextLeague, {
-            status: nextLeague.status,
-            slug: nextLeague.slug || null,
-            league_id: nextLeague.league_id || null,
-            tier: nextLeague.tier || null,
-            division: nextLeague.division || null,
-            region: nextLeague.region || nextLeague.region_slug || null,
-            platform: nextLeague.platform || null,
-            is_active: nextLeague.is_active ?? 1,
-            season_number: 1,
-            regional_edition_key: resetIdentity.key,
-          });
-          resetRegionalLeagues += 1;
-        }
-      }
-
-      const summary = {
-        success: true,
-        scope: resetScope,
-        honours,
-        cleared_entity_types: entityTypes,
-        before_counts: beforeCounts,
-        deleted_league_entities: Number(deleteEntitiesResult?.affectedRows || 0),
-        deleted_matches: deletedMatches,
-        deleted_availability: deletedAvailability,
-        deleted_lineups: deletedLineups,
-        deleted_engine_rows: deletedEngineRows,
-        deleted_club_achievements: deletedClubAchievements,
-        deleted_player_achievements: deletedPlayerAchievements,
-        reset_competitions: resetCompetitions,
-        reset_regional_leagues: resetRegionalLeagues,
-      };
-
-      await require('../services/competitionHistoryResetService').refreshCaches(query);
-      await require('../services/rewardConfigurationService').audit(query,admin,'reset_league_competition_data','league_system',resetScope,{scope:resetScope,before_counts:beforeCounts,instance_ids:instanceIds,legacy_fixture_ids:legacyFixtureIds,reviewed_revision:reviewed.revision},summary,reason||'Fresh league/GOST reset from admin panel');
-
-      return summary;
-    });
-
-    return { data: result };
+    const service = require('../services/leagueResetService');
+    const input = { scope, confirmation, reason, review_revision, selected_permanent_ids, permanent_ids };
+    const actor = { id: _auth_user_id };
+    return { data: dry_run ? await service.preview(input, actor) : await service.apply(input, actor) };
   },
 
   async awardClubSeasonPrize({ _auth_user_id, source_id, source_type, season_id }) {

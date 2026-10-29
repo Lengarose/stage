@@ -1,6 +1,6 @@
 'use strict';
 const { unpack } = require('../lib/regionalEditionIdentity');
-const indexed = ['status', 'slug', 'region', 'division', 'platform', 'season_number', 'league_id', 'is_active'];
+const indexed = ['status', 'slug', 'region', 'division', 'platform', 'season_number', 'league_id', 'is_active', 'permanent_league_id', 'reset_series'];
 class RegionalLeagueModel {
   async selectAll(query, lock = false) {
     return query(`SELECT * FROM league_entities WHERE entity_type='regional_league' ORDER BY id${lock ? ' FOR UPDATE' : ''}`);
@@ -9,8 +9,8 @@ class RegionalLeagueModel {
     return (await query("SELECT * FROM league_entities WHERE id=? AND entity_type='regional_league'", [id]))[0];
   }
   async create(record, key, query) {
-    const columns = ['id', 'entity_type', 'data_json', 'regional_edition_key', ...indexed];
-    const values = [record.id, 'regional_league', JSON.stringify(record), key, ...indexed.map(field => record[field] ?? null)];
+    const columns = ['id', 'entity_type', 'data_json', 'regional_edition_key', 'regional_league_key', ...indexed];
+    const values = [record.id, 'regional_league', JSON.stringify(record), key, record.permanent_league_id===record.id ? require('../lib/regionalLeagueHierarchy').leagueKey(record) : null, ...indexed.map(field => record[field] ?? null)];
     await query(`INSERT INTO \`league_entities\` (${columns.map(c => `\`${c}\``).join(',')}) VALUES (${columns.map(() => '?').join(',')})`, values);
     return record;
   }

@@ -11,7 +11,8 @@ const categories = {
 };
 const pick = (row, keys) => Object.fromEntries(keys.filter(k => row[k] !== undefined).map(k => [k,row[k]]));
 const matchFields = ['id','fixture_id','match_id','source_fixture_type','source_fixture_id','type','round','leg','group_number','home_club_id','away_club_id','home_club_name','away_club_name','home_score','away_score','status','result_state','stats_processed','scheduling_status','scheduled_date','confirmed_date','home_proposed_date','away_proposed_date','home_penalties','away_penalties','decided_on_penalties','penalty_winner_side','winner_club_id','video_url','stream_url'];
-const wrap = fn => async (req,res) => { try { await fn(req,res); } catch(e) { res.status(e.status || 500).json({ error:e.message }); } };
+const wrap = fn => async (req,res) => { try { await fn(req,res); } catch(e) { res.status(e.status || 500).json({ error:e.message, ...(e.details ? { details:e.details } : {}) }); } };
+router.post('/:kind/:id/lifecycle', wrap(async (req,res) => res.json(await require('../services/leagueLifecycleService').action(req.params.kind,req.params.id,req.body || {},req.user))));
 matchFields.push('aggregate_home_score','aggregate_away_score');
 router.get('/:kind/:id/statistics', wrap(async (req,res) => {
   const scope = await model.selectOne(req.params.kind,req.params.id);

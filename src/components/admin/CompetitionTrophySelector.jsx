@@ -14,6 +14,7 @@ export default function CompetitionTrophySelector({ competitionId, sourceType = 
   }
   useEffect(() => {
     let active = true;
+    setData(null); setSelected(''); setError('');
     stageClient.http.get(path).then(result => {
       if (active) { setData(result); setSelected(result.selected_id || ''); }
     }).catch(e => { if (active) setError(e.message); });
@@ -40,8 +41,8 @@ export default function CompetitionTrophySelector({ competitionId, sourceType = 
         <button type="button" disabled={busy} onClick={save} className="min-h-11 px-2 text-sm font-semibold text-primary disabled:opacity-50">{busy ? 'Saving...' : 'Save trophy'}</button>
       </div>
       {trophy && <div className="flex items-center gap-3">{trophy.image_url && <img src={trophy.image_url} alt="" className="h-20 w-16 object-contain" />}<span className="text-xs">{trophy.name}</span></div>}
-      {data.guidance && <p className="text-xs text-warning">{data.guidance}</p>}
-      <p className="text-xs text-muted-foreground">Artwork is managed in Trophies. Selection does not award a trophy. Captured editions use their existing design; amendments remain in Rewards review.</p>
+      {data.guidance && <p className="text-xs text-warning">{sourceType === 'regional_league' ? data.guidance.replace(/Admin\s*(?:→|->|>)\s*GOST/gi, 'Admin > Regional Leagues') : data.guidance}</p>}
+      <p className="text-xs text-muted-foreground">Artwork comes from Admin &gt; Trophies. Permanent assignments are managed in Admin &gt; {sourceType === 'regional_league' ? 'Regional Leagues' : 'GOST'}. Captured editions and earned trophies keep their existing design.</p>
     </> : !error && <p className="text-xs text-muted-foreground">Loading catalogue...</p>}
     {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
   </section>;

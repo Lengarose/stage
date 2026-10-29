@@ -7,7 +7,7 @@ export function directoryRows(participants, search = '', league = '', order = 'a
     .sort((a, b) => (order === 'desc' ? -1 : 1) * (a.name.localeCompare(b.name) || a.id.localeCompare(b.id)));
 }
 export function editionSelection(editions, requested) {
-  return requested ? editions.find(s => s.id === requested) || null : editions.find(s => !['completed', 'archived', 'cancelled'].includes(s.status)) || editions[0] || null;
+  return requested ? editions.find(s => s.id === requested) || null : editions.find(s => s.is_current) || editions.find(s => !['completed', 'archived', 'cancelled','abandoned','reset','superseded'].includes(s.status)) || editions.find(s=>!['reset','superseded'].includes(s.status)) || null;
 }
 export function editionProgress(season, participants, matches) {
   const played = matches.filter(m => m.status !== 'bye' && isOfficialDisplayResult(m))
