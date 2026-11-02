@@ -38,13 +38,13 @@ class ClubFixtureLineup {
     );
   }
 
-  selectOne(id) {
-    return EXECUTESQL('SELECT * FROM club_fixture_lineups WHERE id = ?', [id]);
+  selectOne(id, query = EXECUTESQL, lock = false) {
+    return query(`SELECT * FROM club_fixture_lineups WHERE id = ?${lock ? ' FOR UPDATE' : ''}`, [id]);
   }
 
-  create() {
+  create(query = EXECUTESQL) {
     this.id = this.id || uuidv4();
-    return EXECUTESQL(
+    return query(
       `INSERT INTO club_fixture_lineups
         (id, club_id, fixture_id, fixture_type, formation, starting_players,
          bench_players, captain_player_id, notes, status, created_by_user_id)
@@ -57,8 +57,8 @@ class ClubFixtureLineup {
     );
   }
 
-  update(id) {
-    return EXECUTESQL(
+  update(id, query = EXECUTESQL) {
+    return query(
       `UPDATE club_fixture_lineups SET
         club_id=?, fixture_id=?, fixture_type=?, formation=?, starting_players=?,
         bench_players=?, captain_player_id=?, notes=?, status=?, created_by_user_id=?, updated_date=NOW()
@@ -71,8 +71,8 @@ class ClubFixtureLineup {
     );
   }
 
-  delete(id) {
-    return EXECUTESQL('DELETE FROM club_fixture_lineups WHERE id = ?', [id]);
+  delete(id, query = EXECUTESQL) {
+    return query('DELETE FROM club_fixture_lineups WHERE id = ?', [id]);
   }
 }
 

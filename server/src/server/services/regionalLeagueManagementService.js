@@ -13,9 +13,10 @@ async function preview(body, actor, query=EXECUTESQL) {
   const blockers=[];
   if (body.action==='create') {
     const d=body.definition || {};
-    if (['id','permanent_league_id','reset_series','current_edition_id','previous_season_id','next_season_id','winner_club_id','edition_invalidated','retired','retired_at'].some(field=>Object.hasOwn(d,field))) fail('Permanent identity and lifecycle fields are assigned by the server',400);
+    if (['id','permanent_league_id','reset_series','current_edition_id','group_current_edition_ids','regional_cycle_id','pending_regional_cycle_id','regional_structure_version','regional_registration_window_id','regional_participation_policy_version','regional_final_ranked_club_ids','regional_final_ranking_cycle_id','regional_final_results_revision','previous_season_id','next_season_id','winner_club_id','edition_invalidated','retired','retired_at'].some(field=>Object.hasOwn(d,field))) fail('Permanent identity and lifecycle fields are assigned by the server',400);
     if (!String(d.name || '').trim() || !Number.isInteger(Number(d.max_clubs)) || Number(d.max_clubs)<2 || Number(d.max_clubs)>20) fail('Provide a name and supported capacity of 2–20 clubs',400);
     const scope=identity({...d,season_number:1});
+    if(scope.group_code!=='A')fail('Parallel groups belong to an existing permanent division; they cannot be created as independent leagues',400);
     for(const row of rows) { try { if(leagueKey(unpack(row))===scope.key)blockers.push('This permanent regional division already exists; use its season workflow.'); } catch { /* Admin identity review retains unknown records */ } }
     if (d.trophy_item_id) {
       const [item]=await query('SELECT * FROM trophy_items WHERE id=?',[d.trophy_item_id]);

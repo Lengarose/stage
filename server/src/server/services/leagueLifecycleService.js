@@ -141,6 +141,7 @@ function createLifecycleService(options = {}) {
         const user = await admin(query, actor);
         const scope = await model.selectOne(kind, id, query, true);
         const { root } = scope;
+        if(kind==='regional_league' && root.pending_regional_cycle_id)fail('This edition is a captured source of a regional cycle; finish or reset that whole cycle before changing its lifecycle');
         if (String(root.id) !== String(id)) fail('Selected edition does not match the lifecycle target');
         if (body.edition_id != null && String(body.edition_id) !== String(scope.edition_id)) fail('Selected edition changed; reload before continuing');
         if (body.season_number != null && Number(body.season_number) !== Number(root.season_number || 1)) fail('Selected season changed; reload before continuing');

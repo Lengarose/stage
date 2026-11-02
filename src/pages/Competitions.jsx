@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowRight, Trophy } from 'lucide-react';
 import { stageClient, resolveMyPlayerAndClub } from '@/api/stageClient';
 import { COMPETITIONS } from '@/lib/competitionUtils';
-import { clubPathway, qualificationRange } from '@/lib/gostOverview';
+import { clubPathway, qualificationRange, gostAccess } from '@/lib/gostOverview';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 const action = 'inline-flex min-h-11 items-center gap-2 py-2 font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary';
@@ -41,7 +41,7 @@ function CompetitionColumn({ meta, competition, archive, onPrizes }) {
     <h2 className="mt-3 break-words font-heading text-3xl font-black uppercase italic leading-tight text-foreground lg:flex lg:min-h-20 lg:items-center lg:justify-center">{(competition?.name || meta.name).replace(/^STAGE\s+/i, '')}</h2>
     <div className="mt-5 border-t border-border pt-4">
       <p className="text-xs font-semibold uppercase text-muted-foreground">Regional Division 1</p>
-      <p className="mt-2 text-2xl font-bold text-foreground">Positions {qualificationRange(meta.slug)}</p>
+      <p className="mt-2 text-2xl font-bold text-foreground">{gostAccess.qualifications_open ? `Positions ${qualificationRange(meta.slug)}` : 'Qualification not open'}</p>
       {archive && competition?.archive.length > 0 && <select aria-label={`${meta.name} archived edition`} value={season?.id || ''} onChange={e => setEditionId(e.target.value)} className="mt-4 min-h-11 w-full border-b border-border bg-background px-2 text-sm">{competition.archive.map(s => <option key={s.id} value={s.id}>{s.label} · {s.state}</option>)}</select>}
       <p className="mt-3 text-sm text-muted-foreground">{season ? `${season.label} · ${season.state}` : archive ? 'No archived editions.' : 'No edition announced.'}</p>
       {season?.registered != null && <p className="mt-1 text-xs text-muted-foreground">{season.registered} registered clubs{season.maximum ? ` · ${season.maximum} maximum` : ''}</p>}
@@ -102,6 +102,7 @@ export default function Competitions() {
         <div><p className="text-xs uppercase text-muted-foreground">Global Official Stage Tournaments</p><div className="mt-2 flex flex-wrap items-center gap-5"><h1 className="font-heading text-6xl font-black italic leading-none">GOST</h1><p className="border-l border-border pl-5 text-sm text-muted-foreground">Three competitions.<br />One regional pathway.</p></div></div>
         <nav aria-label="GOST editions" className="flex gap-6">{[['Current season', false], ['Archive', true]].map(([label, value]) => <button type="button" key={label} aria-current={archive === value ? 'page' : undefined} onClick={() => setSearchParams(previous => { const next = new URLSearchParams(previous); if (value) next.set('view', 'archive'); else next.delete('view'); return next; })} className={`min-h-11 border-b-2 px-1 text-sm focus-visible:ring-2 focus-visible:ring-primary ${archive === value ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}`}>{label}</button>)}</nav>
       </header>
+      {!gostAccess.qualifications_open && <p role="status" className="mt-6 text-sm text-muted-foreground">{gostAccess.closed_message}</p>}
       {error ? <p role="alert" className="my-8 text-sm text-destructive">{error}<button type="button" onClick={() => setRevision(n => n + 1)} className="ml-3 min-h-11 text-primary">Retry</button></p> : !data ? <p role="status" className="py-20 text-sm text-muted-foreground">Loading competitions...</p> : <div className="my-10 grid divide-y divide-border lg:my-12 lg:grid-cols-3 lg:divide-x lg:divide-y-0">{COMPETITIONS.map(meta => <CompetitionColumn key={`${meta.slug}:${archive}`} meta={meta} competition={competitions.find(c => c.slug === meta.slug)} archive={archive} onPrizes={setPrize} />)}</div>}
       <section className="flex flex-wrap items-center justify-between gap-6 border-y border-border py-7">
         <div className="min-w-0"><h2 className="font-heading text-3xl font-black uppercase italic">Your club’s pathway</h2>{path?.league && <p className="mt-2 text-sm">{path.club} · {path.league} · Division {path.division}</p>}<p className="mt-2 max-w-3xl text-sm text-muted-foreground">{path?.text || 'Loading your regional pathway...'}</p></div>

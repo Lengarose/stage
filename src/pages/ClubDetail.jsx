@@ -1334,6 +1334,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
 
           {/* Fixtures */}
           <TabsContent value="fixtures" className="px-4 pt-4 pb-6">
+            {(isOwner || isPresident) && <Link to={`/register-league?club=${encodeURIComponent(id)}`} className="mb-4 inline-flex min-h-11 items-center font-semibold">Your club’s regional participation →</Link>}
             <ClubFixturesPanel
               clubId={id}
               clubPlayers={safePlayers}

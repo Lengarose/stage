@@ -607,7 +607,7 @@ test('advanceCommunityTournamentIfReady delegates to locked tournament reconcili
   assert.equal(result.matches_created, 2);
 });
 
-test('advanceLegacyOfficialCompetitionIfReady creates cross-competition qualification when final completes', async () => {
+test('GOST completion preserves its winner but creates no future tickets while qualification is closed', async () => {
   const inserts = [];
   const updates = [];
   const service = loadService(async (sql, params = []) => {
@@ -675,13 +675,12 @@ test('advanceLegacyOfficialCompetitionIfReady creates cross-competition qualific
 
   assert.equal(result.advanced, true);
   assert.equal(result.next_phase, 'completed');
-  assert.equal(result.qualifications_created, 1);
-  assert.equal(inserts[0].data.source_type, 'competition_season');
-  assert.equal(inserts[0].data.target_competition_id, 'competition-supreme');
+  assert.equal(result.qualifications_created, 0);
+  assert.equal(inserts.length, 0, 'a completed Elite season must not reserve a future Supreme place');
   assert.ok(updates.some(update => update.data.status === 'completed' && update.data.winner_club_id === 'club-1'));
 });
 
-test('advanceRegionalLeagueIfReady processes completed division one qualification automatically', async () => {
+for(const managed of [false,true])test(`Regional D1 completes ${managed?'with regional-cycle rights pending':'with legacy relegation'} without issuing closed GOST tickets`, async () => {
   const inserts = [];
   const updates = [];
   const standings = Array.from({ length: 20 }, (_, index) => ({
@@ -711,7 +710,7 @@ test('advanceRegionalLeagueIfReady processes completed division one qualificatio
       return standings.flatMap((a,i)=>standings.filter((_,j)=>j!==i).map(b=>({id:`${a.club_id}-${b.club_id}`,entity_type:'regional_league_fixture',status:'played',data_json:JSON.stringify({league_id:'league-1',status:'played',home_club_id:a.club_id,away_club_id:b.club_id,home_score:i < standings.indexOf(b) ? 1 : 0,away_score:i < standings.indexOf(b) ? 0 : 1,stats_processed:true})})));
     }
     if (/WHERE id = \? AND entity_type = \? LIMIT 1/.test(sql) && params[1] === 'regional_league') {
-      return [{ id: 'league-1', entity_type: 'regional_league', data_json: JSON.stringify({ id: 'league-1', name: 'EU Division 1', registered_club_ids: standings.map(s=>s.club_id), region_slug: 'eu', platform: 'PS5', season_number: 1, division: 1, status: 'in_progress', linked_league_slug: 'eu-div-2' }) }];
+      return [{ id: 'league-1', entity_type: 'regional_league', data_json: JSON.stringify({ id: 'league-1', name: 'EU Division 1', registered_club_ids: standings.map(s=>s.club_id), region_slug: 'eu', platform: 'PS5', season_number: 1, division: 1, status: 'in_progress', linked_league_slug: 'eu-div-2',...(managed?{regional_structure_version:'regional_structure_v1',regional_cycle_id:'cycle'}:{}) }) }];
     }
     if (sql === "SELECT * FROM league_entities WHERE entity_type = 'regional_league'") {
       return [{
@@ -746,14 +745,13 @@ test('advanceRegionalLeagueIfReady processes completed division one qualificatio
   const result = await service.advanceRegionalLeagueIfReady({ league_id: 'league-1' });
 
   assert.equal(result.advanced, true);
-  assert.equal(result.qualified, 18);
-  assert.equal(result.relegated, 2);
-  assert.equal(inserts.length, 18);
-  assert.deepEqual(inserts.map(insert => insert.data.target_competition_id), [
-    'comp-supreme', 'comp-supreme', 'comp-supreme', 'comp-supreme', 'comp-supreme', 'comp-supreme',
-    'comp-elite', 'comp-elite', 'comp-elite', 'comp-elite', 'comp-elite', 'comp-elite',
-    'comp-challenger', 'comp-challenger', 'comp-challenger', 'comp-challenger', 'comp-challenger', 'comp-challenger',
-  ]);
+  if(managed) {assert.equal(result.type,'regional_cycle');assert.equal(result.rights_pending,true);assert.equal(result.relegated,undefined);}
+  else {assert.equal(result.qualified, 0);assert.equal(result.relegated, 2);}
+  assert.equal(inserts.length, 0);
+  const finalRows = updates.filter(update => update.params.includes('regional_league_standing'));
+  assert.equal(finalRows.length, 20, 'all final positions must still be recorded when no qualification is issued');
+  assert.ok(finalRows.every(update => !update.data.is_stage_qualified && !update.data.stage_competition_slug));
+  assert.deepEqual(finalRows.map(update => update.data.final_position).sort((a, b) => a - b), Array.from({ length: 20 }, (_, i) => i + 1));
   assert.ok(updates.some(update => update.params.includes('regional_league') && update.data.status === 'completed'));
 });
 

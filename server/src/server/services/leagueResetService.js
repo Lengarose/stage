@@ -9,7 +9,7 @@ const { audit } = require('./rewardConfigurationService');
 const CONFIRMATION = 'RESET LEAGUES';
 const digest = value => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const operationId = revision => `league-reset-${revision.slice(0, 23)}`;
-const generated = new Set(['regional_league_fixture', 'regional_league_standing', 'competition_fixture', 'competition_standing', 'qualification_entry', 'season_registration']);
+const generated = new Set(['regional_league_fixture', 'regional_league_standing', 'competition_fixture', 'competition_standing', 'qualification_entry', 'season_registration','regional_cycle']);
 const financial = new Set(['competition_payouts', 'stc_transactions', 'player_stc_transactions', 'user_purchases']);
 const data = row => unpack(row);
 function normalize(input) {
@@ -31,7 +31,8 @@ function configuration(root) {
 }
 function linked(row, ids) {
   const record = data(row);
-  return ['league_id', 'season_id', 'edition_id', 'regional_league_id', 'source_id', 'source_edition_id', 'target_edition_id', 'competition_season_id', 'qualified_from_season_id'].some(key => ids.has(record[key]));
+  return ['league_id', 'season_id', 'edition_id', 'regional_league_id', 'source_id', 'source_edition_id', 'target_edition_id', 'competition_season_id', 'qualified_from_season_id'].some(key => ids.has(record[key]))
+    || (Array.isArray(record.source_edition_ids) && record.source_edition_ids.some(id=>ids.has(id)));
 }
 async function plan(input, query = EXECUTESQL) {
   const options = normalize(input);
@@ -66,8 +67,10 @@ async function plan(input, query = EXECUTESQL) {
   }
   const editionIds = new Set(editions.map(r => r.id));
   const dependencies = entities.filter(r => generated.has(r.entity_type) && linked(r, editionIds));
+  const cycles=dependencies.filter(r=>r.entity_type==='regional_cycle');
+  for(const cycle of cycles)if((data(cycle).permanent_league_ids || []).some(id=>!rootIds.has(id)))blockers.push(`Regional cycle ${cycle.id} spans several divisions; select all of its permanent divisions for reset.`);
   const fixtureIds = new Set(dependencies.filter(r => /_fixture$/.test(r.entity_type)).map(r => r.id));
-  const instances = evidence.rows.filter(e => e.table === 'competition_instances' && ['regional_league', 'official_competition'].includes(e.row.product_type) && (editionIds.has(e.row.legacy_source_id) || roots.some(r => r.entity_type === 'competition' && r.id === e.row.legacy_source_id))).map(e => e.row);
+  const instances = evidence.rows.filter(e => e.table === 'competition_instances' && ['regional_league', 'official_competition'].includes(e.row.product_type) && (editionIds.has(e.row.legacy_source_id) || cycles.some(c=>c.id===e.row.legacy_source_id) || roots.some(r => r.entity_type === 'competition' && r.id === e.row.legacy_source_id))).map(e => e.row);
   const instanceIds = new Set(instances.map(r => r.id));
   const engineFixtures = evidence.rows.filter(e => e.table === 'competition_fixtures' && (instanceIds.has(e.row.competition_instance_id) || fixtureIds.has(e.row.legacy_fixture_id))).map(e => e.row);
   const phaseStates = evidence.rows.filter(e => e.table === 'competition_phase_states' && instanceIds.has(e.row.competition_instance_id)).map(e => e.row);
@@ -83,7 +86,8 @@ async function plan(input, query = EXECUTESQL) {
     const own = editions.filter(e => row.entity_type === 'regional_league' ? e.id === row.id || data(e).permanent_league_id === row.id : data(e).competition_id === row.id);
     const series = Math.max(0, Number(data(row).reset_series || 0), ...own.map(e => Number(data(e).reset_series || 0))) + 1;
     if (!Number.isSafeInteger(series)) blockers.push(`Invalid reset series: ${row.id}`);
-    return { permanent_id: row.id, type: row.entity_type, reset_series: series, season_number: 1, invalidated_edition_ids: own.map(e => e.id), preserved_configuration: configuration(data(row)) };
+    const group_codes=row.entity_type==='regional_league'?[...new Set(own.map(e=>identity(data(e)).group_code))].sort():null;
+    return { permanent_id: row.id, type: row.entity_type, reset_series: series, season_number: 1, ...(group_codes?{group_codes}:{}), invalidated_edition_ids: own.map(e => e.id), preserved_configuration: configuration(data(row)) };
   });
   const beforeCounts = {};
   for (const row of [...editions, ...dependencies]) beforeCounts[row.entity_type] = (beforeCounts[row.entity_type] || 0) + 1;
@@ -155,12 +159,18 @@ async function apply(input, actor) {
       const freshId = require('uuid').v4();
       const record = { ...change.preserved_configuration, id: freshId, edition_id: freshId, reset_series: change.reset_series, season_number: 1, season_label: `Series ${change.reset_series} \u00b7 Season 1`, status: 'registration', registered_club_ids: [], registered_clubs: [], num_clubs: 0, fixtures_generated: false, reset_operation_id: id };
       if (row.entity_type === 'regional_league') {
-        record.permanent_league_id = root.id;
-        const normalized = identity({ ...record, slug: '' });
-        record.slug = `${normalized.canonical_slug}-reset-${change.reset_series}`;
-        await regional.model.create(record, normalized.key, query);
-        // Original permanent row remains its historical Season 1 edition.
-        await query("UPDATE league_entities SET data_json=JSON_SET(data_json,'$.current_edition_id',?,'$.active_reset_series',?),updated_date=NOW() WHERE id=? AND entity_type='regional_league'", [freshId, change.reset_series, root.id]);
+        const pointers={};
+        for(const code of change.group_codes || ['A']) {
+          const groupId=code==='A'?freshId:require('uuid').v4();
+          const group={...record,id:groupId,edition_id:groupId,permanent_league_id:root.id,...(code!=='A'||change.group_codes.length>1?{group_code:code}:{}),group_current_edition_ids:undefined};
+          const normalized=identity({...group,slug:''});group.slug=`${normalized.canonical_slug}-reset-${change.reset_series}`;
+          await regional.model.create(group,normalized.key,query);pointers[code]=groupId;
+          if(code!=='A')fresh.push({permanent_id:root.id,edition_id:groupId,group_code:code,reset_series:change.reset_series,season_number:1});
+        }
+        // Preserve the original root and every group's separate current pointer.
+        if(change.group_codes.length>1||root.group_current_edition_ids) {
+          await regional.model.update({...root,status:'reset',edition_invalidated:true,reset_operation_id:id,reset_at:stamp,current_edition_id:freshId,group_current_edition_ids:pointers,active_reset_series:change.reset_series},identity(root).key,query);
+        } else await query("UPDATE league_entities SET data_json=JSON_SET(data_json,'$.current_edition_id',?,'$.active_reset_series',?),updated_date=NOW() WHERE id=? AND entity_type='regional_league'", [freshId, change.reset_series, root.id]);
       } else {
         record.competition_id = root.id;
         record.status = 'draft';

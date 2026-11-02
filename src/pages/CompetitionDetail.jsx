@@ -11,7 +11,7 @@ import LeagueCompetitionStages from "@/components/LeagueCompetitionStages";
 import TournamentLeaderboard from "@/components/TournamentLeaderboard";
 import { penaltyOutcome } from "@/lib/penaltyOutcome";
 import { GostTrophy, GostJourney } from "@/pages/Competitions";
-import { clubPathway, qualificationRange } from "@/lib/gostOverview";
+import { clubPathway, qualificationRange, gostAccess } from "@/lib/gostOverview";
 import { detailTabs, directoryRows, editionSelection, editionProgress, seasonLocation } from "@/lib/gostDetail";
 
 function dedupeCompetitionStandingsByClub(rows = []) {
@@ -192,8 +192,8 @@ function ClubPathway({ identity, participants, season, matches, slug }) {
   }, [club?.id, own?.id]);
   const next = matches.find(m => m.home_club_id === club?.id || m.away_club_id === club?.id);
   return <section className="min-w-0 lg:border-l lg:border-border lg:pl-8"><h2 className={heading}>Your club’s pathway</h2>
-    <p className="mt-3 text-sm leading-relaxed text-muted-foreground">Finish in positions {qualificationRange(slug)} of Regional Division 1 to qualify.</p>
-    {identity === undefined ? <p className="mt-3 text-sm">Loading your club...</p> : identity === null ? <p className="mt-3 text-sm">Your club identity could not be loaded.</p> : own ? <><p className="mt-3 font-semibold">{own.name} · Confirmed participation</p><p className="mt-2 text-sm text-muted-foreground">{phaseName(season.status)}</p>{next && <p className="mt-2 text-sm">Next scheduled fixture: {next.home_club_name} vs {next.away_club_name} · {displayDate(next.scheduled_date)}</p>}</> : <p className="mt-3 text-sm text-muted-foreground">{club ? path?.text || 'Loading regional pathway...' : 'Your final regional position determines your GOST competition.'}</p>}
+    <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{gostAccess.qualifications_open ? `Finish in positions ${qualificationRange(slug)} of Regional Division 1 to qualify.` : gostAccess.closed_message}</p>
+    {identity === undefined ? <p className="mt-3 text-sm">Loading your club...</p> : identity === null ? <p className="mt-3 text-sm">Your club identity could not be loaded.</p> : own ? <><p className="mt-3 font-semibold">{own.name} · Confirmed participation</p><p className="mt-2 text-sm text-muted-foreground">{phaseName(season.status)}</p>{next && <p className="mt-2 text-sm">Next scheduled fixture: {next.home_club_name} vs {next.away_club_name} · {displayDate(next.scheduled_date)}</p>}</> : <p className="mt-3 text-sm text-muted-foreground">{club ? path?.text || 'Loading regional pathway...' : gostAccess.qualifications_open ? 'Your final regional position determines your GOST competition.' : gostAccess.closed_message}</p>}
     <Link to={path?.href || '/leagues'} className={linkClass}>Explore regional leagues <ArrowRight size={17} /></Link>
   </section>;
 }
@@ -306,7 +306,7 @@ function CompetitionPage({ slug }) {
       <Link to="/competitions" className={linkClass}><ArrowLeft size={17} /> All GOST competitions</Link>
       <header className="grid grid-cols-[80px_minmax(0,1fr)] items-center gap-5 py-5 sm:grid-cols-[180px_minmax(0,1fr)] lg:grid-cols-[220px_minmax(0,1fr)_auto]">
         <div className="gost-detail-trophy"><GostTrophy compact trophy={trophy} guidance={historical ? 'Historical trophy unavailable.' : 'Trophy not assigned.'} /></div>
-        <div className="min-w-0"><p className="mb-3 text-sm font-semibold uppercase text-primary">● Tier {['I', 'II', 'III'][meta.tier - 1]}</p><h1 className="break-words font-heading text-2xl font-black uppercase italic leading-tight sm:text-5xl lg:text-6xl">{(competition?.name || meta.name).replace(/^STAGE\s+/i, '')}</h1><p className="mt-3 text-lg">Global Official Stage Tournaments</p><p className="mt-3 text-sm text-muted-foreground">Regional Division 1 · Positions {qualificationRange(slug)} qualify</p></div>
+        <div className="min-w-0"><p className="mb-3 text-sm font-semibold uppercase text-primary">● Tier {['I', 'II', 'III'][meta.tier - 1]}</p><h1 className="break-words font-heading text-2xl font-black uppercase italic leading-tight sm:text-5xl lg:text-6xl">{(competition?.name || meta.name).replace(/^STAGE\s+/i, '')}</h1><p className="mt-3 text-lg">Global Official Stage Tournaments</p><p className="mt-3 text-sm text-muted-foreground">{gostAccess.qualifications_open ? `Regional Division 1 · Positions ${qualificationRange(slug)} qualify` : gostAccess.closed_message}</p></div>
         <div className="col-span-2 flex flex-wrap items-center gap-5 sm:col-span-1 sm:col-start-2 lg:col-start-auto"><label className="max-w-full"><span className="sr-only">Competition season</span><select aria-label="Competition season" value={edition?.id || ''} onChange={e => selectSeason(e.target.value)} disabled={!competition?.editions.length} className="h-11 max-w-full border border-border bg-background px-3 text-sm">{!edition && <option value="">Select season</option>}{competition?.editions.map(s => <option value={s.id} key={s.id}>{s.label} · {s.state}</option>)}</select></label><span className="border-l border-border pl-5 text-sm capitalize">{edition ? phaseName(edition.status) : 'No edition selected'}</span></div>
       </header>
       {error ? <LoadError message={error} retry={() => setRevision(n => n + 1)} /> : !competition ? <p role="status" className="py-12">Loading competition...</p> : <>

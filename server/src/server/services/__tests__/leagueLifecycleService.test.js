@@ -73,6 +73,12 @@ function fixture(kind = 'regional_league', count = 4) {
     action: (action, body = {}) => service.action(kind, 'edition', { action, ...body }, { id: 'admin' }) };
 }
 
+test('a captured source cannot independently draw, complete or abandon its season',async()=>{
+  const env=fixture();env.root().pending_regional_cycle_id='captured';
+  for(const action of ['draw','complete','abandon'])await assert.rejects(env.action(action,{confirmation:true,reason:'Independent action'}),/captured source/);
+  assert.equal(env.state.fixtures.length,0);
+});
+
 test('Regional started edition draws a complete mirrored schedule with stable edition references, including Division 3', async () => {
   const env = fixture(); const result = await env.draw();
   assert.equal(result.fixtures_created, 12); assert.equal(result.matchdays, 6);

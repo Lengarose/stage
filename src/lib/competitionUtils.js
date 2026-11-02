@@ -1,4 +1,5 @@
 import { stageClient } from "@/api/stageClient";
+import gostAccess from "../../server/src/server/lib/gostAccessPolicy.json";
 
 export const COMPETITIONS = [
   {
@@ -580,6 +581,7 @@ export async function initializeStandings(season, clubs) {
 
 // Generate QualificationEntry rows when a regional league completes
 export async function generateQualificationEntries(regionalLeague, standings) {
+  if (!gostAccess.qualifications_open) return { qualified: 0, reason: 'gost_closed' };
   const slots = Math.min(regionalLeague.promoted_slots || 2, standings.length);
   const sorted = sortStandings(standings);
   const entries = [];
@@ -609,6 +611,8 @@ export async function generateQualificationEntries(regionalLeague, standings) {
 
 // Confirm a qualification entry: add club to season + create standing row
 export async function confirmQualificationEntry(entry, season, adminEmail) {
+  // Check before the first write: the legacy helper performs several requests.
+  if (!gostAccess.qualifications_open) throw new Error(gostAccess.closed_message);
   const club = await stageClient.entities.Club.filter({ id: entry.club_id }, null, 1).then(r => r[0]);
   if (!club) throw new Error("Club not found");
 
@@ -677,6 +681,7 @@ export async function confirmQualificationEntry(entry, season, adminEmail) {
  * Skips if the club already has a pending/confirmed entry for the target competition.
  */
 export async function processCompetitionSeasonEnd(season, standings, competitions) {
+  if (!gostAccess.qualifications_open) return { qualified: 0, reason: 'gost_closed' };
   const { CROSS_COMPETITION_QUALIFICATION_RULES } = await import("./qualificationConfig");
   const rule = CROSS_COMPETITION_QUALIFICATION_RULES.find(r => r.fromSlug === season.competition_slug);
   if (!rule) return; // Supreme has no upward path

@@ -96,6 +96,45 @@ function fixture() {
   return { service, query, queries, input, actor, preview, apply, entity, regional, get state() { return state; }, fail(text) { failure = text; }, enum(value) { enumValues = value; } };
 }
 
+test('reset includes captured pathway cycles, their fixtures and matches instead of leaving a ghost draw',async()=>{
+  const env=fixture();
+  env.state.league_entities.push(env.entity('pathway-cycle','regional_cycle',{status:'running',source_edition_ids:['original','season-two'],permanent_league_ids:['original'],season_number:2,reset_series:0}));
+  env.state.competition_instances.push({id:'pathway-cycle',product_type:'regional_league',legacy_source_type:'regional_cycle',legacy_source_id:'pathway-cycle',status:'in_progress'});
+  env.state.competition_fixtures.push({id:'pathway-fixture',competition_instance_id:'pathway-cycle',legacy_fixture_type:'regional_pathway',match_id:'pathway-match',status:'unscheduled'});
+  env.state.matches.push({id:'pathway-match',competition_context:'pathway-cycle',source_fixture_id:'pathway-fixture',status:'pending_schedule'});
+  const preview=await env.preview();assert.deepEqual(preview.blockers,[]);
+  await env.apply(preview);
+  assert.equal(JSON.parse(env.state.league_entities.find(r=>r.id==='pathway-cycle').data_json).status,'reset');
+  assert.equal(env.state.competition_instances.find(r=>r.id==='pathway-cycle').status,'cancelled');
+  assert.equal(env.state.matches.find(r=>r.id==='pathway-match').status,'cancelled');
+});
+
+test('a reset spanning only part of a captured regional system is blocked',async()=>{
+  const env=fixture();
+  env.state.league_entities.push(env.entity('pathway-cycle','regional_cycle',{status:'running',source_edition_ids:['original'],permanent_league_ids:['original','unrelated'],season_number:2,reset_series:0}));
+  assert.ok((await env.preview()).blockers.some(b=>b.includes('select all')));
+});
+
+test('reset preserves both parallel groups under one permanent division and one trophy default',async()=>{
+  const env=fixture();
+  const root=env.state.league_entities.find(r=>r.id==='original');
+  const value={...JSON.parse(root.data_json),group_current_edition_ids:{A:'season-two',B:'group-b-two'}};
+  root.data_json=JSON.stringify(value);
+  env.state.league_entities.push(env.regional('group-b-two',{permanent_league_id:'original',group_code:'B',slug:'north-america-div-1-group-b-s2',season_number:2,status:'registration'}));
+  const review=await env.preview();assert.deepEqual(review.blockers,[]);
+  const applied=await env.apply(review);
+  assert.equal(applied.fresh_editions.length,2);
+  const saved=JSON.parse(env.state.league_entities.find(r=>r.id==='original').data_json);
+  assert.equal(saved.current_edition_id,saved.group_current_edition_ids.A);
+  assert.notEqual(saved.group_current_edition_ids.A,saved.group_current_edition_ids.B);
+  for(const code of ['A','B']) {
+    const edition=JSON.parse(env.state.league_entities.find(r=>r.id===saved.group_current_edition_ids[code]).data_json);
+    assert.equal(edition.group_code,code);assert.equal(edition.reset_series,1);assert.equal(edition.season_number,1);
+    assert.equal(edition.permanent_league_id,'original');assert.equal(edition.trophy_item_id,'trophy');
+  }
+  assert.equal((await env.apply(review)).already_applied,true);
+});
+
 test('reported completed Season 1 -> Season 2 -> reset preserves originals and creates exactly one new series edition', async () => {
   const env = fixture();
   const report = await env.preview();

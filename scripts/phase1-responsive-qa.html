@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Phase 1 responsive fixture QA</title>
+  <style>
+    body { margin: 16px; background: #060c17; color: #fff; font: 14px system-ui; }
+    iframe { display: block; border: 1px solid #34435b; background: #060c17; }
+    p { max-width: 800px; }
+  </style>
+</head>
+<body>
+  <h1>Phase 1 — isolated responsive QA</h1>
+  <p>No production requests or records. The iframe gives the actual page a 390px
+    viewport by default. Use width=1280 for desktop and view=management for Admin.</p>
+  <iframe id="preview" title="Isolated competition preview" width="390" height="650"></iframe>
+  <script type="module">
+    const params = new URLSearchParams(location.search);
+    const width = params.get('width') === '1280' ? 1280 : 390;
+    const frame = document.getElementById('preview');
+    frame.width = String(width);
+    frame.src = params.get('view') === 'management'
+      ? '/scripts/league-lifecycle-qa.html'
+      : '/scripts/competition-redesign-qa.html?view=league';
+  </script>
+</body>
+</html>

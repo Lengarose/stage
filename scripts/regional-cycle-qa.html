@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Regional cycle isolated QA</title></head>
+<body style="margin:0;background:#060c17;color:white"><div id="root"></div><script type="module">
+const params=new URLSearchParams(location.search);
+if(!params.has('frame')) {
+ const frame=document.createElement('iframe');frame.title='Regional cycle responsive preview';frame.width=params.get('width')==='1280'?'1280':'390';frame.height='900';frame.style.border='1px solid #334155';frame.src=`/scripts/regional-cycle-qa.html?frame=1&view=${params.get('view') || 'admin'}`;document.getElementById('root').append(frame);
+} else {
+ const {default:React}=await import('react');const {createRoot}=await import('react-dom/client');
+ const {MemoryRouter}=await import('react-router-dom');const {default:RefreshRuntime}=await import('/@react-refresh');
+ RefreshRuntime.injectIntoGlobalHook(window);window.$RefreshReg$=()=>{};window.$RefreshSig$=()=>type=>type;window.__vite_plugin_react_preamble_installed__=true;
+ await import('/src/index.css');document.documentElement.className='theme-dark dark';
+ const {stageClient}=await import('/src/api/stageClient.js');
+ const {default:Panel}=await import('/src/components/admin/RegionalCyclePanel.jsx');const {default:Draw}=await import('/src/components/competition/RegionalCycleDraw.jsx');
+ const clubs=Array.from({length:40},(_,i)=>`club-${i}`);
+ const leagues=[1,2].map(division=>({id:`sample-${division}`,name:division===1?'Premier Division':'Championship',division,group_code:'A',region_slug:'uk-ireland',platform:'cross-platform',season_number:1,status:'registration'}));
+ const groups=[1,2].map(division=>({ref:`D${division}A`,division,club_ids:clubs.slice((division-1)*20,division*20)}));
+ let cycle={id:'sample-cycle',status:'running',policy_version:'regional_structure_v1',region_slug:'uk-ireland',season_number:1,reset_series:0,plan:{pending:[1,2,3,4]}};
+ const fixtures=[['London Athletic','Northern United'],['Marseille FC','Amsterdam City'],['Atlas Club','Phoenix FC']].map(([home,away],i)=>({id:`fixture-${i}`,ref:`placement:decision:${i+1}`,match_id:`sample-match-${i}`,home_club_name:home,away_club_name:away,status:'unscheduled',round:1,phase:'knockout_final'}));
+ stageClient.http.get=async path=>path.endsWith('/draw')?{...cycle,fixtures,blockers:[]}:path==='/regional-leagues/cycles'?{cycles:[{...cycle,input:{mode:'placement'},mode:'placement',platform:'cross-platform',target_count:40}]}:{cycle};
+ stageClient.http.post=async(path,body)=>{
+  if(path.endsWith('/progress')){cycle={...cycle,status:'ready',plan:{pending:[]}};return {cycle};}
+  if(path.endsWith('/allocate')){if(body.apply){cycle={...cycle,status:'allocated'};return {applied:true,cycle};}return {ready:true,revision:'sample-allocation',groups,rights:[],blockers:[]};}
+  if(body.apply)return {applied:true,cycle};
+  return {revision:'sample-preview',confirmed_participants:40,initial_fixtures:80,season_number:1,structure:{groups},blockers:[]};
+ };
+ const h=React.createElement;
+ createRoot(document.getElementById('root')).render(h(MemoryRouter,null,h('main',{className:'mx-auto max-w-6xl px-4 py-6 text-foreground'},h('p',{className:'mb-5 border-b border-border pb-3 text-sm text-muted-foreground'},'LOCAL QA — sample data only. No backend, database or production requests.'),params.get('view')==='draw'?h(Draw,{cycleId:cycle.id}):h(Panel,{leagues,registrations:[],onRefresh:async()=>{}}))));
+}
+</script></body></html>

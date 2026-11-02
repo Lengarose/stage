@@ -2,6 +2,7 @@ const express  = require('express');
 const { EXECUTESQL } = require('../db/database');
 const { v4: uuidv4 } = require('uuid');
 const { hasStagePlus } = require('../utils/subscriptionAccess');
+const gostAccess = require('../lib/gostAccessPolicy.json');
 const { resolveTimeZone, DEFAULT_TIMEZONE, toMysqlDateTime } = require('../utils/datetime');
 
 // Table name used by all competition/league entities (single flexible store).
@@ -82,6 +83,7 @@ const AUDITED_ENTITY_TYPES = new Set([
   'regional_league_fixture',
   'regional_league_standing',
   'qualification_entry',
+  'season_registration',
   'game_day_config',
   'transfer_room_config',
 ]);
@@ -188,6 +190,19 @@ function makeRouter(entityType) {
     };
     router.get('/edition-review', action(req => review.diagnostics(req.user)));
     router.get('/catalogue', action(req => editions.catalogue(req.user)));
+    const cycles = require('../services/regionalCycleService');
+    const registration=require('../services/regionalRegistrationService');
+    router.get('/registration-windows',action(() => registration.windows()));
+    router.post('/registration-windows',action(req => registration.publish(req.body || {},req.user)));
+    router.get('/registration-readiness/:clubId',action(req => registration.readiness(req.params.clubId,req.user)));
+    router.post('/registration-windows/:windowId/apply',action(req => registration.apply(req.params.windowId,req.body || {},req.user)));
+    router.post('/registrations/:registrationId/confirm',action(req => registration.confirm(req.params.registrationId,req.body || {},req.user)));
+    router.get('/cycles', action(req => cycles.catalogue(req.user)));
+    router.post('/cycles', action(req => cycles.prepare(req.body || {},req.user)));
+    router.get('/cycles/:cycleId/draw', action(req => cycles.draw(req.params.cycleId)));
+    router.get('/cycles/:cycleId', action(req => cycles.read(req.params.cycleId,req.user)));
+    router.post('/cycles/:cycleId/progress', action(req => cycles.progress(req.params.cycleId,req.user,req.body?.reason || 'Admin reconciled official pathway results')));
+    router.post('/cycles/:cycleId/allocate', action(req => cycles.allocate(req.params.cycleId,req.body || {},req.user)));
     router.post('/management', action(req => require('../services/regionalLeagueManagementService').action(req.body || {},req.user)));
     router.post('/edition-review', action(req => review.repair(req.body || {}, req.user)));
     router.post('/seed', action(req => editions.seed(req.body?.definitions, req.user)));
@@ -227,6 +242,9 @@ function makeRouter(entityType) {
   // POST /
   router.post('/', async (req, res) => {
     try {
+      if (entityType === 'qualification_entry' && !gostAccess.qualifications_open) {
+        return res.status(409).json({ error: gostAccess.closed_message, code: 'GOST_CLOSED' });
+      }
       const body = await stampFixtureTimezone(entityType, req.body || {}, req, { force: true });
       if (entityType === 'regional_league') {
         const result = await require('../services/regionalEditionService').create(body, req.user);
@@ -241,10 +259,12 @@ function makeRouter(entityType) {
         if (!admin) return res.status(403).json({ error: 'Admin access required.' });
       }
       if (entityType === 'season_registration') {
+        if(['registration_window_id','registration_policy_version','participation_status','confirmed_player_ids','confirmed_at','confirmed_by_user_id','accepted_rules_revision'].some(k=>Object.hasOwn(body,k)))return res.status(409).json({error:'Use the protected regional registration and confirmation actions.'});
         const userRows = await EXECUTESQL('SELECT id, email, role_id FROM users WHERE id = ? LIMIT 1', [req.user?.id || null]);
         const user = userRows[0] || null;
         const isAdmin = [0, 2].includes(Number(user?.role_id));
         if (!isAdmin) {
+          if ((body.status && body.status!=='pending') || ['assigned_league_id','assigned_division','reviewed_by','reviewed_at','admin_notes'].some(k=>Object.hasOwn(body,k))) return res.status(403).json({error:'Only Admin can approve or assign a regional registration.'});
           const playerRows = await EXECUTESQL(
             'SELECT id, subscription, subscription_expires_at FROM players WHERE user_id = ? OR LOWER(TRIM(email)) = LOWER(TRIM(?)) ORDER BY user_id = ? DESC, updated_date DESC LIMIT 1',
             [req.user?.id || null, user?.email || '', req.user?.id || null]
@@ -282,7 +302,11 @@ function makeRouter(entityType) {
   // PATCH /:id
   router.patch('/:id', async (req, res) => {
     try {
+      if (entityType === 'qualification_entry' && !gostAccess.qualifications_open) {
+        return res.status(409).json({ error: gostAccess.closed_message, code: 'GOST_CLOSED' });
+      }
       if (entityType === 'regional_league') return res.json(await require('../services/regionalEditionService').update(req.params.id, req.body || {}, req.user));
+      if (entityType === 'season_registration' && !await getAdminUser(req)) return res.status(403).json({error:'Regional registration decisions and corrections require Admin access.'});
       if (entityType === 'game_day_config' || entityType === 'transfer_room_config') {
         const admin = await getAdminUser(req).catch(() => null);
         if (!admin) return res.status(403).json({ error: 'Admin access required.' });
@@ -292,6 +316,8 @@ function makeRouter(entityType) {
       if (!existing.length) return res.status(404).json({ error: 'Not found' });
 
       const current = parseRow(existing[0]);
+      if(entityType==='season_registration' && current.registration_policy_version)return res.status(409).json({error:'Use the protected regional registration workflow for this edition.'});
+      if(entityType==='season_registration' && ['registration_window_id','registration_policy_version','participation_status','confirmed_player_ids','confirmed_at','confirmed_by_user_id','accepted_rules_revision'].some(k=>Object.hasOwn(req.body || {},k)))return res.status(409).json({error:'Protected participation fields require the regional registration workflow.'});
       if (entityType==='competition_season') {
         if(!await getAdminUser(req))return res.status(403).json({error:'Admin access required'});
         if(['completed','cancelled','abandoned','reset','superseded'].includes(req.body?.status) || ['competition_id','season_number','reset_series','next_season_id','previous_season_id'].some(k=>Object.hasOwn(req.body || {},k)&&req.body[k]!==current[k]))return res.status(409).json({error:'Use the reviewed season lifecycle action for completion, abandonment, rollover or identity changes.'});
@@ -353,6 +379,7 @@ function makeRouter(entityType) {
       }
       const existing = await EXECUTESQL(`SELECT * FROM \`${TABLE}\` WHERE id = ? AND entity_type = ? LIMIT 1`, [req.params.id, entityType]);
       const before = existing.length ? parseRow(existing[0]) : null;
+      if(entityType==='season_registration' && before?.registration_policy_version)return res.status(409).json({error:'Published regional participation records cannot be deleted through generic CRUD.'});
       if(before&&['regional_league','competition_season'].includes(entityType)&&['completed','archived'].includes(before.status))return res.status(409).json({error:'Completed editions must be archived, not deleted. Use explicit history reset to revoke honours.'});
       if (before && FIXTURE_ENTITY_TYPES.has(entityType) && (before.match_id || before.status === 'played' || require('../lib/tournamentProgression').hasActivity(before))) return res.status(409).json({error:'This fixture has scheduling, reports or results. Use the authorised fixture review workflow; historical activity was preserved.'});
       await EXECUTESQL(`DELETE FROM \`${TABLE}\` WHERE id = ? AND entity_type = ?`, [req.params.id, entityType]);

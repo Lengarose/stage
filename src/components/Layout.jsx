@@ -131,7 +131,6 @@ function getPlayerGroups(t, clubPath) {
         { path: "/leagues",         icon: Globe2,    label: t("nav.regionalLeagues") },
         { path: "/tournaments",     icon: Trophy,    label: t("nav.tournaments") },
         { path: "/international",   icon: Globe2,    label: t("nav.international") },
-        { path: "/register-league", icon: Shield,    label: t("nav.register") },
         { path: "/rankings",        icon: BarChart3, label: t("nav.rankings") },
       ],
     },
@@ -219,7 +218,6 @@ function getPresidentGroups(t, clubPath) {
         { path: "/leagues",         icon: Globe2,    label: t("nav.regionalLeagues") },
         { path: "/tournaments",     icon: Trophy,    label: t("nav.tournaments") },
         { path: "/international",   icon: Globe2,    label: t("nav.international") },
-        { path: "/register-league", icon: Shield,    label: t("nav.register") },
         { path: "/rankings",        icon: BarChart3, label: t("nav.rankings") },
       ],
     },
@@ -413,9 +411,9 @@ const MOBILE_WALKTHROUGHS = [
     label: "Register",
     title: "Register",
     steps: [
-      "Start registration here when a league or season opens.",
-      "Check the requirements, choose your club or player entry, then submit before the deadline.",
-      "After registering, use Schedule and Inbox to follow next steps.",
+      "Open your club’s participation from Regional Leagues and review the published regional dates.",
+      "Register your club for a region; sporting placement determines its division and group.",
+      "Return during the shared confirmation week and select at least three eligible Plus players.",
     ],
   },
   {
@@ -1012,7 +1010,6 @@ const MOBILE_MORE_GROUPS_PLAYER = [
     items: [
       { path: "/tournaments",     icon: Trophy,        label: "Tournaments"   },
       { path: "/international",   icon: Globe2,        label: "International" },
-      { path: "/register-league", icon: Shield,        label: "Register"      },
       { path: "/rankings",        icon: BarChart3,     label: "Rankings"      },
     ],
   },
@@ -1075,7 +1072,6 @@ function getMobileMoreGroupsPresident(clubPath) {
       items: [
         { path: "/tournaments",     icon: Trophy,         label: "Tournaments"  },
         { path: "/international",   icon: Globe2,         label: "International" },
-        { path: "/register-league", icon: Shield,         label: "Register"     },
         { path: "/rankings",        icon: BarChart3,      label: "Rankings"     },
       ],
     },

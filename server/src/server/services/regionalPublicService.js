@@ -28,6 +28,9 @@ function publicEdition(root, records, items, configs, awards, definition = root)
     else if ([1,2].includes(Number(root.division)) && !configs.some(r => r.source_id === sourceId)) rewards = { rows: policy.regionalRows(Math.min(20, Number(root.max_clubs) || 20), root), origin: 'approved regional default' };
   }
   return { id: root.id, slug: root.slug, name: root.name, region: root.region, region_slug: root.region_slug, country_code: root.country_code, platform: root.platform, division: root.division, season_number: root.season_number, season_label: root.season_label, status: root.status,
+    regional_cycle_id:root.pending_regional_cycle_id || root.regional_final_ranking_cycle_id || root.regional_cycle_id || null,regional_structure_version:root.regional_structure_version || null,
+    regional_registration_window_id:root.regional_registration_window_id || null,regional_participation_policy_version:root.regional_participation_policy_version || null,
+    regional_final_ranked_club_ids:historical && root.regional_final_ranking_cycle_id ? parse(root.regional_final_ranked_club_ids) : null,
     max_clubs: root.max_clubs || 20, participant_ids, participant_data_available, participant_count: participant_data_available ? participant_ids.length : null, winner_club_id: award?.winning_id || root.winner_club_id, winner_club_name: award?.winning_name || root.winner_club_name, completed_at: root.completed_at,
     promoted_slots: root.promoted_slots ?? null, relegated_slots: root.relegated_slots ?? null, qualification_rules: root.qualification_rules || null, rules: root.rules || root.rules_text || null, rules_file_url: art.safeImage(root.rules_file_url), linked_league_id: root.linked_league_id,
     trophy, artwork_state: assignment.state, rewards: rewards ? { rows: rewards.rows?.map(r => ({ ...r, stc_amount: r.stc_amount ?? r.amount, position_label: r.position_label || r.label })), origin: captured ? 'captured edition configuration' : rewards.origin, budget: rewards.budget || null, payment_state: settlement?.state || null } : null };
@@ -45,8 +48,9 @@ async function overview(query = EXECUTESQL) {
   return { editions: unique.map(row => {
     const d = descriptions.find(d => d.id === row.id);
     const edition = unpack(row), definition = catalogue.definitions.find(p=>p.id===permanentId(edition)) || edition;
-    const current = catalogue.leagues.find(p=>p.permanent_league_id===definition.id);
-    return { ...publicEdition(edition, records, items, configs, awards, definition), permanent_league_id:definition.id,stable_slug:definition.slug,reset_series:edition.reset_series || 0,is_current:current?.current_edition_id===edition.id,retired:current?.retired || false, ...(d.identity ? { region_slug: d.identity.region_slug, division: d.identity.division } : {}), system_key: d.identity ? `${d.identity.region_slug}:${d.identity.platform}` : `unverified:${row.id}`, division_key: definition.id, identity_conflict: Boolean(d.identity && groups.get(d.identity.key).length > 1) || current?.identity_conflict || false, identity_unverified: Boolean(d.identity_error || d.indexed_json_differences.length) };
+    const code=d.identity?.group_code || edition.group_code || 'A';
+    const current = catalogue.groups.find(p=>p.permanent_league_id===definition.id&&p.group_code===code);
+    return { ...publicEdition(edition, records, items, configs, awards, definition), permanent_league_id:definition.id,group_code:code,group_key:`${definition.id}:${code}`,group_label:`Group ${code}`,stable_slug:current?.stable_slug || definition.slug,reset_series:edition.reset_series || 0,is_current:current?.current_edition_id===edition.id,retired:current?.retired || false, ...(d.identity ? { region_slug: d.identity.region_slug, division: d.identity.division } : {}), system_key: d.identity ? `${d.identity.region_slug}:${d.identity.platform}` : `unverified:${row.id}`, division_key: definition.id, identity_conflict: Boolean(d.identity && groups.get(d.identity.key).length > 1) || current?.identity_conflict || false, identity_unverified: Boolean(d.identity_error || d.indexed_json_differences.length) };
   }) };
 }
 async function participants(id, query = EXECUTESQL) {

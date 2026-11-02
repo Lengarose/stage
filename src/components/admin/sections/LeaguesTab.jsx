@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
 import RegionalLeagueManagementPanel from '@/components/admin/RegionalLeagueManagementPanel';
+import RegionalCyclePanel from '@/components/admin/RegionalCyclePanel';
+import RegionalRegistrationPanel from '@/components/admin/RegionalRegistrationPanel';
 import { fixtureState, submitEditionLifecycle, adminEndpointError } from '@/lib/adminLeagueLifecycle';
 import CompetitionTrophySelector from '@/components/admin/CompetitionTrophySelector';
 import { stageClient } from "@/api/stageClient";
@@ -913,10 +915,10 @@ export default function LeaguesTab({
   {/* ── Registration Applications ── */}
   <div className={cn(!showRegional && "hidden")}>
     {(() => {
-      const actionable = regApplications.filter(r => r.status === "pending" || r.status === "waitlisted");
+      const actionable = regApplications.filter(r => !r.registration_policy_version && (r.status === "pending" || r.status === "waitlisted"));
       const displayApps = regAppFilter === "actionable" ? actionable : regApplications;
-      const pendingCount = regApplications.filter(r => r.status === "pending").length;
-      const waitlistCount = regApplications.filter(r => r.status === "waitlisted").length;
+      const pendingCount = regApplications.filter(r => !r.registration_policy_version && r.status === "pending").length;
+      const waitlistCount = regApplications.filter(r => !r.registration_policy_version && r.status === "waitlisted").length;
       return (
         <>
           <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
@@ -994,7 +996,8 @@ export default function LeaguesTab({
                         {reg.status}
                       </span>
                     </div>
-                    {(reg.status === "pending" || reg.status === "waitlisted") && (
+                    {reg.registration_policy_version && <p className="mt-3 text-xs text-muted-foreground">Regional participation: {reg.participation_status}. The club confirms in the shared confirmation week; Regional cycles assigns its sporting group. <Link to={`/register-league?club=${encodeURIComponent(reg.club_id)}`} className="inline-flex min-h-11 items-center font-semibold">Review eligibility →</Link></p>}
+                    {!reg.registration_policy_version && (reg.status === "pending" || reg.status === "waitlisted") && (
                       <div className="flex gap-2 mt-2.5 pl-11">
                         <Button size="sm"
                           onClick={() => { setApproveRegDialog(reg); setApproveTargetId(candidateLeagues[0]?.id || ""); }}
@@ -1403,6 +1406,8 @@ export default function LeaguesTab({
     </div>
 
     {showRegional && <RegionalLeagueManagementPanel definitions={regionalDefinitions} trophyItems={trophyItems} onRefresh={loadAll} />}
+    {showRegional && <RegionalRegistrationPanel definitions={regionalDefinitions} leagues={regionalLeagues} />}
+    {showRegional && <RegionalCyclePanel leagues={regionalLeagues} registrations={regApplications || []} onRefresh={loadAll} />}
 
     {regionalLeagues.length > 0 && (
       <div className="space-y-4">
@@ -1416,12 +1421,14 @@ export default function LeaguesTab({
               <div className="space-y-1.5">
                 {divisions.map(currentEdition => {
                   const permanentId = currentEdition.permanent_league_id || currentEdition.id;
-                  const editions = [...new Map([currentEdition, ...regionalEditions.filter(row => (row.permanent_league_id || row.id) === permanentId), ...(currentEdition.editions || [])].map(row => [row.id, row])).values()];
-                  if (currentEdition.identity_conflict && !currentEdition.current_edition_id && !editionSelection[permanentId]) return <div key={permanentId} className="space-y-2 border border-warning p-3">
+                  const groupCode = currentEdition.group_code || 'A';
+                  const groupKey = `${permanentId}:${groupCode}`;
+                  const editions = [...new Map([currentEdition, ...regionalEditions.filter(row => (row.permanent_league_id || row.id) === permanentId && (row.group_code || 'A') === groupCode), ...(currentEdition.editions || [])].map(row => [row.id, row])).values()];
+                  if (currentEdition.identity_conflict && !currentEdition.current_edition_id && !editionSelection[groupKey]) return <div key={groupKey} className="space-y-2 border border-warning p-3">
                     <p role="alert" className="text-sm text-warning">{currentEdition.name}: current edition is ambiguous. Review league identities or select an exact edition.</p>
-                    <select aria-label={`Edition for ${currentEdition.name}`} className="max-w-full border border-border bg-background p-2 text-sm" value="" onChange={e => setEditionSelection(previous => ({ ...previous, [permanentId]: e.target.value }))}><option value="">Select exact edition</option>{editions.map(edition => <option key={edition.id} value={edition.id}>Season {edition.season_number} · {edition.status} · {edition.id}</option>)}</select>
+                    <select aria-label={`Edition for ${currentEdition.name} Group ${groupCode}`} className="max-w-full border border-border bg-background p-2 text-sm" value="" onChange={e => setEditionSelection(previous => ({ ...previous, [groupKey]: e.target.value }))}><option value="">Select exact edition</option>{editions.map(edition => <option key={edition.id} value={edition.id}>Season {edition.season_number} · {edition.status} · {edition.id}</option>)}</select>
                   </div>;
-                  const selectedId = editionSelection[permanentId] || currentEdition.id;
+                  const selectedId = editionSelection[groupKey] || currentEdition.id;
                   const selectedEdition = regionalEditions.find(row => row.id === selectedId) || editions.find(row => row.id === selectedId) || currentEdition;
                   const league = { ...selectedEdition, permanent_league_id: permanentId, stable_slug: currentEdition.stable_slug || currentEdition.slug };
                   const isEditingL = editingLeague === league.id;
@@ -1433,21 +1440,22 @@ export default function LeaguesTab({
                   const fixtureStatus = fixtureState(league);
                   const canSimulateFixtures = fixtureStatus.canSimulate;
                   return (
-                    <div key={permanentId} className="border border-border rounded p-3 space-y-2">
+                    <div key={groupKey} className="border border-border rounded p-3 space-y-2">
                       <CompetitionTrophySelector competitionId={league.permanent_league_id || league.id} sourceType="regional_league" />
-                      <label className="block text-xs">Season<select className="ml-2 max-w-full rounded border border-border bg-background p-2" value={league.id} onChange={e => setEditionSelection(previous => ({ ...previous, [permanentId]: e.target.value }))}>
+                      <label className="block text-xs">Season<select className="ml-2 max-w-full rounded border border-border bg-background p-2" value={league.id} onChange={e => setEditionSelection(previous => ({ ...previous, [groupKey]: e.target.value }))}>
                         {editions.map(edition => <option key={edition.id} value={edition.id}>{edition.season_label || `Season ${edition.season_number}`} · {edition.status}{edition.id === currentEdition.id ? ' · Current' : ''}</option>)}
                       </select></label>
                       <p className="break-all text-xs text-muted-foreground">Permanent ID: {permanentId} · Edition: {league.id} · {league.platform}</p>
                       <p className="text-xs text-muted-foreground">{fixtureStatus.explanation}</p>
+                      {(league.regional_structure_version || league.pending_regional_cycle_id) && <p className="text-xs text-muted-foreground">This group uses Regional cycles above for sporting allocation and the next season. Its capacity and promotion route are managed together with the other groups.</p>}
                       <div className="flex flex-wrap items-center gap-2">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider shrink-0">D{league.division || 1}</span>
+                            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider shrink-0">D{league.division || 1}{league.group_code || 'A'}</span>
                             <p className="text-sm font-bold text-foreground truncate">{league.name}</p>
                           </div>
                           <p className="text-[10px] text-muted-foreground mt-0.5">
-                            Season {league.season_number} · {league.num_clubs || 0}/{getRegionalLeagueMaxClubs(league)} clubs · {(league.division || 1) === 1 ? "bottom 2 relegated" : "top 2 promoted"}
+                            Season {league.season_number} · {league.num_clubs || 0}/{getRegionalLeagueMaxClubs(league)} clubs · {league.regional_structure_version ? Number(league.division) === 1 ? `${league.relegated_slots || 0} relegation places` : "champion + play-off winner promoted" : (league.division || 1) === 1 ? "bottom 2 relegated" : "top 2 promoted"}
                             {seedingOpen ? " · setup seeding open" : ""}
                           </p>
                         </div>
@@ -1458,6 +1466,7 @@ export default function LeaguesTab({
                           "text-warning border-warning/30 bg-warning/5"
                         )}>{getSeasonStatusLabel(t, league.status)}</span>
                         <Button size="sm" variant="outline"
+                          disabled={Boolean(league.regional_structure_version || league.pending_regional_cycle_id)}
                           className={cn("h-7 w-7 p-0 rounded shrink-0", isEditingL ? "border-destructive/30 text-destructive" : "border-border text-muted-foreground hover:text-foreground")}
                           onClick={() => {
                             if (isEditingL) { setEditingLeague(null); }
@@ -1503,14 +1512,14 @@ export default function LeaguesTab({
                               className="h-7 text-xs rounded border-muted-foreground/30 text-muted-foreground hover:text-foreground shrink-0">
                               {t("admin.leagues.archive")}
                             </Button>
-                            <Button size="sm" onClick={() => leagueLifecycleAction(league, "create_next")}
+                            <Button size="sm" disabled={Boolean(league.regional_structure_version || league.pending_regional_cycle_id)} onClick={() => leagueLifecycleAction(league, "create_next")}
                               className="h-7 text-xs rounded bg-success/20 text-success hover:bg-success/30 border-0 shrink-0">
                               {t("admin.leagues.newSeason")}
                             </Button>
                           </>
                         )}
                         {(league.status === "archived" || (league.status === 'cancelled' && league.abandoned_at)) && (
-                          <Button size="sm" onClick={() => leagueLifecycleAction(league, "create_next")}
+                          <Button size="sm" disabled={Boolean(league.regional_structure_version || league.pending_regional_cycle_id)} onClick={() => leagueLifecycleAction(league, "create_next")}
                             className="h-7 text-xs rounded bg-success/20 text-success hover:bg-success/30 border-0 shrink-0">
                             {t("admin.leagues.newSeason")}
                           </Button>

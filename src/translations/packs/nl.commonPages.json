@@ -972,6 +972,7 @@
   "coopStaffRemoveFailed": "Kon stafrol niet verwijderen.",
   "coopAvailabilitySet": "Beschikbaarheid ingesteld op {status}.",
   "coopAvailabilityFailed": "Kon beschikbaarheid niet bijwerken.",
+  "coopOfficialSelectionRules": "Officiële edities met de nieuwe deelnameregels vereisen minimaal drie menselijke basisspelers. Elke geselecteerde speler, ook een reserve, heeft actief STAGE Plus en een speelregistratie voor deze club nodig. Beide clubs publiceren vóór de aftrap; dan wordt de geschiktheid opnieuw gecontroleerd en de selectie vastgelegd. Een keeper is niet verplicht en ANY is toegestaan.",
   "coopLineupPublished": "Opstelling gepubliceerd.",
   "coopLineupDraftSaved": "Conceptopstelling opgeslagen.",
   "coopLineupSaveFailed": "Kon opstelling niet opslaan.",

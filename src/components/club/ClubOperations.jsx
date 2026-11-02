@@ -430,6 +430,7 @@ export default function ClubOperations({
 
       {activeSection === "lineup" && (
         <div className="space-y-3">
+          <p className="text-sm text-slate-400">{t("commonPages.coopOfficialSelectionRules", "Official editions using the new participation rules require at least three human starting players. Every selected player, including reserves, needs active STAGE Plus and playing registration for this club. Both clubs publish before kickoff; eligibility is rechecked then and the selection is frozen. A goalkeeper is optional and ANY is allowed.")}</p>
           {upcomingFixtures.length === 0 ? <Empty label={t("commonPages.coopNoLineupFixtures")} /> : (
             <>
               <div className="grid md:grid-cols-2 gap-2">

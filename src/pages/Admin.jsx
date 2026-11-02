@@ -399,7 +399,7 @@ export default function Admin(props) {
       setCompetitionStandingClubIdsBySeason(nextCompetitionStandingClubIds);
       setQualEntries(allQual);
       const countedRegionalEditions = await Promise.all((allRegLeagues?.editions || []).map(edition => withFixtureCount('regional_league', edition)));
-      const canonicalRegionalLeagues = (allRegLeagues?.leagues || []).map(edition => withCanonicalRegionalLeagueName({ ...edition, actual_fixtures_count: countedRegionalEditions.find(row => row.id === edition.id)?.actual_fixtures_count ?? edition.actual_fixtures_count }));
+      const canonicalRegionalLeagues = (allRegLeagues?.groups || allRegLeagues?.leagues || []).map(edition => withCanonicalRegionalLeagueName({ ...edition, actual_fixtures_count: countedRegionalEditions.find(row => row.id === edition.id)?.actual_fixtures_count ?? edition.actual_fixtures_count }));
       setRegionalLeagues(canonicalRegionalLeagues);
       setRegionalEditions(countedRegionalEditions);
       setRegionalDefinitions(allRegLeagues?.definitions || []);

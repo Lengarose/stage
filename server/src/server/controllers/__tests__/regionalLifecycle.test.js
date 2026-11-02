@@ -2,6 +2,35 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { fixture } = require('./regionalEditionHttp.test');
 
+test('parallel group rollover keeps separate pointers and shares the permanent trophy', async()=>{
+  const env=fixture(), service=require('../../services/regionalEditionService');
+  const root={id:'division',name:'Premier',region_slug:'uk-ireland',slug:'uk-ireland-div-1',platform:'cross-platform',division:1,season_number:1,status:'completed',trophy_item_id:'original-trophy',current_edition_id:'division',group_current_edition_ids:{A:'division',B:'b1'}};
+  env.legacy(root);
+  env.legacy({...root,id:'b1',permanent_league_id:root.id,group_code:'B',slug:'uk-ireland-div-1-group-b',current_edition_id:undefined,group_current_edition_ids:undefined});
+  const [first,retry]=await Promise.all([service.nextSeason('b1',{id:'admin'}),service.nextSeason('b1',{id:'admin'})]);
+  assert.equal(first.record.id,retry.record.id);
+  assert.equal(first.record.group_code,'B');assert.equal(first.record.season_number,2);
+  assert.equal(first.record.slug,'uk-ireland-div-1-group-b-s2');
+  assert.equal(first.record.trophy_item_id,root.trophy_item_id);
+  const saved=JSON.parse(env.rows.get(root.id).data_json);
+  assert.equal(saved.current_edition_id,root.id);assert.equal(saved.group_current_edition_ids.A,root.id);
+  assert.equal(saved.group_current_edition_ids.B,first.record.id);
+  const catalogue=await service.catalogue({id:'admin'});
+  assert.equal(catalogue.definitions.length,1);assert.equal(catalogue.groups.length,2);
+});
+
+test('generic and permanent-management creation cannot forge a parallel root or group pointer',async()=>{
+  const env=fixture();
+  delete require.cache[require.resolve('../../services/regionalLeagueManagementService')];
+  const management=require('../../services/regionalLeagueManagementService');
+  const definition={name:'Parallel',region_slug:'uk-ireland',platform:'cross-platform',division:1,season_number:1,max_clubs:20,group_code:'B'};
+  await assert.rejects(management.preview({action:'create',definition},{id:'admin'}),/Parallel groups/);
+  assert.equal((await env.create(definition)).code,400);
+  assert.equal((await env.create({...definition,group_code:'A',group_current_edition_ids:{B:'forged'}})).code,400);
+  for(const field of ['regional_final_ranked_club_ids','regional_final_ranking_cycle_id','regional_final_results_revision','regional_registration_window_id','regional_participation_policy_version'])assert.equal((await env.create({...definition,group_code:'A',[field]:'forged'})).code,400);
+  assert.equal(env.rows.size,0);
+});
+
 test('rollover keeps the permanent identity and inherits its trophy without another independent source', async () => {
   const env = fixture();
   const id = 'c2d6e60f-89e0-4813-81a1-967551d8d69f';

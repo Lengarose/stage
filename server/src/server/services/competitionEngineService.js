@@ -1,6 +1,7 @@
 const { v4: uuidv4 } = require('uuid');
 const crypto = require('crypto');
 const database = require('../db/database');
+const gostAccess = require('../lib/gostAccessPolicy.json');
 const { AsyncLocalStorage } = require('node:async_hooks');
 const progressionQueries = new AsyncLocalStorage();
 const EXECUTESQL = (...args) => (progressionQueries.getStore() || database.EXECUTESQL)(...args);
@@ -677,6 +678,7 @@ function submissionsAgree(home, away) {
 async function finalizeAgreedResult(fixture, home, away) {
   const committed = await database.withTransaction(async query => {
   await query('SELECT id FROM competition_fixtures WHERE id=? FOR UPDATE',[fixture.id]);
+  await require('./regionalCycleService').assertWritableFixture(fixture,query);
   const homeScore = Number(home.score_home);
   const awayScore = Number(home.score_away);
   const [match] = await query('SELECT * FROM matches WHERE id=? LIMIT 1 FOR UPDATE',[fixture.match_id]);
@@ -1236,6 +1238,9 @@ async function generateLegacyOfficialNextKnockout(sourceFixture, fixtures, curre
 }
 
 async function processOfficialSeasonEndQualification(season, standings) {
+  // Opening GOST and its access formats is a later, explicit policy change.
+  // Finishing an existing season must not bank tickets while it is closed.
+  if (!gostAccess.qualifications_open) return { qualified: 0, reason: 'gost_closed' };
   const rule = CROSS_COMPETITION_QUALIFICATION_RULES.find(entry => entry.fromSlug === season?.competition_slug);
   if (!rule) return { qualified: 0 };
   const targetCompetition = await selectCompetitionBySlug(rule.toSlug);
@@ -1347,7 +1352,8 @@ async function processRegionalDivisionOneEnd(league, standings) {
   let qualified = 0;
   let relegated = 0;
 
-  for (const rule of STAGE_QUALIFICATION_RULES) {
+  const qualificationRules = gostAccess.qualifications_open ? STAGE_QUALIFICATION_RULES : [];
+  for (const rule of qualificationRules) {
     const competition = await selectCompetitionBySlug(rule.competitionSlug);
     if (!competition) continue;
     for (const position of rule.positions) {
@@ -1408,7 +1414,7 @@ async function processRegionalDivisionOneEnd(league, standings) {
   for (let index = 0; index < total; index += 1) {
     const position = index + 1;
     const standing = sorted[index];
-    const alreadyHandled = STAGE_QUALIFICATION_RULES.some(rule => rule.positions.includes(position))
+    const alreadyHandled = qualificationRules.some(rule => rule.positions.includes(position))
       || (lowerLeague && position >= relegationStartPosition);
     if (alreadyHandled) continue;
     await updateLeagueEntityData('regional_league_standing', standing.id, {
@@ -1489,7 +1495,13 @@ async function advanceRegionalLeagueUnlocked(fixture) {
   const standings = await listLegacyRegionalLeagueStandings(fixture.league_id);
   if (!standings.length) return { advanced: false, reason: 'no_standings' };
 
-  const result = Number(league.division || 1) === 1
+  if(league.regional_structure_version)for(const [index,row] of sortStandingRows(standings).entries()) {
+    await updateLeagueEntityData('regional_league_standing',row.id,{...row,final_position:index+1,is_promoted:false,is_relegated:false,is_stage_qualified:false,stage_competition_slug:null},{league_id:league.id,club_id:row.club_id});
+  }
+
+  const result = league.regional_structure_version
+    ? {type:'regional_cycle',cycle_id:league.regional_cycle_id,rights_pending:true}
+    : Number(league.division || 1) === 1
     ? await processRegionalDivisionOneEnd(league, standings)
     : await processRegionalDivisionTwoEnd(league, standings);
 
@@ -1505,10 +1517,15 @@ async function advanceRegionalLeagueUnlocked(fixture) {
 async function advanceLeagueEdition(kind, fixture, { dryRun = false, admin = null, reason = null } = {}) {
   const id = kind === 'regional_league' ? fixture.league_id : fixture.season_id;
   if (!id) return { advanced:false,reason:'unsupported_fixture' };
+  if(kind==='regional_league') {
+    const root=await selectLeagueEntityById(kind,id);
+    if(root?.pending_regional_cycle_id)return {advanced:false,reason:'Final league places and sporting rights are being resolved by the captured regional cycle',cycle_id:root.pending_regional_cycle_id};
+  }
   const prizes = require('./competitionPrizeService');
   if (!dryRun) await prizes.capture(kind,id);
   const result = await database.withTransaction(async query => {
     const scope = await new (require('../models/competitionScopeModel').CompetitionScopeModel)().selectOne(kind,id,query,!dryRun);
+    if(kind==='regional_league' && scope.root.pending_regional_cycle_id)return {advanced:false,reason:'Final league places and sporting rights are being resolved by the captured regional cycle',cycle_id:scope.root.pending_regional_cycle_id};
     if (scope.root.edition_invalidated || ['reset','cancelled','abandoned','superseded','retired'].includes(scope.root.status)) return {advanced:false,reason:'Edition is closed or invalidated'};
     const requestedPhase = fixture.phase || 'league';
     fixture = {...fixture,...scope.fixtures.find(f=>(f.phase || 'league') === requestedPhase),phase:requestedPhase,draw_mode:scope.root.draw_mode,fixed_pairings:scope.root.fixed_pairings};
@@ -1519,7 +1536,7 @@ async function advanceLeagueEdition(kind, fixture, { dryRun = false, admin = nul
       const integrity = require('../lib/standingIntegrity').reviewStandings(scope);
       if (integrity.requires_review) return { advanced:false, reason:'Standings integrity requires authorised review', integrity };
       const ordered = sortStandingRows(scope.standings);
-      if (ordered.some((r,i) => i > 0 && Number(r.points) === Number(ordered[i-1].points) && Number(r.goal_difference) === Number(ordered[i-1].goal_difference) && Number(r.goals_for) === Number(ordered[i-1].goals_for))) return { advanced:false, reason:'Finishing positions or qualification seeding remain tied under sporting criteria; authorised resolution required' };
+      if (ordered.some((r,i) => i > 0 && Number(r.points) === Number(ordered[i-1].points) && Number(r.goal_difference) === Number(ordered[i-1].goal_difference) && Number(r.goals_for) === Number(ordered[i-1].goals_for))) return { advanced:false, reason:kind==='regional_league'?'Finishing positions remain tied; prepare the next-season regional cycle to apply head-to-head criteria and any required sporting decisions':'Finishing positions or qualification seeding remain tied under sporting criteria; authorised resolution required' };
     }
     const progress = await progressionQueries.run(query,async () => {
       if (kind === 'regional_league') return advanceRegionalLeagueUnlocked(fixture);
@@ -2227,6 +2244,15 @@ async function notifyLegacyPhaseReady({ fixture, sourceType }) {
   });
 }
 
+async function reconcileRegionalPathwayCycle(id) {
+  try {
+    const {cycle}=await require('./regionalCycleService').progress(id);
+    // Result responses are visible to participants; never return the Admin
+    // cycle snapshot, audit actor or server draw seed through this hook.
+    return {reconciled:true,cycle_id:cycle.id,status:cycle.status,pending_fixtures:cycle.plan?.pending?.length || 0};
+  } catch(err) { return {reconciled:false,reason:'regional_cycle_review',error:err.message}; }
+}
+
 async function syncMatchResultToSource(matchOrId) {
   const match = typeof matchOrId === 'string'
     ? (await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [matchOrId]))[0]
@@ -2241,6 +2267,7 @@ async function syncMatchResultToSource(matchOrId) {
       sourceType = mapped.legacy_fixture_type;
       sourceId = mapped.legacy_fixture_id;
     }
+    await require('./regionalCycleService').assertWritableFixture(mapped,EXECUTESQL);
     let legacyResult = { synced: false, reason: 'no_supported_source' };
     if (sourceId && (sourceType === 'competition' || sourceType === 'competition_fixture')) {
       legacyResult = await syncCompetitionFixtureResult(match, sourceId);
@@ -2272,7 +2299,9 @@ async function syncMatchResultToSource(matchOrId) {
         reason: 'advance_error',
         error: err.message,
       }))
-      : { advanced: false, reason: 'unsupported_source' };
+      : engineFixture?.legacy_fixture_type === 'regional_pathway'
+        ? await reconcileRegionalPathwayCycle(engineFixture.competition_instance_id)
+        : { advanced: false, reason: 'unsupported_source' };
   return { synced: Boolean(engineFixture || legacyResult.synced), legacy: legacyResult, ready, advance };
 }
 
@@ -2292,6 +2321,10 @@ async function advanceAfterFinalResult(finalResult, options = {}) {
         error: err.message,
       }))
       : { synced: false, reason: 'non_played_final_result' };
+    if(matchStatus!=='completed' && match.source_fixture_type==='competition_engine') {
+      const [mapped]=await EXECUTESQL('SELECT * FROM competition_fixtures WHERE match_id = ? LIMIT 1',[match.id]);
+      if(mapped?.legacy_fixture_type==='regional_pathway')sync.advance=await reconcileRegionalPathwayCycle(mapped.competition_instance_id);
+    }
     const community = await advanceCommunityTournamentIfReady(match).catch((err) => ({
       advanced: false,
       reason: 'community_advance_error',

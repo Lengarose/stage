@@ -1,4 +1,7 @@
 import { STAGE_QUALIFICATION_RULES } from './qualificationConfig.js';
+import gostAccess from '../../server/src/server/lib/gostAccessPolicy.json' with { type: 'json' };
+
+export { gostAccess };
 
 export function qualificationRange(slug) {
   const positions = STAGE_QUALIFICATION_RULES.find(rule => rule.competitionSlug === slug)?.positions;
@@ -19,6 +22,11 @@ export function clubPathway(club, leagues, standings, entries) {
   const played = Number(row.played) > 0;
   const final = ['completed', 'archived'].includes(league.status);
   const position = final ? Number(row.final_position || row.position) : played ? Number(row.position) : null;
+  if (!gostAccess.qualifications_open) return {
+    club: club.name, league: league.name, division: league.division, position: position || null,
+    final, destination: null, text: gostAccess.closed_message,
+    href: league.slug ? `/leagues/${league.slug}` : '/leagues',
+  };
   const confirmed = entries.filter(e => e.club_id === club.id && e.regional_league_id === league.id && e.status === 'confirmed');
   const destination = Number(league.division) === 1 && position > 0 ? STAGE_QUALIFICATION_RULES.find(rule => rule.positions.includes(position)) : null;
   return { club: club.name, league: league.name, division: league.division, position: position || null, final, destination: destination?.competitionName || null,

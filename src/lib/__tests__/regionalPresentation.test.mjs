@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { regionalSystems, selectRegionalEdition, regionalHref } from '../regionalPresentation.js';
+import { regionalSystems, selectRegionalEdition, regionalHref, orderRegionalStandings } from '../regionalPresentation.js';
 import { stageInitialSelection, buildTournamentStages } from '../tournamentStages.js';
 import { formatProfilePlatform } from '../profilePlatform.js';
 import { isBannerStickyFullBleedRoute } from '../pageBanner.js';
@@ -9,6 +9,26 @@ test('normal-flow competition pages are not trapped inside the fixed banner shel
  for(const path of ['/game-day','/tournaments/game-day','/players/a','/tournaments/profile-player/a']) assert.equal(isBannerStickyFullBleedRoute(path),true);
 });
 const base={id:'a',slug:'north-america-div-1',system_key:'north:cross',division_key:'north:cross:1',region_slug:'north-america',division:1,season_number:1,status:'registration',name:'North America',platform:'Cross-Platform'};
+test('the completed league table follows official sporting decisions without rewriting points',()=>{
+ const rows=[{club_id:'a',points:10},{club_id:'b',points:10}];
+ const edition={status:'completed',regional_final_ranked_club_ids:['b','a']};
+ assert.deepEqual(orderRegionalStandings(edition,rows).map(row=>row.club_id),['b','a']);
+ assert.deepEqual(rows.map(row=>row.club_id),['a','b']);
+ assert.ok(orderRegionalStandings(edition,rows).every(row=>row.points===10));
+ for(const invalid of [['a','a'],['b'],['a','foreign']])assert.equal(orderRegionalStandings({...edition,regional_final_ranked_club_ids:invalid},rows),rows);
+ assert.equal(orderRegionalStandings({...edition,status:'in_progress'},rows),rows);
+});
+test('parallel group routes select their own current edition while the old permanent ID opens A',()=>{
+ const a={...base,id:'a2',permanent_league_id:'root',stable_slug:base.slug,group_code:'A',is_current:true};
+ const b={...a,id:'b2',group_code:'B',group_label:'Group B',slug:base.slug+'-group-b-s2',stable_slug:base.slug+'-group-b'};
+ const rows=[b,a];
+ assert.equal(selectRegionalEdition(rows,'root').id,a.id);
+ assert.equal(selectRegionalEdition(rows,b.stable_slug).id,b.id);
+ assert.equal(selectRegionalEdition(rows,base.slug,b.id).id,b.id);
+ assert.deepEqual(regionalSystems(rows)[0].editions.map(e=>e.group_code),['A','B']);
+ assert.equal(regionalSystems(rows,{search:'D1B'})[0].editions[0].id,b.id);
+ assert.equal(regionalSystems(rows)[0].divisions,1);
+});
 test('systems deduplicate repeated IDs, retain conflicting records and separate valid platforms and archive editions',()=>{
  const conflict={...base,id:'duplicate',identity_conflict:true};
  const seasons=[base,base,conflict,{...base,id:'d2',division:2},{...base,id:'old',status:'archived',season_number:0},{...base,id:'ps4',system_key:'north:ps4',division_key:'north:ps4:1',platform:'PS4'}];

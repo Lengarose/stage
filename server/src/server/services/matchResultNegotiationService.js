@@ -330,6 +330,7 @@ async function submitInitialResult(match, actor, args, proofOcr) {
   const penalty = await validateMatchPenalty(match, scores, args);
   const stats = participatingStats(args.player_stats, args.participating_player_ids);
   assertNoForeignPlayerStats(stats, match, actor.side);
+  await require('./officialMatchEligibilityService').assertParticipants(match, actor.side, args);
   const submission = buildSubmission({
     args: { ...args, player_stats: stats },
     side: actor.side,
@@ -394,6 +395,7 @@ async function amendSubmittedResult(match, actor, args, proofOcr) {
   const penalty = await validateMatchPenalty(match, scores, args);
   const stats = participatingStats(args.player_stats, args.participating_player_ids);
   assertNoForeignPlayerStats(stats, match, actor.side);
+  await require('./officialMatchEligibilityService').assertParticipants(match, actor.side, args);
   const existing = parseSubmission(actor.side === 'home' ? match.home_submission : match.away_submission) || {};
   const submission = buildSubmission({
     args: {
@@ -451,6 +453,7 @@ async function confirmResult(match, actor, args) {
 
   const stats = participatingStats(args.player_stats, args.participating_player_ids);
   assertNoForeignPlayerStats(stats, match, actor.side);
+  await require('./officialMatchEligibilityService').assertParticipants(match, actor.side, args);
   const confirmSheet = {
     ...scoreSource,
     player_stats: stats,
@@ -495,6 +498,7 @@ async function proposeCorrection(match, actor, args) {
   const penalty = await validateMatchPenalty(match, scores, args);
   const stats = participatingStats(args.player_stats, args.participating_player_ids);
   assertNoForeignPlayerStats(stats, match, actor.side);
+  await require('./officialMatchEligibilityService').assertParticipants(match, actor.side, args);
   const submission = buildSubmission({
     args: { ...args, player_stats: stats, proof_url: args.proof_url || null },
     side: actor.side,
@@ -561,6 +565,7 @@ async function counterResult(match, actor, args, proofOcr) {
   const penalty = await validateMatchPenalty(match, scores, args);
   const stats = participatingStats(args.player_stats, args.participating_player_ids);
   assertNoForeignPlayerStats(stats, match, actor.side);
+  await require('./officialMatchEligibilityService').assertParticipants(match, actor.side, args);
   const submission = buildSubmission({
     args: { ...args, player_stats: stats },
     side: actor.side,
@@ -610,6 +615,7 @@ async function disputeResult(match, actor, args) {
     throw httpError('Screenshot proof is required to open a dispute.', 400, 'PROOF_REQUIRED');
   }
   const scores = declaredFromArgs(args, actor.side);
+  await require('./officialMatchEligibilityService').assertParticipants(match, actor.side, args);
   const sheet = disputeSheet(args, actor.side, scores);
   const column = actor.side === 'home' ? 'home_dispute_submission' : 'away_dispute_submission';
   const other = oppositeSide(actor.side);
@@ -650,6 +656,7 @@ async function submitDisputeEvidence(match, actor, args) {
     throw httpError('Screenshot proof is required.', 400, 'PROOF_REQUIRED');
   }
   const scores = declaredFromArgs(args, actor.side);
+  await require('./officialMatchEligibilityService').assertParticipants(match, actor.side, args);
   const sheet = disputeSheet(args, actor.side, scores);
   const column = actor.side === 'home' ? 'home_dispute_submission' : 'away_dispute_submission';
   const other = oppositeSide(actor.side);

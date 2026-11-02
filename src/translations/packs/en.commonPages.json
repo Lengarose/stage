@@ -1002,6 +1002,7 @@
   "coopStaffRemoveFailed": "Could not remove staff role.",
   "coopAvailabilitySet": "Availability set to {status}.",
   "coopAvailabilityFailed": "Could not update availability.",
+  "coopOfficialSelectionRules": "Official editions using the new participation rules require at least three human starting players. Every selected player, including reserves, needs active STAGE Plus and playing registration for this club. Both clubs publish before kickoff; eligibility is rechecked then and the selection is frozen. A goalkeeper is optional and ANY is allowed.",
   "coopLineupPublished": "Lineup published.",
   "coopLineupDraftSaved": "Lineup draft saved.",
   "coopLineupSaveFailed": "Could not save lineup.",

@@ -49,8 +49,10 @@ async function createInside(body, query, actor) {
 }
 async function create(body, actor) {
   const user = await admin(actor);
+  if(identity(body).group_code!=='A')fail('Use the protected regional structure action to create parallel groups',400);
   if (body.next_season_id || body.previous_season_id) fail('Use the protected next-season action for edition links');
   if (body.permanent_league_id || Number(body.season_number) !== 1) fail('Use the protected next-season action for editions',400);
+  if (body.group_current_edition_ids || body.current_edition_id || body.regional_cycle_id || body.pending_regional_cycle_id || body.regional_structure_version || Object.hasOwn(body,'regional_registration_window_id') || Object.hasOwn(body,'regional_participation_policy_version') || Object.hasOwn(body,'regional_final_ranked_club_ids') || Object.hasOwn(body,'regional_final_ranking_cycle_id') || Object.hasOwn(body,'regional_final_results_revision')) fail('Group and cycle pointers are assigned by the protected lifecycle action',400);
   if (!['draft','registration'].includes(body.status || 'draft') || body.winner_club_id || body.fixtures_generated) fail('A new permanent league must start as an unplayed draft or registration edition',400);
   return withTransaction(async query => {
     await model.lock(query);
@@ -87,7 +89,9 @@ async function update(id, patch, actor) {
       if (definition.retired || definition.retired_at || definition.status === 'retired') fail('Retired leagues cannot open or start an edition');
     }
     if (Object.hasOwn(patch, 'status') && ['completed', 'archived', 'reset', 'cancelled', 'canceled', 'superseded', 'abandoned', 'retired'].includes(String(patch.status).trim().toLowerCase())) fail('Use the dedicated league lifecycle action to complete, archive, reset, cancel or retire an edition',409);
-    if (['permanent_league_id','reset_series','current_edition_id','edition_invalidated','retired','retired_at'].some(k=>Object.hasOwn(patch,k)&&patch[k]!==before[k])) fail('Use the reviewed league lifecycle action to change permanent identity or series');
+    if (['permanent_league_id','reset_series','current_edition_id','group_current_edition_ids','group_code','regional_cycle_id','pending_regional_cycle_id','regional_structure_version','regional_registration_window_id','regional_participation_policy_version','regional_final_ranked_club_ids','regional_final_ranking_cycle_id','regional_final_results_revision','edition_invalidated','retired','retired_at'].some(k=>Object.hasOwn(patch,k)&&patch[k]!==before[k])) fail('Use the reviewed league lifecycle action to change permanent identity or series');
+    if(before.pending_regional_cycle_id && ['registered_club_ids','registered_clubs','num_clubs','status'].some(k=>Object.hasOwn(patch,k)))fail('This edition has a captured regional draw; reconcile the cycle before changing participation');
+    if(before.regional_structure_version && ['max_clubs','promoted_slots','relegated_slots','registered_club_ids','registered_clubs','num_clubs'].some(k=>Object.hasOwn(patch,k)&&JSON.stringify(patch[k])!==JSON.stringify(before[k])))fail('Managed group capacity, sporting routes and roster are assigned by the regional cycle');
     if (before.edition_invalidated || ['completed', 'archived','reset','superseded','cancelled','canceled','abandoned','retired'].includes(before.status)) fail('Closed edition history is read-only');
     const record = { ...before, ...patch, id };
     const next = identity(record);
@@ -114,6 +118,7 @@ async function nextSeason(id, actor) {
     const stored = rows.find(row => row.id === id);
     if (!stored) fail('Not found', 404);
     const parent = unpack(stored), current = identity(parent);
+    if(parent.regional_structure_version || parent.pending_regional_cycle_id)fail('Managed groups roll over together through the regional cycle action');
     const definitionRow = rows.find(r=>r.id===permanentId(parent));
     if (!definitionRow) fail('Permanent league is unavailable; review identities');
     const definition = unpack(definitionRow);
@@ -121,7 +126,7 @@ async function nextSeason(id, actor) {
     assertConsistent(rows, parent);
     if (!['completed', 'archived'].includes(parent.status) && !(parent.status === 'cancelled' && parent.abandoned_at)) fail('Complete or archive the previous season, or use the authorised Abandon action first');
     const number = current.season_number + 1;
-    const child = { name: parent.name, region_slug: current.region_slug, region: parent.region, platform: current.platform, division: current.division, season_number: number, slug: `${current.region_slug}-div-${current.division}-s${number}`, previous_season_id: id, linked_league_slug: parent.linked_league_slug || null, country_code: parent.country_code || '', status: 'draft', registered_club_ids: [], num_clubs: 0, max_clubs: Number(parent.max_clubs) || 20, promoted_slots: parent.promoted_slots ?? 2, seeding_mode: false, placement_locked: false };
+    const child = { name: parent.name, region_slug: current.region_slug, region: parent.region, platform: current.platform, division: current.division, group_code:current.group_code, season_number: number, slug: identity({...parent,slug:'',season_number:number}).canonical_slug, previous_season_id: id, linked_league_slug: parent.linked_league_slug || null, country_code: parent.country_code || '', status: 'draft', registered_club_ids: [], num_clubs: 0, max_clubs: Number(parent.max_clubs) || 20, promoted_slots: parent.promoted_slots ?? 2, seeding_mode: false, placement_locked: false };
     Object.assign(child, { permanent_league_id:definition.id, reset_series: Number(parent.reset_series || 0), trophy_item_id:definition.trophy_item_id || null, rules:definition.rules || null, rules_text:definition.rules_text || null, qualification_rules:definition.qualification_rules || null, linked_league_id:definition.linked_league_id || null, promoted_slots:definition.promoted_slots ?? null,relegated_slots:definition.relegated_slots ?? null });
     child.season_label = child.reset_series > 0 ? `Series ${child.reset_series} \u00b7 Season ${number}` : `Season ${number}`;
     const existing = assertConsistent(rows, child);
@@ -131,11 +136,12 @@ async function nextSeason(id, actor) {
     // A retry may refer to a historical predecessor. Return its established link
     // without rewinding the permanent league's current-edition pointer.
     if (existing && parent.next_season_id === existing.id && unpack(existing).previous_season_id === id) return { outcome: 'existing', record: unpack(existing) };
-    const family = rows.map(unpack).filter(record => permanentId(record) === definition.id);
+    const family = rows.map(unpack).filter(record => permanentId(record) === definition.id && (record.group_code || 'A')===current.group_code);
     const series = Number(parent.reset_series || 0);
     const latestSeries = Math.max(Number(definition.reset_series || 0), ...family.map(record => Number(record.reset_series || 0)));
     if (parent.edition_invalidated || series !== latestSeries) fail('This reset series is historical; use the current edition for rollover');
-    if ((definition.current_edition_id && definition.current_edition_id !== id) || family.some(record => record.id !== id && Number(record.reset_series || 0) === series && (Number(record.season_number) > current.season_number || !['completed', 'archived', 'reset', 'superseded', 'cancelled', 'canceled', 'abandoned', 'retired'].includes(record.status)))) fail('This edition is stale; use the current edition for rollover');
+    const pointer=definition.group_current_edition_ids?.[current.group_code] || (current.group_code==='A'?definition.current_edition_id:null);
+    if ((pointer && pointer !== id) || family.some(record => record.id !== id && Number(record.reset_series || 0) === series && (Number(record.season_number) > current.season_number || !['completed', 'archived', 'reset', 'superseded', 'cancelled', 'canceled', 'abandoned', 'retired'].includes(record.status)))) fail('This edition is stale; use the current edition for rollover');
     if ([1,2].includes(child.division)) {
       const policy = require('../lib/rewardPolicy');
       child.prize_pool_stc = policy.validateConfiguration('regional_league', policy.regionalRows(child.max_clubs, child), child.max_clubs).budget;
@@ -149,7 +155,7 @@ async function nextSeason(id, actor) {
       await audit(query, user, 'link_regional_next_season', nextParent, parent, 'Create or reuse next season');
     }
     const refreshedDefinition = parent.id === definition.id ? { ...parent,next_season_id:linked.id } : definition;
-    await model.update({ ...refreshedDefinition,permanent_league_id:definition.id,current_edition_id:linked.id },identity(definition).key,query);
+    await model.update({ ...refreshedDefinition,permanent_league_id:definition.id,...(current.group_code==='A'?{current_edition_id:linked.id}:{}),group_current_edition_ids:{...definition.group_current_edition_ids,[current.group_code]:linked.id} },identity(definition).key,query);
     await query("UPDATE league_entities SET regional_league_key=? WHERE id=? AND entity_type='regional_league'",[leagueKey(definition),definition.id]);
     return { ...result, record: linked };
   });

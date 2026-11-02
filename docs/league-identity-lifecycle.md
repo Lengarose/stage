@@ -1,5 +1,115 @@
 # Permanent League Identity and Edition Lifecycle
 
+## Phase 1 Revalidation — 2 November 2026
+
+The permanent-parent, reviewed consolidation, scoped reset-series and authoritative
+draw/complete/abandon/rollover implementations already existed. This phase reused
+them rather than introducing another lifecycle system. Their isolated local tests
+cover both requested ID mappings, preserved Season 2 fixture references, inherited
+trophy defaults, concurrent seed/rollover, stale previews, financial blockers,
+reset rollback and retry without a duplicate fresh Season 1.
+
+Two current issues were found and addressed:
+
+- Commit `ad2d168` had deleted `server/src/server/functions/legacyFunctions.js`,
+  although `functionsController.js` still requires it. With explicit user approval,
+  the exact last version from `ad2d168^` was restored. Its syntax check and the
+  existing reset RPC HTTP regression now pass. No new legacy handlers were added.
+- Completing Regional D1 still issued eighteen GOST tickets; completing Elite
+  still issued a future Supreme ticket. The new approved policy keeps GOST closed.
+  The regressions first failed with `18 !== 0` and `1 !== 0`; an actual HTTP
+  qualification-create request also returned 201 instead of the required 409.
+  Those regressions now pass. Shared `lib/gostAccessPolicy.json` keeps qualification
+  issuance closed. The engine records final Regional positions and retains existing
+  movement without creating tickets. Generic qualification POST/PATCH return
+  `409 GOST_CLOSED`, including for admin callers; historical GET remains readable.
+  Legacy frontend qualification helpers stop before any API call, so confirming a
+  ticket cannot partially change its target roster through that helper. Existing
+  GOST/Regional pages describe closed access instead of promising new positions.
+
+This is a closed qualification policy, not the future GOST launch implementation.
+Do not flip the JSON boolean alone to open GOST: regional quotas, eligibility,
+international scheduling and opening criteria remain deferred in the masterplan.
+Old completed editions, qualifications and awards were not erased. Existing Admin
+test-seeding/draw tools remain available; they do not open public qualification.
+The later participation phase must replace multi-request enrollment with the
+authoritative transactional participation workflow; this change does not claim
+to make all generic roster editing into a complete eligibility engine.
+
+### Current Verification
+
+- Focused server suite: **95 passed, 0 failed**, including local HTTP reset,
+  lifecycle, management, consolidation and closed-qualification routes. These use
+  injected database and authenticated-identity fixtures, not actual MySQL/JWT.
+- Focused frontend suite: **15 passed, 0 failed**, including an esbuild-bundled
+  execution of the real legacy qualification helpers with an API stub that throws
+  on any access, plus pathway, lifecycle-control and regional-route tests.
+- Lint, typecheck, server bootstrap syntax, restored legacy-module syntax, changed
+  server-module syntax, production build and diff whitespace checks passed.
+- Full frontend: **442 tests, 438 passed, 4 failed**. Previously documented failures:
+  header identity routing, FUT avatar markup, GAMEDAY signed-club loader source
+  assertion, profile-photo preview source assertion.
+- Full backend: **804 tests, 799 passed, 4 failed, 1 skipped**. Previously documented
+  failures: legacy captain edit, league-fixture match snapshot, player tournament
+  proof expectation, startup migration export assertion. Real-MySQL test skipped.
+- Browser QA used only the existing isolated fixture harnesses. Desktop: Admin
+  draw/simulate availability and exact-ID consolidation preview; league closed-GOST
+  message. At a real 390px iframe viewport, Admin form and wrapping league tabs
+  were visually inspected; keyboard Tab moved from Name to Regional system slug.
+  This was not a full authenticated application E2E or a production data preview.
+- Reproducible mobile fixture shell: `scripts/phase1-responsive-qa.html`, with
+  `?view=management` for Admin, default league view, optional `width=1280`.
+- `graphify update .` attempted: CLI unavailable; report/wiki are absent.
+
+Logs: `/tmp/stage-phase1-focused-server.log`, `/tmp/stage-phase1-client-full.log`,
+`/tmp/stage-phase1-server-full.log`, `/tmp/stage-phase1-lint.log`,
+`/tmp/stage-phase1-typecheck.log`, `/tmp/stage-phase1-build.log`.
+
+### Where To Find The Existing Controls
+
+- Admin → Regional Leagues: Permanent league management, the two named
+  consolidation Preview buttons, edition controls and regional reset.
+- Admin → GOST: existing exact-edition draw/simulation/lifecycle controls and
+  catalogue trophy selection. GOST qualification remains closed.
+- Admin → Rewards: permanent source, edition snapshots, financial and identity
+  review. Admin → Trophies remains the artwork catalogue.
+- Users: Regional Leagues and regional league details show the current edition;
+  season selector/History retains past editions. GOST hub/details explain that
+  current Regional results do not reserve a future place.
+
+The current 20-team fixtures and movement rules are retained here. New parallel
+groups, placement and revised promotion/playoffs belong to phase 2 onward.
+
+### Deployment And Operational Handoff For This Phase
+
+No schema or new dependency was added by this phase. Existing parent/edition/
+reset-series migrations remain prerequisites and have not been verified on Gandi.
+
+Upload the changed files under their existing `server/` relative paths:
+
+- `src/server/functions/legacyFunctions.js` — restored, required by existing RPC.
+- `src/server/lib/gostAccessPolicy.json` — new shared qualification policy.
+- `src/server/services/competitionEngineService.js`.
+- `src/server/controllers/leagueEntityController.js`.
+
+Use a compatible full backend release if earlier lifecycle files/migrations are
+missing on the host. Preserve secrets and uploads. Restart Node from the Gandi
+console after FTP/SFTP upload; check startup/migration logs. Upload the complete
+rebuilt frontend `build/`, not JSX files. The policy JSON is bundled into frontend
+assets and must also be present at its server path. No socket-server change.
+
+Then, with separately authorised access, run the two exact-ID read-only previews
+described below. Check IDs, blockers, dependencies, trophy defaults and ledger/
+award discrepancies against the target database. Obtain review of those concrete
+consequences before a production apply. Recheck catalogue, original/detail URLs,
+History and Rewards afterward. No live IDs were queried, consolidated, deleted,
+reset or awarded during this phase; no production draw, simulation, payout or
+deployment was performed. No configured local MySQL or live admin credentials were
+available, so physical SQL locking and deployed route availability remain pending.
+
+The sections below retain the prior implementation details and historical
+verification; use this dated section for the latest local results.
+
 ## Status
 
 Implemented in the local working tree. No deployment, production reset,
