@@ -17,14 +17,14 @@ function resolveAssignment(source, settings, items, sourceType = 'competition') 
   const ids = [...new Set([settings.trophy_item_id, source.trophy_item_id, ...reverse.map(item => item.id)].filter(Boolean))];
   if (ids.length > 1) return { state: 'conflict', trophy: null, ids, guidance: 'Conflicting explicit trophy links. Review Rewards and the Trophies catalogue before assigning a design.' };
   const item = items.find(item => item.id === ids[0]);
-  if (!ids.length) return { state: 'unassigned', trophy: null, ids, guidance: sourceType==='regional_league'?'Assign a league trophy in Admin → Regional Leagues.':'Assign a competition trophy in Admin → GOST.' };
+  if (!ids.length) return { state: 'unassigned', trophy: null, ids, guidance: ['regional_league','regional_cup'].includes(sourceType)?'Assign a trophy in Admin → Regional Leagues.':'Assign a competition trophy in Admin → GOST.' };
   if (!item || item.tournament_id || item.linked_source_id && (item.linked_source_type !== sourceType || item.linked_source_id !== source.id)) {
-    return { state: 'invalid', trophy: null, ids, guidance: sourceType==='regional_league'?'The assigned trophy is missing or belongs to another event. Review Admin → Regional Leagues.':'The assigned trophy is missing or belongs to another event. Review Admin → GOST.' };
+    return { state: 'invalid', trophy: null, ids, guidance: ['regional_league','regional_cup'].includes(sourceType)?'The assigned trophy is missing or belongs to another event. Review Admin → Regional Leagues.':'The assigned trophy is missing or belongs to another event. Review Admin → GOST.' };
   }
   return { state: 'assigned', trophy: publicTrophy(item), ids, guidance: null };
 }
 async function assignment(id, query = EXECUTESQL, lock = false, sourceType = 'competition') {
-  if (!['competition', 'regional_league'].includes(sourceType)) throw fail('Unsupported trophy source');
+  if (!['competition', 'regional_league', 'regional_cup'].includes(sourceType)) throw fail('Unsupported trophy source');
   const [record] = await query(`SELECT * FROM league_entities WHERE entity_type='${sourceType}' AND id=?${lock ? ' FOR UPDATE' : ''}`, [id]);
   if (!record) throw fail('Competition not found', 404);
   const source = rowData(record);

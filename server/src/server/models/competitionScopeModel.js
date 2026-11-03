@@ -6,6 +6,13 @@ const kinds = { tournament: null, regional_league: ['regional_league','regional_
 const unpack = r => ({ ...parse(r.data_json, {}), ...Object.fromEntries(Object.entries(r).filter(([k,v]) => k !== 'data_json' && v != null)) });
 class CompetitionScopeModel {
   async selectOne(kind, id, query = EXECUTESQL, lock = false) {
+    if(kind==='regional_cup_edition') {
+      const [stored]=await query(`SELECT * FROM league_entities WHERE id=? AND entity_type=?${lock?' FOR UPDATE':''}`,[id,kind]);
+      if(!stored)throw Object.assign(Error('Cup edition not found'),{status:404});
+      const root={...unpack(stored),participant_type:'club',type:'knockout'};
+      const evidence=await require('../services/regionalCupLifecycleService').evaluate(root,query);
+      return {source_type:kind,root,edition_id:id,fixtures:evidence.fixtures,matches:evidence.matches,participants:evidence.clubs,standings:[],legacy_references:[id],config_source_id:root.permanent_cup_id};
+    }
     if (!Object.hasOwn(kinds, kind)) { const e = new Error('Unsupported competition type'); e.status = 400; throw e; }
     const spec = kinds[kind];
     const [stored] = await query(spec ? `SELECT * FROM league_entities WHERE id=? AND entity_type=?${lock ? ' FOR UPDATE' : ''}` : `SELECT * FROM tournaments WHERE id=?${lock ? ' FOR UPDATE' : ''}`, spec ? [id, spec[0]] : [id]);

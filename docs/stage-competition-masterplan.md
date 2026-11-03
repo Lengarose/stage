@@ -356,7 +356,7 @@ Regional Cups moeten worden gebouwd. Namen per regio vastleggen. Trofeeën koppe
 via dezelfde bestaande Trophies-catalogus en toewijzingsflow als leagues en GOST.
 Geen nieuw uploadmechanisme voor dezelfde trofeeën.
 
-### Bewaarde namen en format [N]
+### Namen en format [B — bevestigd 3 november 2026]
 
 | Regio | Bekernaam |
 | --- | --- |
@@ -368,20 +368,21 @@ Geen nieuw uploadmechanisme voor dezelfde trofeeën.
 | North America | STAGE North American Cup |
 
 De huidige zes regio-slugs zijn zichtbaar in `src/lib/qualificationConfig.js`;
-die bron is geen goedkeuring van deze bekernamen.
+De gebruiker bevestigde bovenstaande zes bekernamen expliciet op 3 november 2026.
 
 - Eén beker per regionaal competitiesysteem, over alle actieve divisies/groepen.
 - Alle bevestigde clubs automatisch opnemen; deelname vooraf bij inschrijving
   bekendmaken. Afzonderlijke bekereditie per cyclus en koppeling aan broneditie.
 - Enkelvoudige knock-out; open loting per ronde pas nadat de hele vorige ronde
   definitief is. Transparante byes bij niet-machten van twee.
-- Zondag 20.00 als bewaard Europees uitgangspunt. Geen automatische GOST-plaats.
+- Europees: zondag 20.00 in Europe/Brussels, blokken van zestig minuten.
+  Geen automatische GOST-plaats.
 - 20 clubs: speelweken 4, 6, 8, 10, 12.
 - 40–60 clubs: 2, 4, 6, 8, 10, 12.
 - 80–120 clubs: 1, 2, 4, 6, 8, 10, 12.
 - 180–240 clubs: week 3 toevoegen voor acht rondes.
 
-**O:** Namen bevestigen uit bron; regio-eigen bekeruren, byeverdeling, afmeldingen,
+**O:** Noord-Amerikaanse bekeruren, afmeldingen,
 vervangers, bekerrechten bij regio-overstap en conflict met andere beslissingsduels.
 
 ## 12. GOST en internationale planning — punten 15–16
@@ -425,6 +426,10 @@ zijn geen onderdeel van de huidige goedgekeurde bouwscope.
 | D1 per groep van 20 | Eerste 54.000.000 STC; elke volgende plaats 1.700.000 minder; twintigste 21.700.000 | 757.000.000 STC |
 | D2 per groep van 20 | Eerste 33.000.000 STC; elke volgende plaats 1.700.000 minder; twintigste 700.000 | 337.000.000 STC |
 | Regional Cup | Winnaar 7.000.000; finalist 3.000.000; geen derdeplaatsprijs | 10.000.000 STC |
+
+**B — Regional Cup, expliciet bevestigd 3 november 2026:** bovenstaande Cup-prijzen,
+financiering door STAGE en geen extra bekerinschrijfgeld zijn definitief bevestigd
+voor nieuwe edities. Dit bevestigt niet automatisch de overige financiële open punten.
 
 Deze leaguebedragen staan ook beschreven in bestaande lokale documentatie;
 financiering en toepasbaarheid op het uitgebreide systeem moeten alsnog kloppen.
@@ -973,3 +978,48 @@ de sportieve cyclus. Finals worden pas gepland met echte deelnemers na verwerkin
 van de halvefinaleresultaten. Zie [promotiekalenderoverdracht](regional-promotion-calendar-phase3.md).
 Dit is geen onbemande publicatieplanner en kiest nog geen tijden voor beker-,
 plaatsings-, uitbreidings- of aanvullende beslissingsduels. Geen productieactivatie.
+
+### Fase 3 — beslissingskalender en Regional Cup-voorbereiding, 3 november 2026
+
+De gebruiker bevestigde het Regional Cup-pakket en de zes bekernamen. Nieuwe
+inschrijfvoorwaarden kunnen bekerdeelname vooraf opnemen; oude bevestigingen
+worden niet achteraf gewijzigd. Admin kan een vaste beker, catalogustrofee en
+een ontwerpeditie met bevestigd veld, eerste opgeslagen loting/byes en alle
+rondevensters voorbereiden. Dit maakt nog geen speelbare Cup-wedstrijden,
+resultaten, uitbetalingen of GOST-rechten. De Cup-wedstrijdlifecycle volgt apart.
+
+Voor al getekende aanvullende beslissingsduels is een gecontroleerde kalenderactie
+aangesloten, met expliciete Admin-aftrappen per ronde, clubbelasting, bronrevisie,
+Match-/enginekoppeling en transactionele audits/meldingen. Bronbeslissingen die
+promotie beïnvloeden mogen niet na de gereserveerde halve finales worden gepland.
+[Overdracht en bediening](regional-cup-decision-calendar-phase3.md). Geen productieactivatie.
+
+### Fase 3 — speelbare Regional Cups, 3 november 2026
+
+De lokale bekerlifecycle koppelt geactiveerde edities aan GameDay, de regionale
+kalender en bestaande Plus-/selectiecontroles. Iedere volledig bevestigde ronde
+opent automatisch een nieuwe opgeslagen loting; byes maken geen wedstrijden.
+Gewijzigde verwerkte resultaten en kalenderproblemen blokkeren de voortgang.
+De finale legt de kampioen vast. Deelnemers vinden edities via Regional Leagues
+→ Regional Cups. STC-uitbetaling en daadwerkelijke trofee-uitreiking volgen apart.
+[Bediening, verificatie en beperkingen](regional-cup-lifecycle-phase3.md).
+270 geselecteerde tests slagen; productie is niet geactiveerd.
+
+### Fase 3 — Regional Cup-prijzen en awards, 3 november 2026
+
+Nieuwe edities bewaren de bevestigde 7/3 miljoen STC-prijzen en catalogustrofee
+vooraf. Bestaande edities zonder afspraken vereisen expliciete adoptie. De bestaande
+settlement- en kastflow verwerkt na een definitieve finale bewezen ontbrekende
+betalingen en trofeeën; retries en crashherstel behouden eenmalige uitreiking.
+Admin vindt de controles zowel in Regional Leagues als Rewards; de bekerpagina
+toont bedragen en werkelijke status. [Bediening en beperkingen](regional-cup-rewards-phase3.md).
+277 geselecteerde regressietests slagen. Geen productieactivatie.
+
+### Fase 6 — eerste operationele Admin-overzicht, 3 november 2026
+
+Regionale actiepunten bundelt opgeslagen signalen uit inschrijving, cycli,
+kalenders, bekers en beloningen. Het overzicht toont een controletijd en verwijst
+naar de bestaande geautoriseerde acties. Het schrijft zelf geen competitiegegevens
+en behandelt fouten niet als lege succeslijsten. Dit is nog geen duurzame
+automatiseringsregisseur en beslist geen open beleidsvragen.
+[Bediening, scope en verificatie](regional-operations-phase6.md).

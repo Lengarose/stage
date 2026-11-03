@@ -198,6 +198,16 @@ function makeRouter(entityType) {
     router.post('/registration-windows/:windowId/apply',action(req => registration.apply(req.params.windowId,req.body || {},req.user)));
     router.post('/registrations/:registrationId/confirm',action(req => registration.confirm(req.params.registrationId,req.body || {},req.user)));
     router.post('/calendar',action(req => require('../services/regionalCalendarService').action(req.body || {},req.user)));
+    const cups=require('../services/regionalCupService');
+    router.get('/operations',action(req => require('../services/regionalOperationsService').overview(req.user)));
+    router.get('/cups/public',action(() => require('../services/regionalCupPublicService').catalogue()));
+    router.get('/cups',action(req => cups.catalogue(req.user)));
+    router.post('/cups',action(req => cups.action(req.body || {},req.user)));
+    router.post('/cups/:editionId/lifecycle',action(req => require('../services/regionalCupLifecycleService').action(req.params.editionId,req.body || {},req.user)));
+    router.post('/cups/:editionId/rewards',action(req => require('../services/regionalCupRewardService').action(req.params.editionId,req.body || {},req.user)));
+    router.get('/cups/:cupId/trophy',action(req => cups.trophy(req.params.cupId,null,req.user)));
+    router.post('/cups/:cupId/trophy',action(req => cups.trophy(req.params.cupId,req.body || {},req.user)));
+    router.post('/cycles/:cycleId/decision-calendar',action(req => require('../services/regionalDecisionCalendarService').action(req.params.cycleId,req.body || {},req.user)));
     router.get('/cycles', action(req => cycles.catalogue(req.user)));
     router.post('/cycles', action(req => cycles.prepare(req.body || {},req.user)));
     router.post('/cycles/:cycleId/calendar',action(req => require('../services/regionalPromotionCalendarService').action(req.params.cycleId,req.body || {},req.user)));

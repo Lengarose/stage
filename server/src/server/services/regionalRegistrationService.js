@@ -9,7 +9,7 @@ const editions=require('./regionalEditionService');
 const policy=require('../lib/regionalRegistrationPolicy');
 const hash=value=>crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const stableId=value=>{const h=hash(value).slice(0,32);return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20)}`;};
-const publicWindow=window=>Object.fromEntries(['id','region_slug','platform','season_number','reset_series','opens_at','registration_closes_at','confirmation_closes_at','policy_version','rules_text'].map(key=>[key,window[key]]));
+const publicWindow=window=>Object.fromEntries(['id','region_slug','platform','season_number','reset_series','opens_at','registration_closes_at','confirmation_closes_at','policy_version','cup_policy_version','rules_text'].map(key=>[key,window[key]]));
 const isAdmin=user=>user?.role_id!=null && [0,2].includes(Number(user.role_id));
 function belongs(row,scope) {
   try {const i=identity(row);return i.region_slug===scope.region_slug && i.platform===scope.platform && Number(i.reset_series || 0)===Number(scope.reset_series || 0);}
@@ -52,11 +52,15 @@ function createService({model=new RegionalRegistrationModel(),transaction=withTr
       if(Number(i.reset_series || 0)!==Number(current.reset_series || 0))fail('Use the current reset series of this regional system');
       const rows=all.filter(r=>belongs(r,i));
       const timing=policy.schedule(body.opens_at);
-      const rules_text=String(body.rules_text || '').trim();
+      const cup=require('../lib/regionalCupPlan');
+      if(body.include_cup===true && (!cup.policy.names[i.region_slug] || i.region_slug==='north-america'))fail('Confirm this region’s Cup time profile before including mandatory Cup entry');
+      let rules_text=String(body.rules_text || '').trim();
       if(!rules_text || rules_text.length>12000)fail('Provide the published edition rules before opening registration',400);
+      if(body.include_cup===true)rules_text+=`\n\n${cup.rules}`;
+      if(rules_text.length>12000)fail('Published rules including Cup terms exceed the supported length',400);
       const id=stableId(['regional_registration_window',i.region_slug,i.platform,i.reset_series || 0,i.season_number]);
       const existing=await model.selectOne(id,q,true);
-      const window={id,region_slug:i.region_slug,platform:i.platform,season_number:i.season_number,reset_series:i.reset_series || 0,permanent_league_id:definition.id,...timing,policy_version:policy.VERSION,rules_text,status:'published'};
+      const window={id,region_slug:i.region_slug,platform:i.platform,season_number:i.season_number,reset_series:i.reset_series || 0,permanent_league_id:definition.id,...timing,policy_version:policy.VERSION,...(body.include_cup===true?{cup_policy_version:cup.policy.version}:{}),rules_text,status:'published'};
       if(!existing) {
         if(rows.some(r=>r.pending_regional_cycle_id && [Number(r.season_number),Number(r.season_number)+1].includes(i.season_number)))fail('An existing captured regional cycle keeps its participation conditions');
         if(rows.some(r=>Number(r.season_number)===i.season_number && r.regional_cycle_id))fail('An already allocated edition keeps its original participation conditions; publish for a future new edition');
@@ -88,12 +92,15 @@ function createService({model=new RegionalRegistrationModel(),transaction=withTr
           assigned_league_id:r.assigned_league_id || null,assigned_division:r.assigned_division || null,assigned_group_code:r.assigned_group_code || null}))};
     });
   }
-  async function getWindow(id,q) {
+  async function getWindow(id,q,{captured=false}={}) {
     const window=await model.selectOne(id,q,true);
     if(!window || window.status!=='published')fail('Published registration period not found',404);
     if(window.policy_version!==policy.VERSION)fail('Unknown participation policy; Admin review required');
     const all=(await editions.model.selectAll(q,true)).map(unpack);
-    if(unavailable(all,window))fail('This registration period is no longer current or its target edition has started');
+    if(captured) {
+      const root=all.find(r=>r.id===window.permanent_league_id),current=all.find(r=>r.id===root?.current_edition_id) || root;
+      if(!root || root.retired || root.retired_at || current.edition_invalidated || Number(current.reset_series || 0)!==Number(window.reset_series || 0))fail('The captured registration period belongs to an invalidated regional series');
+    } else if(unavailable(all,window))fail('This registration period is no longer current or its target edition has started');
     return window;
   }
   async function apply(windowId,body,actor) {
@@ -142,11 +149,11 @@ function createService({model=new RegionalRegistrationModel(),transaction=withTr
       return {applied:true,registration:next};
     });
   }
-  async function confirmedField(region,platform,season,series,clubIds,q=query) {
+  async function confirmedField(region,platform,season,series,clubIds,q=query,{captured=false}={}) {
     const matches=(await model.selectAll(q)).filter(w=>w.status==='published' && w.region_slug===region && w.platform===platform && w.season_number===season && w.reset_series===series);
     if(!matches.length)return null; // Existing editions keep their old conditions.
     if(matches.length!==1)fail('Ambiguous published participation conditions require review');
-    const window=await getWindow(matches[0].id,q);
+    const window=await getWindow(matches[0].id,q,{captured});
     if(policy.phase(window,clock())!=='closed')fail('Wait until the common participation confirmation deadline before drawing the regional field');
     const records=await model.confirmedField(window.id,q);
     const confirmed=records.filter(r=>r.status==='approved'&&r.participation_status==='confirmed');
@@ -158,6 +165,7 @@ function createService({model=new RegionalRegistrationModel(),transaction=withTr
     }
     return {window:publicWindow(window),registrations:records.filter(r=>clubIds.includes(r.club_id))};
   }
-  return {windows,publish,readiness,apply,confirm,confirmedField};
+  const capturedField=(region,platform,season,series,clubIds,q=query)=>confirmedField(region,platform,season,series,clubIds,q,{captured:true});
+  return {windows,publish,readiness,apply,confirm,confirmedField,capturedField};
 }
 module.exports={createService,...createService()};

@@ -301,3 +301,17 @@ test('verified legacy honours without stored awards cannot reappear from the pre
   assert.equal(report.titles.all_time, 0);
   assert.equal((await reset.revoke('regional', env.query, { id: 'admin' }, 'Retry legacy reset', selection)).revoked_awards, 0);
 });
+
+test('regional reset invalidates Cup draft editions while preserving the permanent Cup and trophy assignment',async()=>{
+ const env=fixture();env.state.league_entities.push(env.entity('cup','regional_cup',{name:'STAGE Cup',status:'draft',trophy_item_id:'trophy'}),env.entity('cup-edition','regional_cup_edition',{status:'draft',source_edition_ids:['original','season-two'],permanent_cup_id:'cup',participant_ids:['club-1'],play_enabled:false}));
+ const preview=await env.preview();assert.deepEqual(preview.blockers,[]);await env.apply(preview);
+ assert.equal(JSON.parse(env.state.league_entities.find(r=>r.id==='cup-edition').data_json).status,'reset');assert.equal(JSON.parse(env.state.league_entities.find(r=>r.id==='cup').data_json).trophy_item_id,'trophy');
+});
+
+test('regional reset includes activated Cup instances, their engine fixtures and GameDay Matches',async()=>{
+ const env=fixture();env.state.league_entities.push(env.entity('cup-live','regional_cup_edition',{status:'running',play_enabled:true,source_edition_ids:['original','season-two']}));
+ env.state.competition_instances.push({id:'cup-live',product_type:'regional_cup',legacy_source_type:'regional_cup_edition',legacy_source_id:'cup-live',status:'in_progress'});
+ env.state.competition_fixtures.push({id:'cup-fixture',competition_instance_id:'cup-live',legacy_fixture_type:'regional_cup',legacy_fixture_id:'cup-fixture',match_id:'cup-match',status:'scheduled'});
+ env.state.matches.push({id:'cup-match',source_fixture_type:'competition_engine',source_fixture_id:'cup-fixture',competition_context:'cup-live',status:'scheduled'});
+ const p=await env.preview();assert.deepEqual(p.blockers,[]);await env.apply(p);assert.equal(env.state.matches.find(m=>m.id==='cup-match').status,'cancelled');assert.equal(env.state.competition_instances.find(m=>m.id==='cup-live').status,'cancelled');assert.equal(env.state.competition_fixtures.find(m=>m.id==='cup-fixture').status,'cancelled');
+});

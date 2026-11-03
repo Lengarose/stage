@@ -7,6 +7,7 @@ import { getRegionalLeagueMaxClubs } from "@/lib/regionalLeagueRules";
 import { useTranslation } from "@/hooks/useTranslation";
 import { Coins } from "lucide-react";
 import RegionalEditionReview from '@/components/rewards/RegionalEditionReview';
+import RegionalCupRewardPanel from '@/components/admin/RegionalCupRewardPanel';
 
 export default function RewardsTab({
   competitions,
@@ -29,6 +30,7 @@ export default function RewardsTab({
       </p>
       <p className="border-l-2 border-primary pl-3 text-sm">Shared regional schedules: Division 1 starts at 54,000,000 STC (757,000,000 total); Division 2 starts at 33,000,000 STC (337,000,000 total). Both decrease by 1,700,000 per position, for up to 20 clubs. GOST is configured separately.</p>
       <DivisionTwoRewardReview onApplied={()=>setConfigurationRefresh(v=>v+1)}/>
+      <RegionalCupRewardPanel />
       {sourceError && <p role="alert" className="text-destructive">{sourceError}</p>}
       <RegionalEditionReview onApplied={async result => { if (rewardSource?.id === result.source_id) setRewardSource(null); await onReload?.(); }} />
 

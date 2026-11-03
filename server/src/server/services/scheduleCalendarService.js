@@ -24,7 +24,7 @@ function validateCalendarQuery(query) {
 function categoryFor(row, source, engine = {}, parent = {}) {
   const slug = String(row.competition_slug || engine.competition_slug || parent.competition_slug || parent.slug || '').toLowerCase();
   if (source === 'competition_fixture' || engine.product_type === 'official_competition') return ['supreme','elite','challenger'].includes(slug) ? slug : 'gost';
-  if (source === 'regional_league_fixture' || engine.product_type === 'regional_league') return 'regional';
+  if (source === 'regional_league_fixture' || ['regional_league','regional_cup'].includes(engine.product_type)) return 'regional';
   if ((row.tournament_id && row.tournament_id !== 'ranked') || engine.product_type === 'community_tournament') return 'tournament';
   if (row.type === 'friendly' || row.type === 'friendly_match') return 'friendly';
   return 'match'; // Ranked invitations are not silently relabelled as friendlies.

@@ -9,7 +9,7 @@ const { audit } = require('./rewardConfigurationService');
 const CONFIRMATION = 'RESET LEAGUES';
 const digest = value => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const operationId = revision => `league-reset-${revision.slice(0, 23)}`;
-const generated = new Set(['regional_league_fixture', 'regional_league_standing', 'competition_fixture', 'competition_standing', 'qualification_entry', 'season_registration','regional_cycle']);
+const generated = new Set(['regional_league_fixture', 'regional_league_standing', 'competition_fixture', 'competition_standing', 'qualification_entry', 'season_registration','regional_cycle','regional_cup_edition']);
 const financial = new Set(['competition_payouts', 'stc_transactions', 'player_stc_transactions', 'user_purchases']);
 const data = row => unpack(row);
 function normalize(input) {
@@ -67,10 +67,11 @@ async function plan(input, query = EXECUTESQL) {
   }
   const editionIds = new Set(editions.map(r => r.id));
   const dependencies = entities.filter(r => generated.has(r.entity_type) && linked(r, editionIds));
+  for(const cup of dependencies.filter(r=>r.entity_type==='regional_cup_edition'))if((data(cup).source_edition_ids || []).some(id=>!editionIds.has(id)))blockers.push(`Regional Cup ${cup.id} spans several divisions; select all source divisions for reset.`);
   const cycles=dependencies.filter(r=>r.entity_type==='regional_cycle');
   for(const cycle of cycles)if((data(cycle).permanent_league_ids || []).some(id=>!rootIds.has(id)))blockers.push(`Regional cycle ${cycle.id} spans several divisions; select all of its permanent divisions for reset.`);
   const fixtureIds = new Set(dependencies.filter(r => /_fixture$/.test(r.entity_type)).map(r => r.id));
-  const instances = evidence.rows.filter(e => e.table === 'competition_instances' && ['regional_league', 'official_competition'].includes(e.row.product_type) && (editionIds.has(e.row.legacy_source_id) || cycles.some(c=>c.id===e.row.legacy_source_id) || roots.some(r => r.entity_type === 'competition' && r.id === e.row.legacy_source_id))).map(e => e.row);
+  const instances = evidence.rows.filter(e => e.table === 'competition_instances' && ['regional_league', 'official_competition','regional_cup'].includes(e.row.product_type) && (editionIds.has(e.row.legacy_source_id) || cycles.some(c=>c.id===e.row.legacy_source_id) || dependencies.some(c=>c.entity_type==='regional_cup_edition' && c.id===e.row.legacy_source_id) || roots.some(r => r.entity_type === 'competition' && r.id === e.row.legacy_source_id))).map(e => e.row);
   const instanceIds = new Set(instances.map(r => r.id));
   const engineFixtures = evidence.rows.filter(e => e.table === 'competition_fixtures' && (instanceIds.has(e.row.competition_instance_id) || fixtureIds.has(e.row.legacy_fixture_id))).map(e => e.row);
   const phaseStates = evidence.rows.filter(e => e.table === 'competition_phase_states' && instanceIds.has(e.row.competition_instance_id)).map(e => e.row);
@@ -80,7 +81,7 @@ async function plan(input, query = EXECUTESQL) {
   for (const [table, rows] of [['competition_instances', instances], ['competition_fixtures', engineFixtures], ['competition_phase_states', phaseStates], ['matches', matches]]) if (rows.length) {
     try { sqlStatuses[table] = await invalidationStatus(table, query); } catch (error) { blockers.push(error.message); }
   }
-  const selection = { edition_ids: [...editionIds].sort(), edition_aliases: editions.map(e => data(e).edition_id).filter(Boolean).sort(), competition_ids: roots.filter(r => r.entity_type === 'competition').map(r => r.id).sort(), fixture_ids: [...fixtureIds].sort(), instance_ids: [...instanceIds].sort() };
+  const selection = { edition_ids: [...editionIds,...dependencies.filter(d=>d.entity_type==='regional_cup_edition').map(d=>d.id)].sort(), edition_aliases: editions.map(e => data(e).edition_id).filter(Boolean).sort(), competition_ids: roots.filter(r => r.entity_type === 'competition').map(r => r.id).sort(), fixture_ids: [...fixtureIds].sort(), instance_ids: [...instanceIds].sort() };
   const honours = await history.preview(options.scope, query, false, selection);
   const changes = roots.map(row => {
     const own = editions.filter(e => row.entity_type === 'regional_league' ? e.id === row.id || data(e).permanent_league_id === row.id : data(e).competition_id === row.id);

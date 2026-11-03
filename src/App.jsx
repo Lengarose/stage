@@ -69,6 +69,7 @@ const Lifestyle = React.lazy(() => import('./pages/Lifestyle'));
 const Wallet = React.lazy(() => import('./pages/Wallet'));
 const Competitions = React.lazy(() => import('./pages/Competitions'));
 const CompetitionDetail = React.lazy(() => import('./pages/CompetitionDetail'));
+const RegionalCups = React.lazy(() => import('./pages/RegionalCups'));
 const RegionalLeagues = React.lazy(() => import('./pages/RegionalLeagues'));
 const LeagueDetail = React.lazy(() => import('./pages/LeagueDetail'));
 const SeasonRegistrations = React.lazy(() => import('./pages/SeasonRegistrations'));
@@ -501,6 +502,7 @@ const AuthenticatedApp = () => {
             <Route path="/wallet" element={<Wallet />} />
             <Route path="/competitions" element={<Competitions />} />
             <Route path="/competitions/:slug" element={<CompetitionDetail />} />
+            <Route path="/regional-cups" element={<RegionalCups />} />
             <Route path="/leagues" element={<RegionalLeagues />} />
             <Route path="/leagues/:slug" element={<LeagueDetail />} />
             <Route path="/register-league" element={<SeasonRegistrations />} />

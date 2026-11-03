@@ -147,3 +147,18 @@ test('published registration, readiness, application and confirmation actions ar
   } finally {await new Promise(resolve=>server.close(resolve));require.cache[modulePath].exports=saved;}
 });
 module.exports={fixture};
+
+test('new Cup entry conditions are published before confirmation and cannot be retrofitted to old periods',async()=>{
+ const env=fixture();env.input.include_cup=true;const {window}=await env.publish();assert.equal(window.cup_policy_version,'regional_cup_v1');assert.match(window.rules_text,/enter automatically/);
+ env.at(window.opens_at);const {registration}=await env.apply(window);env.at(window.registration_closes_at);await env.service.confirm(registration.id,{policy_version:policy.VERSION,player_ids:['p1','p2','p3']},{id:'owner'});env.at(window.confirmation_closes_at);
+ const field=await env.service.confirmedField('uk-ireland','cross-platform',1,0,['club'],env.query);assert.equal(field.window.cup_policy_version,'regional_cup_v1');
+ const old=fixture();await old.publish();old.input.include_cup=true;await assert.rejects(old.publish(),/immutable/);assert.equal(old.state.windows[0].cup_policy_version,undefined);
+ const na=fixture();na.state.definitions[0].region_slug='north-america';na.state.definitions[0].slug='north-america-div-1';na.input.include_cup=true;await assert.rejects(na.publish(),/time profile/);
+});
+
+test('Cup capture can read accepted confirmation evidence after league start without reopening registration',async()=>{
+ const env=fixture();env.input.include_cup=true;const {window}=await env.publish();env.at(window.opens_at);const {registration}=await env.apply(window);env.at(window.registration_closes_at);await env.service.confirm(registration.id,{policy_version:policy.VERSION,player_ids:['p1','p2','p3']},{id:'owner'});env.at(window.confirmation_closes_at);env.state.definitions[0].status='in_progress';
+ await assert.rejects(env.service.confirmedField('uk-ireland','cross-platform',1,0,['club'],env.query),/started/);
+ const before=structuredClone(env.state),field=await env.service.capturedField('uk-ireland','cross-platform',1,0,['club'],env.query);assert.equal(field.registrations[0].club_id,'club');assert.equal(field.window.cup_policy_version,'regional_cup_v1');assert.deepEqual(env.state,before);
+ env.state.registrations=[];await assert.rejects(env.apply(window),/started/);env.state.definitions[0].edition_invalidated=true;await assert.rejects(env.service.capturedField('uk-ireland','cross-platform',1,0,['club'],env.query),/invalidated/);
+});

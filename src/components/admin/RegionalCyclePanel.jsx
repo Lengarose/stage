@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { stageClient } from '@/api/stageClient';
+import RegionalDecisionCalendarPanel from './RegionalDecisionCalendarPanel';
 import RegionalPromotionCalendarPanel from './RegionalPromotionCalendarPanel';
 import { adminEndpointError } from '@/lib/adminLeagueLifecycle';
 
@@ -86,6 +87,7 @@ export default function RegionalCyclePanel({ leagues = [], registrations = [], o
           <button type="button" className={button} onClick={() => run(async () => { setAllocation(await stageClient.http.post(`/regional-leagues/cycles/${cycle.id}/allocate`, {})); setConfirmed(false); })}>Preview final group allocation →</button>
         </div>}
         {allocation && <div className="space-y-3 border-l border-border pl-4">{allocation.blockers.map(message => <p key={message} role="status">{message}</p>)}{allocation.groups.map(g => <p key={g.ref}>{g.ref}: {g.club_ids.length} clubs</p>)}{allocation.ready && <><label className="flex gap-2"><input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} />I confirm the final sporting rights and draft groups.</label><button type="button" className={button} disabled={!confirmed || !reason.trim()} onClick={() => run(async () => { const result = await stageClient.http.post(`/regional-leagues/cycles/${cycle.id}/allocate`, { apply: true, expected_revision: allocation.revision, reason }); await showCycle(result.cycle); await onRefresh?.(); })}>Apply final draft groups →</button></>}</div>}
+        {cycle.status !== 'allocated' && <RegionalDecisionCalendarPanel key={`decisions-${cycle.id}`} cycleId={cycle.id} />}
         {cycle.input?.mode === 'transition' && <RegionalPromotionCalendarPanel key={cycle.id} cycleId={cycle.id} />}
         {draw && <details><summary className="min-h-11 cursor-pointer py-3">Published draw · {draw.fixtures.length} fixtures</summary><div className="max-h-80 overflow-y-auto">{draw.fixtures.map(f => <div key={f.id} className="flex min-h-16 flex-wrap items-center justify-between gap-3 border-b border-border py-3"><span>{f.home_club_name} – {f.away_club_name}<span className="block text-xs text-muted-foreground">{f.ref} · {f.status}</span></span><Link className="min-h-11 py-3 font-semibold" to={`/game-day?match=${encodeURIComponent(f.match_id)}`}>Open GAMEDAY →</Link></div>)}</div></details>}
       </div>}

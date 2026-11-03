@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
 import RegionalLeagueManagementPanel from '@/components/admin/RegionalLeagueManagementPanel';
+import RegionalCupPanel from '@/components/admin/RegionalCupPanel';
+import RegionalOperationsPanel from '@/components/admin/RegionalOperationsPanel';
 import RegionalCalendarPanel from '@/components/admin/RegionalCalendarPanel';
 import OfficialSchedulePanel from '@/components/admin/OfficialSchedulePanel';
 import RegionalCyclePanel from '@/components/admin/RegionalCyclePanel';
@@ -1407,11 +1409,13 @@ export default function LeaguesTab({
       </Button>
     </div>
 
-    {showRegional && <RegionalLeagueManagementPanel definitions={regionalDefinitions} trophyItems={trophyItems} onRefresh={loadAll} />}
-    {showRegional && <RegionalRegistrationPanel definitions={regionalDefinitions} leagues={regionalLeagues} />}
-    {showRegional && <RegionalCalendarPanel leagues={regionalLeagues} />}
+    {showRegional && <RegionalOperationsPanel />}
+    {showRegional && <div id="regional-management" className="scroll-mt-24"><RegionalLeagueManagementPanel definitions={regionalDefinitions} trophyItems={trophyItems} onRefresh={loadAll} /></div>}
+    {showRegional && <div id="regional-registration" className="scroll-mt-24"><RegionalRegistrationPanel definitions={regionalDefinitions} leagues={regionalLeagues} /></div>}
+    {showRegional && <div id="regional-cups" className="scroll-mt-24"><RegionalCupPanel definitions={regionalDefinitions} /></div>}
+    {showRegional && <div id="regional-calendar" className="scroll-mt-24"><RegionalCalendarPanel leagues={regionalLeagues} /></div>}
     {showRegional && <OfficialSchedulePanel />}
-    {showRegional && <RegionalCyclePanel leagues={regionalLeagues} registrations={regApplications || []} onRefresh={loadAll} />}
+    {showRegional && <div id="regional-cycles" className="scroll-mt-24"><RegionalCyclePanel leagues={regionalLeagues} registrations={regApplications || []} onRefresh={loadAll} /></div>}
 
     {regionalLeagues.length > 0 && (
       <div className="space-y-4">

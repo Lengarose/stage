@@ -23,8 +23,12 @@ async function verifiedDesign(kind,id,trophyId,query=EXECUTESQL) {
     configured=config?.trophy_item_id||configured;
     capturedDesign=config?.trophy_snapshot;
   }
-  const sourceType=kind==='competition_season'?'competition':kind;
-  const sourceId=kind==='competition_season'?scope.root.competition_id:id;
+  if(kind==='regional_cup_edition') {
+    const config=require('../lib/regionalCupRewards').validate(scope.root.cup_reward_snapshot,scope.root);
+    configured=config.trophy_item_id;capturedDesign=config.trophy_snapshot;
+  }
+  const sourceType=kind==='competition_season'?'competition':kind==='regional_cup_edition'?'regional_cup':kind;
+  const sourceId=kind==='competition_season'?scope.root.competition_id:kind==='regional_cup_edition'?scope.root.permanent_cup_id:id;
   if(!configured) {
     const items=await query('SELECT * FROM trophy_items WHERE linked_source_type=? AND linked_source_id=?',[sourceType,sourceId]);
     if(items.length===1)configured=items[0].id;

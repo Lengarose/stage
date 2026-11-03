@@ -24,7 +24,7 @@ class OfficialScheduleModel {
   async clashes(match,q) {return q("SELECT * FROM matches WHERE id<>? AND (home_club_id IN (?,?) OR away_club_id IN (?,?)) AND status IN ('scheduled','confirmed','in_progress') FOR UPDATE",[match.id,match.home_club_id,match.away_club_id,match.home_club_id,match.away_club_id]);}
   async audit(ctx,user,before,after,reason,q) {
     const id=crypto.randomUUID();
-    await q('INSERT INTO fixture_admin_actions (id,fixture_id,fixture_type,action_type,performed_by,performed_by_name,home_club_id,away_club_id,payload,admin_note) VALUES (?,?,?,?,?,?,?,?,?,?)',[id,ctx.engine?.legacy_fixture_id || ctx.sourceFixture?.id || ctx.engine?.id,ctx.sourceFixture?'regional_league':'regional_pathway',ctx.calendar?'publish_calendar':'force_schedule',user.id,user.email,after.match.home_club_id,after.match.away_club_id,JSON.stringify({before,after}),reason]);
+    await q('INSERT INTO fixture_admin_actions (id,fixture_id,fixture_type,action_type,performed_by,performed_by_name,home_club_id,away_club_id,payload,admin_note) VALUES (?,?,?,?,?,?,?,?,?,?)',[id,ctx.engine?.legacy_fixture_id || ctx.sourceFixture?.id || ctx.engine?.id,ctx.sourceFixture?'regional_league':ctx.engine?.legacy_fixture_type==='regional_cup'?'regional_cup':'regional_pathway',ctx.calendar?'publish_calendar':'force_schedule',user.id,user.email,after.match.home_club_id,after.match.away_club_id,JSON.stringify({before,after}),reason]);
     return {id,action_type:ctx.calendar?'publish_calendar':'force_schedule'};
   }
   async notify(match,revision,q) {

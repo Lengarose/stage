@@ -3,11 +3,11 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const {createService}=require('../officialMatchEligibilityService');
 const {VERSION}=require('../../lib/regionalRegistrationPolicy');
-function fixture({legacy=false,pathway=false}={}) {
+function fixture({legacy=false,pathway=false,cup=false}={}) {
   let now=new Date('2026-11-02T19:00:00Z');
-  let state={root:{id:'edition',status:pathway?'running':'in_progress',...(legacy?{}:pathway?{participation_window_snapshot:{policy_version:VERSION}}:{regional_participation_policy_version:VERSION})},
-    engine:{id:'engine',match_id:'match',legacy_fixture_id:'fixture',legacy_fixture_type:pathway?'regional_pathway':'regional_league',competition_instance_id:'edition',status:'scheduled'},
-    match:{id:'match',source_fixture_type:'competition_engine',source_fixture_id:'engine',home_club_id:'home',away_club_id:'away',status:'scheduled',scheduled_date:'2026-11-02T19:20:00Z',timezone:'UTC'},
+  let state={root:{id:'edition',status:(pathway || cup)?'running':'in_progress',...(legacy?{}:cup?{policy_version:'regional_cup_v1',play_enabled:true,participant_ids:['home','away'],rounds:[{fixture_ids:['engine']}],participation_window_snapshot:{policy_version:VERSION,cup_policy_version:'regional_cup_v1'}}:pathway?{participation_window_snapshot:{policy_version:VERSION}}:{regional_participation_policy_version:VERSION})},
+    engine:{id:'engine',match_id:'match',legacy_fixture_id:'fixture',home_club_id:'home',away_club_id:'away',legacy_fixture_type:cup?'regional_cup':pathway?'regional_pathway':'regional_league',competition_instance_id:'edition',status:'scheduled'},
+    match:{id:'match',source_fixture_type:'competition_engine',source_fixture_id:'engine',competition_context:'edition',home_club_id:'home',away_club_id:'away',status:'scheduled',scheduled_date:'2026-11-02T19:20:00Z',timezone:'UTC'},
     lineups:[],snapshot:null,preparation:null,audits:[],notifications:[],players:['home','away'].flatMap(club=>[1,2,3,4].map(i=>({id:`${club}${i}`,club_id:club,playing_club_id:club,subscription:'stage_plus'})))};
   const copy=structuredClone;
   const row=record=>({...record,data_json:JSON.stringify(record)});
@@ -15,7 +15,7 @@ function fixture({legacy=false,pathway=false}={}) {
     if(sql.startsWith('SELECT * FROM competition_fixtures'))return (p.includes('engine') || p.includes('fixture') || p.includes('match'))&&state.engine?[copy(state.engine)]:[];
     if(sql.startsWith('SELECT * FROM matches'))return (p.includes('match') || p.includes('engine'))&&state.match?[copy(state.match)]:[];
     if(sql.includes("entity_type='regional_league_fixture'"))return p[0]==='fixture'?[row({id:'fixture',league_id:'edition'})]:[];
-    if(sql.includes("entity_type='regional_league'") || sql.includes("entity_type='regional_cycle'"))return [row(copy(state.root))];
+    if(sql.includes("entity_type='regional_league'") || sql.includes("entity_type='regional_cycle'") || sql.includes("entity_type='regional_cup_edition'"))return [row(copy(state.root))];
     if(sql.includes("entity_type='official_match_selection'"))return state.snapshot?[row(copy(state.snapshot))]:[];
     if(sql.startsWith('SELECT * FROM club_fixture_lineups WHERE id'))return copy(state.lineups.filter(l=>l.id===p[0]));
     if(sql.startsWith('SELECT * FROM club_fixture_lineups WHERE club_id'))return copy(state.lineups.filter(l=>l.club_id===p[0] && p.slice(1).includes(l.fixture_id)));
@@ -226,4 +226,10 @@ test('only the internal calendar resolver can inspect a new ordinary fixture bef
  const f=fixture();f.state.engine=null;f.state.match=null;
  const pending=await f.service.context('fixture',f.q,{allowMissingMatch:true});assert.equal(pending.official,true);assert.equal(pending.sourceFixture.id,'fixture');
  await assert.rejects(f.service.context('fixture'),/unambiguous playable match/);
+});
+
+test('active Cup GameDay matches enforce the same personal Plus, three-player selection and frozen kickoff evidence',async()=>{
+ const f=fixture({cup:true});assert.equal((await f.service.context('engine')).official,true);f.state.players[0].subscription='free';await assert.rejects(f.save(),/Every selected/);f.state.players[0].subscription='stage_plus';
+ await assert.rejects(f.save({...f.body(),starting_players:['home1','home2']}),/three/);await f.save();await f.save(f.body('away','engine'));await f.ready();await f.start();assert.equal(f.state.snapshot.edition_id,'edition');
+ for(const change of [g=>{g.state.root.play_enabled=false;},g=>{g.state.root.participation_window_snapshot=null;},g=>{g.state.root.rounds=[];},g=>{g.state.engine.away_club_id='foreign';}]){const g=fixture({cup:true});change(g);await assert.rejects(g.service.context('engine'),/not open/);}
 });

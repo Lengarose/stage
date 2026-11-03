@@ -1,7 +1,7 @@
 'use strict';
 const {EXECUTESQL}=require('../db/database');
 const {parse}=require('../lib/trophyHistory');
-function types(scope) {if(!['regional','gost','all'].includes(scope))throw Object.assign(new Error('Invalid history scope'),{status:400});return scope==='regional'?['regional_league']:scope==='gost'?['competition_season']:['regional_league','competition_season'];}
+function types(scope) {if(!['regional','gost','all'].includes(scope))throw Object.assign(new Error('Invalid history scope'),{status:400});return scope==='regional'?['regional_league','regional_cup_edition']:scope==='gost'?['competition_season']:['regional_league','regional_cup_edition','competition_season'];}
 function selected(record, selection) {
   if (!selection) return true;
   const editions = new Set(selection.edition_ids || []);

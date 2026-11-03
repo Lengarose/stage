@@ -96,3 +96,64 @@ blijvend in. Dit is nog geen automatische generator van een volledige kalender.
   publication scheduler. Internal regional_pathway_calendar snapshots only.
 - Shared schedule model missing unpack import repaired and directly regression
   tested. See docs/regional-promotion-calendar-phase3.md for scope and handoff.
+
+### Decision calendars and Cup preparation (local, 3 November 2026)
+- User confirmed the complete Regional Cup package and six names; masterplan §11
+  now B. Europe Sunday20:00/60min, exact round weeks in regionalCupPolicy.json;
+  no GOST ticket and no inferred North America time or Cup STC prizes.
+- Admin cycle has controlled decision-round calendar preview/publication:
+  fresh sporting evidence, 40/60-minute blocks, booking limits, source revisions,
+  immutable batch and atomic engine/Match/audit/notices. Source decisions protect
+  the fixed promotion semifinal deadline; reports may still require review.
+- Admin Regional Cups prepares a permanent identity, shared catalogue assignment,
+  consent-checked draft edition, seed/first draw/byes and full round reservations.
+  New registration windows can include Cup terms; old accepted rules are preserved.
+- At preparation handoff Cup drafts were not playable. The lifecycle step below
+  supersedes that limitation; drafts still require explicit activation.
+- Regional reset invalidates dependent Cup drafts, preserving Cup/trophy identity.
+
+### Regional Cup lifecycle (local, 3 November 2026)
+- Read `docs/regional-cup-lifecycle-phase3.md` when changing Cup activation,
+  results, public views, eligibility or reset dependencies.
+- Admin Cup lifecycle activates real engine/Match duels; canonical confirmed
+  results trigger fresh stored draws only after the whole round is definitive.
+  Byes create no Matches. Consumed result revisions freeze sporting evidence;
+  conflicts or expired slots block progression. Finals record a champion.
+- `/regional-cups`, linked from Regional Leagues, exposes activated/completed
+  editions and GameDay links through a sanitized authenticated read endpoint.
+- Existing minimum-three/Plus/ready/kickoff selection checks cover Cup Matches.
+  Captured registration-field reads now allow started source leagues without
+  reopening registration; reset invalidates live Cup Matches too.
+- At lifecycle handoff STC/awards were unconnected; the rewards step below supersedes this.
+  270 selected tests pass; HTTP uses controlled persistence/auth, not real MySQL/JWT.
+  No production changes. Graphify update attempted: CLI unavailable.
+
+### Regional Cup rewards (local, 3 November 2026)
+- Read `docs/regional-cup-rewards-phase3.md` for Cup snapshots, settlement,
+  legacy adoption, cabinet awards, recovery jobs and reset consequences.
+- User confirmed winner 7m STC / runner-up 3m, no bronze prize or extra Cup fee,
+  STAGE-funded. New preparations capture `cup_reward_snapshot`; existing editions
+  without it require explicit audited adoption, never inferred historical promises.
+- Existing CompetitionScope/PrizeService support `regional_cup_edition`, validate
+  consumed round/final evidence and reuse payout/ledger/award identities. The
+  result hook and existing retry job settle completed Cups; invalidated sources block.
+- Admin reward review appears in Regional Leagues and Rewards. Public Cup pages
+  distinguish captured amounts from actual payment and trophy status.
+- Cup awards participate in scoped regional history reset; finances remain preserved.
+  277 selected regression tests pass with controlled persistence/auth. No production
+  changes; real MySQL/JWT/browser remain unverified. Graphify CLI unavailable.
+  Handoff: docs/regional-cup-rewards-phase3.md.
+
+### Regional operations overview (local, 3 November 2026)
+- Read `docs/regional-operations-phase6.md` when changing the Admin action queue.
+- Admin Regional Leagues now has a SELECT-only operational snapshot endpoint and
+  panel. It links registration, cycle/calendar, Cup and settlement issues to their
+  existing review actions. Stored database role controls access; output excludes
+  private snapshots, seeds and owner/player details.
+- Invalidated records and prior reset windows stay excluded; captured cycles
+  suppress duplicate registration-field actions. Storage errors remain errors.
+- This is the first phase-6 overview, not durable automation or a full integrity
+  oracle. No deadlines, results, rights or money are changed by reading it.
+- Eight targeted tests cover the real local HTTP route with controlled storage/auth.
+  285 selected regression tests, lint, typecheck, backend syntax and build pass.
+  Production MySQL/JWT/browser remain unverified. Graphify CLI unavailable.

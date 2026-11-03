@@ -96,3 +96,9 @@ test('service sends trusted scopes, padded date bounds and pagination to SQL, wi
   assert.ok(calls.find(c=>/FROM matches m WHERE/.test(c.sql)).args.includes('me'));
   assert.ok(calls.find(c=>/FROM league_entities le/.test(c.sql)).args.includes('club'));
 });
+
+test('Regional Cup engine Matches appear once in the regional calendar with their GameDay link',()=>{
+ const match={...base,id:'cup-match',home_player_id:null,away_player_id:null,home_club_id:'club',away_club_id:'rival',source_fixture_type:'competition_engine',source_fixture_id:'cup-fixture',competition_context:'cup-edition'};
+ const engine={id:'cup-fixture',match_id:match.id,legacy_fixture_id:'cup-fixture',legacy_fixture_type:'regional_cup',product_type:'regional_cup',competition_name:'STAGE Regional Cup',legacy_source_id:'cup-edition',home_club_id:'club',away_club_id:'rival',status:'scheduled',scheduling_status:'confirmed'};
+ const events=normalize({scope:'regional',matches:[match],engineFixtures:[engine]});assert.equal(events.length,1);assert.equal(events[0].category,'regional');assert.equal(events[0].competition,'STAGE Regional Cup');assert.equal(events[0].href,'/game-day?match=cup-match');
+});

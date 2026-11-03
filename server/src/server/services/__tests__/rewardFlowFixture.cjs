@@ -44,7 +44,7 @@ function setup(kind='regional_league',count=20,{legacyRewardPosition=false}={}) 
       if(table==='matches'&&/LEFT JOIN/.test(sql))return [];
       if(table==='league_entities') {
         const literal=sql.match(/entity_type\s*=\s*'([^']+)'/);if(literal)rows=rows.filter(r=>r.entity_type===literal[1]);
-        if(/entity_type IN/.test(sql))rows=rows.filter(r=>['regional_league','competition_season'].includes(r.entity_type));
+        if(/entity_type IN/.test(sql))rows=rows.filter(r=>['regional_league','competition_season','regional_cup_edition'].includes(r.entity_type));
       }
       let index=0;
       for(const match of sql.matchAll(/(?:\b|`)(id|tournament_id|source_id|source_type|edition_id|entity_type|league_id|season_id|owner_id|owner_type|trophy_item_id|award_key|award_id|status|winner_club_id|winner_player_id|linked_source_type|linked_source_id)\s*=\s*\?/g)){const key=match[1],value=v[index++];rows=rows.filter(r=>String(r[key])===String(value));}

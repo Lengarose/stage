@@ -27,6 +27,15 @@ function placements(scope, config) {
   const map = new Map();
   const leagueOnly = scope.source_type === 'regional_league' || ['league','swiss'].includes(root.type) || root.format === 'league' || root.league_only === true;
   if (!['completed','archived'].includes(root.status)) return { map, blocked: 'Competition is not officially completed' };
+  if(scope.source_type==='regional_cup_edition') {
+    const last=root.rounds?.at(-1),final=matches.filter(m=>last?.fixture_ids?.includes(m.source_fixture_id));
+    const life=require('../services/regionalCupLifecycleService');
+    if(root.edition_invalidated || !root.play_enabled || root.rounds.some(r=>!r.results_revision) || !last?.results_revision || last.draw?.fixtures?.length!==1 || last.draw?.byes?.length || final.length!==1
+      || life.resultRevision(final)!==last.results_revision || matches.some(m=>!life.winner(m))
+      || life.winner(final[0])!==root.winner_club_id || JSON.stringify(last.advancers)!==JSON.stringify([root.winner_club_id]))return {map,blocked:'The completed Cup final and consumed results require review'};
+    map.set(1,root.winner_club_id);map.set(2,final[0].home_club_id===root.winner_club_id?final[0].away_club_id:final[0].home_club_id);
+    return {map};
+  }
   if (['regional_league','competition_season'].includes(scope.source_type)) {
     for (const phase of new Set(matches.map(m=>m.type))) {
       const readiness = require('./leagueRoundReadiness').roundReadiness(scope,phase);

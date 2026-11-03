@@ -37,7 +37,12 @@ function createService({query=EXECUTESQL,transaction=withTransaction,rosters=new
     const source=engine?.legacy_fixture_type || match?.source_fixture_type;
     const sourceId=engine?.legacy_fixture_id || match?.source_fixture_id || ref;
     let root=null,sourceFixture=null;
-    if(source==='regional_pathway') {
+    if(source==='regional_cup') {
+      const [row]=await q("SELECT * FROM league_entities WHERE entity_type='regional_cup_edition' AND id=? FOR UPDATE",[engine?.competition_instance_id || match?.competition_context]);
+      if(!row)fail('Official Cup edition is unavailable; Admin review required');
+      root=unpack(row);
+      if(root.policy_version!==require('../lib/regionalCupPolicy.json').version || root.participation_window_snapshot?.policy_version!==VERSION || root.participation_window_snapshot?.cup_policy_version!=='regional_cup_v1' || !root.participant_ids?.includes(match?.home_club_id) || !root.participant_ids?.includes(match?.away_club_id) || !root.rounds?.some(r=>r.fixture_ids?.includes(engine?.id)) || engine?.home_club_id!==match?.home_club_id || engine?.away_club_id!==match?.away_club_id || !root.play_enabled || root.status!=='running' || !engine || engine.match_id!==match?.id || match?.competition_context!==root.id)fail('This Cup edition is not open for official play');
+    } else if(source==='regional_pathway') {
       const [row]=await q("SELECT * FROM league_entities WHERE entity_type='regional_cycle' AND id=? FOR UPDATE",[engine?.competition_instance_id || match?.competition_context]);
       if(!row)fail('Official pathway is unavailable; Admin review required');
       root=unpack(row);

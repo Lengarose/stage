@@ -1,0 +1,27 @@
+{
+  "version": "regional_cup_v1",
+  "status": "confirmed",
+  "confirmed_on": "2026-11-03",
+  "timezone": "Europe/Brussels",
+  "time": "20:00",
+  "day": 6,
+  "minutes": 60,
+  "names": {
+    "uk-ireland": "STAGE UK & Ireland Cup",
+    "france": "STAGE Coupe de France",
+    "germany": "STAGE Deutschland-Pokal",
+    "benelux": "STAGE Benelux Cup",
+    "spain": "STAGE Copa de España",
+    "north-america": "STAGE North American Cup"
+  },
+  "weeks": {
+    "20": [4,6,8,10,12],
+    "40": [2,4,6,8,10,12],
+    "60": [2,4,6,8,10,12],
+    "80": [1,2,4,6,8,10,12],
+    "100": [1,2,4,6,8,10,12],
+    "120": [1,2,4,6,8,10,12],
+    "180": [1,2,3,4,6,8,10,12],
+    "240": [1,2,3,4,6,8,10,12]
+  }
+}

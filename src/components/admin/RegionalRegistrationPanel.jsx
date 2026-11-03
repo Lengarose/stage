@@ -3,7 +3,7 @@ import { stageClient } from '@/api/stageClient';
 import { adminEndpointError } from '@/lib/adminLeagueLifecycle';
 
 export default function RegionalRegistrationPanel({ definitions = [], leagues = [] }) {
-  const [form, setForm] = useState({ permanent_league_id: '', season_number: 1, reset_series: 0, opens_at: '', rules_text: '', reason: '' });
+  const [form, setForm] = useState({ permanent_league_id: '', season_number: 1, reset_series: 0, opens_at: '', rules_text: '', reason: '', include_cup: true });
   const [preview, setPreview] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -31,6 +31,7 @@ export default function RegionalRegistrationPanel({ definitions = [], leagues = 
       <label className="text-sm">Target season<input type="number" min="1" className={input} value={form.season_number} onChange={e => change('season_number', Number(e.target.value))} /></label>
       <label className="text-sm">Reset series<input type="number" min="0" className={input} value={form.reset_series} onChange={e => change('reset_series', Number(e.target.value))} /></label>
       <label className="text-sm">Registration opens (your local time)<input type="datetime-local" className={input} value={form.opens_at} onChange={e => change('opens_at', e.target.value)} /></label>
+      <label className="flex gap-2 text-sm sm:col-span-2"><input type="checkbox" checked={form.include_cup} onChange={e => change('include_cup', e.target.checked)} />Include Regional Cup entry in these new participation conditions. The server appends the confirmed Cup rules; existing registration periods stay unchanged.</label>
       <label className="text-sm sm:col-span-2">Published edition rules<textarea className={`${input} min-h-28 py-3`} value={form.rules_text} onChange={e => change('rules_text', e.target.value)} /></label>
       <label className="text-sm sm:col-span-2">Administrative reason<input className={input} value={form.reason} onChange={e => change('reason', e.target.value)} /></label>
       <button type="button" disabled={!form.permanent_league_id || !form.opens_at || !form.rules_text.trim() || !form.reason.trim()} className="min-h-11 text-left font-semibold disabled:opacity-40" onClick={() => submit()}>Preview registration dates and conditions →</button>

@@ -14,10 +14,17 @@ async function loadPlan(kind, id, query, lock) {
   scope.ambiguous_legacy_references = kind === 'competition_season' ? [scope.config_source_id].filter(Boolean) : [];
   scope.legacy_references.push(...achievements.map(a => a.id));
   let config = saved.config;
+  if(kind==='regional_cup_edition') {
+    if(scope.root.cup_reward_snapshot) {
+      const captured=require('../lib/regionalCupRewards').validate(scope.root.cup_reward_snapshot,scope.root);
+      if(config && JSON.stringify(config)!==JSON.stringify(captured))throw Object.assign(Error('Cup settlement snapshot differs from the captured promise'),{status:409});
+      config=captured;
+    } else if(config)throw Object.assign(Error('Cup edition has no matching captured reward promise'),{status:409});
+  }
   if (!config) {
     if (kind === 'tournament') config = configuredPrizes(scope.root);
     else if (Array.isArray(scope.root.reward_snapshot)) config = configuredPrizes(scope.root, scope.root.reward_snapshot);
-    else if (!['completed','archived'].includes(scope.root.status)) config = await editionConfiguration(scope,query);
+    else if (kind!=='regional_cup_edition' && !['completed','archived'].includes(scope.root.status)) config = await editionConfiguration(scope,query);
   }
   const payments = await query('SELECT * FROM competition_payouts WHERE source_type=? AND source_id=? AND edition_id=?', [kind,id,scope.edition_id]);
   const player = scope.root.participant_type === 'player';
@@ -29,6 +36,7 @@ async function loadPlan(kind, id, query, lock) {
   return { scope, plan, config, stateId, saved, payments, instanceId:instance?.id || null };
 }
 async function editionConfiguration(scope,query) {
+  if(scope.source_type==='regional_cup_edition')return require('../lib/regionalCupRewards').validate(require('../lib/regionalCupRewards').configuration(scope.root),scope.root);
   const type=scope.source_type==='regional_league'?'regional_league':'competition';
   const settings=await require('./rewardConfigurationService').read(type,scope.config_source_id,query);
   const roster=require('../lib/componentPrizePlan').eligibleClubIds(scope);
@@ -66,10 +74,10 @@ async function review(kind,id,{ apply = false, admin = null, reason = null } = {
     return await withTransaction(async query => {
       const ctx = await loadPlan(kind,id,query,apply);
       context = ctx;
-      const report = { source_type: kind, source_id: id, competition_name:ctx.scope.root.name || ctx.scope.root.competition_name || null, edition_id: ctx.scope.edition_id, configuration:ctx.config, dry_run: !apply, ...ctx.plan };
+      const report = { source_type: kind, source_id: id, competition_name:ctx.scope.root.name || ctx.scope.root.competition_name || null, edition_id: ctx.scope.edition_id, configuration:ctx.config, dry_run: !apply, trophy_state:ctx.saved.trophy_state || 'pending', ...ctx.plan };
       if (!apply) return report;
       const mayPay = !ctx.plan.blocking_reasons.length && !ctx.plan.obligations.some(o=>o.blocking_reasons.length) && ['completed','archived'].includes(ctx.scope.root.status);
-      if(['completed','archived'].includes(ctx.scope.root.status) && kind!=='tournament') {
+      if(['completed','archived'].includes(ctx.scope.root.status) && kind!=='tournament' && (kind!=='regional_cup_edition' || mayPay)) {
         const placed=require('../lib/competitionPrizes').placements(ctx.scope,[{position:1,amount:'0.00'},{position:2,amount:'0.00'}]);
         const winner=placed.map.get(1);
         if(winner) {
@@ -94,7 +102,7 @@ async function review(kind,id,{ apply = false, admin = null, reason = null } = {
           if (!account) throw new Error('Prize recipient account no longer exists');
           await query(`UPDATE ${accountTable} SET stc=COALESCE(stc,0)+?,updated_date=NOW() WHERE id=?`, [obligation.missing_amount,obligation.recipient_id]);
           const [updated] = await query(`SELECT stc FROM ${accountTable} WHERE id=?`, [obligation.recipient_id]);
-          const label = kind === 'tournament' ? 'Tournament' : kind === 'regional_league' ? 'Regional league' : 'GOST league';
+          const label = kind === 'tournament' ? 'Tournament' : kind === 'regional_league' ? 'Regional league' : kind==='regional_cup_edition'?'Regional Cup':'GOST league';
           const component=obligation.component_key?.startsWith('participation:')?'participation payment':obligation.component_key==='winner_bonus'?'winner bonus':obligation.component_key==='runner_up_bonus'?'runner-up bonus':`${obligation.position} placement prize`;
           const description = `${label} ${component} - ${ctx.scope.root.name || ctx.scope.root.competition_name || id} - ${ctx.scope.edition_id}`;
           const columns = ['id',`${obligation.recipient_type}_id`, ...(player ? ['player_email'] : []),'amount','balance_after','type','category','description','reference_id','settlement_key','competition_type','competition_id','edition_id','finishing_position'];
@@ -114,6 +122,10 @@ async function review(kind,id,{ apply = false, admin = null, reason = null } = {
       if (!['completed','archived'].includes(ctx.scope.root.status)) report.state = 'pending';
       await saveState(query,ctx,report.state,JSON.stringify([...ctx.plan.blocking_reasons,...ctx.plan.obligations.flatMap(o => o.blocking_reasons)]));
       report.trophy_state=ctx.trophyState||ctx.saved.trophy_state||'pending';
+      if(kind==='regional_cup_edition') {
+        const root={...ctx.scope.root,prize_settlement_state:report.state,honours_state:report.trophy_state};
+        await query('UPDATE league_entities SET data_json=?,updated_date=NOW() WHERE id=? AND entity_type=?',[JSON.stringify(root),id,kind]);
+      }
       if (admin) await query(`INSERT INTO admin_audit_log (id,admin_user_id,admin_email,action,entity_type,entity_id,old_value,new_value,reason) VALUES (?,?,?,'reconcile_competition_prizes',?,?,?,?,?)`, [crypto.randomUUID(),admin.id,admin.email,kind,id,JSON.stringify(ctx.saved),JSON.stringify(report),reason || 'Reviewed missing STC prizes']);
       return report;
     });
@@ -142,6 +154,7 @@ async function adoptConfiguration(kind,id,{apply=false,admin,reason,version}={})
     if(evidence.length)throw Object.assign(new Error('Historical ledger evidence must be reviewed before replacing the promise'),{status:409});
     ctx.config=proposed;ctx.plan=planPrizes(ctx.scope,proposed,[],[]);
     const updated={...ctx.scope.root,original_prize_pool_stc:ctx.scope.root.original_prize_pool_stc??ctx.scope.root.prize_pool_stc,prize_pool_stc:proposed.budget,effective_prize_budget_stc:proposed.budget,reward_funding:'system',reward_configuration_version:proposed.version};
+    if(kind==='regional_cup_edition')updated.cup_reward_snapshot=proposed;
     await query('UPDATE league_entities SET data_json=?,updated_date=NOW() WHERE id=? AND entity_type=?',[JSON.stringify(updated),id,kind]);
     ctx.scope.root=updated;
     await saveState(query,ctx,'pending','Explicitly reviewed unpaid edition configuration');
@@ -169,6 +182,10 @@ async function archive(kind,id,{admin,reason}={}) {
 async function retryPending() {
   const rows = await EXECUTESQL("SELECT * FROM league_entities WHERE entity_type='competition_settlement' AND (status IN ('pending','failed') OR (status IN ('paid','zero_prize') AND JSON_UNQUOTE(JSON_EXTRACT(data_json,'$.trophy_state')) IN ('pending','blocked'))) ORDER BY updated_date LIMIT 50");
   for (const row of rows) { const data = parse(row.data_json,{}); try { await review(data.source_type,data.source_id,{apply:true}); } catch(err) { console.error('[competition settlement retry]',data.source_id,err.message); } }
+  // Completion and settlement are separate transactions. Recover a crash between
+  // them even when no settlement record was created by the result hook.
+  const cups=await EXECUTESQL("SELECT id FROM league_entities WHERE entity_type='regional_cup_edition' AND status='completed' AND JSON_EXTRACT(data_json,'$.cup_reward_snapshot') IS NOT NULL AND (COALESCE(JSON_UNQUOTE(JSON_EXTRACT(data_json,'$.prize_settlement_state')),'pending') <> 'paid' OR COALESCE(JSON_UNQUOTE(JSON_EXTRACT(data_json,'$.honours_state')),'pending') <> 'awarded') ORDER BY updated_date LIMIT 50");
+  for(const cup of cups)try {await review('regional_cup_edition',cup.id,{apply:true});}catch(err){console.error('[Cup settlement retry]',cup.id,err.message);}
 }
 function startPrizeSettlementJob() { let running = false; const timer = setInterval(async () => { if (running) return; running=true; try { await retryPending(); } catch(err) { console.error('[competition settlement job]',err.message); } finally { running=false; } },60000); timer.unref(); return timer; }
 module.exports = { review, capture, retryPending, startPrizeSettlementJob, uuid, cents, stc, adoptConfiguration,archive };

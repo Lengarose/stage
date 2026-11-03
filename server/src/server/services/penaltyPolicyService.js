@@ -20,6 +20,10 @@ async function readPenaltyContext(match,homeScore,awayScore,query=require('../db
     const [engine]=await query('SELECT * FROM competition_fixtures WHERE match_id=? OR id=? LIMIT 1',[match.id,match.source_fixture_id||'']);
     const source=engine?.legacy_fixture_type || match.source_fixture_type;
     const sourceId=engine?.legacy_fixture_id || match.source_fixture_id;
+    if(source==='regional_cup' && engine) {
+      await require('./regionalCupLifecycleService').assertWritableFixture(engine,query);
+      return penaltyEligibility({match,phase:engine.phase,legs:1,leg:1},homeScore,awayScore);
+    }
     if(source==='regional_pathway' && engine) {
       await require('./regionalCycleService').assertWritableFixture(engine,query);
       return penaltyEligibility({match,phase:engine.phase,legs:1,leg:1},homeScore,awayScore);

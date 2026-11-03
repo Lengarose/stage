@@ -2253,6 +2253,17 @@ async function reconcileRegionalPathwayCycle(id) {
   } catch(err) { return {reconciled:false,reason:'regional_cycle_review',error:err.message}; }
 }
 
+async function reconcileRegionalCup(id) {
+  try {const result=await require('./regionalCupLifecycleService').reconcile(id);
+    let rewards=null;
+    if(result.status==='completed') {
+      try {const report=await require('./competitionPrizeService').review('regional_cup_edition',id,{apply:true});rewards={state:report.state,trophy_state:report.trophy_state};}
+      catch {rewards={state:'review_required',trophy_state:'pending_review'};}
+    }
+    return {reconciled:true,edition_id:id,status:result.status,current_round:result.current_round || null,...(rewards?{rewards}: {})};}
+  catch(err) {return {reconciled:false,reason:'regional_cup_review',error:err.message};}
+}
+
 async function syncMatchResultToSource(matchOrId) {
   const match = typeof matchOrId === 'string'
     ? (await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [matchOrId]))[0]
@@ -2268,6 +2279,7 @@ async function syncMatchResultToSource(matchOrId) {
       sourceId = mapped.legacy_fixture_id;
     }
     await require('./regionalCycleService').assertWritableFixture(mapped,EXECUTESQL);
+    if(mapped?.legacy_fixture_type==='regional_cup')await require('./regionalCupLifecycleService').assertWritableFixture(mapped,EXECUTESQL);
     let legacyResult = { synced: false, reason: 'no_supported_source' };
     if (sourceId && (sourceType === 'competition' || sourceType === 'competition_fixture')) {
       legacyResult = await syncCompetitionFixtureResult(match, sourceId);
@@ -2282,7 +2294,9 @@ async function syncMatchResultToSource(matchOrId) {
     return { engineFixture, sourceType, legacyResult };
   });
 
-  const ready = engineFixture
+  const ready = engineFixture?.legacy_fixture_type==='regional_cup'
+    ? {notified:false,reason:'cup_round_reconciliation'}
+    : engineFixture
     ? await notifyPhaseReady(engineFixture)
     : legacyResult.fixture
       ? await notifyLegacyPhaseReady({ fixture: legacyResult.fixture, sourceType })
@@ -2301,7 +2315,9 @@ async function syncMatchResultToSource(matchOrId) {
       }))
       : engineFixture?.legacy_fixture_type === 'regional_pathway'
         ? await reconcileRegionalPathwayCycle(engineFixture.competition_instance_id)
-        : { advanced: false, reason: 'unsupported_source' };
+        : engineFixture?.legacy_fixture_type==='regional_cup'
+          ? await reconcileRegionalCup(engineFixture.competition_instance_id)
+          : { advanced: false, reason: 'unsupported_source' };
   return { synced: Boolean(engineFixture || legacyResult.synced), legacy: legacyResult, ready, advance };
 }
 
@@ -2324,6 +2340,7 @@ async function advanceAfterFinalResult(finalResult, options = {}) {
     if(matchStatus!=='completed' && match.source_fixture_type==='competition_engine') {
       const [mapped]=await EXECUTESQL('SELECT * FROM competition_fixtures WHERE match_id = ? LIMIT 1',[match.id]);
       if(mapped?.legacy_fixture_type==='regional_pathway')sync.advance=await reconcileRegionalPathwayCycle(mapped.competition_instance_id);
+      if(mapped?.legacy_fixture_type==='regional_cup')sync.advance=await reconcileRegionalCup(mapped.competition_instance_id);
     }
     const community = await advanceCommunityTournamentIfReady(match).catch((err) => ({
       advanced: false,
