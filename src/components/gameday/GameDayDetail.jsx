@@ -6,6 +6,7 @@ import { Target, Zap, MessageSquare, Play, Flag, Clock, CheckCircle2, Ticket } f
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import OfficialMatchPreparation from "@/components/club/OfficialMatchPreparation";
 import GameDayMatchChat from "./GameDayMatchChat";
 import {penaltyOutcome} from '@/lib/penaltyOutcome';
 import GameDayKickoffArena from "./GameDayKickoffArena";
@@ -69,6 +70,7 @@ export default function GameDayDetail({
   const [game, setGame] = useState(initialGame);
   const [tournament, setTournament] = useState(null);
   const [stats, setStats] = useState([]);
+  const [preparationState, setPreparationState] = useState(null);
   const [kickoffLoading, setKickoffLoading] = useState(false);
   const [kickoffError, setKickoffError]     = useState("");
   const [showResultForm, setShowResultForm] = useState(false);
@@ -333,6 +335,9 @@ export default function GameDayDetail({
       {penaltyOutcome(game)&&<p className="px-4 text-sm text-cyan-200">{penaltyOutcome(game)}</p>}
       {game.competition_href&&<a href={game.competition_href} className="inline-flex min-h-11 items-center px-4 text-sm text-cyan-300">View competition</a>}
       {isCompleted&&<button type="button" onClick={()=>openResultForm(true)} className="min-h-11 border border-white/15 px-4 text-sm text-cyan-300">View Match Report</button>}
+      {isClubMatch && isMyMatch && !isCompleted && ['scheduled', 'confirmed', 'in_progress'].includes(game.status) && <div className="px-4">
+        <OfficialMatchPreparation key={`${myClub.id}:${game.id}`} clubId={myClub.id} fixtureId={game.id} onState={setPreparationState} onChanged={async () => {}} hideForbidden />
+      </div>}
       <section className="px-4" aria-label="Kickoff actions">
         {showKickoffDock ? (
           <div className="space-y-2">
@@ -351,7 +356,7 @@ export default function GameDayDetail({
                 )}
                 <Button
                   onClick={handleKickoff}
-                  disabled={kickoffLoading || !kickoffControls.canPressKickoff}
+                  disabled={kickoffLoading || !kickoffControls.canPressKickoff || preparationState?.unavailable || (preparationState?.official && (!preparationState.can_kickoff || !preparationState.ready_at || !preparationState.opponent_ready || preparationState.eligible === false))}
                   className="h-14 w-full gap-2 rounded-sm bg-gradient-to-r from-white via-[#eef3fb] to-[#aeb8c6] font-heading text-xl font-black uppercase tracking-[0.28em] text-[#111827] shadow-[0_0_42px_rgba(238,243,251,0.34)] hover:brightness-110 disabled:from-[#1f2430] disabled:via-[#161b24] disabled:to-[#111827] disabled:text-white/25 disabled:shadow-none"
                 >
                   {kickoffLoading

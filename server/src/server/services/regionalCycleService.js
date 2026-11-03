@@ -352,4 +352,4 @@ async function assertWritableFixture(fixture,query=EXECUTESQL) {
   const cycle=await model.selectOne(fixture.competition_instance_id,query);
   if(!cycle || !['running','review','ready'].includes(cycle.status) || cycle.edition_invalidated)fail('This pathway cycle is closed; its results cannot change sporting rights');
 }
-module.exports={prepare,preview,progress,allocate,read,draw,catalogue,assertWritableFixture,stableId};
+module.exports={prepare,preview,progress,allocate,read,draw,catalogue,assertWritableFixture,stableId,evaluate};

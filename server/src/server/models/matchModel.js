@@ -115,7 +115,7 @@ class Match {
     return EXECUTESQL('SELECT * FROM matches WHERE status = ?', [status]);
   }
 
-  create() {
+  create(query = EXECUTESQL) {
     this.id = this.id || uuidv4();
     const columns = [
       'id', 'tournament_id',
@@ -170,7 +170,7 @@ class Match {
     if (columns.length !== values.length) {
       throw new Error(`Match insert column/value mismatch: ${columns.length} columns for ${values.length} values`);
     }
-    return EXECUTESQL(sql, values);
+    return query(sql, values);
   }
 
   update(id) {

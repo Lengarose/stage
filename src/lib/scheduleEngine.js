@@ -317,6 +317,8 @@ export async function forceSchedule({ fixture, fixtureType, date, adminNote = ""
     admin_note:   adminNote || null,
   });
 
+  if (res?.managed_official) return res.fixture;
+
   // Auto-create a Match record so this fixture appears on GameDay.
   const { createMatchFromFixture } = await import("./gameDayIntegration");
   await createMatchFromFixture({

@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
 import RegionalLeagueManagementPanel from '@/components/admin/RegionalLeagueManagementPanel';
+import RegionalCalendarPanel from '@/components/admin/RegionalCalendarPanel';
+import OfficialSchedulePanel from '@/components/admin/OfficialSchedulePanel';
 import RegionalCyclePanel from '@/components/admin/RegionalCyclePanel';
 import RegionalRegistrationPanel from '@/components/admin/RegionalRegistrationPanel';
 import { fixtureState, submitEditionLifecycle, adminEndpointError } from '@/lib/adminLeagueLifecycle';
@@ -1407,6 +1409,8 @@ export default function LeaguesTab({
 
     {showRegional && <RegionalLeagueManagementPanel definitions={regionalDefinitions} trophyItems={trophyItems} onRefresh={loadAll} />}
     {showRegional && <RegionalRegistrationPanel definitions={regionalDefinitions} leagues={regionalLeagues} />}
+    {showRegional && <RegionalCalendarPanel leagues={regionalLeagues} />}
+    {showRegional && <OfficialSchedulePanel />}
     {showRegional && <RegionalCyclePanel leagues={regionalLeagues} registrations={regApplications || []} onRefresh={loadAll} />}
 
     {regionalLeagues.length > 0 && (

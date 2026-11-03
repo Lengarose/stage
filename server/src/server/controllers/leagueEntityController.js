@@ -197,8 +197,10 @@ function makeRouter(entityType) {
     router.get('/registration-readiness/:clubId',action(req => registration.readiness(req.params.clubId,req.user)));
     router.post('/registration-windows/:windowId/apply',action(req => registration.apply(req.params.windowId,req.body || {},req.user)));
     router.post('/registrations/:registrationId/confirm',action(req => registration.confirm(req.params.registrationId,req.body || {},req.user)));
+    router.post('/calendar',action(req => require('../services/regionalCalendarService').action(req.body || {},req.user)));
     router.get('/cycles', action(req => cycles.catalogue(req.user)));
     router.post('/cycles', action(req => cycles.prepare(req.body || {},req.user)));
+    router.post('/cycles/:cycleId/calendar',action(req => require('../services/regionalPromotionCalendarService').action(req.params.cycleId,req.body || {},req.user)));
     router.get('/cycles/:cycleId/draw', action(req => cycles.draw(req.params.cycleId)));
     router.get('/cycles/:cycleId', action(req => cycles.read(req.params.cycleId,req.user)));
     router.post('/cycles/:cycleId/progress', action(req => cycles.progress(req.params.cycleId,req.user,req.body?.reason || 'Admin reconciled official pathway results')));
@@ -326,6 +328,7 @@ function makeRouter(entityType) {
       const rawBody = req.body || {};
       if (existing[0].entity_type !== entityType) return res.status(404).json({error:'Not found'});
       if (FIXTURE_ENTITY_TYPES.has(entityType)) {
+        await require('../services/officialScheduleService').assertLegacyWrite(id,EXECUTESQL);
         const admin = await getAdminUser(req);
         if (admin) await require('../services/leagueCorrectionGuard').assertFixtureCorrectionSafe(current,entityType === 'regional_league_fixture' ? 'regional_league' : 'competition_season',rawBody);
         if (!admin) {

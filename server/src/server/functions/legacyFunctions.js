@@ -5615,6 +5615,8 @@ const HANDLERS = {
     );
     if (!fixtureRows.length) throw new Error('Fixture not found');
     const fixture = parseLeagueEntityRow(fixtureRows[0]);
+    const managed=sourceType==='regional_league' && await require('../services/officialScheduleService').reuse(fixture.id,EXECUTESQL);
+    if(managed){await resolveMatchActorSide(managed.data.match,_auth_user_id);return managed;}
     if (String(fixture.scheduling_status || '').toLowerCase() !== 'confirmed') {
       throw new Error('Fixture must be confirmed before creating a GameDay match');
     }
@@ -7037,6 +7039,7 @@ const HANDLERS = {
         : [];
       const match = matchRows[0];
       if (!match) throw new Error('Tournament fixture not found');
+      if(['competition_engine','regional_league','regional_league_fixture','regional_pathway'].includes(match.source_fixture_type))await require('../services/officialScheduleService').assertLegacyWrite(match.id,EXECUTESQL);
 
       const liveStatus = String(match.scheduling_status || '');
       if (liveStatus !== 'home_proposed' && liveStatus !== 'away_proposed') {
@@ -7141,6 +7144,7 @@ const HANDLERS = {
         : [];
       const match = matchRows[0] || null;
       if (action === 'accepted' && match) {
+        if(['competition_engine','regional_league','regional_league_fixture','regional_pathway'].includes(match.source_fixture_type))await require('../services/officialScheduleService').assertLegacyWrite(match.id,EXECUTESQL);
         if (Number(match.wager_stc || 0) > 0 && match.wager_status === 'active') {
           await HANDLERS.wagerMatchActions({ action: 'cancel_wager', match_id: match.id });
         }
@@ -7202,6 +7206,7 @@ const HANDLERS = {
       const existingMatchId = meta.created_match_id || message.related_entity_id;
       const nextDate = toMysqlDateTime(meta.scheduled_date);
       if (existingMatchId && nextDate) {
+        await require('../services/officialScheduleService').assertLegacyMatchWrite(existingMatchId,EXECUTESQL);
         await EXECUTESQL('UPDATE matches SET scheduled_date = ?, updated_date = NOW() WHERE id = ?', [nextDate, existingMatchId]);
         await broadcastMatchById(existingMatchId);
       }
@@ -7273,6 +7278,7 @@ const HANDLERS = {
       const existingMatchId = meta.created_match_id || message.related_entity_id;
       const targetDate = toMysqlDateTime(meta.scheduled_date);
       if (existingMatchId && targetDate) {
+        await require('../services/officialScheduleService').assertLegacyMatchWrite(existingMatchId,EXECUTESQL);
         await EXECUTESQL(
           'UPDATE matches SET scheduled_date = ?, updated_date = NOW() WHERE id = ?',
           [targetDate, existingMatchId]

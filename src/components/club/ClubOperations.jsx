@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import OfficialMatchPreparation from "@/components/club/OfficialMatchPreparation";
 import OfferContractDialog from "@/components/contracts/OfferContractDialog";
 import { useTranslation } from "@/hooks/useTranslation";
 import {
@@ -81,6 +82,7 @@ export default function ClubOperations({
   const [selectedStaffPlayer, setSelectedStaffPlayer] = useState("");
   const [selectedStaffRole, setSelectedStaffRole] = useState("captain");
   const [offerApplicant, setOfferApplicant] = useState(null);
+  const [preparationState, setPreparationState] = useState(null);
   const [lineupFixtureId, setLineupFixtureId] = useState("");
   const [lineupForm, setLineupForm] = useState({
     formation: defaultFormation || "4-3-3",
@@ -277,7 +279,6 @@ export default function ClubOperations({
     try {
       if (selectedLineup) await stageClient.http.patch(`/club-fixture-lineups/${selectedLineup.id}`, body);
       else await stageClient.http.post("/club-fixture-lineups", body);
-      if (status === "published") await stageClient.http.post(`/clubs/${club.id}/lineups/${lineupFixtureId}/publish`);
       setNotice(status === "published" ? t("commonPages.coopLineupPublished") : t("commonPages.coopLineupDraftSaved"));
       await load();
     } catch (err) {
@@ -441,6 +442,8 @@ export default function ClubOperations({
                   {FORMATIONS.map((formation) => <option key={formation} value={formation}>{formation}</option>)}
                 </select>
               </div>
+              {hasOperationalPower && <OfficialMatchPreparation key={`${club.id}:${lineupFixtureId}`} clubId={club.id} fixtureId={lineupFixtureId} players={lineupPlayers} onState={setPreparationState} onChanged={load} />}
+              <fieldset disabled={preparationState?.locked || preparationState?.started || preparationState?.unavailable} className="space-y-3 disabled:opacity-60">
               <div className="grid md:grid-cols-2 gap-3">
                 <LineupPickList title={t("commonPages.coopStartingXi")} players={lineupPlayers} selected={lineupForm.starting_players} onToggle={(id) => toggleLineupPlayer("starting_players", id)} />
                 <LineupPickList title={t("commonPages.coopBench")} players={lineupPlayers} selected={lineupForm.bench_players} onToggle={(id) => toggleLineupPlayer("bench_players", id)} />
@@ -458,6 +461,7 @@ export default function ClubOperations({
                   {busy === "lineup:published" ? <Loader2 className="w-4 h-4 animate-spin" /> : null} {t("commonPages.coopPublish")}
                 </Button>
               </div>
+              </fieldset>
             </>
           )}
         </div>

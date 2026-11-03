@@ -137,3 +137,10 @@ vijfminutenvergrendeling, gereedmeldvensters en reservewisselprocedure blijven
 open. Zie [de selectiestap](official-match-selection-phase3.md) voor precieze
 reikwijdte, vindplaatsen en beperkingen. De eerdere waarschuwing tegen volledige
 productieactivering blijft gelden.
+
+## Vervolg: gereedmelden en tijdvergrendeling, 3 november 2026
+
+De lokale voorbereiding is uitgebreid met -15-minuten gereedmelden,
+-5-minutenvergrendeling, gecontroleerde reservewissels en GameDay-bediening.
+Zie [de voorbereidingsoverdracht](official-match-preparation-phase3.md).
+De volledige kalenderintegratie en uitzonderingsprocedures blijven open.

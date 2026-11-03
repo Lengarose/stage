@@ -33,6 +33,19 @@ router.get('/', async (req, res) => {
   }
 });
 
+router.get('/preparation/:clubId/:fixtureId', async (req,res)=>{
+  try {
+    await requireClubPermission(req,req.params.clubId,'manage_lineup');
+    res.json(await eligibility.preparationStatus(req.params.clubId,req.params.fixtureId));
+  } catch(err) {handleError(res,err);}
+});
+router.post('/preparation/:clubId/:fixtureId', async (req,res)=>{
+  try {
+    const {user}=await requireClubPermission(req,req.params.clubId,'manage_lineup');
+    res.json(await eligibility.preparationAction(req.params.clubId,req.params.fixtureId,req.body,user));
+  } catch(err) {handleError(res,err);}
+});
+
 router.get('/:id', async (req, res) => {
   try {
     const row = await loadLineup(req.params.id);

@@ -188,19 +188,35 @@ aansluiting verandert de speeltijd van een competitie niet voor één club.
 
 ## 7. Wedstrijdkalender en verplaatsingen — punten 8–10
 
-### Bewaarde planning [N]
+### Bevestigd Europees kalenderpakket [B] — 3 november 2026
 
 - Europese leagueavonden: dinsdag en donderdag, 20.00 en 20.40 uur,
   tijdzone `Europe/Brussels`. Toon tijden ook in de lokale tijdzone van de gebruiker.
 - Weken 1–9: vier leaguewedstrijden per club per week, samen 36.
 - Week 10 dinsdag: wedstrijden 37 en 38; donderdag voor toegestane uitzonderingen.
-- Week 11 dinsdag: promotiehalve finales; donderdag: promotiefinales, 20.00 uur.
-- Week 12: bekerfinale en noodzakelijke beslissingen. Laatste speelronde tegelijk
-  binnen dezelfde groep; normale verplaatsingen van rondes 37/38 niet toestaan.
+- Laatste speelronde tegelijk binnen dezelfde groep. De automatische leagueplanner
+  publiceert alle rondes van een groep telkens op hetzelfde tijdstip.
 - Over alle officiële competities samen maximaal twee wedstrijden per avond,
   zeven per week en vier speelavonden. Ook inhaal- en plaatsingswedstrijden tellen.
-- Leagueblok veertig minuten, knock-outblok zestig minuten. Zes minuten per helft
-  als gekozen uitgangspunt; werkelijke EA FC-instelbaarheid nog verifiëren.
+- Leagueblok veertig minuten, knock-outblok zestig minuten.
+
+De gebruiker bevestigde dit volledige kalenderpakket expliciet op 3 november 2026.
+Dit bevestigt geen startdatum, Noord-Amerikaans profiel of aanvullend verplaatsingsbeleid.
+
+### Promotiekalender [B — bevestigd 3 november 2026]
+
+- Week 11 dinsdag: promotiehalve finales; donderdag: promotiefinales, telkens
+  20.00 uur in `Europe/Brussels`, met blokken van zestig minuten.
+- Een onbesliste league-eindstand of een kalenderconflict blokkeert de planning.
+  Geen automatische winnaar, nieuwe datum of geforceerde publicatie.
+
+### Aanvullende bewaarde planning [N]
+
+- Week 12: bekerfinale en noodzakelijke beslissingen. De leagueplanner reserveert
+  deze weken zonder deze nog niet getekende wedstrijden te publiceren.
+- Normale verplaatsingen van rondes 37/38 niet toestaan: aparte handhaving nog uitwerken.
+- Zes minuten per helft als gekozen uitgangspunt; werkelijke EA FC-instelbaarheid
+  nog verifiëren.
 
 ### Verplaatsingen [N]
 
@@ -915,3 +931,45 @@ het duel. Uitslagdeelnemers/statistieken worden aan die selectie getoetst.
 ontbreekt: onder meer gereedmeldvensters, -5-minutenvergrendeling en beperkte
 reservewissels. Deze stap activeert geen productievoorwaarden en opent geen
 GOST, cups of D3.
+
+### Fase 3 — lokale voorbereidingsstap, 3 november 2026
+
+Gereedmelden vanaf -15 minuten, selectie vergrendelen vanaf -5 minuten en
+gecontroleerde reservewijzigingen vóór de echte aftrap zijn aangesloten voor
+nieuwe regionale edities/cycli. Bedienbaar bij Club → Selectie en in GameDay,
+met persoonlijke geschiktheidscontrole, verse selectierevisie en transactionele
+tegenstandermelding/audits. Beide clubs moeten gereed zijn; geen vroegtijdige
+start en geen automatisch forfait na tien minuten. Zie
+[de voorbereidingsoverdracht](official-match-preparation-phase3.md) voor de
+precieze reikwijdte. De volledige kalender-/legacyplanningsintegratie, operationele
+review en productievalidatie blijven open; GOST, cups en D3 blijven gesloten.
+
+### Fase 3 — lokale kalenderkoppeling, 3 november 2026
+
+Nieuwe officiële regionale planning is gekoppeld via één transactionele
+Admin-actie: fixture, eventuele enginefixture, canonieke Match, voorbereiding,
+audit en in-appmelding. Wijzigingen trekken oude voorbereiding blijvend in;
+GameDay openen schrijft geen nieuwe datum. Een Admin-formulier is toegevoegd
+onder Regional Leagues. [De kalenderoverdracht](official-calendar-link-phase3.md)
+beschrijft de exacte scope en 158 geslaagde gerichte tests, met twee afzonderlijk
+bevestigde bestaande testfouten. Dit bouwt nog geen automatische volledige
+seizoenskalender, verplaatsingsquota of storingsreview en activeert geen productie.
+
+### Fase 3 — volledige regionale leaguekalender, 3 november 2026
+
+Het bevestigde Europese kalenderpakket is verwerkt in een lokale preview- en
+publicatieactie, met groeps-/identiteitscontrole, complete draws, clubbelasting,
+zomertijd, bronrevisie en transactionele GameDay-koppeling. Zie
+[seizoenskalenderoverdracht](regional-season-calendar-phase3.md) voor bediening,
+controlebewijs en beperkingen. Dit activeert geen productie of uitgestelde Cup-,
+GOST-, D3-, spelerconflict- of verplaatsingsregels.
+
+### Fase 3 — promotiekalender, 3 november 2026
+
+De gebruiker bevestigde dinsdag/donderdag in speelweek 11, telkens 20.00 uur
+Europe/Brussels, met zestigminutenblokken en blokkering bij onbesliste bronstanden
+of conflicten. De lokale Admin-preview/publicatie volgt de bronleaguekalender en
+de sportieve cyclus. Finals worden pas gepland met echte deelnemers na verwerking
+van de halvefinaleresultaten. Zie [promotiekalenderoverdracht](regional-promotion-calendar-phase3.md).
+Dit is geen onbemande publicatieplanner en kiest nog geen tijden voor beker-,
+plaatsings-, uitbreidings- of aanvullende beslissingsduels. Geen productieactivatie.

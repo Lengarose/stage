@@ -60,3 +60,39 @@ Nieuwe kwalificatie blijft gesloten totdat toegang en opening zijn vastgesteld.
 basisspelers en reserves bij de daadwerkelijke app-aftrap van een nieuwe officiële
 wedstrijd. Bewaart deelnamegerechtigdheid bij Plusverval tijdens dat duel; een
 naam op de bank is nog geen bewijs dat die speler werkelijk heeft meegespeeld.
+
+**Wedstrijdvoorbereiding:** Tijdgebonden publicatie en gereedmelding van de
+inzetbare selectie voor een nieuwe officiële wedstrijd. Gewoon wijzigen stopt
+op -5 minuten; eerder opgegeven reserves kunnen vóór echte aftrap gecontroleerd
+worden ingezet. Een reservewijziging vereist een nieuwe eigen gereedmelding.
+Dit is een andere stap dan het definitieve aftrapbewijs.
+
+**Officiële kalenderkoppeling:** De gecontroleerde handeling die voor nieuwe
+regionale wedstrijden één aftrapmoment bewaart in fixture, eventuele engine en
+GameDay-Match. Een gewijzigd moment trekt eerdere voorbereiding en gereedmelding
+blijvend in. Dit is nog geen automatische generator van een volledige kalender.
+
+### Regional season calendar (local, 3 November 2026)
+- User explicitly confirmed European Tue/Thu 20:00/20:40 Europe/Brussels, 38 rounds
+  in ten playing weeks, league/knockout blocks 40/60min and club caps 2/day,
+  7/week, 4 playing evenings. Masterplan §7 separates this from unconfirmed extras.
+- Admin Regional Leagues has preview + transactional initial publication via
+  POST /regional-leagues/calendar. Complete current official D1/D2 groups only;
+  stale source revisions, existing schedules and unresolved identities block it.
+- Fixture/optional engine/Match links, audits and summary notices are atomic;
+  internal regional_calendar record provides scope idempotence. Official one-off
+  scheduling shares its mutex and European load checks.
+- See docs/regional-season-calendar-phase3.md for limits and verification.
+  No production activation, North America profile, cup/pathway calendar, GOST,
+  D3, individual-player conflict solver or newly approved rescheduling policy.
+
+### Regional promotion calendar (local, 3 November 2026)
+- Explicit user confirmation: week 11 Tuesday semifinals and Thursday finals,
+  both 20:00 Europe/Brussels, 60-minute blocks; unresolved rankings/clashes block.
+- New cycle calendar action derives its dates from the published source league
+  calendar and reuses fresh sporting evaluation; no client-selected opponents.
+- Admin saved transition → Promotion calendar previews/publishes the whole stage.
+  Finals require real, reconciled semifinal results. This is not yet an unattended
+  publication scheduler. Internal regional_pathway_calendar snapshots only.
+- Shared schedule model missing unpack import repaired and directly regression
+  tested. See docs/regional-promotion-calendar-phase3.md for scope and handoff.

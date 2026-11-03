@@ -1,0 +1,11 @@
+{
+  "version": "regional_promotion_calendar_europe_v1",
+  "status": "confirmed",
+  "timezone": "Europe/Brussels",
+  "week": 11,
+  "semifinal_day": 1,
+  "final_day": 3,
+  "time": "20:00",
+  "minutes": 60,
+  "confirmed_on": "2026-11-03"
+}

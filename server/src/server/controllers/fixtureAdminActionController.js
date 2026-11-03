@@ -188,9 +188,13 @@ router.post('/force-schedule', async (req, res) => {
     if (!fixture_id || !fixture_type || !date) {
       return res.status(400).json({ error: 'fixture_id, fixture_type, and date are required' });
     }
-    if (!FIXTURE_ENTITY_TYPES[fixture_type]) {
+    if (!FIXTURE_ENTITY_TYPES[fixture_type] && fixture_type!=='regional_pathway') {
       return res.status(400).json({ error: `Unknown fixture_type: ${fixture_type}` });
     }
+    const managed=await require('../services/officialScheduleService').force(fixture_id,{date,timezone:req.body.timezone,admin_note:admin_note || 'Admin force-schedule'}, {id:ctx.userId});
+    if(managed)return res.json(managed);
+    if(req.body.official_only)return res.status(409).json({error:'Select a new official regional fixture or pathway match.'});
+    if(fixture_type==='regional_pathway')return res.status(409).json({error:'This pathway does not use the new official calendar policy.'});
 
     const fixture = await getFixture(fixture_type, fixture_id);
     if (!fixture) return res.status(404).json({ error: 'Fixture not found' });
@@ -223,7 +227,7 @@ router.post('/force-schedule', async (req, res) => {
     res.json({ success: true, fixture: updated, audit });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message });
+    res.status(err.status || 500).json({ error: err.message });
   }
 });
 

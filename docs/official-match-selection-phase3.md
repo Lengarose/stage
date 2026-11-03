@@ -93,3 +93,10 @@ backend-syntax en productiebuild geslaagd. Build meldt de bestaande verouderde
 Browserslist-data en grote chunks. `graphify update .` kon niet draaien omdat de
 CLI niet geïnstalleerd is; `graphify-out/` is niet beschikbaar. Geen live-API,
 echte database, browser of deployment als gecontroleerd aangemerkt.
+
+## Vervolg van 3 november 2026
+
+De gereedmeldvensters, vijfminutenvergrendeling en gecontroleerde reserveacties
+zijn lokaal toegevoegd. De eerdere lijst noemt deze nog als open op het moment
+van die bouwstap. Zie [de voorbereidingsoverdracht](official-match-preparation-phase3.md)
+voor de nieuwe bediening, reikwijdte en resterende kalender-/reviewwerkzaamheden.
