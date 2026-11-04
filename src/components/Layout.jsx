@@ -287,6 +287,26 @@ const headingFont = { fontFamily: "var(--font-heading)" };
 
 const MOBILE_WALKTHROUGHS = [
   {
+    path: "/leagues",
+    label: "Regional Leagues",
+    title: "Follow your regional season",
+    steps: [
+      "Find your region and open a league to see its selected season, clubs, fixtures, table and rules.",
+      "Use Your club’s participation to apply during registration, then confirm in the shared confirmation week. Sporting placement determines your group.",
+      "Check the published schedule in your local time. Regional Cups have their own page; GOST qualification is not open yet.",
+    ],
+  },
+  {
+    path: "/regional-cups",
+    label: "Regional Cups",
+    title: "Follow your Regional Cup",
+    steps: [
+      "Open your region’s Cup and selected edition to see participants, the stored draw and round progress.",
+      "Open a real fixture on GameDay. A bye advances a club without creating a match; the next draw waits for definitive round results.",
+      "Check the edition’s captured rules, trophy and prize details. A listed prize and a completed payment are different statuses.",
+    ],
+  },
+  {
     path: "/tournaments/game-day",
     label: "Tournament match",
     title: "Tournament match day",
@@ -578,7 +598,6 @@ const MOBILE_WALKTHROUGH_KEYS_BY_PATH = {
   "/tournaments/clubs": "tournamentClubs",
   "/game-day": "matches",
   "/competitions": "compete",
-  "/leagues": "compete",
   "/clubs": "club",
   "/schedule": "schedule",
   "/inbox": "inbox",

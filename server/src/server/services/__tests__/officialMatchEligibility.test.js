@@ -3,6 +3,17 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const {createService}=require('../officialMatchEligibilityService');
 const {VERSION}=require('../../lib/regionalRegistrationPolicy');
+
+test('official preparation exposes first-report capability only from the captured edition terms and binds it to the match', async () => {
+  const f=fixture({pathway:true});
+  let status=await f.service.preparationStatus('away','match');
+  assert.equal(status.match_id,'match');assert.equal(status.allow_either_initial_result,false);
+  f.state.root.participation_window_snapshot.result_policy_version='regional_result_review_v2';
+  status=await f.service.preparationStatus('away','match');
+  assert.equal(status.allow_either_initial_result,true);
+  f.state.root.participation_window_snapshot.result_policy_version='regional_result_review_v1';
+  assert.equal((await f.service.preparationStatus('away','match')).allow_either_initial_result,false);
+});
 function fixture({legacy=false,pathway=false,cup=false}={}) {
   let now=new Date('2026-11-02T19:00:00Z');
   let state={root:{id:'edition',status:(pathway || cup)?'running':'in_progress',...(legacy?{}:cup?{policy_version:'regional_cup_v1',play_enabled:true,participant_ids:['home','away'],rounds:[{fixture_ids:['engine']}],participation_window_snapshot:{policy_version:VERSION,cup_policy_version:'regional_cup_v1'}}:pathway?{participation_window_snapshot:{policy_version:VERSION}}:{regional_participation_policy_version:VERSION})},
@@ -137,6 +148,9 @@ test('both HTTP publication routes and CRUD use the same eligibility checks',asy
       await f.save(f.body('away'));
       const path='/lineups/preparation/home/fixture';
       const before=await call(path,'GET');assert.equal(before.status,200);assert.equal(before.body.can_ready,false);
+      assert.equal(before.body.match_id,'match');assert.equal(before.body.allow_either_initial_result,false);
+      f.state.root.participation_window_snapshot={policy_version:VERSION,result_policy_version:'regional_result_review_v2'};
+      assert.equal((await call(path,'GET')).body.allow_either_initial_result,true);
       assert.equal((await call(path,'POST',{action:'ready',expected_revision:before.body.selection_revision})).status,409);
       f.at('2026-11-02T19:05:00Z');
       assert.equal((await call(path,'POST',{action:'ready',expected_revision:before.body.selection_revision})).status,200);

@@ -37,6 +37,18 @@ test("away side cannot open result submission before home has submitted full tim
   assert.equal(controls.showAwayWaitingForHome, true);
 });
 
+test('new official conditions let either club report full time, but never show a second initial report', () => {
+  const args={game:{status:'in_progress',result_state:'AWAITING_RESULT',result_submit_side:'home',result_home_submitted:'0',result_away_submitted:'0'},isLive:true,showResultForm:false,amIHomeTeam:false,allowEitherInitial:true};
+  const open=getResultSubmissionControls(args);
+  assert.equal(open.showAwaySubmit,true);assert.equal(open.showAwayWaitingForHome,false);
+  const awayFirst=getResultSubmissionControls({...args,amIHomeTeam:true,game:{...args.game,result_state:'AWAITING_AWAY_CONFIRMATION',result_submit_side:'away',result_away_submitted:1}});
+  assert.equal(awayFirst.showHomeSubmit,false);assert.equal(awayFirst.showConfirmResult,true);assert.equal(awayFirst.showAmendResult,false);
+  const stale=getResultSubmissionControls({...args,game:{...args.game,result_submit_side:'away',away_submission:JSON.stringify({home_score:2,away_score:2})}});
+  assert.equal(stale.showAwaySubmit,false);assert.equal(stale.showAmendResult,true);
+  const scheduled=getResultSubmissionControls({...args,isLive:false,game:{...args.game,status:'scheduled'}});
+  assert.equal(scheduled.showAwaySubmit,false);
+});
+
 test("away confirm state opens confirm, not a second submit_result", () => {
   const controls = getResultSubmissionControls({
     game: {

@@ -2,75 +2,97 @@
 const {withTransaction}=require('../db/database');
 const {RegionalOperationsModel}=require('../models/regionalOperationsModel');
 const {phase}=require('../lib/regionalRegistrationPolicy');
+const {assessField}=require('../lib/regionalFieldAssessment');
 const {isConfirmedResult}=require('../lib/tournamentStatistics');
 const {winner,resultRevision}=require('./regionalCupLifecycleService');
 const closed=new Set(['reset','superseded','cancelled','abandoned','retired','archived']);
 function report(rows,fixtures,now=new Date()) {
   const issues=[],records=[],counts={windows:0,cycles:0,cups:0,review:0,action:0};
-  const add=(r,code,severity,message,target)=>issues.push({key:`${r.entity_type}:${r.id}:${code}`,source_id:r.id,source_type:r.entity_type,name:r.name || r.region_slug || r.id,region_slug:r.region_slug || null,season_number:r.season_number || null,code,severity,message,target});
+  let registrationSourcesComplete=true;
+  const add=(r,code,severity,message,target,details={})=>issues.push({key:`${r.entity_type}:${r.id}:${code}`,source_id:r.id,source_type:r.entity_type,name:r.name || r.region_slug || r.id,region_slug:r.region_slug || null,season_number:r.season_number || null,code,severity,message,target,...details});
   for(const row of rows) {
     try {
       const data=typeof row.data_json==='string'?JSON.parse(row.data_json):row.data_json;
       if(!data || typeof data!=='object' || Array.isArray(data))throw Error('Invalid record');
       records.push({...data,id:row.id,entity_type:row.entity_type,status:row.status ?? data.status});
-    }catch {add(row,'unreadable_source','review','Brongegevens kunnen niet worden gelezen. Controleer de opgeslagen editie.','sources');}
+    }catch {if(row.entity_type==='season_registration')registrationSourcesComplete=false;add(row,'unreadable_source','review','Source data cannot be read. Review the stored edition.','sources');}
   }
   const active=records.filter(r=>!r.edition_invalidated && !r.invalidated_at && !closed.has(r.status));
   for(const r of active) {
+    if(r.entity_type==='regional_cycle_progress' && r.status==='review_required') {
+      const source=active.find(s=>s.entity_type==='regional_cycle' && s.id===r.source_id);
+      if(source && ['running','review','ready'].includes(source.status))add({...source,entity_type:r.entity_type},'cycle_recovery_review','review','Automatic regional cycle progression requires review. Check the captured field, official results and sporting decisions.','cycles');
+    }
+    if(r.entity_type==='regional_cup_progress' && r.status==='review_required') {
+      const source=active.find(s=>s.entity_type==='regional_cup_edition' && s.id===r.source_id);
+      if(source && source.status==='running')add({...source,entity_type:r.entity_type},'cup_recovery_review','review','Automatic Cup progression requires review. Check the recorded results and calendar; recovery never changes opponents or kickoff windows.','cups');
+    }
     if(r.entity_type==='regional_registration_window' && r.status==='published') {
       const root=records.find(s=>s.id===r.permanent_league_id),current=records.find(s=>s.id===root?.current_edition_id) || root;
-      if(!root) {add(r,'window_source','review','De vaste league van deze inschrijfperiode ontbreekt. Controleer de bronidentiteit.','registration');continue;}
+      if(!root) {add(r,'window_source','review','The permanent league for this registration window is missing. Review the source identity.','registration');continue;}
       if(root.retired || root.retired_at || current.edition_invalidated || Number(current.reset_series || 0)!==Number(r.reset_series || 0))continue;
       counts.windows++;
       const times=[r.opens_at,r.registration_closes_at,r.confirmation_closes_at].map(Date.parse);
-      if(times.some(t=>!Number.isFinite(t)) || !(times[0]<times[1] && times[1]<times[2])) {add(r,'invalid_deadline','review','Inschrijf- of bevestigingsdatums vereisen controle.','registration');continue;}
+      if(times.some(t=>!Number.isFinite(t)) || !(times[0]<times[1] && times[1]<times[2])) {add(r,'invalid_deadline','review','Registration or confirmation dates require review.','registration');continue;}
       const state=phase(r,now),apps=active.filter(a=>a.entity_type==='season_registration' && a.registration_window_id===r.id);
       const confirmed=apps.filter(a=>a.participation_status==='confirmed' && a.status==='approved');
       if(active.some(s=>s.entity_type==='regional_league' && s.region_slug===r.region_slug && s.platform===r.platform && Number(s.season_number)===Number(r.season_number) && Number(s.reset_series || 0)===Number(r.reset_series || 0) && !['draft','registration'].includes(s.status)))continue;
-      if(state==='confirmation')add(r,'confirmation_open','action',`Bevestigingsweek loopt: ${confirmed.length} van ${apps.length} inschrijvingen bevestigd. Er worden geen extra termijnen toegekend.`,'registration');
-      if(state==='closed' && !active.some(c=>c.entity_type==='regional_cycle' && c.participation_window_snapshot?.id===r.id))add(r,'field_review','action',`Bevestiging gesloten: ${confirmed.length} bevestigde inschrijvingen. Controleer het veld en de regionale cyclus; onbevestigde clubs worden hier niet automatisch verwijderd.`,'cycles');
+      if(state==='confirmation')add(r,'confirmation_open','action',`Confirmation week is open: ${confirmed.length} of ${apps.length} registrations confirmed. No deadline extensions are granted here.`,'registration');
+      if(state==='closed' && !active.some(c=>c.entity_type==='regional_cycle' && c.participation_window_snapshot?.id===r.id)) {
+        if(r.policy_version) {
+          const assessment=assessField(r,apps,now,{sourceComplete:registrationSourcesComplete});
+          const supported=assessment.status==='structure_supported';
+          add(r,'field_review',supported?'action':'review',supported
+            ? `Confirmation has closed: ${assessment.confirmed_clubs} confirmed clubs fit an approved capacity. Review sporting rights, placement and the calendar before starting.`
+            : `Confirmation has closed: ${assessment.confirmed_clubs} confirmed clubs. Resolve the field blockers before preparing a sporting cycle; no clubs have been dropped.`,'cycles',{field_assessment:assessment});
+        }else add(r,'field_review','action',`Confirmation has closed: ${confirmed.length} confirmed registrations. Review the field and regional cycle; this view does not automatically remove unconfirmed clubs.`,'cycles');
+      }
     }
     if(r.entity_type==='regional_cycle') {
       counts.cycles++;
       if(r.status==='allocated') {
         const ids=r.allocated_groups?.map(g=>g.id) || [];
-        if(ids.length && !ids.every(id=>active.some(c=>c.entity_type==='regional_calendar' && c.status==='published' && c.edition_ids?.includes(id))))add(r,'league_calendar','action','Groepsindeling is opgeslagen. Controleer en publiceer de ontbrekende leaguekalender.','calendar');
+        if(ids.length && !ids.every(id=>active.some(c=>c.entity_type==='regional_calendar' && c.status==='published' && c.edition_ids?.includes(id))))add(r,'league_calendar','action','Group allocation is saved. Review and publish the missing league calendar.','calendar');
       }else {
         for(const message of r.plan?.blockers || [])add(r,`blocker:${message}`,'review',String(message),'cycles');
         const matches=fixtures.filter(f=>f.competition_instance_id===r.id);
-        if(Object.keys(r.fixture_refs || {}).length>matches.length || matches.some(f=>!f.id || !f.scheduled_date && !f.confirmed_date))add(r,'pathway_schedule','action','Plaatsings- of promotieduels missen een officiële Match of planning.','cycles');
-        if(matches.length && matches.every(isConfirmedResult))add(r,'cycle_progress','action','Alle opgeslagen cyclusduels zijn definitief. Herlees de sportieve voortgang en controleer de groepsindeling.','cycles');
+        if(Object.keys(r.fixture_refs || {}).length>matches.length || matches.some(f=>!f.id || !f.scheduled_date && !f.confirmed_date))add(r,'pathway_schedule','action','Placement or promotion matches are missing an official Match or schedule.','cycles');
+        if(r.status==='ready' && r.plan?.ready===true) {
+          if(r.automatic_allocation_policy_version && r.automatic_allocation_policy_version!==require('../lib/regionalAutoAllocationPolicy').VERSION)add(r,'cycle_allocation_policy','review','The captured automatic allocation policy is unsupported. Review the cycle instead of inferring new sporting rights.','cycles');
+          else add(r,'cycle_allocation','action',r.automatic_allocation_policy_version?'Sporting rights are ready. Automatic draft-group allocation is pending; check recovery review items if it remains blocked.':'Sporting rights are ready. Review and apply the final group allocation through the existing controlled action.','cycles');
+        }
+        else if(matches.length && matches.every(isConfirmedResult))add(r,'cycle_progress','action','All stored cycle matches are final. Reconcile sporting progress and review group allocation.','cycles');
       }
     }
     if(r.entity_type==='regional_cup_edition') {
       counts.cups++;
-      if(!r.cup_reward_snapshot)add(r,'reward_promise','review','Deze bekereditie heeft nog geen vastgelegde prijsafspraken. Expliciete controle is vereist.','cups');
-      if(r.status==='draft') {add(r,'cup_activation','action','Bekerontwerp wacht op deelnemers-/kalendercontrole en expliciete activering.','cups');continue;}
-      if(!r.play_enabled) {add(r,'cup_disabled','review','De bekerstatus en speelactivatie spreken elkaar tegen.','cups');continue;}
+      if(!r.cup_reward_snapshot)add(r,'reward_promise','review','This Cup edition has no captured reward terms. Explicit review is required.','cups');
+      if(r.status==='draft') {add(r,'cup_activation','action','The Cup draft awaits participant/calendar review and explicit activation.','cups');continue;}
+      if(!r.play_enabled) {add(r,'cup_disabled','review','The Cup status and play activation disagree.','cups');continue;}
       const matches=fixtures.filter(f=>f.competition_instance_id===r.id),round=r.rounds?.at(-1);
-      if(!round || !Array.isArray(round.fixture_ids) || !round.fixture_ids.length) {add(r,'cup_mapping','review','De actuele bekerloting ontbreekt.','cups');continue;}
+      if(!round || !Array.isArray(round.fixture_ids) || !round.fixture_ids.length) {add(r,'cup_mapping','review','The current Cup draw is missing.','cups');continue;}
       let changed=false;
       for(const played of r.rounds) {
         if(!Array.isArray(played.fixture_ids)) {changed=true;break;}
         const source=played.fixture_ids.map(id=>matches.find(m=>m.fixture_id===id));
         if(source.some(m=>!m?.id) || played.results_revision && resultRevision(source)!==played.results_revision) {changed=true;break;}
       }
-      if(changed) {add(r,'cup_source_changed','review','Een gepubliceerde Match ontbreekt of een verwerkte uitslag is gewijzigd.','cups');continue;}
+      if(changed) {add(r,'cup_source_changed','review','A published Match is missing or a processed result has changed.','cups');continue;}
       if(r.status==='completed') {
-        if(r.prize_settlement_state!=='paid' || r.honours_state!=='awarded')add(r,'cup_settlement','review','Beker afgerond; betalings- en/of trofeeverwerking is nog niet definitief. Controleer het beloningsbewijs.','cups');
+        if(r.prize_settlement_state!=='paid' || r.honours_state!=='awarded')add(r,'cup_settlement','review','The Cup is completed; payment and/or trophy processing is not final. Review the reward evidence.','cups');
       } else {
         const current=round.fixture_ids.map(id=>matches.find(m=>m.fixture_id===id));
-        try {if(current.every(m=>winner(m)))add(r,'cup_progress','action','Alle uitslagen van de huidige ronde zijn bevestigd. Controleer waarom de volgende ronde nog niet verwerkt is.','cups');}
-        catch {add(r,'cup_result_conflict','review','Score, penaltybeslissing en bekerwinnaar spreken elkaar tegen.','cups');}
+        try {if(current.every(m=>winner(m)))add(r,'cup_progress','action','All current-round results are confirmed. Review why the next round has not been processed.','cups');}
+        catch {add(r,'cup_result_conflict','review','The score, penalty decision and Cup winner disagree.','cups');}
         const slot=r.round_calendar?.find(s=>s.round===round.number);
-        if(!slot || !Number.isFinite(slot.instant) || !Number.isFinite(slot.minutes) || slot.minutes<=0)add(r,'cup_calendar','review','Het opgeslagen rondevenster ontbreekt of is ongeldig.','cups');
-        else if(slot.instant+slot.minutes*60000<now.getTime() && current.some(m=>!isConfirmedResult(m)))add(r,'cup_results_due','review','Het rondevenster is voorbij en er ontbreken definitieve uitslagen. Dit overzicht kent geen forfait of automatische uitslag toe.','cups');
+        if(!slot || !Number.isFinite(slot.instant) || !Number.isFinite(slot.minutes) || slot.minutes<=0)add(r,'cup_calendar','review','The recorded round window is missing or invalid.','cups');
+        else if(slot.instant+slot.minutes*60000<now.getTime() && current.some(m=>!isConfirmedResult(m)))add(r,'cup_results_due','review','The round window has passed and final results are missing. This overview does not award forfeits or automatic results.','cups');
       }
     }
     if(r.entity_type==='competition_settlement' && ['regional_league','regional_cup_edition'].includes(r.source_type) && ['failed','blocked','partially_paid'].includes(r.status)) {
       const source=records.find(s=>s.id===r.source_id);
       if(source && (source.edition_invalidated || closed.has(source.status)))continue;
-      add(r,'settlement_review','review','Een beloningsverwerking is geblokkeerd, mislukt of gedeeltelijk betaald. Controleer bestaande ledgerbewijzen vóór herstel.',r.source_type==='regional_cup_edition'?'cups':'rewards');
+      add(r,'settlement_review','review','Reward processing is blocked, failed or partially paid. Review existing ledger evidence before recovery.',r.source_type==='regional_cup_edition'?'cups':'rewards');
     }
   }
   issues.sort((a,b)=>Number(b.severity==='review')-Number(a.severity==='review') || a.key.localeCompare(b.key));

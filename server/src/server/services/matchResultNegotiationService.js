@@ -9,6 +9,7 @@ const { sendActionMessage } = require('./messageDeliveryService');
 const { notifyMatchSide, resolveMatchSideEmails } = require('./matchNotificationService');
 const {
   RESULT_STATES,
+  TERMINAL_RESULT_STATES,
   RESULT_WINDOW_HOURS,
   CONFIRM_WINDOW_HOURS,
   REVIEW_WINDOW_HOURS,
@@ -25,6 +26,11 @@ const {
   resultSnapshotFingerprint,
 } = require('../lib/matchResultNegotiation');
 const {validateMatchPenalty}=require('./penaltyPolicyService');
+const { policyForMatch } = require('./regionalResultPolicyService');
+
+async function responseHours(match, fallback) {
+  return (await policyForMatch(match))?.responseHours || fallback;
+}
 
 function parseSubmission(raw) {
   if (!raw) return null;
@@ -152,11 +158,11 @@ function buildSubmission({ args, side, scores, penalty, proofOcr }) {
 }
 
 async function notifySubmitted(match, scores) {
-  const homeName = sideName(match, 'home');
-  const awayName = sideName(match, 'away');
-  const body = `${homeName} submitted ${scores.home_score}–${scores.away_score}. Is this result correct?`;
-  await notifyMatchSide(match, 'away', 'result_submitted', 'Result submitted — confirm', body, 'result_submitted').catch(() => {});
-  await sendResultInbox(match, 'away', {
+  const submitter = currentSubmitSide(match);
+  const confirmer = oppositeSide(submitter);
+  const body = `${sideName(match, submitter)} submitted Home ${scores.home_score}–Away ${scores.away_score}. Is this result correct?`;
+  await notifyMatchSide(match, confirmer, 'result_submitted', 'Result submitted — confirm', body, 'result_submitted').catch(() => {});
+  await sendResultInbox(match, confirmer, {
     subject: 'Confirm match result',
     body,
     eventKey: 'result_submitted',
@@ -164,10 +170,10 @@ async function notifySubmitted(match, scores) {
 }
 
 async function notifyCorrection(match, scores) {
-  const awayName = sideName(match, 'away');
-  const body = `${awayName} has proposed a correction: ${scores.home_score}–${scores.away_score}.`;
-  await notifyMatchSide(match, 'home', 'result_submitted', 'Result correction proposed', body, 'result_corrected').catch(() => {});
-  await sendResultInbox(match, 'home', {
+  const submitter = currentSubmitSide(match);
+  const body = `${sideName(match, oppositeSide(submitter))} has proposed a correction: Home ${scores.home_score}–Away ${scores.away_score}.`;
+  await notifyMatchSide(match, submitter, 'result_submitted', 'Result correction proposed', body, 'result_corrected').catch(() => {});
+  await sendResultInbox(match, submitter, {
     subject: 'Result correction proposed',
     body,
     eventKey: 'result_corrected',
@@ -244,7 +250,8 @@ async function applyTimeoutSettlement(match, decision) {
     ...timeoutPatch,
     result_history: appendHistory(match, {
       event: decision.event,
-      applied_from: appliedFrom,
+      ...(decision.autoConfirm ? { applied_from: appliedFrom } : {}),
+      ...(decision.policy_version ? { policy_version: decision.policy_version } : {}),
       home_score: primary?.home_score ?? null,
       away_score: primary?.away_score ?? null,
       patch: decision.patch,
@@ -258,6 +265,13 @@ async function applyTimeoutSettlement(match, decision) {
   await patchMatch(match.id, historyPatch, match);
   const fresh = await loadMatch(match.id);
   if (!decision.autoConfirm) {
+    if (decision.event === 'response_timeout_admin_review') {
+      for (const side of ['home', 'away']) await sendResultInbox(fresh, side, {
+        subject: 'Result awaiting Admin review',
+        body: 'The response deadline expired. The result is not confirmed; Admin must review it before standings, statistics or rewards can be finalized.',
+        eventKey: 'response_timeout_admin_review',
+      });
+    }
     if (decision.event === 'home_submit_window_passed') {
       await notifyMatchSide(fresh, 'away', 'result_requested', 'Your turn to submit the result', `${sideName(fresh, 'home')} missed the 48h window. Submit the result.`, 'home_window_passed').catch(() => {});
       await sendResultInbox(fresh, 'away', {
@@ -275,8 +289,11 @@ async function applyTimeoutSettlement(match, decision) {
 
 async function settleMatchDeadlines(match, now = new Date()) {
   if (!match?.id) return { data: { skipped: true } };
-  const decision = settleDeadlinesPure(match, now);
+  if (['completed', 'forfeit', 'cancelled'].includes(match.status) || match.result_state === RESULT_STATES.ADMIN_REVIEW || TERMINAL_RESULT_STATES.has(match.result_state)) return { data: { status: 'unchanged', result_state: match.result_state }, match };
+  const policy = [RESULT_STATES.AWAITING_AWAY_CONFIRMATION, RESULT_STATES.AWAITING_HOME_REVIEW].includes(match.result_state) ? await policyForMatch(match) : null;
+  const decision = settleDeadlinesPure(match, now, policy || {});
   if (!decision.changed) return { data: { status: 'unchanged', result_state: match.result_state }, match };
+  if (policy) decision.policy_version = policy.version;
   return applyTimeoutSettlement(match, decision);
 }
 
@@ -307,8 +324,11 @@ async function settleClubMatches(clubId, now = new Date()) {
 }
 
 async function submitInitialResult(match, actor, args, proofOcr) {
+  if (!['home', 'away'].includes(actor.side)) throw httpError('Only a match participant can submit a result.', 403, 'MATCH_SIDE_REQUIRED');
+  const policy = await policyForMatch(match);
+  if (policy?.allowEitherInitial && match.status !== 'in_progress') throw httpError('Start the official match before reporting full time.', 409, 'MATCH_NOT_STARTED');
   const submitSide = currentSubmitSide(match);
-  if (actor.side !== submitSide) {
+  if (actor.side !== submitSide && !policy?.allowEitherInitial) {
     throw httpError(
       submitSide === 'home'
         ? 'Home team must submit their result first.'
@@ -316,6 +336,9 @@ async function submitInitialResult(match, actor, args, proofOcr) {
       409,
       'AWAITING_HOME_SUBMISSION'
     );
+  }
+  if (policy?.allowEitherInitial && (parseSubmission(match.home_submission) || parseSubmission(match.away_submission) || Number(match.result_home_submitted) || Number(match.result_away_submitted) || match.first_submission_at)) {
+    throw httpError('A result proposal already exists. Refresh and review it.', 409, 'RESULT_ALREADY_SUBMITTED');
   }
   if (match.result_state && ![RESULT_STATES.AWAITING_RESULT, ''].includes(String(match.result_state))
     && !(Number(match.result_home_submitted) && !match.result_state)) {
@@ -341,14 +364,14 @@ async function submitInitialResult(match, actor, args, proofOcr) {
 
   const column = actor.side === 'home' ? 'home_submission' : 'away_submission';
   const flag = actor.side === 'home' ? 'result_home_submitted' : 'result_away_submitted';
-  const confirmer = oppositeSide(actor.side);
 
   await patchMatch(match.id, {
     [column]: stringify(submission),
     [flag]: 1,
+    result_submit_side: actor.side,
     first_submission_at: match.first_submission_at || new Date().toISOString(),
     result_state: RESULT_STATES.AWAITING_AWAY_CONFIRMATION,
-    confirmation_due_at: hoursFromNow(CONFIRM_WINDOW_HOURS).toISOString(),
+    confirmation_due_at: hoursFromNow(policy?.responseHours || CONFIRM_WINDOW_HOURS).toISOString(),
     decided_on_penalties: penalty.decided_on_penalties,
     penalty_winner_side: penalty.penalty_winner_side,
     result_history: appendHistory(match, {
@@ -361,9 +384,6 @@ async function submitInitialResult(match, actor, args, proofOcr) {
 
   const fresh = await loadMatch(match.id);
   await notifySubmitted(fresh, scores);
-  if (confirmer === 'home') {
-    await notifyMatchSide(fresh, 'home', 'result_submitted', 'Result submitted — confirm', `${sideName(fresh, 'away')} submitted ${scores.home_score}–${scores.away_score}. Is this result correct?`, 'result_submitted').catch(() => {});
-  }
   return { data: { status: 'waiting', result_state: RESULT_STATES.AWAITING_AWAY_CONFIRMATION } };
 }
 
@@ -421,7 +441,7 @@ async function amendSubmittedResult(match, actor, args, proofOcr) {
     [otherColumn]: null,
     [otherFlag]: 0,
     result_state: RESULT_STATES.AWAITING_AWAY_CONFIRMATION,
-    confirmation_due_at: hoursFromNow(CONFIRM_WINDOW_HOURS).toISOString(),
+    confirmation_due_at: hoursFromNow(await responseHours(match, CONFIRM_WINDOW_HOURS)).toISOString(),
     decided_on_penalties: penalty.decided_on_penalties,
     penalty_winner_side: penalty.penalty_winner_side,
     result_history: appendHistory(match, {
@@ -513,7 +533,7 @@ async function proposeCorrection(match, actor, args) {
     [flag]: 1,
     correction_count: Number(match.correction_count || 0) + 1,
     result_state: RESULT_STATES.AWAITING_HOME_REVIEW,
-    review_due_at: hoursFromNow(REVIEW_WINDOW_HOURS).toISOString(),
+    review_due_at: hoursFromNow(await responseHours(match, REVIEW_WINDOW_HOURS)).toISOString(),
     decided_on_penalties: penalty.decided_on_penalties,
     penalty_winner_side: penalty.penalty_winner_side,
     result_history: appendHistory(match, {
@@ -578,7 +598,7 @@ async function counterResult(match, actor, args, proofOcr) {
     [column]: stringify(submission),
     home_counter_count: Number(match.home_counter_count || 0) + 1,
     result_state: RESULT_STATES.AWAITING_AWAY_CONFIRMATION,
-    confirmation_due_at: hoursFromNow(CONFIRM_WINDOW_HOURS).toISOString(),
+    confirmation_due_at: hoursFromNow(await responseHours(match, CONFIRM_WINDOW_HOURS)).toISOString(),
     decided_on_penalties: penalty.decided_on_penalties,
     penalty_winner_side: penalty.penalty_winner_side,
     result_history: appendHistory(match, {

@@ -63,11 +63,44 @@ test('promotion HTTP action supports protected preview and publication with norm
   const app=express();app.use(express.json(),(req,res,next)=>{req.user={id:req.headers['x-actor'] || 'admin'};next();});app.use('/regional-leagues',require('../../controllers/leagueEntityController').makeRouter('regional_league'));
   server=app.listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));
   const call=async(body,actor='admin')=>{const r=await fetch(`http://127.0.0.1:${server.address().port}/regional-leagues/cycles/cycle/calendar`,{method:'POST',headers:{'Content-Type':'application/json','x-actor':actor},body:JSON.stringify(body)});return {status:r.status,data:await r.json()};};
-  assert.equal((await call(f.body,'player')).status,403);const p=await call(f.body);assert.equal(p.status,200);assert.equal(p.data.entries.length,2);
+  assert.equal((await call(f.body,'player')).status,403);assert.equal((await call({stage:'final',apply:true,automatic:true},'player')).status,403);const p=await call(f.body);assert.equal(p.status,200);assert.equal(p.data.entries.length,2);
   assert.equal((await call({...f.body,apply:true,expected_revision:'stale',reason:'Review'})).status,409);assert.equal((await call({...f.body,apply:true,expected_revision:p.data.revision,reason:'Review'})).data.status,'published');
  } finally {if(server)await new Promise(resolve=>server.close(resolve));if(saved)require.cache[path]=saved;else delete require.cache[path];}
 });
 test('real schedule model loads legacy JSON fixture bookings without a missing-import failure',async()=>{
  const {OfficialScheduleModel}=require('../../models/officialScheduleModel');const model=new OfficialScheduleModel();const events=await model.events(['club0'],async sql=>sql.includes('FROM league_entities')?[{id:'legacy',data_json:JSON.stringify({home_club_id:'club0',away_club_id:'club1',scheduled_date:'2027-01-19 20:00:00',timezone:'Europe/Brussels'})}]:[]);
  assert.equal(events.fixtures[0].home_club_id,'club0');assert.equal(events.fixtures[0].scheduled_date,'2027-01-19 20:00:00');
+});
+async function automaticFixture() {
+ const f=fixture();const p=await f.preview();await f.publish(p.revision);
+ return f;
+}
+function finishSemifinals(f) {
+ for(const m of f.state.matches)Object.assign(m,{status:'completed',result_state:'CONFIRMED',home_score:2,away_score:1});
+ f.state.plan.pending=[];
+ const ref='promotion:D2A:final';f.state.cycle.fixture_refs[ref]='final';const proposed={ref,home:'club0',away:'club2',allow_penalties:true,round:2};f.state.plan.fixtures.push(proposed);f.state.plan.pending.push(proposed);
+ f.state.fixtures.push({...f.state.fixtures[0],id:'final',legacy_fixture_id:'final',match_id:'final-match',home_club_id:'club0',away_club_id:'club2',status:'unscheduled',scheduled_at:null,confirmed_at:null});
+ f.state.matches.push({...f.state.matches[0],id:'final-match',source_fixture_id:'final',status:'pending_schedule',result_state:null,home_score:null,away_score:null,scheduled_date:null,confirmed_date:null,home_club_id:'club0',away_club_id:'club2'});
+}
+test('automatic promotion final requires a published semifinal calendar and waits for explicit confirmed results',async()=>{
+ const empty=fixture();const before=structuredClone(empty.state);assert.equal((await empty.service.reconcileFinal('cycle')).status,'not_enabled');assert.deepEqual(empty.state,before);
+ const f=await automaticFixture(),waiting=structuredClone(f.state);assert.equal((await f.service.reconcileFinal('cycle')).status,'waiting_semifinals');assert.deepEqual(f.state,waiting);
+ finishSemifinals(f);f.state.matches[0].result_state='auto_confirmed_timeout';assert.equal((await f.service.reconcileFinal('cycle')).status,'waiting_semifinals');assert.equal(f.state.records.length,1);
+ f.state.matches[0].result_state='CONFIRMED';const result=await f.service.reconcileFinal('cycle');assert.equal(result.status,'published');assert.equal(result.entries.length,1);assert.equal(result.entries[0].scheduled_date,'2027-01-21 20:00:00');assert.equal(result.publication_mode,'automatic_followup');assert.equal(result.parent_calendar_id,f.state.records[0].id);assert.equal(f.state.audits.at(-1).user.id,null);
+ const completed=structuredClone(f.state);assert.equal((await f.service.reconcileFinal('cycle')).already_published,true);assert.deepEqual(f.state,completed);
+});
+test('automatic final refuses changed semifinal identity, policy and kickoff evidence',async()=>{
+ for(const change of [f=>{f.state.records[0].policy_snapshot.time='21:00';},f=>{f.state.matches[0].confirmed_date='2027-01-20 20:00:00';},f=>{f.state.records[0].entries[0].ref='other';},f=>{f.state.matches[0].home_club_id='outsider';}]) {
+  const f=await automaticFixture();finishSemifinals(f);change(f);const before=structuredClone(f.state);await assert.rejects(f.service.reconcileFinal('cycle'));assert.deepEqual(f.state,before);
+ }
+});
+test('automatic final accepts the same captured policy after JSON key reordering',async()=>{
+ const f=await automaticFixture();finishSemifinals(f);
+ f.state.records[0].policy_snapshot=Object.fromEntries(Object.entries(f.state.records[0].policy_snapshot).reverse());
+ assert.equal((await f.service.reconcileFinal('cycle')).status,'published');
+});
+test('automatic final retains conflict, cutoff, source-revision and transactional delivery guards',async()=>{
+ for(const change of [f=>{f.state.now='2027-01-21T19:00:00Z';},f=>{f.state.fail='source';},f=>{f.state.bookings.matches.push({id:'clash',home_club_id:'club0',away_club_id:'other',status:'scheduled',scheduled_date:'2027-01-21 20:30:00',timezone:'Europe/Brussels',type:'league'});},f=>{f.state.fail='notify';}]) {
+  const f=await automaticFixture();finishSemifinals(f);change(f);const before=structuredClone(f.state);await assert.rejects(f.service.reconcileFinal('cycle'));assert.deepEqual(f.state,before);
+ }
 });

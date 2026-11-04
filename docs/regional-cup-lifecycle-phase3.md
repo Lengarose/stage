@@ -10,8 +10,8 @@ lifecycle-overdracht en zijn daardoor gedeeltelijk opgevolgd.
 ## Waar staat het?
 
 - **Admin → Regional Leagues → Regional Cups**: vaste beker en catalogustrofee
-  voorbereiden, editie voorbereiden en vervolgens bij **Beker activeren en officiële
-  voortgang** de activering controleren. Publiceren vereist een actuele preview,
+  voorbereiden, editie voorbereiden en vervolgens bij **Cup activation and official
+  progress** de activering controleren. Publiceren vereist een actuele preview,
   reden en expliciete bevestiging. Hetzelfde onderdeel toont voortgangsblokkades.
 - **Regional Leagues → Regional Cups** (`/regional-cups`): ingelogde gebruikers
   zien geactiveerde en voltooide edities, trofee, regels, rondevensters, opgeslagen

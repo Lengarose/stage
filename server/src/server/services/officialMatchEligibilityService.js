@@ -100,12 +100,13 @@ function createService({query=EXECUTESQL,transaction=withTransaction,rosters=new
       if(![ctx.match.home_club_id,ctx.match.away_club_id].includes(clubId))fail('This club is not a participant',403);
       const {windows,state}=await preparation(ctx,q);
       const current=state.sides[clubId];
+      const resultPolicy=await require('./regionalResultPolicyService').policyForContext(ctx,q);
       let eligible=null,eligibility_message=null,player_labels={};
       if(current && !(await snapshot(ctx.match.id,q))) {
         try {const roster=await rosters.players(clubId,q);player_labels=Object.fromEntries(roster.filter(p=>playerIds(current.selection).ids.includes(p.id)).map(p=>[p.id,p.gamertag || p.id]));validateRoster(current.selection,roster,clock(),{publish:true});eligible=true;}
         catch(err) {if(err.status!==422)throw err;eligible=false;eligibility_message=err.message;}
       }
-      return {official:true,eligible,eligibility_message,player_labels,...windows,started:Boolean(await snapshot(ctx.match.id,q)),lineup_id:current?.lineup_id || null,selection:current?playerIds(current.selection):null,selection_revision:current?selectionRevision(current.selection):null,ready_at:current?.ready_at || null,opponent_ready:Boolean(state.sides[ctx.match.home_club_id===clubId?ctx.match.away_club_id:ctx.match.home_club_id]?.ready_at)};
+      return {official:true,match_id:ctx.match.id,allow_either_initial_result:resultPolicy?.allowEitherInitial===true,eligible,eligibility_message,player_labels,...windows,started:Boolean(await snapshot(ctx.match.id,q)),lineup_id:current?.lineup_id || null,selection:current?playerIds(current.selection):null,selection_revision:current?selectionRevision(current.selection):null,ready_at:current?.ready_at || null,opponent_ready:Boolean(state.sides[ctx.match.home_club_id===clubId?ctx.match.away_club_id:ctx.match.home_club_id]?.ready_at)};
     });
   }
   async function preparationAction(clubId,ref,body,user) {

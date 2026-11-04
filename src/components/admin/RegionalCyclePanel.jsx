@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { stageClient } from '@/api/stageClient';
 import RegionalDecisionCalendarPanel from './RegionalDecisionCalendarPanel';
 import RegionalPromotionCalendarPanel from './RegionalPromotionCalendarPanel';
 import { adminEndpointError } from '@/lib/adminLeagueLifecycle';
 
 export default function RegionalCyclePanel({ leagues = [], registrations = [], onRefresh }) {
+  const [params,setParams]=useSearchParams();
+  const fieldWindowId=params.get('regional_field') || '';
+  const [fieldRefresh,setFieldRefresh]=useState(0);
   const [mode, setMode] = useState('placement');
   const [sourceIds, setSourceIds] = useState([]);
   const [registrationIds, setRegistrationIds] = useState([]);
@@ -19,6 +22,18 @@ export default function RegionalCyclePanel({ leagues = [], registrations = [], o
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
+  useEffect(()=>{
+    if(!fieldWindowId)return;
+    let active=true;
+    setBusy(true);setError('');setPreview(null);setConfirmed(false);setCycle(null);setDraw(null);setAllocation(null);setReason('');
+    document.getElementById('regional-cycles')?.scrollIntoView({block:'start'});
+    stageClient.http.post('/regional-leagues/cycles',{registration_window_id:fieldWindowId}).then(report=>{
+      if(!active)return;
+      setMode(report.input.mode);setSourceIds(report.input.source_edition_ids);setRegistrationIds(report.input.registration_ids);setCount(report.input.target_count);
+      setPreview({request:report.input,report});
+    }).catch(err=>{if(active)setError(adminEndpointError(err));}).finally(()=>{if(active)setBusy(false);});
+    return ()=>{active=false;};
+  },[fieldWindowId,fieldRefresh]);
   useEffect(() => {
     let active = true;
     stageClient.http.get('/regional-leagues/cycles').then(data => { if (active) setCycles(data.cycles); }).catch(err => { if (active) setError(adminEndpointError(err)); });
@@ -42,6 +57,7 @@ export default function RegionalCyclePanel({ leagues = [], registrations = [], o
   return <section className="space-y-4 border-y border-border py-5">
     <h4 className="font-heading text-lg">Regional cycles and sporting allocation</h4>
     <p className="max-w-3xl text-sm text-muted-foreground">Prepare one recorded draw for the whole regional season. Official results decide places. For next-season transitions, finish all 380 league matches per source group first; tied finishing positions are settled before promotion play-offs. Allocation creates draft groups; the season calendar and matches must still be scheduled before play.</p>
+    {fieldWindowId && <div className="space-y-2 text-sm"><p>Confirmed-field preview: the server derives the route, sources and complete participant field from the selected registration window. This does not save a draw or publish kickoff times.</p><button type="button" disabled={busy} className="min-h-11 font-semibold disabled:opacity-40" onClick={()=>setFieldRefresh(v=>v+1)}>Refresh confirmed-field preview →</button></div>}
     <fieldset disabled={busy} className="space-y-4 disabled:opacity-60">
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="text-sm">Route<select className={input} value={mode} onChange={e => { invalidate(); setMode(e.target.value); }}><option value="placement">First placement</option><option value="transition">Next season: promotion and growth</option></select></label>
@@ -60,10 +76,12 @@ export default function RegionalCyclePanel({ leagues = [], registrations = [], o
       {preview && <div className="space-y-3 border-l border-border pl-4 text-sm">
         <p>{preview.report.confirmed_participants} confirmed clubs · {preview.report.initial_fixtures} initial pathway fixtures · Season {preview.report.season_number}</p>
         <p>{preview.report.structure.groups.map(g => g.ref).join(' · ')} · 20 clubs per final group</p>
+        {preview.report.automatic_allocation && <p>Once all required sporting results are definitive, the system will allocate the earned places into draft groups automatically. Unresolved or changed evidence requires review. Kickoff times are not published by allocation.</p>}
         {preview.report.blockers.map(message => <p key={message} role="alert" className="text-destructive">{message}</p>)}
-        {!preview.report.blockers.length && <><label className="flex gap-2"><input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} />I confirm this regional field and the recorded draw. No prizes or payments are generated.</label><button type="button" className={button} disabled={!confirmed} onClick={() => run(async () => {
-          const result = await stageClient.http.post('/regional-leagues/cycles', { ...preview.request, apply: true, expected_revision: preview.report.revision });
+        {!preview.report.blockers.length && <><label className="flex gap-2"><input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} />I confirm this regional field and the recorded draw. No prizes or payments are generated.</label><button type="button" className={button} disabled={!confirmed || !reason.trim()} onClick={() => run(async () => {
+          const result = await stageClient.http.post('/regional-leagues/cycles', { ...preview.request, reason, apply: true, expected_revision: preview.report.revision });
           await showCycle(result.cycle); await onRefresh?.();
+          if(fieldWindowId)setParams(previous=>{const next=new URLSearchParams(previous);next.delete('regional_field');return next;},{replace:true});
         })}>Save draw and create pathway fixtures →</button></>}
       </div>}
       <label className="block text-sm">Saved regional cycle<select className={input} value={cycle?.id || ''} onChange={e => run(async () => { setDraw(null); const result = await stageClient.http.get(`/regional-leagues/cycles/${encodeURIComponent(e.target.value)}`); await showCycle(result.cycle); })}><option value="" disabled>Select a saved cycle</option>{cycles.map(c => <option key={c.id} value={c.id}>{c.region_slug} · {c.platform} · Series {c.reset_series} / Season {c.season_number} · {c.status}</option>)}</select></label>
@@ -84,7 +102,7 @@ export default function RegionalCyclePanel({ leagues = [], registrations = [], o
         </div>}
         {cycle.status !== 'allocated' && <div className="flex flex-wrap gap-6">
           <button type="button" className={button} onClick={() => run(async () => { const result = await stageClient.http.post(`/regional-leagues/cycles/${cycle.id}/progress`, { reason }); await showCycle(result.cycle); })}>Read official results and create the next duels →</button>
-          <button type="button" className={button} onClick={() => run(async () => { setAllocation(await stageClient.http.post(`/regional-leagues/cycles/${cycle.id}/allocate`, {})); setConfirmed(false); })}>Preview final group allocation →</button>
+          <button type="button" className={button} onClick={() => run(async () => { const result=await stageClient.http.post(`/regional-leagues/cycles/${cycle.id}/allocate`, {}); if(result.already_applied && result.cycle){await showCycle(result.cycle);await onRefresh?.();return;}setAllocation(result);setConfirmed(false); })}>Preview final group allocation →</button>
         </div>}
         {allocation && <div className="space-y-3 border-l border-border pl-4">{allocation.blockers.map(message => <p key={message} role="status">{message}</p>)}{allocation.groups.map(g => <p key={g.ref}>{g.ref}: {g.club_ids.length} clubs</p>)}{allocation.ready && <><label className="flex gap-2"><input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} />I confirm the final sporting rights and draft groups.</label><button type="button" className={button} disabled={!confirmed || !reason.trim()} onClick={() => run(async () => { const result = await stageClient.http.post(`/regional-leagues/cycles/${cycle.id}/allocate`, { apply: true, expected_revision: allocation.revision, reason }); await showCycle(result.cycle); await onRefresh?.(); })}>Apply final draft groups →</button></>}</div>}
         {cycle.status !== 'allocated' && <RegionalDecisionCalendarPanel key={`decisions-${cycle.id}`} cycleId={cycle.id} />}

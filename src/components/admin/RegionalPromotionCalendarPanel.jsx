@@ -21,6 +21,7 @@ export default function RegionalPromotionCalendarPanel({ cycleId }) {
   }
   return <section className="space-y-3 border-t border-border pt-4">
     <h5 className="font-semibold">{t('commonPages.adminPromotionCalendar', 'Promotion calendar')}</h5>
+    <p className="max-w-3xl text-sm text-muted-foreground">Once these semifinals are published, the server can schedule their final automatically after all results are confirmed. The final follows Thursday of playing week 11 at 20:00 Europe/Brussels. Changed source evidence, calendar conflicts or an expired slot require review; no replacement time is chosen automatically.</p>
     <p className="max-w-3xl text-sm text-muted-foreground">{t('commonPages.adminPromotionCalendarInfo', 'Kickoffs follow week 11 of the published source league calendar. The sporting draw decides opponents. Reconcile official results before previewing finals. Sporting decisions, expansion duels and calendar conflicts require separate review.')}</p>
     <fieldset disabled={busy} className="space-y-3">
       <label className="block text-sm">{t('commonPages.adminPromotionStage', 'Promotion stage')}<select className="min-h-11 w-full border border-border bg-background px-3" value={stage} onChange={e => { setStage(e.target.value); setPreview(null); setConfirmed(false); setError(''); }}><option value="semifinal">{t('commonPages.adminPromotionSemifinals', 'Semifinals')}</option><option value="final">{t('commonPages.adminPromotionFinals', 'Finals')}</option></select></label>

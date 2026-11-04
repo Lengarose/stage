@@ -62,9 +62,9 @@ export function pendingFixtureScore(game) {
   };
 }
 
-export function getResultSubmissionControls({ game, isLive, showResultForm, amIHomeTeam }) {
+export function getResultSubmissionControls({ game, isLive, showResultForm, amIHomeTeam, allowEitherInitial = false }) {
   const homeResultSubmitted = sideHasResultClaim(game, "home");
-  const awayResultSubmitted = isSubmittedFlag(game?.result_away_submitted);
+  const awayResultSubmitted = sideHasResultClaim(game, "away");
   const state = String(game?.result_state || "");
   const submitSide = String(game?.result_submit_side || "home").toLowerCase() === "away" ? "away" : "home";
   // Kickoff writes AWAITING_RESULT. After Home submits, if the client still has
@@ -74,7 +74,7 @@ export function getResultSubmissionControls({ game, isLive, showResultForm, amIH
     && !homeResultSubmitted
     && !awayResultSubmitted;
   const awaitingConfirm = state === "AWAITING_AWAY_CONFIRMATION"
-    || (homeResultSubmitted && !awayResultSubmitted
+    || ((homeResultSubmitted !== awayResultSubmitted)
       && state !== "AWAITING_HOME_REVIEW"
       && state !== "DISPUTED"
       && state !== "ADMIN_REVIEW"
@@ -91,8 +91,8 @@ export function getResultSubmissionControls({ game, isLive, showResultForm, amIH
     homeResultSubmitted,
     awayResultSubmitted,
     showHomeSubmit: canShowResultAction && awaitingResult && Boolean(amIHomeTeam) && submitSide === "home" && !homeResultSubmitted,
-    showAwayWaitingForHome: canShowResultAction && awaitingResult && !amIHomeTeam && submitSide === "home",
-    showAwaySubmit: canShowResultAction && awaitingResult && !amIHomeTeam && submitSide === "away",
+    showAwayWaitingForHome: canShowResultAction && awaitingResult && !amIHomeTeam && submitSide === "home" && !allowEitherInitial,
+    showAwaySubmit: canShowResultAction && awaitingResult && !amIHomeTeam && (submitSide === "away" || (allowEitherInitial && isLive)),
     showHomeWaitingForAway: canShowResultAction && awaitingConfirm && Boolean(amIHomeTeam) && submitSide === "home",
     showAmendResult: canShowResultAction && awaitingConfirm && iAmSubmitter,
     showAwaySubmittedWaitingForHome: canShowResultAction && (

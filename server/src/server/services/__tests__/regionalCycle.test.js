@@ -57,7 +57,7 @@ function fixture(count=40) {
     queue=run.catch(()=>{});return run;
   };
   const db=require.resolve('../../db/database');require.cache[db]={id:db,filename:db,loaded:true,exports:{EXECUTESQL:query,withTransaction}};
-  for(const file of ['../regionalCycleService','../regionalEditionService','../../models/competitionScopeModel','../../controllers/leagueEntityController'])delete require.cache[require.resolve(file)];
+  for(const file of ['../regionalCycleService','../regionalEditionService','../regionalConfirmedCycleService','../../models/competitionScopeModel','../../controllers/leagueEntityController'])delete require.cache[require.resolve(file)];
   const service=require('../regionalCycleService'), actor={id:'admin'};
   const input={mode:'placement',source_edition_ids:count>20?['root-1','root-2']:['root-1'],registration_ids:state.clubs.slice(40).map(c=>`registration-${c.id}`),target_count:count,reason:'Approved fixture test'};
   async function prepare(){const review=await service.prepare(input,actor);return service.prepare({...input,apply:true,expected_revision:review.revision},actor);}
@@ -407,6 +407,7 @@ test('cycle actions and the sanitized published draw are exercised over local HT
     const preview=await call('/cycles',env.input);assert.equal(preview.status,200);
     const prepared=await call('/cycles',{...env.input,apply:true,expected_revision:preview.data.revision});assert.equal(prepared.status,200,JSON.stringify(prepared));
     const id=prepared.data.cycle.id;
+    assert.equal((await call(`/cycles/${id}/allocate`,{apply:true,automatic:true,reason:'Forged system action'},'ordinary')).status,403);
     assert.equal((await call(`/cycles/${id}`)).status,200);
     assert.equal((await call(`/cycles/${id}` ,null,'ordinary')).status,403);
     assert.equal((await call(`/cycles/${id}/draw`,null,'ordinary')).status,200);
@@ -418,4 +419,98 @@ test('cycle actions and the sanitized published draw are exercised over local HT
     const forged=await fetch(`http://127.0.0.1:${server.address().port}/api/stage/season-registrations`,{method:'POST',headers:{'content-type':'application/json','x-fixture-user':'ordinary'},body:JSON.stringify({club_id:'club-1',status:'approved'})});
     assert.equal(forged.status,403);
   } finally {server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
+});
+
+function officialField(env,version='regional_result_review_v2') {
+  const {windowRevision}=require('../../lib/regionalRegistrationPolicy');
+  const window={id:'automatic-window',permanent_league_id:'root-1',status:'published',region_slug:'fixture-region',platform:'cross-platform',season_number:env.input.mode==='transition'?2:1,reset_series:0,policy_version:'regional_registration_v1',result_policy_version:version,opens_at:'2000-01-01T00:00:00Z',registration_closes_at:'2000-01-29T00:00:00Z',confirmation_closes_at:'2000-02-05T00:00:00Z',rules_text:'Published fixture conditions'};
+  env.state.league_entities.push(env.entity(window,'regional_registration_window'));
+  for(const club of env.state.clubs)env.state.league_entities.push(env.entity({id:`auto-${club.id}`,club_id:club.id,registration_window_id:window.id,registration_policy_version:window.policy_version,accepted_rules_revision:windowRevision(window),status:'approved',participation_status:'confirmed',confirmed_at:'2000-02-01T00:00:00Z',confirmed_player_ids:['p1','p2','p3'],region_slug:window.region_slug,platform:window.platform,season_number:window.season_number,reset_series:0},'season_registration'));
+}
+async function finalisePathway(env,cycle) {
+  for(let i=0;i<8 && cycle.status!=='ready';i++){env.finishMatches(cycle);cycle=(await env.service.progress(cycle.id)).cycle;}
+  assert.equal(cycle.status,'ready');return cycle;
+}
+test('new official placement automatically allocates final rights once, audits a system actor and leaves groups as drafts',async()=>{
+  const env=fixture(40);officialField(env);
+  assert.equal((await env.service.prepare(env.input,env.actor)).automatic_allocation,true);
+  let {cycle}=await env.prepare();assert.equal(cycle.automatic_allocation_policy_version,'regional_auto_allocation_v1');
+  await assert.rejects(env.service.reconcileAllocation(cycle.id),/not final/);
+  cycle=await finalisePathway(env,cycle);
+  const result=await env.service.reconcileAllocation(cycle.id);
+  assert.equal(result.cycle.status,'allocated');assert.equal(result.cycle.allocation_mode,'automatic_followup');assert.equal(result.cycle.allocated_by,null);
+  assert.equal(result.cycle.allocated_groups.length,2);
+  for(const g of result.cycle.allocated_groups){const root=env.state.league_entities.find(r=>r.id===g.id);assert.equal(root.status,'draft');assert.equal(root.num_clubs,20);}
+  assert.equal(env.state.league_entities.filter(r=>r.entity_type==='regional_league_standing').length,40);
+  const audits=env.state.admin_audit_log.filter(r=>r.action==='allocate_regional_groups');assert.equal(audits.length,1);assert.equal(audits[0].admin_user_id,null);
+  const before=JSON.stringify(env.state);assert.equal((await env.service.reconcileAllocation(cycle.id)).already_applied,true);assert.equal(JSON.stringify(env.state),before);
+  assert.equal((await env.service.allocate(cycle.id,{},env.actor)).already_applied,true,'an Admin preview racing the worker receives the saved allocation');
+});
+test('twenty-club ready cycles need no invented placement match, while existing cycles remain manual',async()=>{
+  const env=fixture(20);officialField(env);const {cycle}=await env.prepare();assert.equal(cycle.status,'ready');assert.equal(env.state.matches.length,0);
+  const result=await env.service.reconcileAllocation(cycle.id);assert.equal(result.cycle.status,'allocated');assert.equal(env.state.matches.length,0);
+  const legacy=fixture(20);const old=(await legacy.prepare()).cycle;
+  assert.equal((await legacy.service.reconcileAllocation(old.id)).status,'not_enabled');assert.equal(legacy.state.league_entities.filter(r=>r.entity_type==='regional_league_standing').length,0);
+});
+test('the recovery worker follows a real ready cycle through guarded allocation and checkpoints completion',async()=>{
+  const env=fixture(20);officialField(env);const {cycle}=await env.prepare();let saved;
+  const worker=require('../regionalCycleRecoveryService').createService({model:{candidates:async()=>saved?[]:[{id:cycle.id}],claim:async id=>({source_id:id,attempt_id:'a'}),finish:async(_job,result)=>{saved=result;return true;}},query:env.query,transaction:fn=>fn(env.query),clock:()=>new Date('2026-11-04T12:00:00Z')});
+  await worker.tick();assert.equal(saved.status,'completed');
+  assert.equal(JSON.parse(env.state.league_entities.find(r=>r.id===cycle.id).data_json).allocation_mode,'automatic_followup');
+  assert.equal(env.state.league_entities.filter(r=>r.entity_type==='regional_league_standing').length,20);
+  const auditCount=env.state.admin_audit_log.length;await worker.tick();assert.equal(env.state.admin_audit_log.length,auditCount);
+});
+test('automatic allocation rolls back target writes and refuses timeout-only results or changed source evidence',async()=>{
+  const env=fixture(40);officialField(env);let {cycle}=await env.prepare();cycle=await finalisePathway(env,cycle);
+  const before=JSON.stringify(env.state);env.fail('INSERT INTO league_entities');await assert.rejects(env.service.reconcileAllocation(cycle.id),/Injected/);assert.equal(JSON.stringify(env.state),before);env.fail('');
+  const match=env.state.matches.find(m=>m.competition_context===cycle.id);match.result_state='AUTO_CONFIRMED_TIMEOUT';
+  await assert.rejects(env.service.reconcileAllocation(cycle.id),/explicit definitive/);assert.equal(env.state.league_entities.filter(r=>r.entity_type==='regional_league_standing').length,0);
+  match.result_state='CONFIRMED';const source=env.state.league_entities.find(r=>r.id==='root-1');const data={...JSON.parse(source.data_json),rules:'Changed after draw'};Object.assign(source,data,{data_json:JSON.stringify(data)});
+  await assert.rejects(env.service.reconcileAllocation(cycle.id),/source data changed/);
+});
+test('changed final pathway scores require review even if the winner and group capacity stay unchanged',async()=>{
+  const env=fixture(40);officialField(env);let {cycle}=await env.prepare();cycle=await finalisePathway(env,cycle);
+  assert.ok(cycle.ready_result_revision);
+  const match=env.state.matches.find(m=>m.competition_context===cycle.id);match.home_score+=2;
+  await assert.rejects(env.service.reconcileAllocation(cycle.id),/evidence changed|published/);
+  assert.equal(env.state.league_entities.filter(r=>r.entity_type==='regional_league_standing').length,0);
+});
+test('automatic transition preserves finished-season history and assigns returning confirmations to new draft editions',async()=>{
+  const env=transitionFixture(40,40);officialField(env);let {cycle}=await env.prepare();cycle=await finalisePathway(env,cycle);
+  const sourceMatchCount=env.state.matches.filter(m=>!m.competition_context).length;
+  const result=await env.service.reconcileAllocation(cycle.id);assert.equal(result.cycle.status,'allocated');
+  assert.equal(env.state.matches.filter(m=>!m.competition_context).length,sourceMatchCount);
+  assert.ok(result.cycle.allocated_groups.every(g=>env.state.league_entities.find(r=>r.id===g.id).season_number===2));
+  const registrations=env.state.league_entities.filter(r=>r.entity_type==='season_registration'&&r.id.startsWith('auto-'));assert.equal(registrations.length,40);assert.ok(registrations.every(r=>JSON.parse(r.data_json).assigned_league_id));
+});
+
+test('closed confirmed-field preview uses real HTTP, derives canonical input and still rechecks before the audited draw',async()=>{
+  const env=fixture(40),express=require('express');
+  const {windowRevision}=require('../../lib/regionalRegistrationPolicy');
+  const window={id:'closed-window',permanent_league_id:'root-1',status:'published',region_slug:'fixture-region',platform:'cross-platform',season_number:1,reset_series:0,policy_version:'regional_registration_v1',opens_at:'2000-01-01T00:00:00Z',registration_closes_at:'2000-01-29T00:00:00Z',confirmation_closes_at:'2000-02-05T00:00:00Z',rules_text:'Previously published fixture rules'};
+  env.state.league_entities.push(env.entity(window,'regional_registration_window'));
+  for(const club of env.state.clubs)env.state.league_entities.push(env.entity({id:`confirmed-${club.id}`,club_id:club.id,registration_window_id:window.id,registration_policy_version:window.policy_version,accepted_rules_revision:windowRevision(window),status:'approved',participation_status:'confirmed',confirmed_at:'2000-02-01T00:00:00Z',confirmed_player_ids:['p1','p2','p3'],region_slug:window.region_slug,platform:window.platform,season_number:1,reset_series:0},'season_registration'));
+  const app=express();app.use(express.json());app.use((req,_res,next)=>{req.user={id:req.headers['x-actor'] || 'admin'};next();});
+  app.use('/regional-leagues',require('../../controllers/leagueEntityController').makeRouter('regional_league'));
+  const server=app.listen(0,'127.0.0.1');await new Promise((resolve,reject)=>{server.once('listening',resolve);server.once('error',reject);});
+  const call=async(body,actor='admin')=>{const r=await fetch(`http://127.0.0.1:${server.address().port}/regional-leagues/cycles`,{method:'POST',headers:{'content-type':'application/json','x-actor':actor},body:JSON.stringify(body)});return {status:r.status,data:await r.json()};};
+  try {
+    const request={registration_window_id:window.id};
+    assert.equal((await call(request,'ordinary')).status,403);
+    assert.equal((await call({...request,target_count:20})).status,400);
+    assert.equal((await call({...request,apply:true})).status,400);
+    const preview=await call(request);assert.equal(preview.status,200,JSON.stringify(preview.data));
+    assert.deepEqual(preview.data.input,{mode:'placement',source_edition_ids:['root-1','root-2'],registration_ids:[],target_count:40});
+    assert.equal(preview.data.confirmed_participants,40);assert.equal(env.state.matches.length,0);assert.equal(env.state.admin_audit_log.length,0);
+    const extra={...JSON.parse(env.state.league_entities.find(r=>r.id==='confirmed-club-0').data_json),id:'late-change',club_id:'new-club'};
+    env.state.league_entities.push(env.entity(extra,'season_registration'));
+    const changed=await call({...preview.data.input,apply:true,reason:'Reviewed field',expected_revision:preview.data.revision});assert.equal(changed.status,409);assert.equal(env.state.matches.length,0);
+    env.state.league_entities.pop();
+    const applied=await call({...preview.data.input,apply:true,reason:'Reviewed confirmed field',expected_revision:preview.data.revision});assert.equal(applied.status,200,JSON.stringify(applied.data));
+    assert.ok(env.state.matches.length>0);assert.ok(env.state.matches.every(m=>!m.scheduled_date && !m.confirmed_date));
+    assert.ok(env.state.admin_audit_log.some(r=>r.action==='prepare_regional_cycle'));
+    assert.equal((await call(request)).status,409,'the field link must open the saved cycle instead of preparing a new draw');
+    const retry=await call({...preview.data.input,apply:true,reason:'Retry',expected_revision:preview.data.revision});assert.equal(retry.data.already_applied,true);
+    await assert.rejects(require('../regionalEditionService').admin({id:'ordinary'},async()=>[{id:'ordinary',role_id:null}]),error=>error.status===403);
+  }finally{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
 });

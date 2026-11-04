@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { stageClient } from '@/api/stageClient';
 const targets={sources:'#regional-management',registration:'#regional-registration',cycles:'#regional-cycles',calendar:'#regional-calendar',cups:'#regional-cups'};
 export default function RegionalOperationsPanel() {
+  const location=useLocation();
+  function fieldHref(id) {const params=new URLSearchParams(location.search);params.set('regional_field',id);return {pathname:location.pathname,search:`?${params}`,hash:'#regional-cycles'};}
   const [data,setData]=useState(null);
   const [error,setError]=useState('');
   const [refresh,setRefresh]=useState(0);
@@ -13,17 +15,23 @@ export default function RegionalOperationsPanel() {
     return ()=>{active=false;};
   },[refresh]);
   return <section className="space-y-4 border-y border-border py-6" aria-label="Regional operations overview">
-    <div className="flex flex-wrap items-center justify-between gap-3"><h4 className="font-heading text-xl">Regionale actiepunten</h4><button type="button" disabled={busy} onClick={()=>setRefresh(v=>v+1)} className="min-h-11 font-semibold disabled:opacity-40">{busy?'Controleren…':'Overzicht vernieuwen'}</button></div>
-    <p className="max-w-3xl text-sm text-muted-foreground">Eén momentopname van inschrijving, sportieve cycli, bekerduels en beloningen. Dit overzicht verandert niets. De bestaande acties controleren de actuele bronnen opnieuw; hier worden geen deadlines verlengd, winnaars aangewezen of betalingen uitgevoerd.</p>
-    {error && <p role="alert" className="text-destructive">Het overzicht kon niet worden geladen: {error}. Probeer opnieuw via Overzicht vernieuwen.</p>}
-    {busy && <p role="status" className="text-sm">Actiepunten worden opgehaald…</p>}
+    <div className="flex flex-wrap items-center justify-between gap-3"><h4 className="font-heading text-xl">Regional action overview</h4><button type="button" disabled={busy} onClick={()=>setRefresh(v=>v+1)} className="min-h-11 font-semibold disabled:opacity-40">{busy?'Checking…':'Refresh overview'}</button></div>
+    <p className="max-w-3xl text-sm text-muted-foreground">A snapshot of registration, sporting cycles, Cup matches and rewards. This overview makes no changes. Existing actions recheck current evidence; this view does not extend deadlines, choose winners or issue payments.</p>
+    {error && <p role="alert" className="text-destructive">The overview could not be loaded: {error}. Select Refresh overview to try again.</p>}
+    {busy && <p role="status" className="text-sm">Loading action items…</p>}
     {data && <>
-      <p className="text-sm">{data.counts.review} controles · {data.counts.action} acties · {data.counts.windows} inschrijfperiodes · {data.counts.cycles} cycli · {data.counts.cups} bekeredities</p>
-      <p className="text-xs text-muted-foreground">Bijgewerkt: {new Date(data.as_of).toLocaleString()}{busy?' · wordt vernieuwd':''}</p>
-      {!data.issues.length && <p role="status">Geen actiepunten gevonden in deze opgeslagen momentopname. Dit is geen volledige controle van de competitie of automatisering.</p>}
+      <p className="text-sm">{data.counts.review} reviews · {data.counts.action} actions · {data.counts.windows} registration periods · {data.counts.cycles} cycles · {data.counts.cups} Cup editions</p>
+      <p className="text-xs text-muted-foreground">Updated: {new Date(data.as_of).toLocaleString()}{busy?' · refreshing':''}</p>
+      {!data.issues.length && <p role="status">No action items found in this stored snapshot. This is not a complete competition or automation integrity check.</p>}
       <ul className="divide-y divide-border">{data.issues.map(item=><li key={item.key} className="flex flex-wrap justify-between gap-4 py-4">
-        <div className="max-w-3xl"><p className="font-semibold">{item.severity==='review'?'Controle nodig':'Actie beschikbaar'} · {item.name}{item.season_number?` · seizoen ${item.season_number}`:''}</p><p className="mt-1 text-sm text-muted-foreground">{item.message}</p><p className="mt-1 break-all text-xs text-muted-foreground">Bron: {item.source_id}</p></div>
-        {item.target==='rewards'?<Link to="/admin/rewards" className="inline-flex min-h-11 items-center font-semibold">Naar Rewards →</Link>:<a href={targets[item.target] || targets.sources} className="inline-flex min-h-11 items-center font-semibold">Naar de controle →</a>}
+        <div className="max-w-3xl"><p className="font-semibold">{item.severity==='review'?'Review required':'Action available'} · {item.name}{item.season_number?` · season ${item.season_number}`:''}</p><p className="mt-1 text-sm text-muted-foreground">{item.message}</p>
+          {item.field_assessment && <div className="mt-3 space-y-2 text-sm">
+            <p>{item.field_assessment.registrations} applications · {item.field_assessment.confirmed_registrations} confirmed records · {item.field_assessment.confirmed_clubs} distinct confirmed clubs · {item.field_assessment.unconfirmed_registrations} not confirmed</p>
+            {item.field_assessment.structure && <p>Capacity: {item.field_assessment.structure.d1_groups} Division 1 group(s) · {item.field_assessment.structure.d2_groups} Division 2 group(s) · {item.field_assessment.structure.clubs_per_group} clubs per group. This is not a draw or a published season.</p>}
+            {item.field_assessment.blockers.length>0 && <ul className="list-disc space-y-1 pl-5">{item.field_assessment.blockers.map(blocker=><li key={blocker.code}>{blocker.message}</li>)}</ul>}
+          </div>}
+          <p className="mt-1 break-all text-xs text-muted-foreground">Source: {item.source_id}</p></div>
+        {item.field_assessment?.status==='structure_supported'?<Link to={fieldHref(item.source_id)} className="inline-flex min-h-11 items-center font-semibold">Preview this confirmed field →</Link>:item.target==='rewards'?<Link to="/admin/rewards" className="inline-flex min-h-11 items-center font-semibold">Open Rewards →</Link>:<a href={targets[item.target] || targets.sources} className="inline-flex min-h-11 items-center font-semibold">Open review →</a>}
       </li>)}</ul>
     </>}
   </section>;

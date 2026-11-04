@@ -12,6 +12,7 @@ import {
   isClubGameDayMatch,
   parseMatchSubmission,
   resultSnapshot,
+  sideHasResultClaim,
 } from "@/lib/gameDayResultFlow";
 
 function compactEventAvailabilityId(prefix, eventId, clubId, eventLength, clubLength) {
@@ -46,14 +47,14 @@ async function getOfficialEventAvailabilityFixtureId(game, clubId) {
 }
 
 /**
- * GameDayMatchResult — both teams submit independently.
- * If scores match → completed. If not → disputed.
+ * GameDayMatchResult — one proposal, opponent confirmation or correction.
+ * Published edition terms determine who may report full time first.
  *
  * Extended with per-goal event tracking (scorer, optional assist, minute).
  * Goals/assists per player are derived from the goal events automatically.
  * Player ratings are still entered individually.
  */
-export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam, onSubmitted, onBeforeSubmit, onBusyChange, onConflict }) {
+export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam, allowEitherInitial = false, onSubmitted, onBeforeSubmit, onBusyChange, onConflict }) {
   const isClubMatch   = isClubGameDayMatch(game);
   const [homeScore,   setHomeScore]   = useState(0);
   const [awayScore,   setAwayScore]   = useState(0);
@@ -75,13 +76,11 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
   const proofInputRef = useRef(null);
   const proofInputId = useId();
 
-  const alreadySubmitted = isHomeTeam ? game.result_home_submitted : game.result_away_submitted;
+  const alreadySubmitted = sideHasResultClaim(game, isHomeTeam ? 'home' : 'away');
 
-  // Submission ordering — the away side stays locked until the home side has
-  // submitted their result. Server enforces the same rule (409 with
-  // code=AWAITING_HOME_SUBMISSION); this UI just hides the form so a user
-  // never gets to fill it in and click submit only to be rejected.
-  const homeHasSubmitted    = Boolean(Number(game.result_home_submitted));
+  // New official conditions allow either participant to report full time first.
+  // The server remains authoritative; older editions keep their submission order.
+  const homeHasSubmitted    = sideHasResultClaim(game, 'home');
   const resultState = String(game.result_state || "");
   const submitSide = String(game.result_submit_side || "home").toLowerCase() === "away" ? "away" : "home";
   const awaitingConfirm = resultState === "AWAITING_AWAY_CONFIRMATION" || (!resultState && homeHasSubmitted);
@@ -106,13 +105,15 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
   },[game.id,homeScore,awayScore]);
   const homeSubmission = parseMatchSubmission(game.home_submission);
   const awaySubmission = parseMatchSubmission(game.away_submission);
-  const submittedScore = submitSide === "away" ? awaySubmission : homeSubmission;
-  const submittedFixture = fixtureScoreFromSubmission(submittedScore, submitSide);
+  const correctionSide = submitSide === "home" ? "away" : "home";
+  const correctionSubmission = correctionSide === "away" ? awaySubmission : homeSubmission;
+  const submittedScore = reviewMode ? correctionSubmission : submitSide === "away" ? awaySubmission : homeSubmission;
+  const submittedFixture = fixtureScoreFromSubmission(submittedScore, reviewMode ? correctionSide : submitSide);
   const submittedHomeScore = Number.isFinite(submittedFixture.home) ? submittedFixture.home : null;
   const submittedAwayScore = Number.isFinite(submittedFixture.away) ? submittedFixture.away : null;
-  const awayLockedWaiting   = !isHomeTeam && !homeHasSubmitted && !alreadySubmitted && submitSide === "home";
+  const awayLockedWaiting   = !isHomeTeam && !homeHasSubmitted && !Number(alreadySubmitted) && submitSide === "home" && !(allowEitherInitial && game.status === 'in_progress');
   const myPriorSubmission = isHomeTeam ? homeSubmission : awaySubmission;
-  useEffect(()=>{const proposal=reviewMode?awaySubmission:submittedScore;if((confirmMode||reviewMode)&&Number(proposal?.decided_on_penalties)===1)setPenaltyChoice(proposal.penalty_winner_side);},[confirmMode,reviewMode,game.id]);
+  useEffect(()=>{const proposal=submittedScore;if((confirmMode||reviewMode)&&Number(proposal?.decided_on_penalties)===1)setPenaltyChoice(proposal.penalty_winner_side);},[confirmMode,reviewMode,game.id]);
 
   // Prefill Home–Away boxes from the claim being confirmed/corrected/amended (was stuck at 0–0).
   useEffect(() => {
@@ -508,18 +509,18 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
 
       {amendMode ? (
         <div className="rounded-lg border border-cyan-300/30 bg-cyan-300/10 px-3 py-2 text-xs text-cyan-100">
-          You already submitted a result. Update the score or stats below — Away will confirm the new claim.
+          You already submitted a result. Update the score or stats below — the opponent will confirm the new claim.
         </div>
       ) : null}
 
       {confirmMode && submittedScore && (
         <div className="rounded-lg border border-[#8eeeff]/30 bg-[#8eeeff]/10 px-3 py-2 text-xs text-[#8eeeff]">
-          {(game.home_club_name || game.home_player_name || "Home")} submitted {formatSideClaim(submittedScore, submitSide)}. Is this result correct?
+          {(submitSide === 'home' ? game.home_club_name || game.home_player_name || 'Home' : game.away_club_name || game.away_player_name || 'Away')} submitted {formatSideClaim(submittedScore, submitSide)}. Is this result correct?
         </div>
       )}
-      {reviewMode && awaySubmission && (
+      {reviewMode && correctionSubmission && (
         <div className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
-          {(game.away_club_name || game.away_player_name || "Away")} has proposed a correction: {formatSideClaim(awaySubmission, "away")}.
+          {(correctionSide === 'away' ? game.away_club_name || game.away_player_name || 'Away' : game.home_club_name || game.home_player_name || 'Home')} has proposed a correction: {formatSideClaim(correctionSubmission, correctionSide)}.
         </div>
       )}
 
@@ -840,8 +841,10 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
         {correcting
           ? "Enter the score you believe is correct. No screenshot is required at this step."
           : amendMode
-            ? "Saving updates the claim Away must confirm. Previous confirmation wait restarts."
-            : isHomeTeam
+            ? "Saving updates the claim the opponent must confirm. Previous confirmation wait restarts."
+            : allowEitherInitial
+              ? "After full time, either club may submit if no proposal exists. Include screenshot proof; the opponent reviews your proposal."
+              : isHomeTeam
               ? `As the home ${isClubMatch ? "team" : "player"}, you submit the result first.`
               : "Confirm the submitted score, or mark it incorrect and propose a correction."}
       </p>

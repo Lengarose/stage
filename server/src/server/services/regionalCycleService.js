@@ -8,6 +8,7 @@ const { RegionalCycleModel } = require('../models/regionalCycleModel');
 const { CompetitionScopeModel } = require('../models/competitionScopeModel');
 const { isConfirmedResult } = require('../lib/tournamentStatistics');
 const policy = require('../lib/regionalStructure');
+const autoAllocation = require('../lib/regionalAutoAllocationPolicy');
 const editions = require('./regionalEditionService');
 const model = new RegionalCycleModel();
 const scopes = new CompetitionScopeModel();
@@ -15,6 +16,7 @@ const canonical = value => value instanceof Date?value.toISOString():Array.isArr
 const hash = value => crypto.createHash('sha256').update(JSON.stringify(canonical(value))).digest('hex');
 const stableId = value => { const h = hash(value).slice(0,32); return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20)}`; };
 const list = value => { try { return typeof value === 'string' ? JSON.parse(value) : value; } catch { return null; } };
+const allocationResultRevision = matches => hash(matches.map(m=>({id:m.id,source_fixture_id:m.source_fixture_id,home:m.home_club_id,away:m.away_club_id,status:String(m.status || '').toLowerCase(),state:String(m.result_state || '').toLowerCase(),home_score:Number(m.home_score),away_score:Number(m.away_score),decided_on_penalties:Number(m.decided_on_penalties || 0),penalty_winner_side:m.penalty_winner_side || null})).sort((a,b)=>String(a.id).localeCompare(String(b.id))));
 const finished = ['completed','archived'];
 
 function request(body) {
@@ -139,9 +141,14 @@ async function preview(body,actor,query=EXECUTESQL) {
   return {id,input,version:policy.VERSION,tie_policy_version:policy.TIE_VERSION,source_ranking_policy_version:policy.SOURCE_RANKING_VERSION,source_revision:evidence.source_revision,
     revision:hash([input,evidence.source_revision,policy.VERSION,policy.TIE_VERSION,policy.SOURCE_RANKING_VERSION]),existing_cycle_id:existing?.id || null,
     structure:policy.structure(input.target_count),initial_fixtures:plan.fixtures.length,blockers,region_slug:evidence.region_slug,platform:evidence.platform,season_number:evidence.season_number,reset_series:evidence.reset_series,
-    confirmed_participants:evidence.ids.length+evidence.newcomers.length,financial_mutations:false};
+    confirmed_participants:evidence.ids.length+evidence.newcomers.length,automatic_allocation:autoAllocation.capturesAutomaticAllocation(evidence.participation?.window),financial_mutations:false};
 }
 async function prepare(body,actor) {
+  if (Object.hasOwn(body,'registration_window_id')) {
+    if (Object.keys(body).some(key => key !== 'registration_window_id')) fail('A confirmed-field request only accepts its registration window. Review the returned preview before applying its canonical input.',400);
+    const input=await require('./regionalConfirmedCycleService').inputForWindow(body.registration_window_id,actor);
+    return withTransaction(query=>preview(input,actor,query));
+  }
   if(body.apply!==true)return withTransaction(query=>preview(body,actor,query));
   if(!String(body.reason || '').trim())fail('An administrative reason is required',400);
   return withTransaction(async query=>{
@@ -177,6 +184,7 @@ async function prepare(body,actor) {
     cycle.structure_snapshot=policy.structure(input.target_count);
     cycle.registration_snapshot=[...evidence.registrations,...evidence.sourceRegistrations];
     cycle.participation_window_snapshot=evidence.participation?.window || null;
+    if(autoAllocation.capturesAutomaticAllocation(cycle.participation_window_snapshot))cycle.automatic_allocation_policy_version=autoAllocation.VERSION;
     await model.create(cycle,query);
     for(const scope of evidence.source)await editions.model.update({...scope.root,pending_regional_cycle_id:id},identity(scope.root).key,query);
     await model.insert('competition_instances',{id,product_type:'regional_league',legacy_source_type:'regional_cycle',legacy_source_id:id,name:`${cycle.region_slug} · ${input.mode} · Season ${cycle.season_number}`,region:cycle.region_slug,platform:cycle.platform,status:'in_progress',created_by_user_id:user.id},query);
@@ -204,6 +212,11 @@ async function materialize(cycle,plan,clubs,stored,query) {
     await model.insert('matches',{id:matchId,home_club_id:home.id,away_club_id:away.id,home_club_name:home.name,away_club_name:away.name,home_owner_email:home.owner_email,away_owner_email:away.owner_email,
       status:'pending_schedule',mode:'club',type:fixture.allow_penalties?'knockout':'league',round:fixture.round,source_fixture_type:'competition_engine',source_fixture_id:id,competition_context:cycle.id,allow_penalties:fixture.allow_penalties?1:0},query);
     cycle.fixture_refs[fixture.ref]=id;
+  }
+  if(cycle.automatic_allocation_policy_version && plan.ready) {
+    const revision=allocationResultRevision(await model.matches(cycle.id,query));
+    if(cycle.ready_result_revision && cycle.ready_result_revision!==revision)fail('Previously final pathway evidence changed; review allocation before applying new sporting rights.');
+    cycle.ready_result_revision=revision;
   }
   cycle.plan=plan;cycle.status=plan.blockers?.length?'review':plan.ready?'ready':'running';
   cycle.updated_at=new Date().toISOString();
@@ -237,25 +250,35 @@ async function progress(id,actor=null,reason='Official result reconciliation') {
     return {cycle};
   });
 }
-async function allocationPreview(id,actor,query=EXECUTESQL) {
-  await editions.admin(actor,query);
+async function allocationPreview(id,actor,query=EXECUTESQL,automatic=false) {
+  if(!automatic)await editions.admin(actor,query);
   const cycle=await model.selectOne(id,query,true);
   if(!cycle)fail('Regional cycle not found',404);
   if(cycle.status==='allocated')return {already_applied:true,cycle};
   const {evidence,plan}=await evaluate(cycle,query);
   return {id,ready:plan.ready,revision:hash([cycle.id,evidence.source_revision,plan]),groups:plan.groups || [],rights:plan.rights || [],blockers:plan.blockers || (plan.ready?[]:['Official placement or promotion results are still missing']),financial_mutations:false};
 }
-async function allocate(id,body,actor) {
+async function applyAllocation(id,body,actor,automatic=false) {
   if(body.apply!==true)return withTransaction(query=>allocationPreview(id,actor,query));
   if(!String(body.reason || '').trim())fail('An administrative reason is required',400);
   return withTransaction(async query=>{
-    const user=await editions.admin(actor,query);await editions.model.lock(query);
+    const user=automatic?{id:null,email:null}:await editions.admin(actor,query);await editions.model.lock(query);
     const cycle=await model.selectOne(id,query,true);
     if(!cycle)fail('Regional cycle not found',404);
+    if(automatic) {
+      if(!cycle.automatic_allocation_policy_version)return {status:'not_enabled',cycle};
+      if(cycle.automatic_allocation_policy_version!==autoAllocation.VERSION || cycle.policy_version!==policy.VERSION || cycle.tie_policy_version!==policy.TIE_VERSION || cycle.source_ranking_policy_version!==policy.SOURCE_RANKING_VERSION || !autoAllocation.capturesAutomaticAllocation(cycle.participation_window_snapshot))fail('Automatic allocation policy or captured participation conditions require review.');
+      if(cycle.edition_invalidated)fail('An invalidated regional cycle cannot allocate groups.');
+    }
     if(cycle.status==='allocated')return {already_applied:true,cycle};
-    const report=await allocationPreview(id,actor,query);
+    const report=await allocationPreview(id,actor,query,automatic);
     if(!report.ready || report.blockers.length)fail('Sporting rights are not final',409,report.blockers);
-    if(report.revision!==body.expected_revision)fail('Official results changed since allocation preview');
+    if(!automatic && report.revision!==body.expected_revision)fail('Official results changed since allocation preview');
+    if(automatic) {
+      const matches=await model.matches(id,query);
+      if(matches.length!==Object.keys(cycle.fixture_refs).length || matches.some(m=>!isConfirmedResult(m) || !['confirmed','admin_confirmed','admin_resolved'].includes(String(m.result_state || '').toLowerCase())))fail('Automatic allocation requires explicit definitive results for every captured pathway match.');
+      if(!cycle.ready_result_revision || cycle.ready_result_revision!==allocationResultRevision(matches))fail('Final pathway evidence changed or is not captured; review automatic allocation.');
+    }
     const {evidence,plan}=await evaluate(cycle,query);
     const all=(await editions.model.selectAll(query,true)).map(unpack);
     const allocated=[];
@@ -322,12 +345,16 @@ async function allocate(id,body,actor) {
       }
     }
     const before=structuredClone(cycle);
-    Object.assign(cycle,{status:'allocated',plan,allocated_groups:allocated,allocated_at:new Date().toISOString(),allocated_by:user.id});
+    Object.assign(cycle,{status:'allocated',plan,allocated_groups:allocated,allocated_at:new Date().toISOString(),allocated_by:user.id,allocation_mode:automatic?'automatic_followup':'admin_reviewed'});
     await model.completeInstance(cycle.id,query);
     await model.update(cycle,query);
     await audit(query,user,'allocate_regional_groups',before,cycle,body.reason);
     return {applied:true,cycle};
   });
+}
+async function allocate(id,body,actor) {return applyAllocation(id,body,actor);}
+async function reconcileAllocation(id) {
+  return applyAllocation(id,{apply:true,reason:'System allocated final captured sporting rights into draft groups.'},null,true);
 }
 async function read(id,actor) {
   await editions.admin(actor);
@@ -352,4 +379,4 @@ async function assertWritableFixture(fixture,query=EXECUTESQL) {
   const cycle=await model.selectOne(fixture.competition_instance_id,query);
   if(!cycle || !['running','review','ready'].includes(cycle.status) || cycle.edition_invalidated)fail('This pathway cycle is closed; its results cannot change sporting rights');
 }
-module.exports={prepare,preview,progress,allocate,read,draw,catalogue,assertWritableFixture,stableId,evaluate};
+module.exports={prepare,preview,progress,allocate,reconcileAllocation,read,draw,catalogue,assertWritableFixture,stableId,evaluate};

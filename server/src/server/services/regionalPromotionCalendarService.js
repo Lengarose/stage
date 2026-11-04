@@ -10,19 +10,24 @@ const sporting=require('../lib/regionalStructure');
 const participation=require('../lib/regionalRegistrationPolicy');
 const promotionPolicy=require('../lib/regionalPromotionCalendarPolicy.json');
 const cycles=require('./regionalCycleService');
+const {isConfirmedResult}=require('../lib/tournamentStatistics');
 const hash=value=>crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
+const policyRevision=value=>hash(Object.entries(value).sort(([a],[b])=>a.localeCompare(b)));
 const stableId=value=>{const h=hash(value);return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20,32)}`;};
 function createService({model=new RegionalPromotionCalendarModel(),transaction=withTransaction,evaluate=cycles.evaluate,policy=promotionPolicy,clock=()=>new Date()}={}) {
-  async function action(cycleId,body,actor) {
+  async function operate(cycleId,body,actor,automatic=false) {
     return transaction(async q=>{
-      const user=await model.actor(actor?.id,q);
-      if(!user || user.role_id==null || ![0,2].includes(Number(user.role_id)))fail('Admin pathway calendar access required',403);
+      const user=automatic?{id:null,email:null}:await model.actor(actor?.id,q);
+      if(!automatic && (!user || user.role_id==null || ![0,2].includes(Number(user.role_id))))fail('Admin pathway calendar access required',403);
+      if(automatic && body.stage!=='final')fail('Only the published promotion semifinals can enable automatic finals',403);
       if(!['semifinal','final'].includes(body.stage))fail('Choose the promotion semifinal or final stage',400);
       if(['date','start_monday','fixture_ids','winners'].some(k=>Object.hasOwn(body,k)))fail('Dates and participants follow the recorded source calendar and sporting results',400);
       await model.lock(q);
       const cycle=await model.cycle(cycleId,q);if(!cycle)fail('Regional cycle not found',404);
       const id=stableId(['regional_promotion_calendar',cycleId,body.stage]),published=await model.published(id,q);
       if(published)return {...published,already_published:true};
+      const parent=automatic?await model.published(stableId(['regional_promotion_calendar',cycleId,'semifinal']),q):null;
+      if(automatic && !parent)return {status:'not_enabled'};
       if(cycle.input?.mode!=='transition' || cycle.policy_version!==sporting.VERSION || cycle.source_ranking_policy_version!==sporting.SOURCE_RANKING_VERSION || cycle.participation_window_snapshot?.policy_version!==participation.VERSION || !leaguePolicy.regions.includes(cycle.region_slug) || !['running','review','ready'].includes(cycle.status) || cycle.edition_invalidated)fail('Choose a current official European transition with supported sporting and participation policies');
       if(cycle.input.target_count===240 && cycle.source_snapshot?.reduce((n,s)=>n+(s.club_ids?.length || 0),0)===180)fail('The extra five-match expansion route has no approved complete calendar');
       const anchors=(await model.calendars(q)).filter(c=>c.status==='published' && c.policy_version===leaguePolicy.version && cycle.source_edition_ids?.length && cycle.source_edition_ids.every(id=>c.edition_ids?.includes(id)));
@@ -40,6 +45,17 @@ function createService({model=new RegionalPromotionCalendarModel(),transaction=w
       const date=dateAt(anchor.start_monday,(policy.week-1)*7+(body.stage==='semifinal'?policy.semifinal_day:policy.final_day));
       const time=scheduleTime(`${date}T${policy.time}`,policy.timezone);
       if(time.instant<=clock().getTime()+5*60000)blockers.push('The reserved kickoff is too close or has passed; Admin calendar review is required');
+      if(automatic) {
+        const semifinalRefs=groups.flatMap(g=>[`promotion:${g}:sf:2-5`,`promotion:${g}:sf:3-4`]);
+        if(parent.status!=='published' || parent.stage!=='semifinal' || parent.cycle_id!==cycleId || parent.source_calendar_id!==anchor.id || parent.policy_version!==policy.version || !parent.policy_snapshot || policyRevision(parent.policy_snapshot)!==policyRevision(policy) || parent.entries?.length!==semifinalRefs.length || new Set(parent.entries.map(e=>e.ref)).size!==semifinalRefs.length || semifinalRefs.some(ref=>!parent.entries.some(e=>e.ref===ref)))fail('The published semifinal calendar no longer matches the approved promotion policy');
+        const semifinalMatches=parent.entries.map(entry=>{
+          const fixture=stored.find(f=>f.id===entry.id),linked=matches.filter(m=>m.id===entry.match_id || m.source_fixture_id===entry.id);
+          if(cycle.fixture_refs?.[entry.ref]!==entry.id || !fixture || fixture.match_id!==entry.match_id || fixture.legacy_fixture_type!=='regional_pathway' || fixture.competition_instance_id!==cycleId || linked.length!==1 || linked[0].id!==entry.match_id || linked[0].source_fixture_id!==entry.id || linked[0].competition_context!==cycleId || linked[0].source_fixture_type!=='competition_engine' || !Number(linked[0].allow_penalties) || linked[0].home_club_id!==entry.home_club_id || linked[0].away_club_id!==entry.away_club_id || (linked[0].confirmed_date || linked[0].scheduled_date)!==entry.scheduled_date || linked[0].timezone!==entry.timezone)fail('A published semifinal Match or kickoff changed; review automatic final planning');
+          return linked[0];
+        });
+        if(blockers.length)fail('Resolve promotion calendar blockers before automatic final publication',409,blockers);
+        if(semifinalMatches.some(m=>!isConfirmedResult(m) || String(m.result_state || '').toLowerCase()==='auto_confirmed_timeout'))return {status:'waiting_semifinals'};
+      }
       const entries=[],bindings=[];
       for(const ref of refs) {
         const proposed=plan.fixtures.find(f=>f.ref===ref),fixture=stored.find(f=>f.id===cycle.fixture_refs?.[ref]);
@@ -67,7 +83,7 @@ function createService({model=new RegionalPromotionCalendarModel(),transaction=w
       if(body.apply!==true)return result;
       if(policy.status!=='confirmed')fail('Promotion calendar policy confirmation is still required');
       if(!String(body.reason || '').trim())fail('Explain this pathway calendar publication',400);
-      if(body.expected_revision!==revision)fail('Pathway calendar sources changed; review a fresh preview');
+      if(!automatic && body.expected_revision!==revision)fail('Pathway calendar sources changed; review a fresh preview');
       if(result.blockers.length || entries.length!==refs.length)fail('Resolve pathway calendar blockers before publication',409,result.blockers);
       for(const {fixture,match} of bindings) {
         const updatedMatch={...match,scheduled_date:time.wall,confirmed_date:time.wall,timezone:policy.timezone,status:'scheduled',scheduling_status:'confirmed'};
@@ -76,10 +92,12 @@ function createService({model=new RegionalPromotionCalendarModel(),transaction=w
         const audit=await model.audit({engine:fixture,calendar:true},user,{engine:fixture,match},{engine,match:updatedMatch},body.reason,q);
         await model.notify(updatedMatch,audit.id,q);
       }
-      const record={...result,status:'published',published_at:clock().toISOString(),policy_snapshot:policy};
+      const record={...result,status:'published',published_at:clock().toISOString(),policy_snapshot:policy,...(automatic?{publication_mode:'automatic_followup',parent_calendar_id:parent.id}:{})};
       await model.save(record,user,body.reason,q);return record;
     });
   }
-  return {action};
+  async function action(cycleId,body,actor) {return operate(cycleId,body,actor,false);}
+  async function reconcileFinal(cycleId) {return operate(cycleId,{stage:'final',apply:true,reason:'Automatic promotion final after published semifinals and confirmed sporting results'},null,true);}
+  return {action,reconcileFinal};
 }
 module.exports={createService,...createService()};

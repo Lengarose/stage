@@ -7,7 +7,7 @@ const model = new RegionalLeagueModel();
 const { permanentId, leagueKey, buildCatalogue } = require('../lib/regionalLeagueHierarchy');
 async function admin(actor, query = EXECUTESQL) {
   const [user] = await query('SELECT id,email,role_id FROM users WHERE id=? LIMIT 1', [actor?.id]);
-  if (!user || ![0, 2].includes(Number(user.role_id))) fail('Admin access required', 403);
+  if (!user || user.role_id == null || ![0, 2].includes(Number(user.role_id))) fail('Admin access required', 403);
   return user;
 }
 async function audit(query, actor, action, record, before, reason) {

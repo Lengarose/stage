@@ -2,6 +2,11 @@
 
 Versie 1 — 2 november 2026. Taal: Nederlands.
 
+Actuele bouwstatus en resterende acceptatiecriteria:
+[Competition delivery status](competition-delivery-status.md). Lees die checklist
+naast de beleidsstatus hieronder; latere bevestigingen en bouwstappen vervangen
+oudere beschrijvingen van wat nog niet gebouwd of bevestigd was.
+
 ## 1. Doel en gebruik
 
 Dit document bundelt het afgesproken doel voor Regional Leagues, Regional Cups,
@@ -270,8 +275,10 @@ niet als automatisch door EA bevestigde aanwezigheid.
 
 ### Verwerking [N]
 
-- Twee uur rekenen vanaf het werkelijke einde. Geen reactie binnen 24 uur geeft
-  Admin-review, geen automatische bevestiging of verzonnen uitslag.
+- **B — bevestigd 3 november 2026:** Geen reactie binnen 24 uur geeft bij nieuwe
+  officiële regionale competities Admin-review, geen automatische bevestiging of
+  verzonnen uitslag. Zie [lokale uitvoering](regional-result-review-phase6.md).
+- **N:** Twee uur indieningstermijn rekenen vanaf het werkelijke einde.
 - Scorewijziging maakt eerdere bevestiging ongeldig en opent opnieuw 24 uur.
   Alleen bewijs toevoegen verandert niet de score-identiteit of bevestigingstermijn.
 - Geschil en correctie na definitieve uitslag via bevoegde Admin, met reden en audit.
@@ -320,8 +327,9 @@ leaguepunten blijven intact. Oude cyclus-snapshots krijgen geen nieuw format.
 
 **O:** Techniek voor werkelijke eindtijd, deadlines bij gewijzigde aftrap en
 lopende geschillen, onbesliste niet-beslissende posities en volledige minitoernooien.
-De oude lokale automatische timeoutbevestiging strijdt met de bewaarde nieuwe
-reviewregel: oplossen vóór het nieuwe beleid wordt ingeschakeld.
+Nieuwe gepubliceerde regionale deelnamevoorwaarden leggen de 24-uursreviewregel
+vast. Oudere edities zonder deze vastgelegde beleidsversie behouden hun eerdere
+voorwaarden; de legacy-timeoutcode blijft daarvoor bestaan.
 
 ## 10. Afwezigheid, storingen en terugtrekking — punt 13
 
@@ -1023,3 +1031,31 @@ naar de bestaande geautoriseerde acties. Het schrijft zelf geen competitiegegeve
 en behandelt fouten niet als lege succeslijsten. Dit is nog geen duurzame
 automatiseringsregisseur en beslist geen open beleidsvragen.
 [Bediening, scope en verificatie](regional-operations-phase6.md).
+
+### Fase 6 — bekerherstel en Engelse appteksten, 3 november 2026
+
+De gebruiker heeft Engels als standaard voor alle toegevoegde appteksten bevestigd.
+Eerdere Nederlandse Cup-/beslissings-/actiepanelen en operationele servermeldingen
+zijn omgezet. De server controleert voortgang van reeds geactiveerde bekers nu
+zonder open browser, met opgeslagen reserveringen en bescherming tegen oude retries.
+Sportieve blokkades blijven voor review zichtbaar; ontwerpen, datums en seizoenen
+worden niet automatisch geopend of gewijzigd. [Overdracht en beperkingen](regional-cup-recovery-phase6.md).
+
+### Fase 6 — herstel van plaatsings-/promotiecycli, 3 november 2026
+
+De server herleest al opgeslagen regionale cycli zonder open browser, via dezelfde
+sportieve voortgangsactie als de resultaatkoppeling. Gedeelde reserveringscode
+beschermt zowel Cup als cyclus tegen gelijktijdige en verouderde pogingen, met
+afzonderlijke checkpoint-identiteiten. Admin ziet blokkades en definitieve rechten
+die klaar zijn voor groepsindelingscontrole. Groepen toepassen en aftrappen
+publiceren blijven bestaande gecontroleerde acties.
+[Overdracht en verificatie](regional-cycle-recovery-phase6.md). Geen productieactivatie.
+
+### Fase 6 — automatische promotiefinale, 3 november 2026
+
+Na reeds gepubliceerde halve finales kan de herstelworker de finale publiceren
+op het bevestigde donderdagvenster in speelweek 11. Alle vereiste uitslagen,
+bronidentiteiten en halvefinaletijden worden herlezen; belasting/conflicten en
+cutoff blijven blokkeren. De interne route gebruikt systeemaudit en is niet via
+een clientflag toegankelijk. Eerste publicaties en uitzonderingen blijven aparte
+gecontroleerde acties. [Bediening en verificatie](regional-promotion-auto-final-phase6.md).

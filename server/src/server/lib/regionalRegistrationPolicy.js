@@ -3,6 +3,9 @@ const { STAGE_PLUS_TIERS } = require('../utils/subscriptionAccess');
 const { fail } = require('./regionalEditionIdentity');
 const VERSION='regional_registration_v1';
 const DAY=86400000;
+// Preserve key order: accepted_rules_revision hashes this exact public shape.
+const publicWindow=window=>Object.fromEntries(['id','region_slug','platform','season_number','reset_series','opens_at','registration_closes_at','confirmation_closes_at','policy_version','cup_policy_version','result_policy_version','rules_text'].map(key=>[key,window[key]]));
+const windowRevision=window=>require('node:crypto').createHash('sha256').update(JSON.stringify(publicWindow(window))).digest('hex');
 function schedule(opensAt) {
   if(typeof opensAt!=='string' || !/^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/.test(opensAt) || !Number.isFinite(Date.parse(opensAt)))fail('Provide an opening timestamp with an explicit UTC offset',400);
   const start=Date.parse(opensAt);
@@ -31,4 +34,4 @@ function rosterReport(players,clubId,now=new Date()) {
     status:String(player.playing_club_id || player.club_id)!==String(clubId)?'registered_elsewhere':plusStatus(player,now)}));
   return {minimum_players:3,eligible_count:roster.filter(p=>p.status==='eligible').length,players:roster};
 }
-module.exports={VERSION,schedule,phase,plusStatus,rosterReport};
+module.exports={VERSION,schedule,phase,plusStatus,rosterReport,publicWindow,windowRevision};

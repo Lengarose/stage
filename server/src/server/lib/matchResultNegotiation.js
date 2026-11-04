@@ -245,7 +245,7 @@ function parseDueMs(value) {
   return Number.isFinite(ms) ? ms : null;
 }
 
-function settleDeadlinesPure(match, now = new Date()) {
+function settleDeadlinesPure(match, now = new Date(), { reviewOnTimeout = false } = {}) {
   const status = String(match?.status || '');
   if (['completed', 'forfeit', 'cancelled'].includes(status)) {
     return { changed: false };
@@ -256,6 +256,13 @@ function settleDeadlinesPure(match, now = new Date()) {
   }
   const t = now.getTime();
   const submitSide = currentSubmitSide(match);
+
+  if (reviewOnTimeout && [RESULT_STATES.AWAITING_AWAY_CONFIRMATION, RESULT_STATES.AWAITING_HOME_REVIEW].includes(state)) {
+    const due = parseDueMs(state === RESULT_STATES.AWAITING_AWAY_CONFIRMATION ? match.confirmation_due_at : match.review_due_at);
+    return due != null && t >= due
+      ? { changed: true, patch: { result_state: RESULT_STATES.ADMIN_REVIEW, status: 'disputed' }, event: 'response_timeout_admin_review' }
+      : { changed: false };
+  }
 
   if (state === RESULT_STATES.AWAITING_RESULT || !match?.result_state) {
     const resultDue = parseDueMs(match?.result_due_at);

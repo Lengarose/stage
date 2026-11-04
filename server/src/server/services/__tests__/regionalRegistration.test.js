@@ -39,6 +39,16 @@ test('published periods use four registration weeks and one common confirmation 
   for(const [date,phase] of [['2026-11-09T11:59:59Z','upcoming'],['2026-11-09T12:00:00Z','registration'],['2026-12-07T11:59:59Z','registration'],['2026-12-07T12:00:00Z','confirmation'],['2026-12-14T11:59:59Z','confirmation'],['2026-12-14T12:00:00Z','closed']])assert.equal(policy.phase(window,date),phase);
   assert.throws(()=>policy.schedule('2026-11-09T12:00'),/offset/);
 });
+
+test('new periods publish the response-review policy before consent and preserve it in the public window', async () => {
+  const f=fixture();
+  const published=await f.publish();
+  assert.equal(published.window.result_policy_version,'regional_result_review_v2');
+  assert.match(published.window.rules_text,/24 hours/);
+  assert.match(published.window.rules_text,/silence does not confirm/);
+  assert.equal(f.state.windows[0].result_policy_version,'regional_result_review_v2');
+  assert.match(published.window.rules_text,/away club may submit immediately/);
+});
 test('Plus access distinguishes expiry, free members, malformed expiry and loaned-out players without billing data',()=>{
   const now='2026-11-02T12:00:00Z';
   assert.equal(policy.plusStatus({subscription:'plus',subscription_expires_at:now},now),'plus_expired');

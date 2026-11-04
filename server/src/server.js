@@ -279,6 +279,9 @@ const { runStartupMigrations } = require('./server/migrations/startupMigrations'
 runStartupMigrations()
   .then(() => require('./server/services/tournamentReconciliationJob').startTournamentReconciliationJob())
   .then(() => require('./server/services/competitionPrizeService').startPrizeSettlementJob())
+  .then(() => require('./server/services/regionalCupRecoveryService').start())
+  .then(() => require('./server/services/regionalCycleRecoveryService').start())
+  .then(() => require('./server/services/regionalResultDeadlineService').start())
   .then(() => require('./server/services/tournamentArchiveService').start())
   .catch(err => console.error('[migration] startup error:', err));
 

@@ -1,12 +1,12 @@
-# Regionale actiepunten — eerste stap van fase 6
+# Regional action overview — eerste stap van fase 6
 
 Lokaal gebouwd op 3 november 2026. Dit is het operationele overzicht van bestaande
 gegevens, niet de volledige automatische seizoensregisseur.
 
 ## Vindplaats en bediening
 
-**Admin → Regional Leagues → Regionale actiepunten** staat boven de regionale
-beheerpanelen. **Overzicht vernieuwen** haalt een nieuwe momentopname op en toont
+**Admin → Regional Leagues → Regional action overview** staat boven de regionale
+beheerpanelen. **Refresh overview** haalt een nieuwe momentopname op en toont
 de controletijd. Iedere regel verwijst naar het relevante paneel op dezelfde
 pagina of naar **Admin → Rewards**. De bron-ID helpt de juiste opgeslagen editie
 of cyclus in het bestaande paneel te selecteren; een link voert geen actie uit.

@@ -9,7 +9,7 @@ const editions=require('./regionalEditionService');
 const policy=require('../lib/regionalRegistrationPolicy');
 const hash=value=>crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const stableId=value=>{const h=hash(value).slice(0,32);return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20)}`;};
-const publicWindow=window=>Object.fromEntries(['id','region_slug','platform','season_number','reset_series','opens_at','registration_closes_at','confirmation_closes_at','policy_version','cup_policy_version','rules_text'].map(key=>[key,window[key]]));
+const {publicWindow}=policy;
 const isAdmin=user=>user?.role_id!=null && [0,2].includes(Number(user.role_id));
 function belongs(row,scope) {
   try {const i=identity(row);return i.region_slug===scope.region_slug && i.platform===scope.platform && Number(i.reset_series || 0)===Number(scope.reset_series || 0);}
@@ -57,10 +57,12 @@ function createService({model=new RegionalRegistrationModel(),transaction=withTr
       let rules_text=String(body.rules_text || '').trim();
       if(!rules_text || rules_text.length>12000)fail('Provide the published edition rules before opening registration',400);
       if(body.include_cup===true)rules_text+=`\n\n${cup.rules}`;
+      const resultPolicy=require('../lib/regionalResultPolicy');
+      rules_text+=`\n\n${resultPolicy.RULES}`;
       if(rules_text.length>12000)fail('Published rules including Cup terms exceed the supported length',400);
       const id=stableId(['regional_registration_window',i.region_slug,i.platform,i.reset_series || 0,i.season_number]);
       const existing=await model.selectOne(id,q,true);
-      const window={id,region_slug:i.region_slug,platform:i.platform,season_number:i.season_number,reset_series:i.reset_series || 0,permanent_league_id:definition.id,...timing,policy_version:policy.VERSION,...(body.include_cup===true?{cup_policy_version:cup.policy.version}:{}),rules_text,status:'published'};
+      const window={id,region_slug:i.region_slug,platform:i.platform,season_number:i.season_number,reset_series:i.reset_series || 0,permanent_league_id:definition.id,...timing,policy_version:policy.VERSION,result_policy_version:resultPolicy.VERSION,...(body.include_cup===true?{cup_policy_version:cup.policy.version}:{}),rules_text,status:'published'};
       if(!existing) {
         if(rows.some(r=>r.pending_regional_cycle_id && [Number(r.season_number),Number(r.season_number)+1].includes(i.season_number)))fail('An existing captured regional cycle keeps its participation conditions');
         if(rows.some(r=>Number(r.season_number)===i.season_number && r.regional_cycle_id))fail('An already allocated edition keeps its original participation conditions; publish for a future new edition');

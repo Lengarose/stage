@@ -7,7 +7,7 @@ geen extra bekerinschrijfgeld, financiering door STAGE.
 
 ## Waar vind je het?
 
-- **Admin → Regional Leagues → Regional Cups → Bekerprijzen en trofee-uitreiking**.
+- **Admin → Regional Leagues → Regional Cups → Cup rewards and trophy awards**.
 - Hetzelfde controlepaneel staat in **Admin → Rewards**.
 - **Regional Leagues → Regional Cups → Cup rewards** toont spelers de vastgelegde
   bedragen, financiering en afzonderlijke betalings-/trofeestatus.
@@ -38,12 +38,12 @@ trofee mag niet als uitgereikt verschijnen omdat het geld al betaald is.
 ## Bestaande edities en uitzonderingen
 
 Een bestaande editie zonder vastgelegde prijsafspraken krijgt niet automatisch
-de nieuwe standaard. Kies de editie, bekijk **Prijsafspraken voor bestaande editie**,
+de nieuwe standaard. Kies de editie, bekijk **Preview reward terms for an existing edition**,
 controleer het voorstel en bevestig met reden. Dit is een nieuwe gecontroleerde
 belofte, geen bewijs van een historische afspraak. Bestaande betalingsbewijzen
 blokkeren vervanging; betaald geld wordt niet automatisch teruggedraaid.
 
-**Betalingen en trofee controleren** is alleen-lezen. Een afzonderlijke bevestigde
+**Review payments and trophy** is alleen-lezen. Een afzonderlijke bevestigde
 actie kan daarna bewezen ontbrekende bedragen en de trofee verwerken. De server
 controleert de actuele gegevens opnieuw; wijzigingen vereisen zo nodig review.
 Adminrechten komen uit de database en mutaties worden geaudit.

@@ -102,6 +102,8 @@ pages/admin/    Thin route wrappers that pass `forcedSection` prop to <Admin />
 ```
 
 ### React conventions
+- Write new default UI text and user-visible server messages in English. Keep
+  existing localization support; the language of the chat is not the app's default language.
 - **Function components only**, hooks first.
 - Use `useMemo`/`useCallback` sparingly — only when there's a measured cost.
 - Native `<button>` elements inside forms **must** have `type="button"` unless they submit.

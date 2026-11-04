@@ -118,3 +118,17 @@ test('hoursFromNow is a server-side offset, not a client clock', () => {
   const now = new Date('2026-08-01T00:00:00Z');
   assert.equal(hoursFromNow(48, now).toISOString(), '2026-08-03T00:00:00.000Z');
 });
+
+test('new regional response deadlines enter Admin review at the boundary without completing a match', () => {
+  const due = '2026-11-04T20:00:00Z';
+  for (const state of [RESULT_STATES.AWAITING_AWAY_CONFIRMATION, RESULT_STATES.AWAITING_HOME_REVIEW]) {
+    const match = { status: 'awaiting_confirmation', result_state: state, confirmation_due_at: due, review_due_at: due };
+    assert.equal(settleDeadlinesPure(match, new Date('2026-11-04T19:59:59Z'), { reviewOnTimeout: true }).changed, false);
+    const decision = settleDeadlinesPure(match, new Date(due), { reviewOnTimeout: true });
+    assert.equal(decision.patch.result_state, RESULT_STATES.ADMIN_REVIEW);
+    assert.equal(decision.patch.status, 'disputed');
+    assert.equal(decision.autoConfirm, undefined);
+    assert.equal(decision.event, 'response_timeout_admin_review');
+  }
+  assert.equal(settleDeadlinesPure({ status: 'in_progress', result_state: RESULT_STATES.ADMIN_REVIEW }, new Date(due), { reviewOnTimeout: true }).changed, false);
+});

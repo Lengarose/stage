@@ -81,7 +81,7 @@ export default function GameDayDetail({
       const fresh=await stageClient.entities.Match.get(game.id);
       if(selectedId.current!==game.id)return;
       setShowResultForm(!readOnly);
-      onOpenReport?.({game:{...game,...fresh},myClub,myPlayer,isHomeTeam:game.home_club_id?String(game.home_club_id)===String(myClub?.id):String(game.home_player_id)===String(myPlayer?.id),readOnly,stats,onSubmitted:handleResultSubmitted,onClose:()=>setShowResultForm(false)});
+      onOpenReport?.({game:{...game,...fresh},allowEitherInitial,myClub,myPlayer,isHomeTeam:game.home_club_id?String(game.home_club_id)===String(myClub?.id):String(game.home_player_id)===String(myPlayer?.id),readOnly,stats,onSubmitted:handleResultSubmitted,onClose:()=>setShowResultForm(false)});
     } catch(e) {setKickoffError(e.message || 'Unable to open the match report.');}
   }
   const [crests, setCrests] = useState({ home: null, away: null });
@@ -203,7 +203,8 @@ export default function GameDayDetail({
   const amIHomeTeam = isClubMatch
     ? myClub && String(game.home_club_id) === String(myClub.id)
     : myPlayer && String(game.home_player_id) === String(myPlayer.id);
-  const resultControls = getResultSubmissionControls({ game, isLive, showResultForm, amIHomeTeam });
+  const allowEitherInitial = preparationState?.official === true && preparationState?.match_id === game.id && preparationState?.allow_either_initial_result === true;
+  const resultControls = getResultSubmissionControls({ game, isLive, showResultForm, amIHomeTeam, allowEitherInitial });
 
   const { home, away } = getMatchSideNames(game, t("matchFlow.tbd"));
   const updateResultLabel = t("matchFlow.updateResult") === "matchFlow.updateResult"

@@ -2,13 +2,24 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const {report,createService}=require('../regionalOperationsService');
 const {resultRevision}=require('../regionalCupLifecycleService');
+const {windowRevision}=require('../../lib/regionalRegistrationPolicy');
 const now=new Date('2026-11-03T19:00:00Z');
 const row=(type,id,data={})=>({id,entity_type:type,status:data.status,data_json:JSON.stringify(data)});
 const root=row('regional_league','root',{status:'registration',region_slug:'uk-ireland',platform:'cross-platform',season_number:1,reset_series:0});
 const window=patch=>row('regional_registration_window','window',{status:'published',permanent_league_id:'root',region_slug:'uk-ireland',platform:'cross-platform',season_number:1,reset_series:0,opens_at:'2026-09-29T18:00:00Z',registration_closes_at:'2026-10-27T18:00:00Z',confirmation_closes_at:'2026-11-03T19:00:00Z',...patch});
+test('the Admin overview assesses new closed fields and blocks unreadable confirmations without exposing rosters',()=>{
+  const w=window({policy_version:'regional_registration_v1',rules_text:'Published terms'}),data={...JSON.parse(w.data_json),id:w.id};
+  const apps=Array.from({length:40},(_,i)=>row('season_registration',`r${i}`,{club_id:`club${i}`,registration_window_id:'window',registration_policy_version:data.policy_version,accepted_rules_revision:windowRevision(data),region_slug:data.region_slug,platform:data.platform,season_number:1,reset_series:0,status:'approved',participation_status:'confirmed',confirmed_at:'2026-10-28T19:00:00Z',confirmed_player_ids:['private1','private2','private3']}));
+  const result=report([root,w,...apps],[],now),item=result.issues[0];
+  assert.equal(item.severity,'action');assert.equal(item.field_assessment.status,'structure_supported');assert.equal(item.field_assessment.structure.d1_groups,1);assert.equal(item.field_assessment.structure.d2_groups,1);assert.equal(result.read_only,true);
+  assert.doesNotMatch(JSON.stringify(result),/private1|club0/);
+  const unreadable=report([root,w,...apps,{id:'broken',entity_type:'season_registration',data_json:'{'}],[],now);
+  assert.equal(unreadable.issues.find(i=>i.code==='field_review').field_assessment.status,'needs_review');
+  const unsupported=report([root,w,...apps.slice(0,30)],[],now).issues[0];assert.equal(unsupported.severity,'review');assert.equal(unsupported.field_assessment.confirmed_clubs,30);
+});
 test('closed confirmation shows a field review without expiry writes; a captured cycle removes the duplicate action',()=>{
   const data=[root,window(),row('season_registration','a',{status:'approved',registration_window_id:'window',participation_status:'confirmed',owner_email:'private@test',confirmed_player_ids:['secret-player']})];
-  const result=report(data,[],now);assert.equal(result.counts.action,1);assert.match(result.issues[0].message,/1 bevestigde/);assert.equal(result.read_only,true);assert.doesNotMatch(JSON.stringify(result),/private@test|secret-player/);
+  const result=report(data,[],now);assert.equal(result.counts.action,1);assert.match(result.issues[0].message,/1 confirmed/);assert.equal(result.read_only,true);assert.doesNotMatch(JSON.stringify(result),/private@test|secret-player/);
   const linked=report([...data,row('regional_cycle','cycle',{status:'running',participation_window_snapshot:{id:'window'}})],[],now);assert.equal(linked.issues.length,0);
   const expired=report([row('regional_league','root',{status:'registration',reset_series:1}),window()],[],now);assert.equal(expired.issues.length,0);assert.equal(expired.counts.windows,0);
 });
@@ -49,6 +60,12 @@ test('operations model uses SELECT-only scoped queries, retaining missing Match 
   const {RegionalOperationsModel}=require('../../models/regionalOperationsModel'),model=new RegionalOperationsModel(),calls=[];
   const q=async(sql,args)=>{calls.push({sql,args});return [];};await model.actor('admin',q);await model.records(q);await model.fixtures(q);
   assert.ok(calls.every(c=>c.sql.startsWith('SELECT ')));assert.match(calls[2].sql,/LEFT JOIN matches/);assert.match(calls[2].sql,/legacy_source_type='regional_cycle'/);assert.deepEqual(calls[0].args,['admin']);
+});
+test('Cup recovery blockers appear in English without exposing stored worker errors or invalidated sources',()=>{
+  const cup=row('regional_cup_edition','cup',{status:'running',play_enabled:true,cup_reward_snapshot:{},rounds:[{number:1,fixture_ids:['f']}],round_calendar:[{round:1,instant:now.getTime()+86400000,minutes:60}]});
+  const job=row('regional_cup_progress','job',{source_id:'cup',status:'review_required',last_error:'private worker details'}),m={fixture_id:'f',id:'match',competition_instance_id:'cup',status:'scheduled'};
+  const data=report([cup,job],[m],now);assert.ok(data.issues.some(i=>i.code==='cup_recovery_review'));assert.doesNotMatch(JSON.stringify(data),/private worker details/);
+  const invalidated={...cup,data_json:JSON.stringify({...JSON.parse(cup.data_json),edition_invalidated:true})};assert.equal(report([invalidated,job],[m],now).issues.length,0);
 });
 test('operations HTTP route is Admin-only and returns a read-only snapshot',async()=>{
   const express=require('express'),modulePath=require.resolve('../regionalOperationsService'),saved=require.cache[modulePath];let server;
