@@ -282,6 +282,7 @@ runStartupMigrations()
   .then(() => require('./server/services/regionalCupRecoveryService').start())
   .then(() => require('./server/services/regionalCycleRecoveryService').start())
   .then(() => require('./server/services/regionalResultDeadlineService').start())
+  .then(() => require('./server/services/regionalConfirmationReminderService').start())
   .then(() => require('./server/services/tournamentArchiveService').start())
   .catch(err => console.error('[migration] startup error:', err));
 

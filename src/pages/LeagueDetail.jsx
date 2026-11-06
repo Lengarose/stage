@@ -12,6 +12,7 @@ import { GostTrophy } from '@/pages/Competitions';
 import CompetitionTextTabs from '@/components/competition/CompetitionTextTabs';
 import ParticipantDirectory from '@/components/competition/ParticipantDirectory';
 import RegionalCycleDraw from '@/components/competition/RegionalCycleDraw';
+import EditionParticipationConditions from '@/components/competition/EditionParticipationConditions';
 import LeagueCompetitionStages from '@/components/LeagueCompetitionStages';
 import TournamentLeaderboard from '@/components/TournamentLeaderboard';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -109,7 +110,7 @@ function RegionalLeaguePage({slug}) {
       {tab==='stages' && edition.regional_cycle_id && <RegionalCycleDraw key={edition.regional_cycle_id} cycleId={edition.regional_cycle_id}/>}
       {(edition.identity_conflict||edition.identity_unverified)&&<p role="status" className="my-4 break-all text-sm text-warning">Season information is being reviewed. Historical records have not been merged.</p>}
       <LeagueEdition key={edition.id} edition={edition} editions={data.editions} identity={identity} tab={tab} setTab={setTab} selectSeason={selectSeason} initialFixture={params.get('fixture')}/>
-      <Dialog open={rulesOpen} onOpenChange={open=>{if(!open)setParams(previous=>{const next=new URLSearchParams(previous);next.delete('rules');return next;});}}><DialogContent className="max-h-[85dvh] overflow-y-auto rounded-none"><DialogTitle>{edition.name} rules</DialogTitle><DialogDescription>Division {edition.division} · {edition.season_label || `Season ${edition.season_number}`}</DialogDescription><p className="whitespace-pre-wrap text-sm">{edition.rules || 'No additional league rules have been published for this edition.'}</p><Movement edition={edition} editions={data.editions}/>{edition.rules_file_url&&<a href={edition.rules_file_url} target="_blank" rel="noreferrer" className={action}>Open league rules file</a>}</DialogContent></Dialog>
+      <Dialog open={rulesOpen} onOpenChange={open=>{if(!open)setParams(previous=>{const next=new URLSearchParams(previous);next.delete('rules');return next;});}}><DialogContent className="max-h-[85dvh] overflow-y-auto rounded-none"><DialogTitle>{edition.name} rules</DialogTitle><DialogDescription>Division {edition.division} · {edition.season_label || `Season ${edition.season_number}`}</DialogDescription>{(edition.participation_conditions?.state!=='published' || edition.rules!==edition.participation_conditions.rules_text) && <p className="whitespace-pre-wrap text-sm">{edition.rules || 'No additional league rules have been published for this edition.'}</p>}<EditionParticipationConditions conditions={edition.participation_conditions}/><Movement edition={edition} editions={data.editions}/>{edition.rules_file_url&&<a href={edition.rules_file_url} target="_blank" rel="noreferrer" className={action}>Open league rules file</a>}</DialogContent></Dialog>
     </>}
   </div></main>;
 }

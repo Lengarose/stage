@@ -39,6 +39,7 @@ export default function RegionalRegistrationPanel({ definitions = [], leagues = 
         <p>Registration opens: {new Date(preview.report.window.opens_at).toLocaleString()}</p>
         <p>Registration closes / confirmation opens: {new Date(preview.report.window.registration_closes_at).toLocaleString()}</p>
         <p>Shared confirmation deadline: {new Date(preview.report.window.confirmation_closes_at).toLocaleString()}</p>
+        {preview.report.window.confirmation_notice_policy_version && <p>One in-app opening notice will be checked for each club still awaiting confirmation during the shared week, respecting existing club-notification preferences. It never extends the deadline.</p>}
         <p>Registering president: personal Plus. Confirmation: at least three eligible Plus players. ANY allowed; no goalkeeper requirement. Published conditions cannot be edited through this form.</p>
         <details><summary className="min-h-11 cursor-pointer py-3 font-semibold">Full conditions to be published</summary><p className="whitespace-pre-wrap py-3">{preview.report.window.rules_text}</p></details>
         <button type="button" className="min-h-11 font-semibold" onClick={() => submit(true)}>Confirm and publish these conditions →</button>

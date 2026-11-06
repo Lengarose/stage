@@ -3,8 +3,9 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 
 function fixture(count=40) {
-  let state={league_entities:[],clubs:[],matches:[],competition_instances:[],competition_participants:[],competition_fixtures:[],admin_audit_log:[]};
+  let state={league_entities:[],clubs:[],players:[],matches:[],notifications:[],competition_instances:[],competition_participants:[],competition_fixtures:[],admin_audit_log:[]};
   let injected='';
+  let noticeFailureAt=null;
   function entity(record,type='regional_league') { return {...record,entity_type:type,data_json:JSON.stringify(record)}; }
   for(let i=0;i<count;i++)state.clubs.push({id:`club-${i}`,name:`Club ${i}`,owner_email:`owner${i}@fixture.local`,platform:'cross-platform'});
   const definitions=[1,2].map(division=>({id:`root-${division}`,name:`Division ${division}`,region_slug:'fixture-region',region:'fixture-region',platform:'cross-platform',division,season_number:1,reset_series:0,group_code:'A',slug:`fixture-region-div-${division}`,status:'registration',max_clubs:20,num_clubs:division===1?Math.min(20,count):Math.min(20,Math.max(0,count-20)),registered_club_ids:state.clubs.slice((division-1)*20,division*20).map(c=>c.id),trophy_item_id:`trophy-${division}`}));
@@ -12,8 +13,10 @@ function fixture(count=40) {
   for(const club of state.clubs.slice(40))state.league_entities.push(entity({id:`registration-${club.id}`,club_id:club.id,status:'approved',region_slug:'fixture-region',platform:'cross-platform',division:1,season_number:1,reset_series:0},'season_registration'));
   async function query(sql,values=[]) {
     if(injected && sql.includes(injected))throw new Error('Injected cycle write failure');
+    if(sql.startsWith('INSERT INTO notifications') && noticeFailureAt!==null && state.notifications.length===noticeFailureAt)throw Error('Injected notification write failure');
     if(/FROM users/.test(sql))return values[0]==='admin'?[{id:'admin',email:'admin@fixture.local',role_id:2}]:values[0]==='super'?[{id:'super',email:'super@fixture.local',role_id:0}]:[];
     if(/regional-edition-write-lock/.test(sql))return [];
+    if(sql.startsWith('SELECT notification_settings FROM players'))return structuredClone(state.players.filter(p=>String(p.email).toLowerCase()===String(values[0]).toLowerCase()));
     if(/^SELECT/.test(sql)) {
       if(sql.includes('SELECT m.*, cf.legacy_fixture_id')) {
         const ids=new Set(values);return structuredClone(state.matches.filter(m=>ids.has(m.source_fixture_id)||ids.has(m.id)));
@@ -67,7 +70,7 @@ function fixture(count=40) {
       Object.assign(match,{status:'completed',result_state:'CONFIRMED',stats_processed:1,home_score:homeWins?1:0,away_score:homeWins?0:1});
     }
   }
-  return {service,actor,input,prepare,query,entity,finishMatches,fail(value){injected=value;},get state(){return state;}};
+  return {service,actor,input,prepare,query,entity,finishMatches,fail(value){injected=value;},failNoticeAfter(value){noticeFailureAt=value;},get state(){return state;}};
 }
 
 function transitionFixture(from,to) {
@@ -471,7 +474,7 @@ test('automatic allocation rolls back target writes and refuses timeout-only res
 test('changed final pathway scores require review even if the winner and group capacity stay unchanged',async()=>{
   const env=fixture(40);officialField(env);let {cycle}=await env.prepare();cycle=await finalisePathway(env,cycle);
   assert.ok(cycle.ready_result_revision);
-  const match=env.state.matches.find(m=>m.competition_context===cycle.id);match.home_score+=2;
+  const match=env.state.matches.filter(m=>m.competition_context===cycle.id).at(-1);if(match.home_score>match.away_score)match.home_score+=2;else match.away_score+=2;
   await assert.rejects(env.service.reconcileAllocation(cycle.id),/evidence changed|published/);
   assert.equal(env.state.league_entities.filter(r=>r.entity_type==='regional_league_standing').length,0);
 });
@@ -482,6 +485,38 @@ test('automatic transition preserves finished-season history and assigns returni
   assert.equal(env.state.matches.filter(m=>!m.competition_context).length,sourceMatchCount);
   assert.ok(result.cycle.allocated_groups.every(g=>env.state.league_entities.find(r=>r.id===g.id).season_number===2));
   const registrations=env.state.league_entities.filter(r=>r.entity_type==='season_registration'&&r.id.startsWith('auto-'));assert.equal(registrations.length,40);assert.ok(registrations.every(r=>JSON.parse(r.data_json).assigned_league_id));
+});
+
+test('group assignment stores one exact-edition notification per club and retries do not duplicate delivery',async()=>{
+  const env=fixture(40);officialField(env);let {cycle}=await env.prepare();cycle=await finalisePathway(env,cycle);
+  const {cycle:allocated}=await env.service.reconcileAllocation(cycle.id);
+  assert.deepEqual(allocated.allocation_notifications,{version:'regional_allocation_notice_v1',stored:40,muted:0});
+  assert.equal(env.state.notifications.length,40);assert.equal(new Set(env.state.notifications.map(n=>n.id)).size,40);
+  assert.equal(new Set(env.state.notifications.map(n=>n.idempotency_key)).size,40);
+  for(const notice of env.state.notifications){assert.equal(notice.type,'club_update');assert.equal(notice.title,'Regional group assigned');assert.match(notice.body,/Group A/);assert.match(notice.body,/Season 1/);assert.match(notice.body,/group is a draft/);assert.equal(notice.link,`/leagues/${notice.related_id}?season=${notice.related_id}`);assert.ok(allocated.allocated_groups.some(g=>g.id===notice.related_id));}
+  const before=JSON.stringify(env.state.notifications);assert.equal((await env.service.reconcileAllocation(cycle.id)).already_applied,true);assert.equal(JSON.stringify(env.state.notifications),before);
+});
+test('assignment messages use the current president contact and respect disabled in-app club updates',async()=>{
+  const env=fixture(20);env.state.clubs[0].president_user_email='Current-President@fixture.local';
+  officialField(env);const {cycle}=await env.prepare();
+  env.state.players.push({email:env.state.clubs[1].owner_email,notification_settings:JSON.stringify({web:{club_updates:false},mobile:{club_updates:false},email:{club_updates:true},push:{club_updates:true}})});
+  const result=await env.service.reconcileAllocation(cycle.id);
+  assert.equal(result.cycle.allocation_notifications.stored,19);assert.equal(result.cycle.allocation_notifications.muted,1);
+  assert.ok(env.state.notifications.some(n=>n.recipient_email==='current-president@fixture.local'));assert.ok(!env.state.notifications.some(n=>n.recipient_email===env.state.clubs[0].owner_email));
+  assert.ok(!env.state.notifications.some(n=>n.recipient_email===env.state.clubs[1].owner_email));
+  assert.equal(env.state.league_entities.filter(r=>r.entity_type==='regional_league_standing').length,20);
+});
+test('partial notification failures roll back notices and sporting allocation together, then retry once per club',async()=>{
+  const env=fixture(20);officialField(env);const {cycle}=await env.prepare();const before=JSON.stringify(env.state);
+  env.failNoticeAfter(3);await assert.rejects(env.service.reconcileAllocation(cycle.id),/notification write failure/);assert.equal(JSON.stringify(env.state),before);
+  env.failNoticeAfter(null);await env.service.reconcileAllocation(cycle.id);assert.equal(env.state.notifications.length,20);
+  await env.service.reconcileAllocation(cycle.id);assert.equal(env.state.notifications.length,20);
+});
+test('missing reachable contacts block the transaction; legacy cycles are not backfilled, and reviewed official allocation also notifies',async()=>{
+  const invalid=fixture(20);delete invalid.state.clubs[0].owner_email;officialField(invalid);const {cycle}=await invalid.prepare();const before=JSON.stringify(invalid.state);
+  await assert.rejects(invalid.service.reconcileAllocation(cycle.id),/reachable president contact/);assert.equal(JSON.stringify(invalid.state),before);
+  const legacy=fixture(20);const old=(await legacy.prepare()).cycle;const p=await legacy.service.allocate(old.id,{},legacy.actor);await legacy.service.allocate(old.id,{apply:true,expected_revision:p.revision,reason:'Legacy reviewed allocation'},legacy.actor);assert.equal(legacy.state.notifications.length,0);
+  const official=fixture(20);officialField(official);const current=(await official.prepare()).cycle;const preview=await official.service.allocate(current.id,{},official.actor);await official.service.allocate(current.id,{apply:true,expected_revision:preview.revision,reason:'Reviewed official allocation'},official.actor);assert.equal(official.state.notifications.length,20);
 });
 
 test('closed confirmed-field preview uses real HTTP, derives canonical input and still rechecks before the audited draw',async()=>{

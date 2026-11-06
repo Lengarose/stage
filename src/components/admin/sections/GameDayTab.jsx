@@ -1,4 +1,7 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
+import {useLocation,useNavigate,useSearchParams} from 'react-router-dom';
+import {initialGameDayFeeds,gameDayActionCount,gameDayFeedLabel} from '@/lib/adminGameDayFeeds';
+import ActionFeedStatus from '@/components/admin/shared/ActionFeedStatus';
 import DisputesTab from "@/components/admin/sections/DisputesTab";
 import ForfeitsTab from "@/components/admin/sections/ForfeitsTab";
 import ExpiredFixtureRow from "@/components/admin/disputes/ExpiredFixtureRow";
@@ -55,9 +58,8 @@ function EmptyGameDayState({ icon: Icon, title, text }) {
 
 export default function GameDayTab({
   disputes = [],
-  forfeits = [],
-  staleGameDayMatches = [],
-  expiredFixtures = [],
+  gameDayFeeds = initialGameDayFeeds(),
+  onRefreshFeeds,
   setResolveDialog,
   setSelectedWinner,
   resolveForfeit,
@@ -65,18 +67,29 @@ export default function GameDayTab({
   schedulingAdminBusy,
   setSchedulingAdminBusy,
 }) {
-  const [view, setView] = useState("needsAction");
   const [voidingMatch, setVoidingMatch] = useState(null);
-
-  const actionCount = disputes.length + forfeits.length + expiredFixtures.length + staleGameDayMatches.length;
-  const queue = useMemo(() => [
-    ...disputes.map(match => ({
+  const navigate=useNavigate(),[params,setParams]=useSearchParams();
+  const location=useLocation();
+  const focusedMatch=params.get('match');
+  const requestedView=params.get('view');
+  const routeView=location.pathname.replace(/\/$/,'').split('/').at(-1);
+  const activeView=focusedMatch?'disputes':VIEWS.some(tab=>tab.id===requestedView)?requestedView:['disputes','forfeits'].includes(routeView)?routeView:'needsAction';
+  function setView(value){
+    const next=new URLSearchParams(params);next.delete('match');next.set('view',value);setParams(next);
+  }
+  const reviewSummary=gameDayFeeds.reviews.status==='ready'?gameDayFeeds.reviews:null;
+  const forfeits=gameDayFeeds.forfeits.items;
+  const staleGameDayMatches=gameDayFeeds.stuck.items;
+  const expiredFixtures=gameDayFeeds.scheduling.items;
+  const actionCount=gameDayActionCount(gameDayFeeds);
+  const queue = [
+    ...(reviewSummary?.items || []).map(match => ({
       id: `dispute-${match.id}`,
       type: "Dispute",
       tone: "danger",
       title: `${match.home_club_name || match.home_player_name || "Home"} vs ${match.away_club_name || match.away_player_name || "Away"}`,
-      detail: "Result conflict needs admin resolution.",
-      onOpen: () => setView("disputes"),
+      detail: "Result needs Admin review.",
+      onOpen: () => navigate(`/admin/disputes?match=${encodeURIComponent(match.id)}`),
     })),
     ...forfeits.map(match => ({
       id: `forfeit-${match.id}`,
@@ -95,7 +108,7 @@ export default function GameDayTab({
       onOpen: () => setView("stuck"),
     })),
     ...expiredFixtures.map(fixture => ({
-      id: `expired-${fixture.id}`,
+      id: `expired-${fixture._fixtureType}-${fixture.id}`,
       type: "Scheduling",
       tone: "info",
       title: `${fixture.home_club_name || "Home"} vs ${fixture.away_club_name || "Away"}`,
@@ -104,7 +117,7 @@ export default function GameDayTab({
         : fixture.competition_name || "GOST / Tournament fixture",
       onOpen: () => setView("scheduling"),
     })),
-  ], [disputes, expiredFixtures, forfeits, staleGameDayMatches]);
+  ];
 
   async function voidStuckMatch(match) {
     if (!match?.id) return;
@@ -130,11 +143,11 @@ export default function GameDayTab({
   return (
     <div className="space-y-5">
       <div className="grid gap-3 md:grid-cols-5">
-        <ActionCard label="Needs Action" value={actionCount} sub="Open GameDay admin items" icon={ListChecks} tone={actionCount ? "danger" : "neutral"} />
-        <ActionCard label="Disputes" value={disputes.length} sub="Result conflicts" icon={Gavel} tone="danger" />
-        <ActionCard label="Forfeits" value={forfeits.length} sub="Pending claims" icon={Flag} tone="warning" />
-        <ActionCard label="Scheduling" value={expiredFixtures.length} sub="Expired official fixtures" icon={CalendarClock} tone="info" />
-        <ActionCard label="Stuck" value={staleGameDayMatches.length} sub="Old open matches" icon={AlertTriangle} tone="danger" />
+        <ActionCard label="Needs Action" value={actionCount ?? 'Unknown'} sub="Category totals; a match may have multiple actions" icon={ListChecks} tone={actionCount ? "danger" : "neutral"} />
+        <ActionCard label="Disputes" value={gameDayFeedLabel(gameDayFeeds.reviews)} sub="Pending result reviews" icon={Gavel} tone="danger" />
+        <ActionCard label="Forfeits" value={gameDayFeedLabel(gameDayFeeds.forfeits)} sub="Pending claims" icon={Flag} tone="warning" />
+        <ActionCard label="Scheduling" value={gameDayFeedLabel(gameDayFeeds.scheduling)} sub="Expired official fixtures" icon={CalendarClock} tone="info" />
+        <ActionCard label="Stuck" value={gameDayFeedLabel(gameDayFeeds.stuck)} sub="Old open matches" icon={AlertTriangle} tone="danger" />
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -147,7 +160,7 @@ export default function GameDayTab({
               onClick={() => setView(tab.id)}
               className={cn(
                 "inline-flex items-center gap-2 border px-3 py-2 text-xs font-black uppercase tracking-[0.16em] transition-colors",
-                view === tab.id
+                activeView === tab.id
                   ? "border-cyan-300/40 bg-cyan-300/15 text-cyan-200"
                   : "border-white/10 bg-white/[0.03] text-white/45 hover:border-white/20 hover:text-white/75"
               )}
@@ -159,14 +172,20 @@ export default function GameDayTab({
         })}
       </div>
 
-      {view === "needsAction" && (
+      {activeView === "needsAction" && (
         <AdminGamerSection
           title="GameDay Command Queue"
-          subtitle="Everything that blocks match completion now lives in one place."
+          subtitle="A stored review preview alongside the existing forfeit, scheduling and stuck-match feeds."
           icon={Settings2}
         >
-          {queue.length === 0 ? (
-            <EmptyGameDayState icon={ListChecks} title="All Clear" text="No disputes, forfeits or expired fixtures need admin action right now." />
+          <div className="mb-4 space-y-2 text-sm">
+            <button type="button" className="min-h-11 font-semibold" onClick={onRefreshFeeds}>Refresh action feeds →</button>
+            {Object.entries(gameDayFeeds).map(([key,feed])=><ActionFeedStatus key={key} feed={feed} label={key==='reviews'?'Pending result reviews':key==='stuck'?'Stuck matches':key==='scheduling'?'Expired fixtures':'Forfeit claims'} onRetry={onRefreshFeeds}/>)}
+            {reviewSummary && <p>{reviewSummary.total} pending reviews · showing {reviewSummary.items.length}. Open Disputes for the complete paginated list. Updated: {new Date(reviewSummary.as_of).toLocaleString()}.</p>}
+            {actionCount===null && <p>Some action feeds are not verified. Available items below are a partial overview.</p>}
+          </div>
+          {queue.length === 0 && actionCount===0 ? (
+            <EmptyGameDayState icon={ListChecks} title="No items in this snapshot" text="The review query returned no pending cases and the other loaded feeds contain no action items. Refresh to check for changes." />
           ) : (
             <div className="space-y-2">
               {queue.map(item => (
@@ -197,27 +216,27 @@ export default function GameDayTab({
         </AdminGamerSection>
       )}
 
-      {view === "disputes" && (
+      {activeView === "disputes" && (
         <AdminGamerSection title="Result Disputes" subtitle="Review both submissions, proofs and final admin score decisions." icon={Gavel}>
           <DisputesTab disputes={disputes} setResolveDialog={setResolveDialog} setSelectedWinner={setSelectedWinner} showEconomyPanels={false} />
         </AdminGamerSection>
       )}
 
-      {view === "forfeits" && (
+      {activeView === "forfeits" && (
         <AdminGamerSection title="Forfeit Claims" subtitle="Approve valid claims or reject stale requests from resolved matches." icon={Flag}>
-          <ForfeitsTab forfeits={forfeits} resolveForfeit={resolveForfeit} />
+          <ForfeitsTab forfeits={forfeits} feed={gameDayFeeds.forfeits} onRetry={onRefreshFeeds} resolveForfeit={resolveForfeit} />
         </AdminGamerSection>
       )}
 
-      {view === "scheduling" && (
+      {activeView === "scheduling" && (
         <AdminGamerSection title="Scheduling Control" subtitle="Force-schedule, declare forfeits or flag expired official fixtures for review." icon={CalendarClock}>
-          {expiredFixtures.length === 0 ? (
+          {gameDayFeeds.scheduling.status!=='ready'?<ActionFeedStatus feed={gameDayFeeds.scheduling} label="Expired fixtures" onRetry={onRefreshFeeds}/>:expiredFixtures.length === 0 ? (
             <EmptyGameDayState icon={CalendarClock} title="Schedule Healthy" text="No expired official fixtures are waiting for admin intervention." />
           ) : (
             <div className="space-y-2">
               {expiredFixtures.map(fixture => (
                 <ExpiredFixtureRow
-                  key={fixture.id}
+                  key={`${fixture._fixtureType}:${fixture.id}`}
                   fixture={fixture}
                   onResolved={loadAll}
                   busy={schedulingAdminBusy}
@@ -229,9 +248,9 @@ export default function GameDayTab({
         </AdminGamerSection>
       )}
 
-      {view === "stuck" && (
+      {activeView === "stuck" && (
         <AdminGamerSection title="Stuck GameDay Matches" subtitle="Void matches that stayed open after the result or scheduling flow should have ended." icon={AlertTriangle}>
-          {staleGameDayMatches.length === 0 ? (
+          {gameDayFeeds.stuck.status!=='ready'?<ActionFeedStatus feed={gameDayFeeds.stuck} label="Stuck matches" onRetry={onRefreshFeeds}/>:staleGameDayMatches.length === 0 ? (
             <EmptyGameDayState icon={AlertTriangle} title="No Stuck Matches" text="No old live, scheduled or confirmation-waiting matches need cleanup right now." />
           ) : (
             <div className="space-y-2">
@@ -266,7 +285,7 @@ export default function GameDayTab({
         </AdminGamerSection>
       )}
 
-      {view === "banner" && (
+      {activeView === "banner" && (
         <AdminGamerSection title="GameDay Banner" subtitle="This controls the hero banner shown to players on the GameDay page." icon={Image}>
           <GameDayBannerEditor />
         </AdminGamerSection>

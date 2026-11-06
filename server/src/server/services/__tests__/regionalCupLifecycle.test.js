@@ -53,6 +53,12 @@ test('public Cup data contains actual GameDay links, localizable kickoffs and by
  const f=fixture(),publicService=require('../regionalCupPublicService').createService({model:f.model,transaction:f.transaction});assert.deepEqual((await publicService.catalogue()).cups,[]);await f.activate();const data=await publicService.catalogue(),json=JSON.stringify(data);
  assert.equal(data.cups[0].rounds[0].matches.length,4);assert.equal(data.cups[0].rounds[0].byes.length,12);assert.ok(data.cups[0].rounds[0].matches[0].kickoff_at.endsWith('Z'));assert.equal(data.cups[0].rounds[1].drawn,false);assert.doesNotMatch(json,/draw_seed|owner_email|captured-cup-draw-seed|admin@test/);
 });
+test('public Cup conditions use only the exact stored snapshot and do not expose private snapshot fields',async()=>{
+ const f=fixture();await f.activate();Object.assign(f.state.edition.participation_window_snapshot,{region_slug:'uk-ireland',platform:'cross-platform',season_number:1,reset_series:0,rules_text:'Original accepted Cup conditions',result_policy_version:'regional_result_review_v2',draw_seed:'private snapshot seed',admin_email:'private@email'});
+ const service=require('../regionalCupPublicService').createService({model:f.model,transaction:f.transaction}),before=JSON.stringify(f.state),data=await service.catalogue();
+ assert.equal(data.cups[0].participation_conditions.rules_text,'Original accepted Cup conditions');assert.doesNotMatch(JSON.stringify(data),/private snapshot seed|private@email/);assert.equal(JSON.stringify(f.state),before);
+ f.state.edition.participation_window_snapshot.season_number=2;assert.deepEqual((await service.catalogue()).cups[0].participation_conditions,{state:'unavailable'});
+});
 test('Cup penalty context requires the single-match deciding shootout when scores remain level',async()=>{
  const f=fixture();await f.activate();const m=f.state.matches[0],engine=f.state.fixtures[0],{readPenaltyContext}=require('../penaltyPolicyService');
  const q=async sql=>sql.includes('FROM competition_fixtures')?[engine]:sql.includes("entity_type='regional_cup_edition'")?[{id:f.state.edition.id,data_json:JSON.stringify(f.state.edition)}]:[];
@@ -65,6 +71,8 @@ test('actual lifecycle and public HTTP actions are exercised with controlled per
   const app=express();app.use(express.json(),(req,res,next)=>{req.user={id:req.headers['x-actor'] || 'admin'};next();});app.use('/regional-leagues',require('../../controllers/leagueEntityController').makeRouter('regional_league'));server=app.listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));
   const call=async(path,body,actor='admin')=>{const r=await fetch(`http://127.0.0.1:${server.address().port}/regional-leagues/cups/${path}`,{method:body?'POST':'GET',headers:{'Content-Type':'application/json','x-actor':actor},...(body?{body:JSON.stringify(body)}:{})});return {status:r.status,data:await r.json()};};
   assert.equal((await call('public',null,'player')).data.cups.length,0);assert.equal((await call('cup-edition/lifecycle',{action:'activate'},'player')).status,403);const p=await call('cup-edition/lifecycle',{action:'activate'});assert.equal(p.status,200);
-  assert.equal((await call('cup-edition/lifecycle',{action:'activate',apply:true,expected_revision:p.data.revision,reason:'Reviewed first round'})).status,200);assert.equal((await call('public',null,'player')).data.cups[0].rounds[0].matches.length,4);
+  assert.equal((await call('cup-edition/lifecycle',{action:'activate',apply:true,expected_revision:p.data.revision,reason:'Reviewed first round'})).status,200);
+  Object.assign(f.state.edition.participation_window_snapshot,{region_slug:'uk-ireland',platform:'cross-platform',season_number:1,reset_series:0,rules_text:'Published Cup participation terms'});
+  const published=await call('public',null,'player');assert.equal(published.data.cups[0].rounds[0].matches.length,4);assert.equal(published.data.cups[0].participation_conditions.rules_text,'Published Cup participation terms');
  } finally {if(server)await new Promise(resolve=>server.close(resolve));[life,pub].forEach((p,i)=>{if(saved[i])require.cache[p]=saved[i];else delete require.cache[p];});}
 });

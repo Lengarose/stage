@@ -3796,6 +3796,8 @@ test('matchKickoff admin_resolve requires admin and validates manual scores', as
       player_stats: [],
       goal_events: [],
       proof_url: '/uploads/home-proof.png',
+      decided_on_penalties: 1,
+      penalty_winner_side: 'away',
     }),
     away_submission: JSON.stringify({
       home_score: 1,
@@ -3906,6 +3908,25 @@ test('matchKickoff admin_resolve requires admin and validates manual scores', as
   assert.notEqual(emptyScoreResponse.statusCode, 200);
   assert.equal(emptyScoreResponse.body.error, 'admin_home_score must be a non-negative integer');
 
+  const contract=require('../../lib/resultSnapshotContract.json');
+  const reviewed=structuredClone(match);
+  const snapshot=Object.fromEntries([...contract.jsonFields,...contract.stateFields,'result_submit_side',...contract.counterFields].map(key=>[key,match[key]??null]));
+  for(const patch of [
+    {home_dispute_submission:JSON.stringify({home_score:3,away_score:2,proof_url:'/uploads/new-proof.png'})},
+    {away_submission:JSON.stringify({home_score:4,away_score:2})},
+    {result_state:'ADMIN_REVIEW'},
+    {status:'completed'},
+    {result_history:JSON.stringify([{event:'dispute_evidence',side:'away'}])},
+  ]) {
+    Object.assign(match,patch);
+    const response=makeJsonResponse();
+    await handle({params:{name:'matchKickoff'},body:{action:'admin_resolve',match_id:match.id,admin_resolve_winner:'home',admin_home_score:3,admin_away_score:2,expected_result_snapshot:snapshot},user:{id:'admin-1'}},response);
+    assert.equal(response.statusCode,409);assert.equal(response.body.code,'RESULT_CHANGED');assert.equal(updates.length,0);assert.equal(progressedMatches.length,0);
+    for(const key of Object.keys(match))delete match[key];Object.assign(match,structuredClone(reviewed));
+  }
+  // Formatting-only JSON rewrites and operational reminders are not new claims.
+  match.home_submission=JSON.stringify(JSON.parse(match.home_submission),null,2);
+  match.result_history=JSON.stringify([{event:'reminder_sent'}]);
   const validResponse = makeJsonResponse();
   await handle(
     {
@@ -3916,6 +3937,9 @@ test('matchKickoff admin_resolve requires admin and validates manual scores', as
         admin_resolve_winner: 'home',
         admin_home_score: '3',
         admin_away_score: 2,
+        expected_result_snapshot:snapshot,
+        decided_on_penalties:0,
+        penalty_winner_side:null,
       },
       user: { id: 'admin-1' },
     },
@@ -3927,8 +3951,28 @@ test('matchKickoff admin_resolve requires admin and validates manual scores', as
   assert.equal(match.home_score, 3);
   assert.equal(match.away_score, 2);
   assert.equal(updates.length, 1);
+  assert.equal(updates[0].params[8],0);
+  assert.equal(updates[0].params[9],null);
   assert.equal(progressedMatches.length, 1);
   assert.equal(progressedMatches[0].id, 'match-dispute-1');
+});
+
+test('Admin browser-review conflicts are returned over HTTP before any result or audit write',async()=>{
+  const express=require('express'),match={id:'review-http',status:'disputed',result_state:'ADMIN_REVIEW',home_submission:'{"home_score":2,"away_score":2}'};
+  const expected={...match};match.home_dispute_submission='{"home_score":3,"away_score":2,"proof_url":"/uploads/new.png"}';
+  const statements=[];
+  const router=loadFunctionsRouterWithDbMock(async(sql,args)=>{
+    statements.push(sql);
+    if(/SELECT id, email, role_id FROM users/.test(sql))return [{id:args[0],email:'admin@test.local',role_id:2}];
+    if(/SELECT \* FROM matches WHERE id = \? LIMIT 1/.test(sql))return [match];
+    throw Error('Unexpected write or downstream work during stale review');
+  });
+  const app=express();app.use(express.json(),(req,res,next)=>{req.user={id:'admin'};next();});app.use('/functions',router);
+  const server=app.listen(0,'127.0.0.1');await new Promise((resolve,reject)=>{server.once('listening',resolve);server.once('error',reject);});
+  try {
+    const response=await fetch(`http://127.0.0.1:${server.address().port}/functions/matchKickoff`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'admin_resolve',match_id:match.id,admin_resolve_winner:'home',admin_home_score:2,admin_away_score:2,expected_result_snapshot:expected})});
+    assert.equal(response.status,409);assert.equal((await response.json()).code,'RESULT_CHANGED');assert.ok(statements.every(sql=>sql.startsWith('SELECT')));
+  }finally{await new Promise(resolve=>server.close(resolve));}
 });
 
 test('adminMatchActions approve forfeit triggers central final-result progression', async () => {

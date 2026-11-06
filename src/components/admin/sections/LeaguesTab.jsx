@@ -1413,7 +1413,7 @@ export default function LeaguesTab({
     {showRegional && <div id="regional-management" className="scroll-mt-24"><RegionalLeagueManagementPanel definitions={regionalDefinitions} trophyItems={trophyItems} onRefresh={loadAll} /></div>}
     {showRegional && <div id="regional-registration" className="scroll-mt-24"><RegionalRegistrationPanel definitions={regionalDefinitions} leagues={regionalLeagues} /></div>}
     {showRegional && <div id="regional-cups" className="scroll-mt-24"><RegionalCupPanel definitions={regionalDefinitions} /></div>}
-    {showRegional && <div id="regional-calendar" className="scroll-mt-24"><RegionalCalendarPanel leagues={regionalLeagues} /></div>}
+    {showRegional && <div id="regional-calendar" className="scroll-mt-24"><RegionalCalendarPanel leagues={regionalLeagues} onRefresh={loadAll} /></div>}
     {showRegional && <OfficialSchedulePanel />}
     {showRegional && <div id="regional-cycles" className="scroll-mt-24"><RegionalCyclePanel leagues={regionalLeagues} registrations={regApplications || []} onRefresh={loadAll} /></div>}
 

@@ -36,6 +36,8 @@ test('regional public catalogue resolves current editions through originals whil
 test('regional public reads, catalogue assignment and tournament presentation are exercised over isolated HTTP',async()=>{
  const entity=(id,entity_type,data)=>({id,entity_type,data_json:JSON.stringify(data)});
  const roots=[entity('r1','regional_league',{slug:'north-america-div-1',region_slug:'north-america',division:1,platform:'Cross-Platform',season_number:1,status:'registration',registered_club_ids:['c','c'],max_clubs:20}),entity('r2','regional_league',{slug:'north-america-div-2',region_slug:'north-america',division:2,platform:'Cross-Platform',season_number:1,status:'archived',registered_club_ids:['c']})];
+ roots[0].data_json=JSON.stringify({...JSON.parse(roots[0].data_json),regional_registration_window_id:'terms',regional_participation_policy_version:'regional_registration_v1'});
+ roots.push(entity('terms','regional_registration_window',{region_slug:'north-america',platform:'cross-platform',season_number:1,reset_series:0,policy_version:'regional_registration_v1',rules_text:'Published original league conditions',admin_email:'private terms email'}));
  const cup={id:'cup',name:'Selected catalogue design',image_url:'/uploads/cup.png'};
  const t={id:'t',name:'Test tournament',creator_email:'owner@example.test',participant_type:'player',registered_players:'["p","p"]',status:'registration',banner_url:'/uploads/original.png',banner_position:'50% 50%',prize_pool_stc:'10.00',prize_winner_stc:'10.00'};
  const audits=[],writes=[];
@@ -67,6 +69,7 @@ test('regional public reads, catalogue assignment and tournament presentation ar
  try{
   assert.equal((await call('/regional/overview',null)).status,401);
   const overview=await(await call('/regional/overview')).json();assert.equal(overview.editions.length,2);assert.equal(overview.editions[0].participant_count,1);
+  assert.equal(overview.editions[0].participation_conditions.rules_text,'Published original league conditions');assert.equal(overview.editions[1].participation_conditions,null);assert.doesNotMatch(JSON.stringify(overview),/private terms email/);
   assert.equal(overview.editions[0].rewards.rows[0].stc_amount,'54000000.00');assert.equal(overview.editions[1].rewards,null,'today defaults must not fill historical gaps');
   assert.equal((await(await call('/regional/r1/clubs')).json()).participants.length,1);
   assert.equal((await call('/regional/missing/clubs')).status,404);

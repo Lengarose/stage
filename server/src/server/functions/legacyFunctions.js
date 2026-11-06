@@ -8696,6 +8696,7 @@ const HANDLERS = {
       const rows = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [match_id]);
       if (!rows.length) throw new Error('Match not found');
       const m = rows[0];
+      if(expected_result_snapshot!=null)require('../lib/matchResultNegotiation').assertResultSnapshotCurrent(expected_result_snapshot,m,'admin_browser_review');
 
       const homeSub = parseSubmission(m.home_submission) || { home_score: 0, away_score: 0, player_stats: [], goal_events: [] };
       const awaySub = parseSubmission(m.away_submission) || { home_score: 0, away_score: 0, player_stats: [], goal_events: [] };

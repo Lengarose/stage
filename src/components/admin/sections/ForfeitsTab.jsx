@@ -1,10 +1,13 @@
+import ActionFeedStatus from '@/components/admin/shared/ActionFeedStatus';
 import EmptyState from "@/components/admin/shared/EmptyState";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/hooks/useTranslation";
 import { Flag, Check, X, AlertTriangle } from "lucide-react";
 
-export default function ForfeitsTab({ forfeits, resolveForfeit }) {
+export default function ForfeitsTab({ forfeits, resolveForfeit, feed, onRetry }) {
   const { t } = useTranslation();
+
+  if(feed && feed.status!=='ready')return <ActionFeedStatus feed={feed} label="Forfeit claims" onRetry={onRetry}/>;
 
   return (
     <>

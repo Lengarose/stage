@@ -3,6 +3,9 @@
 Local, 4 November 2026. Read this before changing the final sporting-rights
 handoff, the cycle recovery worker, allocation permissions or compatibility gates.
 
+Follow-up: [transactional assignment notifications](regional-allocation-notifications-phase6.md)
+now accompany supported allocations and roll back with them on a storage failure.
+
 ## Captured scope
 
 Newly prepared official cycles whose captured window uses

@@ -9,6 +9,8 @@ const { CompetitionScopeModel } = require('../models/competitionScopeModel');
 const { isConfirmedResult } = require('../lib/tournamentStatistics');
 const policy = require('../lib/regionalStructure');
 const autoAllocation = require('../lib/regionalAutoAllocationPolicy');
+const {resolveClubPresidentContact}=require('./clubContactService');
+const {parseMaybeJson,resolveDelivery}=require('./notificationPreferenceService');
 const editions = require('./regionalEditionService');
 const model = new RegionalCycleModel();
 const scopes = new CompetitionScopeModel();
@@ -258,6 +260,24 @@ async function allocationPreview(id,actor,query=EXECUTESQL,automatic=false) {
   const {evidence,plan}=await evaluate(cycle,query);
   return {id,ready:plan.ready,revision:hash([cycle.id,evidence.source_revision,plan]),groups:plan.groups || [],rights:plan.rights || [],blockers:plan.blockers || (plan.ready?[]:['Official placement or promotion results are still missing']),financial_mutations:false};
 }
+async function allocationNotices(cycle,plan,allocated,evidence,query) {
+  const settings=new Map();let stored=0,muted=0;
+  for(const right of plan.rights) {
+    const group=plan.groups.find(g=>g.club_ids.includes(right.club_id));
+    const target=allocated.find(g=>g.division===group.division && g.group_code===group.group_code);
+    const club=evidence.clubs.find(c=>c.id===right.club_id),definition=evidence.definitions.find(d=>d.id===target.permanent_league_id);
+    const contact=await resolveClubPresidentContact({clubId:club.id,query,forUpdate:true});
+    if(!contact.email)fail('A club has no reachable president contact. Group allocation was not saved; review club contact details.');
+    if(!settings.has(contact.email))settings.set(contact.email,parseMaybeJson(await model.notificationSettings(contact.email,query),{}));
+    if(!resolveDelivery(settings.get(contact.email),'club_updates').inApp){muted++;continue;}
+    const edition=encodeURIComponent(target.id),season=`${cycle.reset_series?`Series ${cycle.reset_series} · `:''}Season ${cycle.season_number}`;
+    await model.saveAllocationNotification({id:stableId(['regional_allocation_notice',cycle.id,club.id]),recipient_email:contact.email,
+      body:`${club.name}: ${definition.name} · Division ${group.division} · Group ${group.group_code} · ${season}. Your group is a draft. Match dates will appear after the official calendar is published.`,
+      link:`/leagues/${edition}?season=${edition}`,edition_id:target.id,idempotency_key:`regional_allocation:${cycle.id}:${club.id}`},query);
+    stored++;
+  }
+  return {version:'regional_allocation_notice_v1',stored,muted};
+}
 async function applyAllocation(id,body,actor,automatic=false) {
   if(body.apply!==true)return withTransaction(query=>allocationPreview(id,actor,query));
   if(!String(body.reason || '').trim())fail('An administrative reason is required',400);
@@ -345,7 +365,8 @@ async function applyAllocation(id,body,actor,automatic=false) {
       }
     }
     const before=structuredClone(cycle);
-    Object.assign(cycle,{status:'allocated',plan,allocated_groups:allocated,allocated_at:new Date().toISOString(),allocated_by:user.id,allocation_mode:automatic?'automatic_followup':'admin_reviewed'});
+    const allocation_notifications=cycle.automatic_allocation_policy_version===autoAllocation.VERSION?await allocationNotices(cycle,plan,allocated,evidence,query):null;
+    Object.assign(cycle,{status:'allocated',plan,allocated_groups:allocated,allocated_at:new Date().toISOString(),allocated_by:user.id,allocation_mode:automatic?'automatic_followup':'admin_reviewed',...(allocation_notifications?{allocation_notifications}:{})});
     await model.completeInstance(cycle.id,query);
     await model.update(cycle,query);
     await audit(query,user,'allocate_regional_groups',before,cycle,body.reason);

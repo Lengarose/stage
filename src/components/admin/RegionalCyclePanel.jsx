@@ -42,6 +42,7 @@ export default function RegionalCyclePanel({ leagues = [], registrations = [], o
   const input = 'min-h-11 w-full min-w-0 border border-border bg-background px-3 text-sm';
   const button = 'min-h-11 text-left text-sm font-semibold disabled:opacity-40';
   function invalidate() { setPreview(null); setAllocation(null); setConfirmed(false); }
+  function calendarHref(id) {const next=new URLSearchParams(params);next.set('regional_calendar_cycle',id);return {search:`?${next}`,hash:'#regional-calendar'};}
   function toggle(id, values, setter) { invalidate(); setter(values.includes(id) ? values.filter(v => v !== id) : [...values, id]); }
   async function run(task) {
     setBusy(true); setError('');
@@ -87,7 +88,8 @@ export default function RegionalCyclePanel({ leagues = [], registrations = [], o
       <label className="block text-sm">Saved regional cycle<select className={input} value={cycle?.id || ''} onChange={e => run(async () => { setDraw(null); const result = await stageClient.http.get(`/regional-leagues/cycles/${encodeURIComponent(e.target.value)}`); await showCycle(result.cycle); })}><option value="" disabled>Select a saved cycle</option>{cycles.map(c => <option key={c.id} value={c.id}>{c.region_slug} · {c.platform} · Series {c.reset_series} / Season {c.season_number} · {c.status}</option>)}</select></label>
       {cycle && <div className="space-y-3 border-t border-border pt-4 text-sm">
         <p><strong>{cycle.region_slug}</strong> · {cycle.status} · {cycle.policy_version}{cycle.tie_policy_version && ` · ${cycle.tie_policy_version}`}</p>
-        <p>Remaining pathway fixtures: {cycle.plan?.pending?.length || 0}. Groups and sporting rights remain provisional until allocation is confirmed.</p>
+        {cycle.allocation_notifications && <p>Group-assignment notifications stored: {cycle.allocation_notifications.stored}. Muted by existing in-app club notification preferences: {cycle.allocation_notifications.muted}. These counts do not indicate email or push delivery.</p>}
+        {cycle.status==='allocated'?<p>Group allocation is saved. Draw the league fixtures, then prepare and publish the season calendar before play. <Link to={calendarHref(cycle.id)} className="inline-flex min-h-11 items-center font-semibold">Prepare this season calendar →</Link></p>:<p>Remaining pathway fixtures: {cycle.plan?.pending?.length || 0}. Groups and sporting rights remain provisional until allocation is confirmed.</p>}
         {cycle.plan?.blockers?.map(message => <p key={message} role="status" className="text-warning">{message}</p>)}
         {cycle.plan?.unresolved_ties?.length > 0 && <div className="space-y-2 border-l border-border pl-4">
           <p className="font-semibold">Sporting decisions required</p>

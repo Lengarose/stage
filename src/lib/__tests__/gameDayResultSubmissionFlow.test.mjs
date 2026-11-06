@@ -275,12 +275,12 @@ test("GameDay and admin pages are wired to the result-flow helpers", () => {
   );
   assert.match(
     source,
-    /value=\{resolutionScore\.home_score\}[\s\S]{0,220}onChange=\{e => setResolutionScore/,
+    /value=\{resolutionScore\.home_score\}[\s\S]{0,220}onChange=\{e => \{setResolutionPenalty\(null\);setResolutionScore/,
     "Admin dialog should render an editable home score input"
   );
   assert.match(
     source,
-    /value=\{resolutionScore\.away_score\}[\s\S]{0,220}onChange=\{e => setResolutionScore/,
+    /value=\{resolutionScore\.away_score\}[\s\S]{0,220}onChange=\{e => \{setResolutionPenalty\(null\);setResolutionScore/,
     "Admin dialog should render an editable away score input"
   );
 });

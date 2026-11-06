@@ -1,3 +1,5 @@
+import {gameDayActionCount,gameDayFeedLabel,gameDayFeedCount} from '@/lib/adminGameDayFeeds';
+import ActionFeedStatus from '@/components/admin/shared/ActionFeedStatus';
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -34,13 +36,11 @@ const QUICK_ACTIONS = [
 ];
 
 export default function AdminDashboardPanel({
-  disputes,
-  forfeits,
+  gameDayFeeds,
   players,
   clubs,
   tournaments,
   identityClaims,
-  expiredFixtures,
   regApplications,
   loading,
   onRefresh,
@@ -103,7 +103,7 @@ export default function AdminDashboardPanel({
   }
 
   const actionCounts = {
-    "/admin/gameday": disputes.length + forfeits.length + expiredFixtures.length,
+    "/admin/gameday": gameDayActionCount(gameDayFeeds),
     "/admin/players": players.length,
     "/admin/clubs": clubs.length,
     "/admin/tournaments": activeTournaments.length,
@@ -113,6 +113,7 @@ export default function AdminDashboardPanel({
 
   return (
     <>
+      {gameDayActionCount(gameDayFeeds)===null && <div className="space-y-2">{["reviews","forfeits","scheduling","stuck"].map(key=><ActionFeedStatus key={key} feed={gameDayFeeds?.[key]} label={key==="reviews"?"Result reviews":key==="scheduling"?"Expired fixtures":key==="stuck"?"Stuck matches":"Forfeit claims"} onRetry={onRefresh}/>)}</div>}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <DashboardGamerStatCard
           label={t("admin.sections.clubs")}
@@ -123,8 +124,8 @@ export default function AdminDashboardPanel({
         />
         <DashboardGamerStatCard
           label={t("admin.stats.expiredFixtures")}
-          value={expiredFixtures.length}
-          sub={expiredFixtures.length ? t("admin.stats.schedulingBacklog") : t("admin.stats.scheduleHealthy")}
+          value={gameDayFeedLabel(gameDayFeeds?.scheduling)}
+          sub={gameDayFeedCount(gameDayFeeds?.scheduling)===null?"Scheduling status not verified":gameDayFeeds.scheduling.total?t("admin.stats.schedulingBacklog"):t("admin.stats.scheduleHealthy")}
           accent="rose"
           icon={Activity}
         />
@@ -164,7 +165,7 @@ export default function AdminDashboardPanel({
               >
                 <Icon className="w-4 h-4 text-white/50 mb-2 group-hover:text-white/80 transition-colors" />
                 <p className="font-heading font-black uppercase text-sm text-white">{getAdminSectionLabel(t, action.section)}</p>
-                {count != null ? <p className="text-[10px] text-white/40 mt-1">{t("admin.dashboard.totalCount", { count })}</p> : null}
+                {action.path==="/admin/gameday" && count===null?<p className="text-xs text-white/60 mt-1">Action total unknown</p>:count != null ? <p className="text-[10px] text-white/40 mt-1">{action.path==="/admin/gameday"?`${count} category actions · a match can appear more than once`:t("admin.dashboard.totalCount", { count })}</p> : null}
               </Link>
             );
           })}

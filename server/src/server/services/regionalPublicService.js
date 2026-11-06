@@ -6,6 +6,7 @@ const art = require('./gostOverviewService');
 const { key } = require('./rewardConfigurationService');
 const policy = require('../lib/rewardPolicy');
 const { buildCatalogue, permanentId } = require('../lib/regionalLeagueHierarchy');
+const {publicParticipationConditions}=require('../lib/publicParticipationConditions');
 
 function publicEdition(root, records, items, configs, awards, definition = root) {
   const historical = Boolean(root.edition_invalidated) || ['completed', 'archived','reset','superseded','cancelled','abandoned'].includes(root.status);
@@ -21,6 +22,8 @@ function publicEdition(root, records, items, configs, awards, definition = root)
   const roster = Array.isArray(captured?.roster) ? captured.roster : Array.isArray(storedRoster) ? storedRoster : [];
   const participant_ids = [...new Set(roster.filter(Boolean).map(String))];
   const legacyRows = parse(root.reward_snapshot);
+  const linked=records.find(r=>r.entity_type==='regional_registration_window' && r.id===root.regional_registration_window_id);
+  const participation_conditions=publicParticipationConditions(root,linked?unpack(linked):null);
   let rewards = Array.isArray(captured) ? { rows: captured } : captured || (Array.isArray(legacyRows) && legacyRows.length ? { rows: legacyRows, origin: 'saved edition snapshot' } : null);
   if (!rewards && !historical) {
     const rows = configs.filter(r => r.source_id === sourceId && Number(r.config_version) === Number(settings.version));
@@ -29,14 +32,14 @@ function publicEdition(root, records, items, configs, awards, definition = root)
   }
   return { id: root.id, slug: root.slug, name: root.name, region: root.region, region_slug: root.region_slug, country_code: root.country_code, platform: root.platform, division: root.division, season_number: root.season_number, season_label: root.season_label, status: root.status,
     regional_cycle_id:root.pending_regional_cycle_id || root.regional_final_ranking_cycle_id || root.regional_cycle_id || null,regional_structure_version:root.regional_structure_version || null,
-    regional_registration_window_id:root.regional_registration_window_id || null,regional_participation_policy_version:root.regional_participation_policy_version || null,
+    regional_registration_window_id:root.regional_registration_window_id || null,regional_participation_policy_version:root.regional_participation_policy_version || null,participation_conditions,
     regional_final_ranked_club_ids:historical && root.regional_final_ranking_cycle_id ? parse(root.regional_final_ranked_club_ids) : null,
     max_clubs: root.max_clubs || 20, participant_ids, participant_data_available, participant_count: participant_data_available ? participant_ids.length : null, winner_club_id: award?.winning_id || root.winner_club_id, winner_club_name: award?.winning_name || root.winner_club_name, completed_at: root.completed_at,
     promoted_slots: root.promoted_slots ?? null, relegated_slots: root.relegated_slots ?? null, qualification_rules: root.qualification_rules || null, rules: root.rules || root.rules_text || null, rules_file_url: art.safeImage(root.rules_file_url), linked_league_id: root.linked_league_id,
     trophy, artwork_state: assignment.state, rewards: rewards ? { rows: rewards.rows?.map(r => ({ ...r, stc_amount: r.stc_amount ?? r.amount, position_label: r.position_label || r.label })), origin: captured ? 'captured edition configuration' : rewards.origin, budget: rewards.budget || null, payment_state: settlement?.state || null } : null };
 }
 async function overview(query = EXECUTESQL) {
-  const records = await query("SELECT * FROM league_entities WHERE entity_type IN ('regional_league','competition_settlement','reward_configuration') ORDER BY id");
+  const records = await query("SELECT * FROM league_entities WHERE entity_type IN ('regional_league','regional_registration_window','competition_settlement','reward_configuration') ORDER BY id");
   const items = await query('SELECT * FROM trophy_items ORDER BY id');
   const configs = await query("SELECT source_id,config_version,position,position_label,component_key,stc_amount FROM reward_configs WHERE source_type='regional_league'");
   const awards = await query("SELECT source_id,edition_id,metadata_json FROM trophy_awards WHERE source_type='regional_league' AND owner_type='club' AND status='earned' AND award_role='winner'");

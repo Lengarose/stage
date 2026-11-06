@@ -1,6 +1,29 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { fixtureState, submitEditionLifecycle, managementPreviewReady, loadEditionFixtureCount, adminEndpointError, buildLeagueManagementRequest } from '../adminLeagueLifecycle.js';
+import { fixtureState, submitEditionLifecycle, managementPreviewReady, loadEditionFixtureCount, loadCycleDrawInventory, adminEndpointError, buildLeagueManagementRequest } from '../adminLeagueLifecycle.js';
+
+function cycleInventoryFixture() {
+  const cycle={id:'cycle',status:'allocated',region_slug:'uk-ireland',platform:'cross-platform',season_number:1,reset_series:0,allocated_groups:[{id:'group',permanent_league_id:'root',division:1,group_code:'A'}]};
+  const edition={id:'group',permanent_league_id:'root',regional_cycle_id:'cycle',region_slug:'uk-ireland',platform:'cross-platform',season_number:1,division:1,group_code:'A',status:'draft',actual_fixtures_count:380};
+  let rows=[];const calls=[];
+  const client={entities:{RegionalLeague:{get:async id=>{calls.push(id);return edition;}}},http:{get:async(path,query)=>{calls.push({path,query});return rows;}}};
+  return {client,cycle,edition,calls,setRows:value=>{rows=value;}};
+}
+test('cycle draw inventory refreshes actual counts and preserves existing draws without trusting cached flags',async()=>{
+  const f=cycleInventoryFixture();let inventory=await loadCycleDrawInventory(f.client,f.cycle);
+  assert.equal(inventory[0].actual_fixtures_count,0);assert.equal(inventory[0].can_draw,true);assert.equal(f.calls[1].query.league_id,'group');
+  f.setRows(Array.from({length:380},(_,i)=>({id:`fixture${i}`})));inventory=await loadCycleDrawInventory(f.client,f.cycle);
+  assert.equal(inventory[0].can_draw,false);assert.equal(inventory[0].actual_fixtures_count,380);
+  f.setRows([]);f.edition.status='completed';assert.equal((await loadCycleDrawInventory(f.client,f.cycle))[0].can_draw,false);
+});
+test('cycle draw inventory rejects mismatched, invalidated and unreadable sources instead of offering a guessed draw',async()=>{
+  for(const change of [f=>{f.cycle.status='ready';},f=>{f.cycle.allocated_groups.push(f.cycle.allocated_groups[0]);},f=>{f.edition.regional_cycle_id='other';},f=>{f.edition.edition_invalidated=true;},f=>{f.edition.season_number=2;},f=>{f.edition.permanent_league_id='other';},f=>{f.client.http.get=async()=>{throw Error('Inventory unavailable');};}]) {
+    const f=cycleInventoryFixture();change(f);await assert.rejects(loadCycleDrawInventory(f.client,f.cycle));
+  }
+  const f=cycleInventoryFixture();const calls=[];
+  await submitEditionLifecycle({http:{post:async(path,body)=>calls.push({path,body})}},'regional_league',f.edition,'draw','Reviewed draw',true,'cycle');
+  assert.equal(calls[0].body.expected_regional_cycle_id,'cycle');assert.equal(calls[0].body.season_number,1);assert.equal(calls[0].body.confirmation,true);
+});
 
 test('started edition without actual fixtures can draw but cannot simulate, regardless of legacy flag', () => {
   const empty = { id: 'season-2', status: 'in_progress', fixtures_generated: true, actual_fixtures_count: 0 };

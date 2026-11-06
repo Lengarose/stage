@@ -321,3 +321,337 @@ competitions on 3 November. See `docs/regional-result-review-phase6.md`.
   pass, including a real worker/service handoff and Admin-preview race. Real
   MySQL/JWT/browser/live operation remain unverified. Final lint/typecheck/backend
   syntax/build pass. No deployment; graphify absent.
+
+### Transactional allocation notifications (local, 4 November 2026)
+
+- Read `docs/regional-allocation-notifications-phase6.md` before changing recipient
+  resolution, allocation notices, preferences or retry semantics.
+- Newly performed allocations of marked official cycles (automatic or reviewed
+  manual) store one exact-edition `club_update` notice per club through the same
+  transaction. Existing allocated or unmarked cycles are not backfilled.
+- Current president contacts use the existing resolver with the transaction query.
+  Existing in-app club_updates preferences are respected; muted clubs still receive
+  their sporting assignment. No email/push/Inbox/socket delivery is added here.
+- Deterministic cycle/club IDs plus allocated-state replay prevent duplicates.
+  Notification/settings/contact failures roll back group and delivery writes;
+  existing recovery review/backoff applies. Cycle/Admin UI captures stored/muted
+  counts, without adding addresses or preference payloads to the summary.
+- 281 selected sequential regressions pass; lint/typecheck/backend syntax/build
+  and diff checks pass. A random-draw test now preserves the winning side when
+  testing changed final evidence. Real MySQL/JWT/browser/live delivery unverified.
+  No deployment or production messaging; graphify unavailable.
+
+### Confirmation-week opening reminders (local, 4 November 2026)
+
+- Read `docs/regional-confirmation-reminders-phase6.md` before changing captured
+  notice policy, receipts, timing or worker recovery. Newly published windows
+  capture `regional_confirmation_notice_v1`; old consent hashes remain unchanged
+  and published conditions cannot be preview-upgraded.
+- The minute worker scans current eligible windows and bounded pending registered
+  applications. Internal reminder transactions use existing edition locks, current
+  president contacts and club_updates in-app preferences. They recheck the shared
+  closing deadline after contact/settings reads. No deadline or confirmation changes.
+- Native notice and deterministic per-window/application receipt commit together;
+  rollback/restart/concurrent calls do not duplicate them. Muted applications get
+  only a receipt. Admin shows stored/muted/pending counts, not read confirmations.
+- Failures log and retry on later scans; no new durable error checkpoint/backoff,
+  email/push/Inbox/socket channel or HTTP endpoint. Other reminder schedules and
+  first-cycle/calendar/rollover orchestration remain unfinished.
+- 297 selected sequential regressions, lint/typecheck/backend syntax/build and
+  diff checks pass. Historical two-test exclusions remain. Real MySQL/JWT/browser/
+  live delivery unverified. No deployment or production messaging; graphify absent.
+
+### Durable confirmation-notice recovery (local, 4 November 2026)
+
+- The recovery follow-up in `docs/regional-confirmation-reminders-phase6.md`
+  supersedes the preceding log-only retry limitation. Existing progress model now
+  supports `confirmation_notice`, with deterministic checkpoint IDs in the existing
+  league-entities store. No new table, public route or client mutation surface.
+- Two-minute leases, unique attempts and finish fencing coordinate workers.
+  Failures persist sanitized review status with fifteen-minute backoff; candidate
+  SQL also checks due time. Scans remain bounded and require current open windows.
+  Receipt transactions remain authoritative: a crash after notice commit cannot
+  duplicate delivery even if its operational checkpoint could not finish.
+- Admin operations aggregates failed reminders only for pending, unreceipted
+  applications during the current confirmation week. No stored error/contact
+  details leak; reset, closed and already acknowledged cases do not show stale
+  review. No deadlines, consent, sporting rights or external channels change.
+- 301 selected sequential regressions pass, including controlled Admin HTTP and
+  lease/backoff/restart/fencing cases. Existing two baseline exclusions remain.
+  Lint/typecheck/backend syntax/diff checks pass; real MySQL/JWT/browser/live
+  operation and complete season orchestration remain unverified/unfinished.
+  No deployment or production messaging; graphify command unavailable.
+
+### Saved allocation → calendar preparation (local, 4 November 2026)
+
+- Read `docs/regional-cycle-calendar-handoff-phase6.md`. Action overview and saved
+  allocated cycle link to `regional_calendar_cycle` in the existing calendar panel.
+  It loads all saved groups, supports retry/manual selection and discards stale
+  fetch/preview responses when context changes. New visible copy is English.
+- Existing calendar POST accepts either cycle_id or explicit edition_ids. After
+  stored-role Admin check and shared lock, cycle lookup uses FOR UPDATE. Server
+  derives groups and validates allocated/non-invalidated status, current editions,
+  scope, permanent identities, division/group labels and cycle pointers. Existing
+  all-populated-group/full-draw/conflict/publication checks remain.
+- Cycle evidence is included in the preview revision; apply rereads it. Published
+  records from this request retain source_cycle_id. No new table/endpoint, automatic
+  draw, first-playing date, published schedule or sporting rule is inferred.
+- 304 selected sequential regressions pass, then final 16 calendar cases pass with
+  actual controlled HTTP cycle preview/publication and locked model-query coverage.
+  Two historical baseline exclusions remain. Lint/typecheck/backend syntax/build/
+  diff checks pass. Real MySQL/JWT/browser/live verification remains open; no
+  deployment or production changes. Graphify executable unavailable.
+
+### Draw controls within saved-cycle calendar preparation (local, 4 November 2026)
+
+- Follow-up in `docs/regional-cycle-calendar-handoff-phase6.md` describes the UI
+  and guard. Calendar panel now loads exact current groups and inventories real
+  paginated fixture rows, ignoring cached counters/flags. Empty eligible groups
+  offer the existing lifecycle draw with explicit reason/confirmation per action.
+- `expected_regional_cycle_id` is an optional guard on regional draws only. It
+  checks the edition's allocation pointer/invalidation before reward capture and
+  again before inserts; it does not provide permission. Canonical roster checks,
+  reward capture, transaction, audit and duplicate-draw rejection remain unchanged.
+- Successful draws refresh inventory and Admin list. Any failed or uncertain
+  action clears inventory and requires refresh before retry/calendar preview. A
+  380-row count does not replace calendar integrity checks. No new endpoint/table,
+  automated payout, kickoff publication or GOST/D3 activation was introduced.
+- 333 selected sequential server regressions and eight frontend-helper tests pass,
+  including actual controlled HTTP contextual draws and a twenty-club draw. Two
+  historical unrelated baseline cases stay excluded. Lint/typecheck/backend syntax/
+  build/diff checks pass. Real MySQL/JWT/browser/live verification remains open.
+  Graphify unavailable; no deployment or production changes.
+
+### Transactional calendar publication notices (local, 4 November 2026)
+
+- Read `docs/regional-calendar-notifications-phase6.md`. Existing calendar summary
+  now resolves current president contacts transactionally and respects the existing
+  match_reminders in-app preference category. Each club gets its own exact edition/
+  Stages link; shared contacts do not collapse different club/group contexts.
+- Calendar/club deterministic notice IDs and the existing published replay guard
+  prevent duplicate writes. Notice, fixture/engine/GameDay, calendar and audit writes
+  share the publication transaction. Contact/settings/notice/final-save errors
+  roll everything back. No email/push/Inbox/socket delivery or new timing policy.
+- New calendar JSON captures scope plus notification_summary version/stored/muted;
+  Admin displays aggregate counts. Existing published calendars and their notices
+  are not backfilled. No new table/entity/endpoint. Default visible copy English.
+- 338 selected sequential server regressions pass, including controlled HTTP with
+  real summary logic and multi-group rollback/retry IDs. Historical two baseline
+  exclusions remain. Lint/typecheck/backend syntax/build/diff checks pass. Real
+  MySQL/JWT/browser/live verification and overall programme remain unfinished.
+  Graphify executable unavailable; no deployment or production messaging.
+
+### Regional result reviews in operations (local, 4 November 2026)
+
+- Read `docs/regional-result-overview-phase6.md`. The existing Admin operations
+  overview now lists stored disputed/Admin-review canonical matches from live
+  regional league groups, cycles and enabled Cups. Alias duplicates collapse;
+  ambiguous multiple-source mappings request identity review with no match link.
+- Existing fixture inventory adds SELECT-only ordinary-league source/engine
+  mappings. Read errors propagate. Closed/reset/retired/disabled/missing sources
+  are excluded, including known retired parents and older reset series.
+- Sanitized items carry only match_id plus source metadata, never score/proposal/
+  proof/contact payloads. UI links exact GameDay evidence and the existing general
+  /admin/disputes page (not exact-match-filtered). No new endpoint/entity, result
+  decision, deadline inference, policy upgrade or notification is introduced.
+- 341 selected sequential server regressions pass, followed by final 15 operations
+  tests after retirement/reset guards. Two historical baseline exclusions remain.
+  Lint/typecheck/backend syntax/build/diff checks pass. Real MySQL/JWT/browser/live
+  verification and the full programme remain unfinished. Graphify unavailable;
+  no deployment or production decisions.
+
+### Exact-match focused dispute handoff (local, 4 November 2026)
+
+- The follow-up in `docs/regional-result-overview-phase6.md` supersedes the general
+  dispute-link limitation. Operations now links /admin/disputes?match=<id>.
+  DisputesTab fetches that exact match independently of the general 50-row list.
+  It hides unrelated rows/economy panels, offers refresh/general-list/evidence
+  links and never falls back to a different dispute on failed/malformed reads.
+- `adminDisputeFocus.js` returns no decision payload for terminal or no-longer-
+  pending states. Resolve rereads before opening the existing canonical Admin
+  score dialog. Effect cleanup/version checks prevent stale focus responses or
+  rechecks from opening another match after navigation. No automatic decision.
+- Existing GET matches/:id now uses existing isAdminRole for stored roles 0/2;
+  caller role claims are ignored and non-Admin participant scope stays enforced.
+  No new endpoint/schema, write permission or general-list permission change.
+- 347 selected sequential server regressions and three frontend-helper tests pass,
+  including actual local HTTP stored-role/forged-role/404 checks. Two historical
+  baseline exclusions remain. Lint/typecheck/backend syntax/build/diff checks pass.
+  Real MySQL/JWT/browser/live verification and the full programme remain open.
+  Graphify unavailable; no deployment or production result decisions.
+
+### Separate stored dispute evidence (local, 4 November 2026)
+
+- See the evidence follow-up in `docs/regional-result-overview-phase6.md`.
+  Shared `DisputeEvidence` now shows both original proposals and both separate
+  dispute sheets on the Admin review page and in the existing decision dialog.
+  Claimed scores, proof, explanation, recorded time and sheet-specific penalty
+  outcome remain distinct. Match/forfeit attachments are not hidden by other proof.
+- `adminDisputeEvidence.js` handles missing/corrupt JSON, incomplete scores and
+  bad timestamps without guessing. Only root-relative upload and HTTP(S) links
+  are clickable. React escapes explanations. No historical evidence is invented.
+- Existing selector still prefills the original proposal, now explicitly labelled;
+  invalid scores leave final fields blank. Admin's server decision path is unchanged.
+  Dialog scrolls for the longer evidence view. Default new UI text is English.
+- Eight frontend helper/static-render tests pass. No backend code changed or full
+  backend suite rerun here. Lint/typecheck/backend entry syntax/final build/diff
+  checks pass. Real browser/mobile/live attachment access remains
+  unverified. Graphify unavailable; no deployment or production decisions.
+
+### Admin browser-review snapshot guard (local, 4 November 2026)
+
+- Read `docs/admin-result-review-snapshot-phase6.md`. Admin's existing resolution
+  dialog sends the existing shared resultSnapshot as expected_result_snapshot.
+  Existing admin_resolve checks it against current stored evidence immediately
+  after Admin authorization/match read, before decision processing or writes.
+- Existing semantic comparison ignores JSON formatting and operational history,
+  but rejects changed proposals/dispute sheets/meaningful history/state/counters.
+  Existing finalization lock/snapshot check still protects subsequent interleaving.
+  Legacy callers omitting the optional snapshot keep their previous behaviour.
+- Conflict handling closes/clears the stale dialog, shows the actual server reason
+  and refreshes Admin data. No automatic retry or new result/penalty policy.
+- 348 selected sequential server regressions plus 19 frontend result-flow/snapshot
+  tests pass. Actual controlled HTTP conflict test verifies SELECT-only rejection.
+  Lint/typecheck/backend syntax/final build/diff checks pass. Two historical
+  baseline exclusions remain. Real MySQL/JWT/browser/live validation
+  remains open. No deployment or production result decision; Graphify unavailable.
+
+### Explicit Admin penalty decisions (local, 4 November 2026)
+
+- Read `docs/admin-result-penalties-phase6.md`. AdminResolutionPenalty reads the
+  existing GameDay penalties endpoint for exact entered scores. Server-derived
+  aggregate/deciding-leg context controls an explicit winner choice, separate
+  from the original proposal side.
+- adminResolutionPenalty keys readiness to match/scores/proposal side. Changes
+  and Recheck clear readiness; stale responses cannot enable another decision.
+  Loading, missing, blocked or malformed context disables confirmation. Requests
+  explicitly send 0/null without a shootout, or 1/the verified chosen side.
+- Existing locked completion validator and browser snapshot guard remain final
+  authority. No backend production logic/schema/endpoint or sporting rule changed.
+  Older API callers keep their previous optional argument behaviour.
+- 358 selected sequential server regressions and 30 frontend tests pass. Actual
+  controlled HTTP verifies both Admin roles, aggregate orientation, denied viewers
+  and missing first-leg blocking. Admin completion verifies explicit penalty
+  clearing. Historical two server baseline exclusions remain.
+- Lint/typecheck/backend syntax/build/diff checks pass. Real MySQL/JWT/browser/live
+  verification and full delivery remain unfinished. Graphify unavailable; no
+  deployment, production decision or GOST/D3 activation.
+
+### Captured GameDay result conditions (local, 5 November 2026)
+
+- Read `docs/official-result-conditions-phase6.md`. Existing official preparation
+  status exposes sanitized result_policy (match/version/response hours/initial
+  capability/timeout action) from the captured edition window. Legacy absent
+  policy stays null; participant checks and official:false responses remain.
+- GAMEDAY detail and report dialog now use OfficialResultPolicyNotice bound to
+  that exact match. It distinguishes v1 home-first from v2 either-side initial
+  reporting and explains 24-hour response/Admin-review, never silent approval.
+- Current match confirmation_due_at/review_due_at drives local-time display with
+  an absolute time element. UTC database deadlines differ from kickoff wall times.
+  Bad/missing dates, old/unsupported policies and closed states never invent a
+  replacement deadline or action. No initial-submission policy is inferred.
+- 358 selected server regressions and 35 frontend helper/render/snapshot tests
+  pass; the two historical unrelated server exclusions remain. Official eligibility
+  HTTP tests verify the descriptor with controlled storage/auth. Lint/typecheck/
+  syntax/build/diff checks pass. No endpoint/schema/stored policy/consent mutation.
+- Real MySQL/JWT/browser/live verification and full delivery remain unfinished.
+  Graphify unavailable; no deployment, production message or result decision.
+
+### Public edition conditions in league/Cup rules (local, 5 November 2026)
+
+- Read `docs/public-edition-conditions-phase6.md`. League detail rules now include
+  their exact linked registration-window text; Cup rules include the embedded
+  participation snapshot. Existing identical copied league text is not duplicated.
+  Club's existing contextual participation link remains; no navigation expansion.
+- publicParticipationConditions projects only state/window/policy labels/rules_text.
+  Canonical region/platform/season/reset scope and exact linked IDs must match.
+  Legacy absent sources stay null; marked missing/corrupt/unsupported/mismatched
+  conditions show review, never today's defaults. No seed/contact/roster leakage.
+- Existing regional-public SELECT includes windows; Cup public reads its own
+  snapshot. No new endpoint/schema/entity or saved rules/consent/outcome mutation.
+  Shared UI renders text safely and explains that opening it does not register.
+- 365 selected server regressions and 37 frontend tests pass, including real local
+  HTTP league/Cup responses and static rendering. Historical two unrelated server
+  baseline exclusions remain. Lint/typecheck/backend syntax/build/diff checks pass.
+- Actual MySQL/JWT/browser/mobile/live verification and full rules/tutorial audit
+  remain unfinished. Graphify unavailable; no deployment or production decisions.
+
+### Admin evidence-preview accessibility (local, 5 November 2026)
+
+- See the evidence-preview follow-up in `docs/regional-result-overview-phase6.md`.
+  DisputeProofDialog replaces the standalone screenshot overlay with existing
+  Radix dialog title/description, modal handling, close controls and viewport scroll.
+  Screenshot buttons pass their actual opener; closing restores a connected opener
+  and otherwise retains default focus handling. No generated UI primitive changed.
+- Loading/failure messages preserve original-attachment/download fallback links.
+  Existing evidenceLink validation is reused. Viewer changes no evidence/result
+  state, server permission, endpoint or dependency; new default text is English.
+- 38 selected frontend tests pass, including opener restoration and existing
+  evidence/render/snapshot checks. No backend change or new full server-suite run.
+  Lint/typecheck/backend entry syntax/build/diff checks pass.
+  Actual keyboard/Escape/focus trap/mobile/image loading remain browser/live checks.
+  Graphify unavailable; no deployment or production decisions.
+
+### Bounded Admin result-review pagination (local, 5 November 2026)
+
+- Read `docs/admin-review-pagination-phase6.md`. New GET matches/reviews, placed
+  before /:id on the existing authenticated Match router, requires stored role 0/2.
+  It reads pending review states with terminal exclusions, bound ID cursor/limit
+  and at most 51 rows for a 50-row page. No entity/table/write path was added.
+- DisputesTab now owns its page load independently of the parent catch-to-empty
+  feed. Loading/error/empty-first/empty-later states differ; cursor history offers
+  Next/Previous/Refresh. Current-cursor binding and effect cleanup reject stale
+  responses. Bad/duplicate/resolved/nonprogressing pages fail rather than look empty.
+- Row actions navigate to exact ?match= review before resolution. Existing focused
+  rechecks, snapshot guard, penalty controls and audit path remain. Pagination is
+  live, not frozen; refresh first page catches newly pending earlier IDs. Other
+  dashboard feeds still require their own audit.
+- 366 selected server regressions and 40 frontend tests pass; real local HTTP
+  covers both Admin roles, 53-case paging, invalid input/denied users and sanitized
+  failure. Historical two unrelated server exclusions remain. Lint/typecheck/
+  backend syntax/build/diff checks pass. Actual MySQL/JWT/browser/mobile/live
+  verification remains open. Graphify unavailable; no deployment or production writes.
+
+
+### Admin GameDay review summary (local, 6 November 2026)
+
+- Read docs/admin-review-summary-phase6.md. The new authenticated read-only
+  matches/reviews/summary checks stored role 0/2 and uses the Match model shared
+  pending predicate, one MySQL8 window count + first10 records. SQL count cost
+  remains unbounded; returned preview is bounded. No mutation/schema change.
+- GameDay cards/Needs Action use that total/preview independently of the parent
+  legacy disputes list. Loading/error are unknown; refresh and snapshot wording
+  avoid a false All Clear. Other category feeds and outer dashboard counts still
+  require audit. Category sums can duplicate matches.
+- Fixed focused ?match= links that previously failed to mount Disputes because
+  GameDayTab defaulted to Needs Action; selecting another tab clears focus.
+- Eight controller tests (actual local HTTP, mocked persistence/auth) and 44
+  frontend/render tests passed; lint/typecheck/syntax/build/diff checks passed.
+  MemoryRouter render tests stub children, not browser behavior. Real MySQL/JWT/
+  browser/live remain open. Graphify absent; no deploy/push/production writes.
+
+
+### Shared Admin GameDay action feeds (local, 6 November 2026)
+
+- Read docs/admin-action-feeds-phase6.md. Admin owns shared reviews/forfeits/
+  scheduling/stuck states loaded via raw HTTP, avoiding generic entity 404-to-[].
+  Category errors stay unknown, successful sources remain usable; combined totals
+  require all four ready and count category actions, potentially duplicate matches.
+  Header/dashboard/GameDay use this same state. Generation guards reject older
+  refreshes/unmounted results. Forfeit success refreshes shared feeds.
+- Reviews retain bounded summary and independent Disputes pagination/focused
+  resolution. Scheduling pages both fixture sources by 200 to a 20k/source ceiling;
+  page failure/duplicate/malformed data rejects the category, not a partial count.
+  Live offset pages are not transactional; concurrent deletion skips remain a limit.
+  Existing Match-filter reads remain unbounded, requiring later scaling work.
+- Stuck matching preserves deadline/48h heuristic and excludes final status/result
+  rows. Existing action/audit/snapshot/penalty policies remain unchanged.
+- Generic GET Match now uses stored roles 0/2 consistently with exact/review reads;
+  ordinary users remain participant-scoped. No route/schema/entity/write changes.
+- Named /admin/disputes and /admin/forfeits open correct views. GameDay tabs use
+  validated ?view=; exact ?match takes priority and is cleared when changing tabs.
+- Nine controller tests (local HTTP with controlled DB/auth) plus 58 frontend/helper/
+  render tests pass. Lint/typecheck/syntax/build/diff pass. Render boundaries are
+  stubbed, not actual browser/JWT/MySQL/live proof. Other Admin inventory audits,
+  large-backlog performance and real lifecycle e2e remain open. No deploy/push/
+  production writes. Graphify report/wiki and command remain unavailable.

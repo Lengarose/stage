@@ -1,3 +1,4 @@
+import {gameDayActionCount,gameDayFeedLabel,gameDayFeedCount} from '@/lib/adminGameDayFeeds';
 import { Link } from "react-router-dom";
 import {
   AlertTriangle,
@@ -84,7 +85,7 @@ export function AdminGamerSection({ title, subtitle, icon: Icon, children, class
   );
 }
 
-export function AdminGamerStatsRow({ disputes, forfeits, players, tournaments, identityClaims = [] }) {
+export function AdminGamerStatsRow({ gameDayFeeds, players, tournaments, identityClaims = [] }) {
   const { t } = useTranslation();
   const activeTournaments = (tournaments || []).filter(
     (tourn) => !["archived", "cancelled"].includes(String(tourn.status || "").toLowerCase())
@@ -94,15 +95,15 @@ export function AdminGamerStatsRow({ disputes, forfeits, players, tournaments, i
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
       <DashboardGamerStatCard
         label={t("admin.sections.disputes")}
-        value={disputes.length}
-        sub={disputes.length ? t("admin.stats.needsResolution") : t("admin.stats.allClear")}
+        value={gameDayFeedLabel(gameDayFeeds?.reviews)}
+        sub={gameDayFeedCount(gameDayFeeds?.reviews)===null?"Review status not verified":gameDayFeeds.reviews.total?t("admin.stats.needsResolution"):t("admin.stats.allClear")}
         accent="rose"
         icon={AlertTriangle}
       />
       <DashboardGamerStatCard
         label={t("admin.sections.forfeits")}
-        value={forfeits.length}
-        sub={forfeits.length ? t("admin.stats.pendingReview") : t("admin.stats.nonePending")}
+        value={gameDayFeedLabel(gameDayFeeds?.forfeits)}
+        sub={gameDayFeedCount(gameDayFeeds?.forfeits)===null?"Claim status not verified":gameDayFeeds.forfeits.total?t("admin.stats.pendingReview"):t("admin.stats.nonePending")}
         accent="gold"
         icon={Flag}
       />
@@ -127,8 +128,7 @@ export function AdminGamerStatsRow({ disputes, forfeits, players, tournaments, i
 export default function AdminGamerLayout({
   sectionKey = null,
   adminProfile,
-  disputes = [],
-  forfeits = [],
+  gameDayFeeds,
   players = [],
   clubs = [],
   tournaments = [],
@@ -140,7 +140,7 @@ export default function AdminGamerLayout({
 }) {
   const { t } = useTranslation();
   const sectionTitle = sectionKey ? getAdminSectionLabel(t, sectionKey) : t("admin.shell.title");
-  const openIssues = disputes.length + forfeits.length;
+  const openIssues = gameDayActionCount(gameDayFeeds);
   const backTo = sectionKey ? "/admin" : "/";
 
   return (
@@ -158,7 +158,7 @@ export default function AdminGamerLayout({
             />
             <div className="relative flex flex-wrap items-start justify-between gap-4">
               <div className="flex items-start gap-4 min-w-0">
-                <AdminPulseRing openIssues={openIssues} healthPct={100 - Math.min(openIssues * 8, 80)} />
+                <AdminPulseRing openIssues={openIssues ?? "?"} healthPct={openIssues===null?null:100 - Math.min(openIssues * 8, 80)} />
                 <div className="min-w-0">
                   <p className="text-[10px] font-bold uppercase tracking-[0.32em] text-red-400 mb-1">{t("admin.shell.controlCenter")}</p>
                   <h1 className="font-heading font-black uppercase text-white text-3xl sm:text-4xl leading-none truncate">
@@ -199,8 +199,7 @@ export default function AdminGamerLayout({
 
           {!minimalChrome && (
           <AdminGamerStatsRow
-            disputes={disputes}
-            forfeits={forfeits}
+            gameDayFeeds={gameDayFeeds}
             players={players}
             tournaments={tournaments}
             identityClaims={identityClaims}

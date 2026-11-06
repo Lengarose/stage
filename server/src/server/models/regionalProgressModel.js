@@ -1,7 +1,7 @@
 'use strict';
 const crypto=require('crypto');
 const parse=value=>typeof value==='string'?JSON.parse(value):value;
-const types={cup:'regional_cup_progress',cycle:'regional_cycle_progress'};
+const types={cup:'regional_cup_progress',cycle:'regional_cycle_progress',confirmation_notice:'regional_confirmation_notice_progress'};
 const jobId=(kind,id)=>{if(!Object.hasOwn(types,kind))throw Error('Unsupported regional progress kind');const h=crypto.createHash('sha256').update(`regional-${kind}-progress:${id}`).digest('hex');return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20,32)}`;};
 class RegionalProgressModel {
   constructor(kind) {if(!Object.hasOwn(types,kind))throw Error('Unsupported regional progress kind');this.kind=kind;this.entityType=types[kind];}

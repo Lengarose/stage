@@ -15,8 +15,15 @@ function createService({model=new RegionalCalendarModel(),transaction=withTransa
       const user=await model.actor(actor?.id,q);
       if(!user || user.role_id==null || ![0,2].includes(Number(user.role_id)))fail('Admin calendar access required',403);
       await model.lock(q);
-      if(!Array.isArray(body.edition_ids) || !body.edition_ids.length || body.edition_ids.length>12 || body.edition_ids.some(id=>typeof id!=='string' || !id.trim()) || new Set(body.edition_ids).size!==body.edition_ids.length)fail('Select unique regional edition IDs',400);
-      const ids=body.edition_ids.slice().sort(),all=await model.editions(q),catalogue=buildCatalogue(all);
+      let selected=body.edition_ids,cycle=null;
+      if(Object.hasOwn(body,'cycle_id')) {
+        if(typeof body.cycle_id!=='string' || !body.cycle_id.trim() || Object.hasOwn(body,'edition_ids'))fail('Select a stored cycle or explicit edition IDs, not both',400);
+        cycle=await model.cycle(body.cycle_id,q);
+        if(!cycle || cycle.status!=='allocated' || cycle.edition_invalidated || cycle.invalidated_at || !Array.isArray(cycle.allocated_groups) || !cycle.allocated_groups.length)fail('Choose a valid allocated regional cycle before preparing its calendar');
+        selected=cycle.allocated_groups.map(g=>g?.id);
+      }
+      if(!Array.isArray(selected) || !selected.length || selected.length>12 || selected.some(id=>typeof id!=='string' || !id.trim()) || new Set(selected).size!==selected.length)fail('Select unique regional edition IDs',400);
+      const ids=selected.slice().sort(),all=await model.editions(q),catalogue=buildCatalogue(all);
       const editions=ids.map(id=>{
         const group=catalogue.groups.find(g=>g.current_edition_id===id);
         if(!group || group.retired || group.identity_conflict || group.identity_unverified)fail('Choose current, unambiguous and active league groups');
@@ -26,6 +33,10 @@ function createService({model=new RegionalCalendarModel(),transaction=withTransa
       });
       const scope=identity(editions[0]);
       if(editions.some(e=>{const i=identity(e);return i.region_slug!==scope.region_slug || i.platform!==scope.platform || i.season_number!==scope.season_number || Number(i.reset_series || 0)!==Number(scope.reset_series || 0);}))fail('Publish one regional system and season at a time');
+      if(cycle) {
+        if(cycle.region_slug!==scope.region_slug || cycle.platform!==scope.platform || Number(cycle.season_number)!==scope.season_number || Number(cycle.reset_series || 0)!==Number(scope.reset_series || 0))fail('The allocated cycle and current group identities disagree');
+        if(editions.some(e=>{const g=cycle.allocated_groups.find(g=>g.id===e.id);return e.regional_cycle_id!==cycle.id || Number(g.division)!==Number(e.division) || g.group_code!==identity(e).group_code || g.permanent_league_id!==(e.permanent_league_id || e.id);}))fail('The stored cycle allocation no longer matches its current groups');
+      }
       const required=catalogue.groups.filter(g=>!g.retired && !g.identity_conflict && g.region_slug===scope.region_slug && identity(g).platform===scope.platform && Number(g.season_number)===scope.season_number && Number(g.reset_series || 0)===Number(scope.reset_series || 0) && g.regional_participation_policy_version===VERSION && ['in_progress','registration'].includes(g.status) && (Array.isArray(g.registered_club_ids)?g.registered_club_ids:JSON.parse(g.registered_club_ids || '[]')).length>0);
       if(required.some(g=>!ids.includes(g.current_edition_id)))fail('Include all populated current groups of this regional system in the calendar preview');
       const id=stableId(['regional_calendar',scope.region_slug,scope.platform,scope.season_number,scope.reset_series || 0]);
@@ -62,8 +73,8 @@ function createService({model=new RegionalCalendarModel(),transaction=withTransa
       if(selections.length)fail('Existing official selection/preparation evidence prevents initial season publication');
       const busy=busyEvents(events,excluded);
       const plan=planCalendar({editions,fixtures,start_monday:body.start_monday,busy,now:clock()});
-      const revision=hash([policy,ids,body.start_monday,editions,fixtures,events,selections]);
-      const result={...plan,id,edition_ids:ids,revision,already_published:false,coverage:'Club schedules only; player-level multi-event conflicts and future pathway/cup draws are not generated.'};
+      const revision=hash([policy,ids,body.start_monday,editions,fixtures,events,selections,...(cycle?[{id:cycle.id,allocated_groups:cycle.allocated_groups,region_slug:cycle.region_slug,platform:cycle.platform,season_number:cycle.season_number,reset_series:cycle.reset_series || 0}]:[])]);
+      const result={...plan,id,edition_ids:ids,region_slug:scope.region_slug,season_number:scope.season_number,reset_series:scope.reset_series || 0,...(cycle?{source_cycle_id:cycle.id}:{}),revision,already_published:false,coverage:'Club schedules only; player-level multi-event conflicts and future pathway/cup draws are not generated.'};
       if(body.apply!==true)return result;
       const reason=String(body.reason || '').trim();if(!reason)fail('Explain the calendar publication',400);
       if(body.expected_revision!==revision)fail('The calendar source changed; generate and review a fresh preview');
@@ -80,7 +91,8 @@ function createService({model=new RegionalCalendarModel(),transaction=withTransa
         await model.audit({sourceFixture:before.fixture,engine:before.engine,calendar:true},user,before,{fixture,engine,match},reason,q);
       }
       const record={...result,status:'published',published_at:clock().toISOString(),published_by:user.id,policy_snapshot:policy};
-      await model.save(record,user,reason,q);await model.summary(clubs,record,q);
+      record.notification_summary=await model.summary(clubs,record,q);
+      await model.save(record,user,reason,q);
       return record;
     });
   }

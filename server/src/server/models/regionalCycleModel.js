@@ -32,6 +32,13 @@ class RegionalCycleModel {
   async assignRegistration(record, query) {
     await query("UPDATE league_entities SET data_json=?,league_id=?,division=?,platform=?,region=?,season_number=?,reset_series=?,updated_date=NOW() WHERE id=? AND entity_type='season_registration'",[JSON.stringify(record),record.league_id,record.division,record.platform,record.region,record.season_number,record.reset_series,record.id]);
   }
+  async notificationSettings(email, query) {
+    return (await query('SELECT notification_settings FROM players WHERE LOWER(email)=LOWER(?) LIMIT 1 FOR UPDATE',[email]))[0]?.notification_settings;
+  }
+  async saveAllocationNotification(notice, query) {
+    await query('INSERT INTO notifications (id,recipient_email,type,title,body,link,related_id,idempotency_key) VALUES (?,?,?,?,?,?,?,?)',
+      [notice.id,notice.recipient_email,'club_update','Regional group assigned',notice.body,notice.link,notice.edition_id,notice.idempotency_key]);
+  }
   async fixtures(id, query, lock = true) {
     return query(`SELECT * FROM competition_fixtures WHERE competition_instance_id=? ORDER BY id${lock ? ' FOR UPDATE' : ''}`, [id]);
   }

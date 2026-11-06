@@ -1,6 +1,9 @@
 const { EXECUTESQL } = require('../db/database');
 const { v4: uuidv4 } = require('uuid');
 const { toMysqlDateTime } = require('../utils/datetime');
+const REVIEW_FILTER=`(status='disputed' OR result_state IN ('ADMIN_REVIEW','DISPUTED'))
+      AND COALESCE(status,'') NOT IN ('completed','forfeit','cancelled','canceled','voided','deleted','archived','reset','superseded')
+      AND COALESCE(result_state,'') NOT IN ('CONFIRMED','VOIDED','AUTO_CONFIRMED_TIMEOUT')`;
 
 function normalizeTournamentId(value) {
   if (value === undefined || value === null || value === '') return null;
@@ -98,6 +101,16 @@ class Match {
 
   selectOne(id) {
     return EXECUTESQL('SELECT * FROM matches WHERE id = ?', [id]);
+  }
+
+  selectResultReviewPage(cursor,limit) {
+    return EXECUTESQL(`SELECT * FROM matches WHERE id>?
+      AND ${REVIEW_FILTER}
+      ORDER BY id ASC LIMIT ?`,[cursor,limit+1]);
+  }
+
+  selectResultReviewSummary() {
+    return EXECUTESQL(`SELECT *,COUNT(*) OVER() AS review_total FROM matches WHERE ${REVIEW_FILTER} ORDER BY id ASC LIMIT ?`,[10]);
   }
 
   selectByClub(club_id) {

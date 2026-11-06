@@ -5,7 +5,7 @@ const policy=require('../../lib/regionalRegistrationPolicy');
 const {createService}=require('../regionalRegistrationService');
 function fixture() {
   let time=new Date('2026-11-02T12:00:00Z');
-  let state={windows:[],registrations:[],audits:[],definitions:[{id:'d1',permanent_league_id:'d1',region_slug:'uk-ireland',platform:'cross-platform',division:1,group_code:'A',season_number:1,reset_series:0,status:'registration',slug:'uk-ireland-div-1'}],
+  let state={windows:[],registrations:[],audits:[],notifications:[],noticeSettings:null,definitions:[{id:'d1',permanent_league_id:'d1',region_slug:'uk-ireland',platform:'cross-platform',division:1,group_code:'A',season_number:1,reset_series:0,status:'registration',slug:'uk-ireland-div-1'}],
     users:[{id:'owner',email:'owner@test.local',role_id:1},{id:'other',email:'other@test.local',role_id:1},{id:'admin',email:'admin@test.local',role_id:2}],
     clubs:[{id:'club',name:'Club',president_user_id:'owner',owner_email:'owner@test.local',platform:'PS5'}],
     registrar:{id:'president-player',subscription:'stage_plus',subscription_expires_at:null},
@@ -19,9 +19,10 @@ function fixture() {
     actorPlayer:async()=>copy(state.registrar),players:async()=>copy(state.players),
     registrations:async club=>copy(state.registrations.filter(r=>r.club_id===club)),registration:async id=>copy(state.registrations.find(r=>r.id===id)),
     confirmedField:async id=>copy(state.registrations.filter(r=>r.registration_window_id===id)),
+    notificationSettings:async()=>copy(state.noticeSettings),saveConfirmationNotice:async notice=>{state.notifications.push(copy(notice));},
     saveRegistration:async(record,_,create)=>{if(injected)throw Error('Injected failure');if(create)state.registrations.push(copy(record));else state.registrations[state.registrations.findIndex(r=>r.id===record.id)]=copy(record);},
   };
-  const query=async(sql,values)=>{if(sql.startsWith('INSERT INTO admin_audit_log')){state.audits.push(values);return {};}throw Error(`Unexpected SQL ${sql}`);};
+  const query=async(sql,values)=>{if(sql.startsWith('INSERT INTO admin_audit_log')){state.audits.push(values);return {};}if(sql.startsWith('SELECT c.*'))return state.clubs.filter(c=>c.id===values[0]).map(c=>({...copy(c),president_user_email:state.users.find(u=>u.id===c.president_user_id)?.email}));throw Error(`Unexpected SQL ${sql}`);};
   let queue=Promise.resolve();
   const transaction=fn=>{
     const run=queue.then(async()=>{const before=copy(state);try{return await fn(query);}catch(err){state=before;throw err;}});queue=run.catch(()=>{});return run;
@@ -47,7 +48,56 @@ test('new periods publish the response-review policy before consent and preserve
   assert.match(published.window.rules_text,/24 hours/);
   assert.match(published.window.rules_text,/silence does not confirm/);
   assert.equal(f.state.windows[0].result_policy_version,'regional_result_review_v2');
+  assert.equal(published.window.confirmation_notice_policy_version,'regional_confirmation_notice_v1');
   assert.match(published.window.rules_text,/away club may submit immediately/);
+});
+
+async function registeredForReminder() {
+  const f=fixture(),{window}=await f.publish();f.at(window.opens_at);const {registration}=await f.apply(window);
+  return {f,window,registration};
+}
+test('confirmation opening creates one native notice and receipt without confirming entry or changing the shared deadline',async()=>{
+  const {f,window,registration}=await registeredForReminder();
+  f.at(new Date(Date.parse(window.registration_closes_at)-1).toISOString());assert.equal((await f.service.remindConfirmation(registration.id)).status,'not_needed');assert.equal(f.state.notifications.length,0);
+  f.at(window.registration_closes_at);
+  const results=await Promise.all([f.service.remindConfirmation(registration.id),f.service.remindConfirmation(registration.id)]);
+  assert.deepEqual(results.map(r=>r.status),['stored','already_checked']);assert.equal(f.state.notifications.length,1);
+  const notice=f.state.notifications[0];assert.equal(notice.email,'owner@test.local');assert.match(notice.body,/at least three/);assert.ok(notice.body.includes(window.confirmation_closes_at));assert.match(notice.link,/register-league\?club=club&region=uk-ireland/);
+  assert.equal(f.state.registrations[0].status,'pending');assert.equal(f.state.registrations[0].participation_status,'registered');assert.equal(f.state.registrations[0].accepted_rules_revision,registration.accepted_rules_revision);assert.equal(f.state.windows[0].confirmation_closes_at,window.confirmation_closes_at);
+});
+test('muted reminders are checkpointed once and the current confirmation still works with captured conditions',async()=>{
+  const {f,window,registration}=await registeredForReminder();f.at(window.registration_closes_at);f.state.noticeSettings={club_updates:false};
+  assert.equal((await f.service.remindConfirmation(registration.id)).status,'muted');assert.equal(f.state.notifications.length,0);
+  assert.equal((await f.service.remindConfirmation(registration.id)).status,'already_checked');
+  await f.service.confirm(registration.id,{policy_version:policy.VERSION,player_ids:['p1','p2','p3']},{id:'owner'});
+  assert.equal((await f.service.remindConfirmation(registration.id)).status,'not_needed');assert.equal(f.state.registrations[0].participation_status,'confirmed');
+});
+test('receipt write failure rolls back its notification, and a retry is safe; no reminder is stored after the closing boundary',async()=>{
+  const {f,window,registration}=await registeredForReminder();f.at(window.registration_closes_at);const before=JSON.stringify(f.state);
+  f.fail(true);await assert.rejects(f.service.remindConfirmation(registration.id),/Injected failure/);assert.equal(JSON.stringify(f.state),before);
+  f.fail(false);assert.equal((await f.service.remindConfirmation(registration.id)).status,'stored');assert.equal(f.state.notifications.length,1);
+  const late=await registeredForReminder();late.f.at(late.window.registration_closes_at);late.f.model.notificationSettings=async()=>{late.f.at(late.window.confirmation_closes_at);return null;};
+  assert.equal((await late.f.service.remindConfirmation(late.registration.id)).status,'not_needed');assert.equal(late.f.state.notifications.length,0);assert.equal(late.f.state.registrations[0].confirmation_notice,undefined);
+});
+test('legacy, withdrawn, confirmed, closed or invalidated entries never receive a new opening notice',async()=>{
+  for(const change of [({f})=>{delete f.state.windows[0].confirmation_notice_policy_version;},({f})=>{f.state.registrations[0].status='withdrawn';},({f})=>{f.state.registrations[0].status='approved';f.state.registrations[0].participation_status='confirmed';},({f,window})=>f.at(window.confirmation_closes_at),({f})=>{f.state.windows[0].edition_invalidated=true;}]) {
+    const env=await registeredForReminder();env.f.at(env.window.registration_closes_at);change(env);
+    assert.equal((await env.f.service.remindConfirmation(env.registration.id)).status,'not_needed');assert.equal(env.f.state.notifications.length,0);
+  }
+});
+test('changed conditions, missing president contact and reset sources fail rather than sending a guessed reminder',async()=>{
+  for(const change of [f=>{f.state.registrations[0].accepted_rules_revision='old';},f=>{f.state.users[0].email='';f.state.clubs[0].owner_email='';},f=>{f.state.definitions[0].reset_series=1;}]) {
+    const {f,window,registration}=await registeredForReminder();f.at(window.registration_closes_at);change(f);
+    await assert.rejects(f.service.remindConfirmation(registration.id));assert.equal(f.state.notifications.length,0);assert.equal(f.state.registrations[0].confirmation_notice,undefined);
+  }
+});
+test('a restarted reminder worker reuses the persistent receipt and current published-window eligibility',async()=>{
+  const {f,window}=await registeredForReminder();f.at(window.registration_closes_at);
+  const {createService:createWorker}=require('../regionalConfirmationReminderService');
+  const options={...require('./helpers/confirmationProgress').fixture(),windows:f.service.windows,remind:f.service.remindConfirmation,model:{reminderCandidates:async(_cursor,_now,_q,ids)=>f.state.registrations.filter(r=>ids.includes(r.registration_window_id)&&!r.confirmation_notice).map(r=>({id:r.id}))}};
+  assert.deepEqual(await createWorker(options).tick(),{stored:1,muted:0});assert.deepEqual(await createWorker(options).tick(),{stored:0,muted:0});assert.equal(f.state.notifications.length,1);
+  const old=await registeredForReminder();delete old.f.state.windows[0].confirmation_notice_policy_version;
+  const before=JSON.stringify(old.f.state.windows);await assert.rejects(old.f.service.publish(old.f.input,{id:'admin'}),/immutable/);assert.equal(JSON.stringify(old.f.state.windows),before);
 });
 test('Plus access distinguishes expiry, free members, malformed expiry and loaned-out players without billing data',()=>{
   const now='2026-11-02T12:00:00Z';

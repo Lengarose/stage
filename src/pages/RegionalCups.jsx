@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { stageClient } from '@/api/stageClient';
+import EditionParticipationConditions from '@/components/competition/EditionParticipationConditions';
 
 export default function RegionalCups() {
   const [params, setParams] = useSearchParams();
@@ -29,7 +30,7 @@ export default function RegionalCups() {
         <div><p className="text-sm text-muted-foreground">{selected.platform} · Season {selected.season_number} · {selected.status}</p><h2 className="mt-2 font-heading text-3xl uppercase">{selected.name}</h2><p className="mt-3">{selected.participant_count} clubs · Single-match knockout</p>{selected.winner_club_name && <p className="mt-3 font-semibold">Champion: {selected.winner_club_name}</p>}<p className="mt-2 text-sm text-muted-foreground">No automatic GOST qualification. Times below are shown in your local timezone.</p></div>
       </section>
       <section className="border-b border-border pb-5" aria-label="Cup rewards"><h3 className="font-heading text-xl uppercase">Cup rewards</h3>{selected.rewards?.winner_stc ? <><p className="mt-3">Winner: {Number(selected.rewards.winner_stc).toLocaleString()} STC · Finalist: {Number(selected.rewards.runner_up_stc).toLocaleString()} STC</p><p className="mt-2 text-sm text-muted-foreground">Funded by STAGE · No third-place prize · No additional Cup entry fee</p><p className="mt-2 text-sm">Payment status: {selected.rewards.state} · Trophy: {selected.honours_state || 'pending'}</p></> : <p className="mt-3 text-muted-foreground">Prize terms for this edition are awaiting review.</p>}</section>
-      <details className="border-b border-border pb-4"><summary className="min-h-11 cursor-pointer py-3 font-semibold">Cup rules</summary><p className="max-w-3xl whitespace-pre-line text-sm text-muted-foreground">{selected.rules}</p><p className="mt-3 text-sm">At least three eligible human players per club. Each participating player needs active STAGE Plus. Keeper optional; ANY allowed. Publish your selection and confirm readiness in GameDay.</p></details>
+      <details className="border-b border-border pb-4"><summary className="min-h-11 cursor-pointer py-3 font-semibold">Cup rules</summary><p className="max-w-3xl whitespace-pre-line text-sm text-muted-foreground">{selected.rules}</p><p className="mt-3 text-sm">At least three eligible human players per club. Each participating player needs active STAGE Plus. Keeper optional; ANY allowed. Publish your selection and confirm readiness in GameDay.</p><EditionParticipationConditions conditions={selected.participation_conditions}/></details>
       <div className="space-y-8">{selected.rounds.map(round => <section key={round.number} className="border-b border-border pb-6">
         <div className="flex flex-wrap justify-between gap-3"><h3 className="font-heading text-xl uppercase">Round {round.number}</h3><p className="text-sm text-muted-foreground">Week {round.week} · {time(round.kickoff_at)}</p></div>
         {!round.drawn && <p className="mt-4 text-sm text-muted-foreground">The open draw follows confirmation of every result in the previous round.</p>}

@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import OfficialMatchPreparation from "@/components/club/OfficialMatchPreparation";
 import GameDayMatchChat from "./GameDayMatchChat";
+import OfficialResultPolicyNotice from './OfficialResultPolicyNotice';
 import {penaltyOutcome} from '@/lib/penaltyOutcome';
 import GameDayKickoffArena from "./GameDayKickoffArena";
 import StreamLinkSection from "./StreamLinkSection";
@@ -81,7 +82,7 @@ export default function GameDayDetail({
       const fresh=await stageClient.entities.Match.get(game.id);
       if(selectedId.current!==game.id)return;
       setShowResultForm(!readOnly);
-      onOpenReport?.({game:{...game,...fresh},allowEitherInitial,myClub,myPlayer,isHomeTeam:game.home_club_id?String(game.home_club_id)===String(myClub?.id):String(game.home_player_id)===String(myPlayer?.id),readOnly,stats,onSubmitted:handleResultSubmitted,onClose:()=>setShowResultForm(false)});
+      onOpenReport?.({game:{...game,...fresh},allowEitherInitial,resultPolicy:preparationState?.result_policy,myClub,myPlayer,isHomeTeam:game.home_club_id?String(game.home_club_id)===String(myClub?.id):String(game.home_player_id)===String(myPlayer?.id),readOnly,stats,onSubmitted:handleResultSubmitted,onClose:()=>setShowResultForm(false)});
     } catch(e) {setKickoffError(e.message || 'Unable to open the match report.');}
   }
   const [crests, setCrests] = useState({ home: null, away: null });
@@ -382,6 +383,7 @@ export default function GameDayDetail({
         ) : null}
       </section>
 
+      <OfficialResultPolicyNotice game={game} policy={preparationState?.result_policy} />
       {showResultDock && (
         <section className="border-t border-[#d8dee8]/15 bg-black/45 px-4 py-4 sm:px-6">
           <div className="mx-auto max-w-3xl space-y-3">

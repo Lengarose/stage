@@ -1,7 +1,12 @@
 // @ts-nocheck — shadcn/ui primitives are untyped forwardRefs under checkJs; substantive admin logic stays typed elsewhere.
 import { useState, useEffect, useRef, useMemo } from "react";
 // Admin sub-components (separation of concerns — moved out of this file)
+import {initialGameDayFeeds,loadAdminGameDayFeeds} from '@/lib/adminGameDayFeeds';
 import GameDayTab from "@/components/admin/sections/GameDayTab";
+import DisputeEvidence from '@/components/admin/disputes/DisputeEvidence';
+import AdminResolutionPenalty from '@/components/admin/disputes/AdminResolutionPenalty';
+import {adminPenaltyReady,resolutionPenaltyKey} from '@/lib/adminResolutionPenalty';
+import { disputeEvidence } from '@/lib/adminDisputeEvidence';
 import PlayersTab from "@/components/admin/sections/PlayersTab";
 import ClubsTab from "@/components/admin/sections/ClubsTab";
 import RankingsTab from "@/components/admin/sections/RankingsTab";
@@ -50,7 +55,7 @@ import { calculatePrizePool } from "@/lib/prizeDefaults";
 import { loadRegionalLeagueCatalogue, regionalRewardSources } from '@/lib/regionalRewardSources';
 import { submitEditionLifecycle, adminEndpointError, loadEditionFixtureCount } from '@/lib/adminLeagueLifecycle';
 import { ensureDefaultRewardConfigs, getRewardConfiguration } from '@/lib/rewardsEngine';
-import { canResolveDisputeWithScore } from "@/lib/gameDayResultFlow";
+import { canResolveDisputeWithScore, resultSnapshot } from "@/lib/gameDayResultFlow";
 import { toMysqlDateTime } from "@/lib/momentDate";
 import { useTranslation } from "@/hooks/useTranslation";
 import { loadPlayerDirectoryPages } from "@/lib/playerDirectoryLoader";
@@ -75,40 +80,6 @@ import {
   listTournamentRuleTemplates,
   renderTournamentRules,
 } from "@/lib/tournamentRuleTemplates";
-
-const TERMINAL_MATCH_STATUSES = new Set(["completed", "confirmed", "played", "forfeit", "cancelled", "canceled", "deleted"]);
-const STALE_RESULT_STATES = new Set(["AWAITING_AWAY_CONFIRMATION", "AWAITING_HOME_REVIEW", "RESULT_OVERDUE", "DISPUTED", "ADMIN_REVIEW"]);
-const STALE_MATCH_STATUS_CANDIDATES = ["scheduled", "in_progress", "awaiting_confirmation", "disputed"];
-const STALE_MATCH_AGE_MS = 48 * 60 * 60 * 1000;
-
-function timeValue(value) {
-  const time = value ? new Date(value).getTime() : NaN;
-  return Number.isFinite(time) ? time : null;
-}
-
-function isStaleGameDayMatch(match) {
-  if (!match?.id) return false;
-  const status = String(match.status || "").toLowerCase();
-  if (TERMINAL_MATCH_STATUSES.has(status)) return false;
-
-  const resultState = String(match.result_state || "").toUpperCase();
-  const dueAt = timeValue(match.confirmation_due_at || match.review_due_at || match.result_due_at);
-  const lastActivityAt = timeValue(match.updated_date || match.scheduled_date || match.match_date || match.created_date);
-  const duePassed = dueAt !== null && Date.now() > dueAt;
-  const oldEnough = lastActivityAt !== null && Date.now() - lastActivityAt > STALE_MATCH_AGE_MS;
-
-  if (STALE_RESULT_STATES.has(resultState)) return duePassed || oldEnough;
-  return STALE_MATCH_STATUS_CANDIDATES.includes(status) && oldEnough;
-}
-
-function uniqueMatches(matches) {
-  const byId = new Map();
-  for (const match of asObjectArray(matches)) {
-    if (!match?.id) continue;
-    byId.set(String(match.id), { ...(byId.get(String(match.id)) || {}), ...match });
-  }
-  return [...byId.values()];
-}
 
 function getOfficialStageSpotsForCompetition(slug) {
   return STAGE_QUALIFICATION_RULES.find(rule => rule.competitionSlug === slug)?.positions.length || 6;
@@ -148,9 +119,12 @@ export default function Admin(props) {
     return m ? m[1] : undefined;
   }, [params.section, forcedSection, location.pathname]);
   const [allowed, setAllowed] = useState(null);
-  const [disputes, setDisputes] = useState([]);
-  const [forfeits, setForfeits] = useState([]);
-  const [staleGameDayMatches, setStaleGameDayMatches] = useState([]);
+  const [gameDayFeeds,setGameDayFeeds]=useState(initialGameDayFeeds);
+  const gameDayLoadVersion=useRef(0);
+  useEffect(()=>()=>{gameDayLoadVersion.current++;},[]);
+  const disputes=gameDayFeeds.reviews.items;
+  const forfeits=gameDayFeeds.forfeits.items;
+  const expiredFixtures=gameDayFeeds.scheduling.items;
   const [players, setPlayers] = useState([]);
   const [identityClaims, setIdentityClaims] = useState([]);
   const [clubs, setClubs] = useState([]);
@@ -166,6 +140,7 @@ export default function Admin(props) {
   const [resolveDialog, setResolveDialog] = useState(null);
   const [selectedWinner, setSelectedWinner] = useState("");
   const [resolutionScore, setResolutionScore] = useState({ home_score: "", away_score: "" });
+  const [resolutionPenalty,setResolutionPenalty]=useState(null);
   const [creditsDialog, setCreditsDialog] = useState(null);
   const [creditsAmount, setCreditsAmount] = useState("");
   const [saving, setSaving] = useState(false);
@@ -223,7 +198,6 @@ export default function Admin(props) {
   const [qualEntries, setQualEntries] = useState([]);
   const [seedingComps, setSeedingComps] = useState(false);
   const [newSeasonForm, setNewSeasonForm] = useState({ competition_id: "", platform: "Cross-Platform", region: "Global", prize_pool_stc: "", num_clubs: 36, num_league_matchdays: 8 });
-  const [expiredFixtures, setExpiredFixtures] = useState([]);
   const [schedulingAdminBusy, setSchedulingAdminBusy] = useState(null);
   const [creatingLeagueSeason, setCreatingLeagueSeason] = useState(false);
   const [regionalLeagues, setRegionalLeagues] = useState([]);
@@ -340,12 +314,20 @@ export default function Admin(props) {
     loadInternationalTournaments({ withSquads: true }).catch(() => {});
   }, [allowed, adminTab]);
 
+  async function refreshGameDayFeeds(){
+    const version=++gameDayLoadVersion.current;
+    setGameDayFeeds(initialGameDayFeeds());
+    await loadAdminGameDayFeeds(stageClient,(key,result)=>{
+      if(gameDayLoadVersion.current===version)setGameDayFeeds(previous=>({...previous,[key]:result}));
+    });
+  }
+
   async function loadAll() {
     setLoading(true);
     setRegionalSourceError('');
+    void refreshGameDayFeeds();
     try {
-      const [disputedMatches, allPlayers, allTournaments, allClubs, allTrophies, allComps, allCompSeasons, allCompetitionStandings, allQual, allRegLeagues, expiredLeagueFixtures, expiredCompFixtures, allRegApps, allLifestyleItems, pendingIdentityClaims] = await Promise.all([
-        stageClient.entities.Match.filter({ status: "disputed" }, "-updated_date", 50).catch(() => []),
+      const [allPlayers, allTournaments, allClubs, allTrophies, allComps, allCompSeasons, allCompetitionStandings, allQual, allRegLeagues, allRegApps, allLifestyleItems, pendingIdentityClaims] = await Promise.all([
         loadPlayerDirectoryPages().catch(() => []),
         stageClient.entities.Tournament.list("-created_date", 200).catch(() => []),
         stageClient.entities.Club.list("-created_date", 100).catch(() => []),
@@ -355,27 +337,10 @@ export default function Admin(props) {
         (stageClient.entities.CompetitionStanding?.list("-updated_date", 500) ?? Promise.resolve([])).catch(() => []),
         stageClient.entities.QualificationEntry.filter({ status: "pending" }, null, 50).catch(() => []),
         loadRegionalLeagueCatalogue(stageClient).catch(err => { setRegionalSourceError(adminEndpointError(err)); return null; }),
-        (stageClient.entities.RegionalLeagueFixture?.filter({ scheduling_status: "expired" }, null, 50) ?? Promise.resolve([])).catch(() => []),
-        (stageClient.entities.CompetitionFixture?.filter({ scheduling_status: "expired" }, null, 50) ?? Promise.resolve([])).catch(() => []),
         (stageClient.entities.SeasonRegistration?.list("-applied_at", 200) ?? Promise.resolve([])).catch(() => []),
         stageClient.entities.LifestyleItem.list("sort_order", 300).catch(() => []),
         stageClient.identityClaims.list({ status: "pending" }, "-created_date", 100).catch(() => []),
       ]);
-      const forfeitMatches = await stageClient.entities.Match.filter({ forfeit_status: "pending" }, "-updated_date", 50).catch(() => []);
-      const staleCandidateGroups = await Promise.all(
-        STALE_MATCH_STATUS_CANDIDATES.map(status =>
-          stageClient.entities.Match.filter({ status }, "-updated_date", 120).catch(() => [])
-        )
-      );
-      const activeForfeitMatches = (forfeitMatches || []).filter(match =>
-        match?.forfeit_status === "pending" &&
-        Boolean(match?.forfeit_claimed_by) &&
-        !TERMINAL_MATCH_STATUSES.has(String(match?.status || "").toLowerCase())
-      );
-      const staleMatches = uniqueMatches(staleCandidateGroups.flat()).filter(isStaleGameDayMatch);
-      setDisputes(disputedMatches.map(m => ({ ...m, _source: "tournament" })));
-      setForfeits(activeForfeitMatches);
-      setStaleGameDayMatches(staleMatches);
       setPlayers(allPlayers);
       setIdentityClaims(pendingIdentityClaims);
       setClubs(allClubs);
@@ -412,11 +377,6 @@ export default function Admin(props) {
           .map(l => ({ id: l.id, type: "regional_league", name: l.name, division: l.division || 1, max_clubs: getRegionalLeagueMaxClubs(l) })),
       ]).catch(() => {});
       await loadInternationalTournaments({ withSquads: false });
-      setExpiredFixtures([
-        ...expiredLeagueFixtures.map(f => ({ ...f, _fixtureType: "regional_league" })),
-        ...expiredCompFixtures.map(f => ({ ...f, _fixtureType: "competition" })),
-      ]);
-
       // Load ranking config (non-fatal)
       const cfgRows = await (stageClient.entities.RankingConfig?.list(null, 10) ?? Promise.resolve([])).catch(() => []);
       const activeCfg = cfgRows.find(r => r.is_active) || cfgRows[0];
@@ -675,7 +635,7 @@ export default function Admin(props) {
   }
 
   async function resolveDispute() {
-    if (!resolveDialog || !canResolveDisputeWithScore(selectedWinner, resolutionScore)) return;
+    if (!resolveDialog || !canResolveDisputeWithScore(selectedWinner, resolutionScore) || !adminPenaltyReady(resolutionPenalty,resolutionPenaltyKey(resolveDialog.match,resolutionScore,selectedWinner))) return;
     setSaving(true);
     const m = resolveDialog.match;
     try {
@@ -686,10 +646,19 @@ export default function Admin(props) {
         admin_resolve_winner: isHome ? "home" : "away",
         admin_home_score: Number(resolutionScore.home_score),
         admin_away_score: Number(resolutionScore.away_score),
+        expected_result_snapshot: resultSnapshot(m),
+        decided_on_penalties:resolutionPenalty.decided_on_penalties,
+        penalty_winner_side:resolutionPenalty.penalty_winner_side,
       });
       setResolveDialog(null); setSelectedWinner(""); setResolutionScore({ home_score: "", away_score: "" });
       await loadAll();
     } catch (err) {
+      if(['RESULT_CHANGED','RESULT_ALREADY_PROCESSED','RESULT_GUARD_MISMATCH','INVALID_RESULT_DATA'].includes(err?.data?.code || err?.code)) {
+        setResolveDialog(null);setSelectedWinner('');setResolutionScore({home_score:'',away_score:''});
+        await swalAlert(`${err?.message || 'This result review could not be saved.'} Reopen the selected match and review the latest information before deciding.`);
+        await loadAll();
+        return;
+      }
       await swalAlert(t("admin.alerts.resolveDisputeFailed", { message: err?.message || t("admin.alerts.unknownError") }));
     } finally {
       setSaving(false);
@@ -715,7 +684,7 @@ export default function Admin(props) {
         approve,
         reason: approve ? "Approved from admin forfeits panel" : "Rejected from admin forfeits panel",
       });
-      setForfeits(prev => prev.filter(f => f.id !== matchId));
+      await refreshGameDayFeeds();
     } catch (err) {
       const serverMsg = err?.data?.error || err?.message || t("admin.alerts.unknownError");
       await swalAlert(t("admin.alerts.forfeitActionFailed", { action: approve ? t("admin.alerts.approve") : t("admin.alerts.reject"), message: serverMsg }));
@@ -1641,10 +1610,9 @@ export default function Admin(props) {
     <>
           {adminTab === "gameday" && (
             <GameDayTab
+              gameDayFeeds={gameDayFeeds}
+              onRefreshFeeds={refreshGameDayFeeds}
               disputes={disputes}
-              forfeits={forfeits}
-              staleGameDayMatches={staleGameDayMatches}
-              expiredFixtures={expiredFixtures}
               setResolveDialog={setResolveDialog}
               setSelectedWinner={setSelectedWinner}
               resolveForfeit={resolveForfeit}
@@ -2248,22 +2216,20 @@ export default function Admin(props) {
       </Dialog>
 
       {/* Resolve Dispute Dialog */}
-      <Dialog open={!!resolveDialog} onOpenChange={() => { setResolveDialog(null); setSelectedWinner(""); setResolutionScore({ home_score: "", away_score: "" }); }}>
-        <DialogContent className="bg-card border-border">
+      <Dialog open={!!resolveDialog} onOpenChange={() => { setResolveDialog(null);setResolutionPenalty(null); setSelectedWinner(""); setResolutionScore({ home_score: "", away_score: "" }); }}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto bg-card border-border">
             <DialogHeader><DialogTitle className="font-heading text-xl uppercase tracking-tight flex items-center gap-2"><Gavel className="w-5 h-5 text-primary" /> {t("admin.dialogs.resolveDispute")}</DialogTitle></DialogHeader>
           {resolveDialog && (() => {
             const m = resolveDialog.match;
-            const parseSub = (raw) => { try { return raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : null; } catch { return null; } };
-            const homeSub = parseSub(m.home_submission);
-            const awaySub = parseSub(m.away_submission);
-            const homeScore = homeSub ? `${homeSub.home_score} – ${homeSub.away_score}` : t("admin.actions.notSubmitted");
-            const awayScore = awaySub ? `${awaySub.home_score} – ${awaySub.away_score}` : t("admin.actions.notSubmitted");
-            const homeProof = homeSub?.proof_url;
-            const awayProof = awaySub?.proof_url;
+            const evidence=disputeEvidence(m);
+            const homeScore = evidence.sheets[0].score || t("admin.actions.notSubmitted");
+            const awayScore = evidence.sheets[1].score || t("admin.actions.notSubmitted");
             const homeChoiceValue = m.home_club_id || m.home_player_id || "home";
             const awayChoiceValue = m.away_club_id || m.away_player_id || "away";
             const chooseSubmittedScore = (choice) => {
-              const submission = choice === homeChoiceValue ? homeSub : awaySub;
+              const sheet = evidence.sheets[choice === homeChoiceValue ? 0 : 1];
+              const submission = sheet.score ? sheet.claim : null;
+              setResolutionPenalty(null);
               setSelectedWinner(choice);
               setResolutionScore({
                 home_score: submission?.home_score != null ? String(submission.home_score) : "",
@@ -2273,18 +2239,8 @@ export default function Admin(props) {
             return (
               <div className="space-y-4 mt-2">
                 <p className="text-sm text-muted-foreground"><strong className="text-foreground">{m.home_club_name || m.home_player_name}</strong> vs <strong className="text-foreground">{m.away_club_name || m.away_player_name}</strong></p>
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div className="bg-secondary rounded-lg p-3 text-center">
-                    <p className="text-muted-foreground text-xs mb-1">{m.home_club_name || m.home_player_name} {t("admin.dialogs.submitted")}</p>
-                    <p className="font-bold text-foreground text-lg">{homeScore}</p>
-                    {homeProof && <a href={homeProof} target="_blank" rel="noreferrer" className="text-[10px] text-primary underline block mt-1">{t("admin.actions.proof")}</a>}
-                  </div>
-                  <div className="bg-secondary rounded-lg p-3 text-center">
-                    <p className="text-muted-foreground text-xs mb-1">{m.away_club_name || m.away_player_name} {t("admin.dialogs.submitted")}</p>
-                    <p className="font-bold text-foreground text-lg">{awayScore}</p>
-                    {awayProof && <a href={awayProof} target="_blank" rel="noreferrer" className="text-[10px] text-primary underline block mt-1">{t("admin.actions.proof")}</a>}
-                  </div>
-                </div>
+                <DisputeEvidence match={m} />
+                <p className="text-xs text-muted-foreground">Choosing a side below prefills its original proposal. Review the separate dispute evidence and check the final score before confirming.</p>
                 <div>
                   <label className="label-xs">{t("admin.dialogs.acceptSubmissionFrom")}</label>
                   <Select value={selectedWinner} onValueChange={chooseSubmittedScore}>
@@ -2304,7 +2260,7 @@ export default function Admin(props) {
                         type="number"
                         min="0"
                         value={resolutionScore.home_score}
-                        onChange={e => setResolutionScore(score => ({ ...score, home_score: e.target.value }))}
+                        onChange={e => {setResolutionPenalty(null);setResolutionScore(score => ({ ...score, home_score: e.target.value }));}}
                         className="w-full bg-secondary border border-border rounded px-3 py-2 text-center text-lg font-bold text-foreground outline-none focus:border-primary/50"
                         placeholder="0"
                       />
@@ -2316,14 +2272,15 @@ export default function Admin(props) {
                         type="number"
                         min="0"
                         value={resolutionScore.away_score}
-                        onChange={e => setResolutionScore(score => ({ ...score, away_score: e.target.value }))}
+                        onChange={e => {setResolutionPenalty(null);setResolutionScore(score => ({ ...score, away_score: e.target.value }));}}
                         className="w-full bg-secondary border border-border rounded px-3 py-2 text-center text-lg font-bold text-foreground outline-none focus:border-primary/50"
                         placeholder="0"
                       />
                     </div>
                   </div>
                 </div>
-                <Button onClick={resolveDispute} disabled={!canResolveDisputeWithScore(selectedWinner, resolutionScore) || saving} className="w-full bg-primary text-primary-foreground leading-relaxed gap-2">
+                <AdminResolutionPenalty match={m} score={resolutionScore} side={selectedWinner} onChange={setResolutionPenalty} />
+                <Button type="button" onClick={resolveDispute} disabled={!canResolveDisputeWithScore(selectedWinner, resolutionScore) || !adminPenaltyReady(resolutionPenalty,resolutionPenaltyKey(m,resolutionScore,selectedWinner)) || saving} className="w-full bg-primary text-primary-foreground leading-relaxed gap-2">
                   <Gavel className="w-4 h-4" /> {saving ? t("admin.actions.savingDots") : t("admin.dialogs.confirmResolution")}
                 </Button>
               </div>
@@ -2652,8 +2609,7 @@ export default function Admin(props) {
         <AdminGamerLayout
           sectionKey={null}
           adminProfile={adminProfile}
-          disputes={disputes}
-          forfeits={forfeits}
+          gameDayFeeds={gameDayFeeds}
           players={players}
           clubs={clubs}
           tournaments={tournaments}
@@ -2662,8 +2618,7 @@ export default function Admin(props) {
           onRefresh={loadAll}
         >
           <AdminDashboardPanel
-            disputes={disputes}
-            forfeits={forfeits}
+            gameDayFeeds={gameDayFeeds}
             players={players}
             clubs={clubs}
             tournaments={tournaments}
@@ -2684,8 +2639,7 @@ export default function Admin(props) {
       <AdminGamerLayout
         sectionKey={adminTab}
         adminProfile={adminProfile}
-        disputes={disputes}
-        forfeits={forfeits}
+        gameDayFeeds={gameDayFeeds}
         players={players}
         clubs={clubs}
         tournaments={tournaments}

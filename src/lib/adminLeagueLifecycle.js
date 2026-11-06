@@ -26,11 +26,24 @@ export async function loadEditionFixtureCount(client, kind, edition) {
   }
 }
 
-export async function submitEditionLifecycle(client, kind, edition, action, reason, confirmed) {
+export async function submitEditionLifecycle(client, kind, edition, action, reason, confirmed, cycleId) {
   if (!edition?.id || !reason?.trim() || confirmed !== true) throw new Error('An exact edition, reason and confirmation are required.');
   return client.http.post(`/competition-views/${kind}/${encodeURIComponent(edition.id)}/lifecycle`, {
     action, reason: reason.trim(), confirmation: true,
+    ...(cycleId?{expected_regional_cycle_id:cycleId,season_number:edition.season_number}:{}),
   });
+}
+
+export async function loadCycleDrawInventory(client, cycle) {
+  const groups=cycle?.allocated_groups;
+  if(cycle?.status!=='allocated' || cycle.edition_invalidated || cycle.invalidated_at || !Array.isArray(groups) || !groups.length || groups.length>12 || groups.some(g=>typeof g?.id!=='string' || !g.id.trim()) || new Set(groups.map(g=>g.id)).size!==groups.length)throw new Error('A valid saved allocation is required to check league draws.');
+  return Promise.all(groups.map(async group=>{
+    const edition=await client.entities.RegionalLeague.get(group.id);
+    if(!edition || edition.id!==group.id || edition.regional_cycle_id!==cycle.id || edition.edition_invalidated || edition.invalidated_at || edition.region_slug!==cycle.region_slug || edition.platform!==cycle.platform || Number(edition.season_number)!==Number(cycle.season_number) || Number(edition.reset_series || 0)!==Number(cycle.reset_series || 0) || Number(edition.division)!==Number(group.division) || (edition.group_code || 'A')!==group.group_code || (edition.permanent_league_id || edition.id)!==group.permanent_league_id)throw new Error('The saved allocation and current groups disagree. Refresh and review the regional cycle.');
+    // Always inventory actual rows: a cached counter cannot authorize another draw.
+    const fresh=await loadEditionFixtureCount(client,'regional_league',{...edition,actual_fixtures_count:undefined});
+    return {...fresh,can_draw:!fresh.actual_fixtures_count && ['draft','setup','registration','seeded','active','in_progress'].includes(fresh.status)};
+  }));
 }
 
 export function managementPreviewReady(preview) {

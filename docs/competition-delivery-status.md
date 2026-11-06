@@ -1,6 +1,6 @@
 # Competition delivery status
 
-Updated 4 November 2026. This is the current delivery checklist for the user's
+Updated 5 November 2026. This is the current delivery checklist for the user's
 request to finish the approved competition programme. Read this before choosing
 the next implementation task or reporting overall completion.
 
@@ -39,6 +39,96 @@ activation remains separate from this field-selection automation.
 4 November follow-up: [automatic draft allocation](regional-auto-allocation-phase6.md)
 now converts final sporting rights into draft groups for newly captured qualifying
 cycles. First-cycle preparation and first-calendar publication remain open.
+
+The [allocation notification follow-up](regional-allocation-notifications-phase6.md)
+now stores exact-edition in-app notices transactionally with supported cycle
+allocation, respecting existing in-app club preferences.
+
+The [confirmation-week reminder follow-up](regional-confirmation-reminders-phase6.md)
+now stores one in-app opening notice for pending applications in newly captured
+windows. It respects preferences, atomically records a receipt and exposes
+stored/muted/pending Admin counts. Other reminder events, email/push delivery and
+first-calendar automation remain separate. The recovery follow-up now gives these
+notices stored two-minute leases, stale-attempt protection, fifteen-minute failure
+backoff and scoped Admin review. Notice receipts still prevent duplicate storage;
+closed windows never reopen for retry. 301 selected regressions and the required
+local checks pass; real MySQL/JWT/browser/live verification remains open.
+
+The [saved allocation → calendar handoff](regional-cycle-calendar-handoff-phase6.md)
+now links the action overview and saved cycle directly to its complete stored
+group selection. The existing calendar action derives IDs server-side, validates
+the allocation and binds it to the preview revision. Drawing fixtures, selecting
+the first playing Monday and reviewed publication remain explicit actions. This
+does not close the first-calendar automation or outstanding date-policy gates.
+The follow-up in that handoff now inventories actual group fixtures and exposes
+the existing audited draw action beside each empty group, with explicit reason,
+confirmation and a server-side allocation-pointer recheck. Existing draws are
+preserved; failed/uncertain responses require fresh inventory before retry.
+333 selected server regressions and eight frontend-helper tests pass locally.
+
+The [calendar notification follow-up](regional-calendar-notifications-phase6.md)
+now stores one transactional notice per club with an exact edition/Stages link,
+canonical current-president contact and existing match in-app preferences.
+Published calendars capture stored/muted counts; old calendars are not backfilled.
+338 selected server regressions and required local checks pass. This does not add
+email/push delivery, extra reminder schedules or live-verification evidence.
+
+The [regional result-review overview](regional-result-overview-phase6.md) now
+surfaces stored disputed/Admin-review matches from active leagues, pathways and
+Cups, with exact GameDay evidence and existing general dispute-control links.
+It does not infer deadlines or decide outcomes. 341 selected server regressions
+and a final 15-test operations run pass; live/browser verification remains open.
+The focused-review follow-up in that handoff now loads the exact canonical match
+via `/admin/disputes?match=…`, independently of the general list's first fifty
+records. Resolved/failed reads cannot offer a guessed decision. Existing single-
+match reads support both stored Admin roles; nonparticipant restrictions remain.
+347 selected server regressions and three frontend-helper tests pass locally.
+The evidence follow-up in the same handoff now shows original proposals and
+separate dispute sheets (screenshots, explanations, claimed scores and timestamps)
+in both the review page and existing decision dialog. Eight focused frontend
+tests, including static rendering, pass; actual browser/mobile QA remains open.
+The [Admin snapshot follow-up](admin-result-review-snapshot-phase6.md) now binds
+new dialog decisions to the reviewed evidence. Changed proposals/dispute sheets/
+state reject before applying a result; formatting and operational reminders do
+not create false conflicts. Legacy API callers without a snapshot retain prior
+behaviour. 348 selected server regressions and 19 frontend tests pass locally.
+The [explicit Admin penalty follow-up](admin-result-penalties-phase6.md) now
+verifies the entered final score against existing server deciding-leg/aggregate
+context and requires an explicit penalty winner where applicable. Ordinary results
+explicitly clear obsolete penalty fields. 358 selected server regressions and
+30 frontend tests pass; browser/live verification remains open.
+The [GameDay conditions notice](official-result-conditions-phase6.md) now shows
+verified captured v1/v2 result terms and the current proposal/correction response
+deadline in local time. Older editions are not upgraded; missing dates do not
+invent deadlines or results. 358 selected server regressions and 35 frontend tests pass locally;
+browser/live verification and the remaining submission policies stay open.
+The [public edition-conditions follow-up](public-edition-conditions-phase6.md)
+now exposes the selected league's exact linked conditions and the Cup's embedded
+snapshot through their existing rules views. Missing/legacy/mismatched sources
+never inherit current terms. 365 selected server regressions and 37 frontend
+tests pass locally; the full rules/tutorial and browser/live audits remain open.
+The accessibility follow-up in the [result-review handoff](regional-result-overview-phase6.md)
+now uses a labelled modal evidence preview with opener-focus restoration and
+image-load fallback links. 38 selected frontend tests pass; real browser/mobile
+keyboard/focus checks remain explicitly open.
+The [bounded Admin review list](admin-review-pagination-phase6.md) now loads its
+own authenticated cursor pages, distinguishes load failures from verified emptiness
+and opens each row through exact-match review. The new read-only route is tested
+over local HTTP for both Admin roles, page boundaries and denied/failed reads.
+366 selected server regressions and 40 frontend tests pass; browser/live and the
+other dashboard-feed audits remain open.
+The [GameDay review summary](admin-review-summary-phase6.md) now shares the
+bounded review list’s pending predicate and displays a full count plus ten-case
+preview. Unavailable reads remain unknown; exact-match links mount Disputes.
+Eight controller tests and 44 selected frontend/render tests pass for this step;
+other dashboard categories and real database/browser/live checks remain open.
+The [shared Admin GameDay feeds](admin-action-feeds-phase6.md) now cover the other
+three GameDay categories and the shell/dashboard counts too. Independent failure
+states, full fixture paging and a shared unknown-until-verified total replace the
+catch-to-empty feeds. Named views and query tabs open their associated lists.
+Nine controller and 58 frontend/helper/render tests pass locally. Other Admin
+inventories, legacy Match-read scaling, concurrent live paging and real database/
+browser/deployment validation remain open.
 
 - Structure and normal promotion/growth tables for
   20/40/60/80/100/120/180/240 clubs: masterplan §§4–5, confirmed 2 November.

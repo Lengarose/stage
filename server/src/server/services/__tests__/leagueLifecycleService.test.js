@@ -11,7 +11,7 @@ function fixture(kind = 'regional_league', count = 4) {
   state.roots.edition = structuredClone(root);
   state.roots.permanent = { id: 'permanent', status: 'active' };
   state.roots.gost = { id: 'gost', name: 'Supreme', slug: 'supreme', tier: 1, status: 'active', trophy_item_id: 'permanent-cup', rules: 'Permanent rules' };
-  let failInsert = 0, queue = Promise.resolve();
+  let failInsert = 0, queue = Promise.resolve(),onCapture=()=>{};
   const users = { admin: { id: 'admin', email: 'real@admin.test', role_id: 2 }, super: { id: 'super', role_id: 0 }, player: { id: 'player', role_id: 1 } };
   const clubs = root.registered_club_ids.map(id => ({ id, name: id }));
   state.standings = clubs.map((c, i) => ({ id: `standing-${i}`, club_id: c.id, club_name: c.name, league_id: root.id, season_id: root.id }));
@@ -67,11 +67,29 @@ function fixture(kind = 'regional_league', count = 4) {
       return { advanced: true, next_phase: 'completed' };
     });
   } };
-  const service = createLifecycleService({ withTransaction, scopeModel, engine, prizes: { capture: async () => { state.captures++; return { config: {} }; } }, allowTestMode: true });
+  const service = createLifecycleService({ withTransaction, scopeModel, engine, prizes: { capture: async () => { state.captures++;onCapture(); return { config: {} }; } }, allowTestMode: true });
   return { service, clubs, kind, get state() { return state; }, root: () => state.roots.edition,
-    failAt: n => { failInsert = n; }, draw: (body = {}, actor = { id: 'admin' }) => service.action(kind, 'edition', { action: 'draw', ...body }, actor),
+    failAt: n => { failInsert = n; },onCapture:fn=>{onCapture=fn;}, draw: (body = {}, actor = { id: 'admin' }) => service.action(kind, 'edition', { action: 'draw', ...body }, actor),
     action: (action, body = {}) => service.action(kind, 'edition', { action, ...body }, { id: 'admin' }) };
 }
+
+test('calendar-context draws bind to the stored allocation before and after reward capture',async()=>{
+  const body={expected_regional_cycle_id:'cycle',confirmation:true,reason:'Reviewed calendar preparation'};
+  for(const change of [f=>{f.root().regional_cycle_id='other';},f=>{f.root().edition_invalidated=true;},f=>{f.root().invalidated_at='reset';}]) {
+    const f=fixture();f.root().regional_cycle_id='cycle';change(f);await assert.rejects(f.draw(body),/valid regional allocation/);assert.equal(f.state.captures,0);assert.equal(f.state.fixtures.length,0);
+  }
+  const f=fixture();f.root().regional_cycle_id='cycle';f.onCapture(()=>{f.root().regional_cycle_id='changed';});
+  await assert.rejects(f.draw(body),/allocation changed/);assert.equal(f.state.fixtures.length,0);assert.equal(f.state.audits.length,0);
+  const valid=fixture('regional_league',20);valid.root().regional_cycle_id='cycle';const result=await valid.draw(body);
+  assert.equal(result.fixtures_created,380);assert.equal(valid.state.captures,1);assert.equal(valid.state.audits.length,1);assert.ok(valid.state.fixtures.every(row=>row.status==='unscheduled'));
+  await assert.rejects(valid.draw(body),/already exist/);assert.equal(valid.state.fixtures.length,380);
+});
+test('cycle-context draw guards cannot bypass permissions, confirmation or supported action types',async()=>{
+  const f=fixture();f.root().regional_cycle_id='cycle';
+  for(const body of [{expected_regional_cycle_id:''},{expected_regional_cycle_id:'cycle',confirmation:true},{expected_regional_cycle_id:'cycle',reason:'Reason'}])await assert.rejects(f.draw(body),{status:400});
+  await assert.rejects(f.draw({expected_regional_cycle_id:'cycle',confirmation:true,reason:'Review'},{id:'player',role_id:0}),{status:403});
+  await assert.rejects(f.action('complete',{expected_regional_cycle_id:'cycle',confirmation:true,reason:'Review'}),{status:400});assert.equal(f.state.captures,0);
+});
 
 test('a captured source cannot independently draw, complete or abandon its season',async()=>{
   const env=fixture();env.root().pending_regional_cycle_id='captured';
@@ -324,7 +342,11 @@ test('lifecycle HTTP route exercises draw, completion, abandonment and rollover 
   }
   try {
     assert.equal((await post('regional_league', 'draw', {}, 'player')).status, 403);
-    assert.equal((await post('regional_league', 'draw')).data.fixtures_created, 12);
+    regional.root().regional_cycle_id='cycle';
+    const context={expected_regional_cycle_id:'cycle',confirmation:true,reason:'Reviewed calendar draw'};
+    assert.equal((await post('regional_league','draw',{...context,expected_regional_cycle_id:'stale'})).status,409);
+    assert.equal(regional.state.captures,0);
+    assert.equal((await post('regional_league', 'draw',context)).data.fixtures_created, 12);
     assert.equal((await post('regional_league', 'draw')).status, 409);
     assert.equal((await post('regional_league', 'complete')).status, 409);
     assert.equal((await post('regional_league', 'abandon', { confirmation: true, reason: 'Isolated fixture cancellation' })).status, 200);

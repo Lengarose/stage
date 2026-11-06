@@ -134,6 +134,8 @@ function createLifecycleService(options = {}) {
   async function action(kind, id, body = {}, actor) {
     if (!['regional_league', 'competition_season'].includes(kind)) fail('Unsupported competition kind', 400);
     if (!id || !body || !['draw', 'complete', 'abandon', 'rollover'].includes(body.action)) fail('Expected draw, complete, abandon or rollover action', 400);
+    const cycleId=body.expected_regional_cycle_id;
+    if(cycleId!==undefined && (kind!=='regional_league' || body.action!=='draw' || typeof cycleId!=='string' || !cycleId.trim() || body.confirmation!==true || !String(body.reason || '').trim()))fail('A cycle-context draw requires an exact regional cycle, confirmation and reason',400);
     // Authenticate before allocating the mutex; never trust role/email from the request.
     await transaction(query => admin(query, actor));
     return withMutex(async () => {
@@ -141,6 +143,7 @@ function createLifecycleService(options = {}) {
         const user = await admin(query, actor);
         const scope = await model.selectOne(kind, id, query, true);
         const { root } = scope;
+        if(cycleId!==undefined && (root.regional_cycle_id!==cycleId || root.edition_invalidated || root.invalidated_at))fail('The selected group no longer belongs to this valid regional allocation; refresh before drawing');
         if(kind==='regional_league' && root.pending_regional_cycle_id)fail('This edition is a captured source of a regional cycle; finish or reset that whole cycle before changing its lifecycle');
         if (String(root.id) !== String(id)) fail('Selected edition does not match the lifecycle target');
         if (body.edition_id != null && String(body.edition_id) !== String(scope.edition_id)) fail('Selected edition changed; reload before continuing');
@@ -188,6 +191,7 @@ function createLifecycleService(options = {}) {
       return transaction(async query => {
         await admin(query, actor);
         const fresh = await model.selectOne(kind, id, query, true);
+        if(cycleId!==undefined && (fresh.root.regional_cycle_id!==cycleId || fresh.root.edition_invalidated || fresh.root.invalidated_at))fail('The regional allocation changed before fixture generation; refresh before drawing');
         await assertParentNotRetired(query, kind, fresh.root);
         if (fresh.fixtures.length || fresh.matches.length || terminal.includes(fresh.root.status)) fail('Edition changed before fixture generation');
         validateRoster(fresh, body, user, options.allowTestMode === true);

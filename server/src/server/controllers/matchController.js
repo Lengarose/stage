@@ -580,7 +580,7 @@ router.get('/', async (req, res) => {
     const match = new Match();
     const auth = await getAuthContext(req);
     if (!auth) return res.status(403).json({ error: 'Forbidden' });
-    const isAdmin = auth.roleId === 0;
+    const isAdmin = isAdminRole(auth);
     if (!isAdmin && !hasOwnScope(auth)) return res.status(403).json({ error: 'Forbidden' });
     let result;
 
@@ -690,12 +690,35 @@ router.get('/profile', async (req, res) => {
   }
 });
 
+// Bounded Admin review view; keep before /:id so "reviews" is not a match ID.
+router.get('/reviews',async(req,res)=>{
+  try {
+    const auth=await getAuthContext(req);
+    if(!isAdminRole(auth))return res.status(403).json({error:'Admin result-review access required'});
+    const limit=Number(req.query.limit ?? 50),cursor=req.query.cursor ?? '';
+    if(!Number.isInteger(limit) || limit<1 || limit>50 || typeof cursor!=='string' || cursor.length>128 || cursor!==cursor.trim() || /[\u0000-\u001f\u007f]/.test(cursor))return res.status(400).json({error:'Invalid review pagination'});
+    const rows=await new Match().selectResultReviewPage(cursor,limit);
+    const items=rows.slice(0,limit),has_more=rows.length>limit;
+    return res.json({items:await enrichMatchRows(items),has_more,next_cursor:has_more?items.at(-1).id:null});
+  }catch {return res.status(500).json({error:'The result-review list could not be loaded. Retry or contact Admin.'});}
+});
+
+router.get('/reviews/summary',async(req,res)=>{
+  try {
+    if(!isAdminRole(await getAuthContext(req)))return res.status(403).json({error:'Admin result-review access required'});
+    const rows=await new Match().selectResultReviewSummary(),total=rows.length?Number(rows[0].review_total):0;
+    if(!Number.isSafeInteger(total) || total<rows.length)throw Error('Invalid stored review count');
+    const items=rows.map(row=>{const match={...row};delete match.review_total;return match;});
+    return res.json({total,items:await enrichMatchRows(items),as_of:new Date().toISOString()});
+  }catch {return res.status(500).json({error:'The result-review summary could not be loaded. Retry or contact Admin.'});}
+});
+
 // GET /:id
 router.get('/:id', async (req, res) => {
   try {
     const auth = await getAuthContext(req);
     if (!auth) return res.status(403).json({ error: 'Forbidden' });
-    const isAdmin = auth.roleId === 0;
+    const isAdmin = isAdminRole(auth);
     if (!isAdmin && !hasOwnScope(auth)) return res.status(403).json({ error: 'Forbidden' });
     const match  = new Match();
     const result = await match.selectOne(req.params.id);

@@ -18,6 +18,27 @@ function report(rows,fixtures,now=new Date()) {
     }catch {if(row.entity_type==='season_registration')registrationSourcesComplete=false;add(row,'unreadable_source','review','Source data cannot be read. Review the stored edition.','sources');}
   }
   const active=records.filter(r=>!r.edition_invalidated && !r.invalidated_at && !closed.has(r.status));
+  const resultSources=new Map();
+  for(const match of fixtures) {
+    if(!match.id || !(match.status==='disputed' || ['ADMIN_REVIEW','DISPUTED'].includes(match.result_state)))continue;
+    const source=active.find(r=>r.id===match.competition_instance_id && (
+      r.entity_type==='regional_league' && ['in_progress','active'].includes(r.status) ||
+      r.entity_type==='regional_cycle' && ['running','review','ready'].includes(r.status) ||
+      r.entity_type==='regional_cup_edition' && r.status==='running' && r.play_enabled));
+    if(!source)continue;
+    const parent=source.permanent_league_id?records.find(r=>r.entity_type==='regional_league' && r.id===source.permanent_league_id):null;
+    if(source.retired || source.retired_at || parent && (parent.retired || parent.retired_at || closed.has(parent.status) || Number(parent.active_reset_series || parent.reset_series || 0)>Number(source.reset_series || 0)))continue;
+    if(!resultSources.has(match.id))resultSources.set(match.id,new Map());
+    resultSources.get(match.id).set(source.id,source);
+  }
+  for(const [matchId,sources] of resultSources) {
+    if(sources.size!==1) {
+      for(const source of sources.values())add(source,`result_mapping:${matchId}`,'review','A result-review match maps to multiple active regional sources. Review fixture identity before deciding a result.','sources');
+    }else {
+      const source=[...sources.values()][0];
+      add(source,`result_review:${matchId}`,'review','A stored result is disputed or awaiting Admin review. Open the match evidence and use the existing dispute controls; this overview does not approve scores or award a winner.','results',{match_id:matchId});
+    }
+  }
   for(const r of active) {
     if(r.entity_type==='regional_cycle_progress' && r.status==='review_required') {
       const source=active.find(s=>s.entity_type==='regional_cycle' && s.id===r.source_id);
@@ -37,7 +58,18 @@ function report(rows,fixtures,now=new Date()) {
       const state=phase(r,now),apps=active.filter(a=>a.entity_type==='season_registration' && a.registration_window_id===r.id);
       const confirmed=apps.filter(a=>a.participation_status==='confirmed' && a.status==='approved');
       if(active.some(s=>s.entity_type==='regional_league' && s.region_slug===r.region_slug && s.platform===r.platform && Number(s.season_number)===Number(r.season_number) && Number(s.reset_series || 0)===Number(r.reset_series || 0) && !['draft','registration'].includes(s.status)))continue;
-      if(state==='confirmation')add(r,'confirmation_open','action',`Confirmation week is open: ${confirmed.length} of ${apps.length} registrations confirmed. No deadline extensions are granted here.`,'registration');
+      if(state==='confirmation') {
+        const notices=r.confirmation_notice_policy_version==='regional_confirmation_notice_v1'?{
+          stored:apps.filter(a=>a.confirmation_notice?.version==='regional_confirmation_notice_v1' && a.confirmation_notice.status==='stored').length,
+          muted:apps.filter(a=>a.confirmation_notice?.version==='regional_confirmation_notice_v1' && a.confirmation_notice.status==='muted').length,
+          pending:apps.filter(a=>a.status==='pending' && a.participation_status==='registered' && !(a.confirmation_notice?.version==='regional_confirmation_notice_v1' && ['stored','muted'].includes(a.confirmation_notice.status))).length,
+        }:null;
+        add(r,'confirmation_open','action',`Confirmation week is open: ${confirmed.length} of ${apps.length} registrations confirmed. No deadline extensions are granted here.`,'registration',notices?{confirmation_notices:notices}:{});
+        if(notices) {
+          const failed=apps.filter(a=>a.status==='pending' && a.participation_status==='registered' && !(a.confirmation_notice?.version==='regional_confirmation_notice_v1' && ['stored','muted'].includes(a.confirmation_notice.status)) && active.some(j=>j.entity_type==='regional_confirmation_notice_progress' && j.source_id===a.id && j.status==='review_required'));
+          if(failed.length)add(r,'confirmation_notice_review','review',`${failed.length} confirmation notice(s) require review. Check the pending applications and president contacts. Automatic retries do not extend the confirmation deadline.`,'registration');
+        }
+      }
       if(state==='closed' && !active.some(c=>c.entity_type==='regional_cycle' && c.participation_window_snapshot?.id===r.id)) {
         if(r.policy_version) {
           const assessment=assessField(r,apps,now,{sourceComplete:registrationSourcesComplete});
