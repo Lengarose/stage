@@ -1,6 +1,6 @@
 # Competition delivery status
 
-Updated 5 November 2026. This is the current delivery checklist for the user's
+Updated 6 November 2026. This is the current delivery checklist for the user's
 request to finish the approved competition programme. Read this before choosing
 the next implementation task or reporting overall completion.
 
@@ -10,13 +10,34 @@ appendices supersede earlier status descriptions; they do not erase provenance.
 Local implementation, successful tests, deployment, and live verification are
 separate milestones. No production repair or deployment is recorded here.
 
+## Original eight-phase position — 6 November follow-up
+
+The nine work packages below are a delivery checklist, not replacement phase
+numbers. The original phases remain masterplan §24. All are partial until their
+listed acceptance evidence is available; no overall completion is claimed.
+
+| Original phase | Current local position | Still missing |
+| --- | --- | --- |
+| 1 — Identity and lifecycle | Existing permanent identities, edition/trophy inheritance and reviewed reset/repair tooling retained | Exact live-ID dependency preview and separately authorized repair/deployment; verify the original Premier/NA identities survive. |
+| 2 — Sporting structure | Existing supported fields, placement, promotion and growth engines retained | Complete end-to-end season evidence; unresolved shrinkage/unsupported counts and 180→240 calendar stay blocked. |
+| 3 — Participation and eligibility | Captured registration/confirmation, personal Plus/minimum-three and initial/recurring automation connected | Explicit reserve invitation/priority implementation, remaining transfer/Cup-tied/player enforcement and unresolved premium/payment exceptions. |
+| 4 — Calendar and match procedures | Existing 2–2 semantic confirmation, result review, calendars and selections retained; European rescheduling and automatic normal promotion semifinal publication added | Newly confirmed withdrawal/no-show package still needs full result/stat integration; remaining interruption procedures, player conflicts and other tournament scheduling remain open. |
+| 5 — Regional Cups and rewards | Existing Cup draw/progression/settlement retained; accepted Cup creation/preparation/activation connected to new captured season startup | Growth funding/refund/compensation exceptions and real persisted settlement acceptance. |
+| 6 — Orchestration and Admin | First canonical cycle preparation, allocation handoff, exact group draws, first league calendar, next registration and accepted Cup startup now connected to durable workers; normal promotion semifinals/final connected | Remaining reserve and exception branches; full unattended season-to-season acceptance. Initial activation alone does not close this phase. |
+| 7 — Pages and guidance | Existing approved designs preserved; registration automation, promotion explanation and GameDay rescheduling use English copy | Full route/rule/tutorial coverage and actual mobile/browser verification. |
+| 8 — Acceptance and handover | Local regression/HTTP evidence and feature handoff recorded | Complete isolated season with real MySQL/JWT where available, browser evidence, final navigation guide and separately authorized production transition. |
+
+Implementation and locations: [season orchestration and rescheduling](regional-season-orchestration-phase6.md).
+Actual MySQL/JWT/browser acceptance has not run. MySQL/Docker executables and
+Graphify are unavailable in this checkout; no production substitute was used.
+
 ## Delivery checklist
 
 | Work package | Existing local work to preserve | Remaining acceptance evidence |
 | --- | --- | --- |
 | 1. Decisions and delivery tracking | Masterplan and phase handoffs; this checklist | Keep open decisions below current as each package progresses. |
-| 2. Regional season orchestration | Stable league/edition identity, supported structure and growth plans, placement/transition engines, published registration and confirmation windows, official calendar planners, durable Cup/cycle recovery, automatic promotion final and automatic draft-group allocation for newly captured official cycles | Connect the complete approved lifecycle, reminders and rollover with durable retries and visible exceptions; exercise confirmation cutoff through the following edition. Existing recovery does not automatically prepare the first cycle or publish the first calendar. Legacy cycles retain reviewed manual allocation. |
-| 3. Match procedures | Semantic score confirmation fix, canonical result evidence, tie decision engine, official selection/preparation, calendar guards; newly published regional windows capture 24-hour response/Admin-review policy with periodic deadline scan | Resolve remaining submission/rescheduling/absence/interruption/withdrawal policy gaps; verify disputes, expiry, corrections and downstream invalidation together. Legacy editions retain their captured conditions. |
+| 2. Regional season orchestration | Stable league/edition identity, sporting engines, registration/confirmation, durable recovery; new captured windows connect canonical preparation, allocation, group draws, first calendar, recurring registration and accepted Cup startup; normal promotion semifinal/final follow-up | Complete reserve/exception branches and exercise the whole season through the following edition. Missing explicit dates/placement calendar policy stay visible blockers. Legacy cycles retain their accepted reviewed actions. |
+| 3. Match procedures | Semantic score confirmation fix, evidence, tie engine, official selection/preparation, calendar guards and 24-hour Admin-review policy; captured European editions now have request/opponent-response rescheduling with approval-only quota | Implement confirmed absence/withdrawal consequences; finish remaining interruption/submission exceptions and verify corrections/downstream invalidation together. Legacy editions retain their captured conditions. |
 | 4. Eligibility and access | Registrar/player personal Plus, minimum three, starters/reserves, readiness/lock and captured kickoff eligibility | Cross-region earned-tier transfers, transfer windows and Cup-tied enforcement; individual cross-event conflicts; agreed premium feature matrix and payment outage handling. |
 | 5. Rewards and financial exceptions | Existing league/GOST reward flows, permanent Cup trophy assignments, captured Cup prizes, audited settlement/ledger/trophy recovery | Budget checks at growth, entry fees/refunds/compensation and ambiguous historical promises; verify real persisted recovery without duplicate payments or awards. |
 | 6. Pages, rules and guidance | Approved competition designs, directory lists, white text tabs, contextual regional participation, edition rules, public Cup pages, Admin action overview; role tutorials updated in this session | Audit every relevant route and Guide against actual controls; align rule versions and short contextual tutorials; browser/mobile/accessibility checks; English default-copy audit. Preserve useful existing Lifestyle and onboarding content. |
@@ -129,6 +150,12 @@ catch-to-empty feeds. Named views and query tabs open their associated lists.
 Nine controller and 58 frontend/helper/render tests pass locally. Other Admin
 inventories, legacy Match-read scaling, concurrent live paging and real database/
 browser/deployment validation remain open.
+The [bounded forfeit review follow-up](admin-forfeit-pagination-phase6.md) replaces
+the unbounded pending-claim read with a full-count/ten-record summary and an
+independent fifty-record cursor list. Exact rereads plus a locked optional claim
+snapshot protect new Admin decisions, including records outside the preview.
+Ten Match-controller, two selected action tests and 65 frontend/helper/render
+tests pass. Stuck-feed scaling and actual MySQL/JWT/browser/live checks remain open.
 
 - Structure and normal promotion/growth tables for
   20/40/60/80/100/120/180/240 clubs: masterplan §§4–5, confirmed 2 November.
@@ -153,6 +180,29 @@ browser/deployment validation remain open.
 - English default app copy, contextual registration, clear user/Admin rules and
   short useful tutorials, plus a final navigation/operation handover.
 
+### Additional confirmations — 6 November 2026
+
+Do not ask these again. Masterplan §§3–5/7–8/10/15 retain the exact wording.
+- Up to 48 hours of reserve supplementation, two initial-placement weeks,
+  twelve playing weeks plus one transition week, final calendar at least
+  48 hours before first kickoff; concrete launch dates are configured by Admin.
+- Subsequent registration in weeks 5–8, confirmation in week 9, reserves at
+  the start of week 10; next league after the transition week.
+- Vacancies: losing D2 promotion finalists first, then highest remaining
+  nonpromoted positions; stored draw for equivalent candidates across groups.
+  Sporting rights preserved; unapproved shrinkage remains review.
+- European rescheduling package: two approved requests per club/edition,
+  charged only to requester on approval, original kickoff request lead 48h,
+  opponent response 24h, agreement at least 24h before new kickoff, same week,
+  Mon–Fri 20:00/20:40 or Sat 18:00–21:00 Europe/Brussels. No silence approval;
+  North America and round-37/38 exceptions are not decided by this package.
+- Forfeit/no-show and withdrawal package in §10 is now confirmed; interruption/
+  EA resumption capabilities still require their own policy/evidence.
+- One official club, between-season/week-6 transfer window, restricted free-player
+  outside-window entry, Cup-tied after actual Cup play, sanctions follow players.
+
+Confirmation is not a claim that all these packages have been implemented.
+
 ## Open policy and activation gates
 
 Only the dependent action waits for a missing decision. Continue independent
@@ -160,12 +210,12 @@ implementation. A historic isolated A/B answer is not evidence of its question.
 
 | Gate | Needed before |
 | --- | --- |
-| Unsupported confirmation counts, waiting-list priority, vacancies/shrinkage | Automatically selecting a season field; current service correctly refuses to silently omit confirmed clubs. |
-| Absolute launch dates and placement/transition blocks within the twelve-week cycle | Publishing the launch and enabling full calendar orchestration. |
+| Unsupported confirmation counts, waiting-list admission and shrinkage | Automatically selecting those fields; the confirmed vacancy order is recorded above but its complete reserve invitation flow remains implementation work. Current service refuses to silently omit confirmed clubs. |
+| Admin-configured absolute launch dates and exact initial-placement/extra-decision slots | Publishing those calendars. Twelve playing weeks plus transition and recurring weeks 5–9 are confirmed; do not ask again. |
 | North American days, hours and timezone | Activating its official calendar. European approval does not apply automatically. |
 | 180 → 240 additional five-game expansion calendar | Activating that growth route. |
-| Remaining submission deadline, rescheduling, outage, withdrawal and disciplinary details | Automating those decisions. The 24-hour no-response → Admin-review rule is now confirmed and locally implemented for newly published regional conditions. |
-| Cross-region priority/pause rights, player transfer/Cup-tied details | Enforcing those precise eligibility rules. |
+| Remaining submission, interruption/outage and disciplinary details; round-37/38 and North American rescheduling exceptions | Automating those exceptions. Ordinary European rescheduling and the §10 withdrawal/no-show package are confirmed; withdrawal integration remains implementation work. |
+| Cross-region priority/pause rights | Enforcing those precise cross-region rights. The player transfer/Cup-tied package is confirmed, with enforcement still to complete. |
 | Premium feature matrix, payment outages, fees/refunds and growth budgets | Changing access or making new financial promises. |
 | EA match settings/resumption capabilities and available evidence | Promising automatic restart/resume behaviour. Verify primary sources when researching. |
 
@@ -207,3 +257,17 @@ erase a legitimate edition or replace a real historical trophy snapshot.
 - Overall completion requires all applicable acceptance evidence above, a recorded
   deployment state, and the final navigation/operation guide. Passing one package
   does not mean the whole programme is finished.
+
+### Final local evidence for the 6 November orchestration follow-up
+
+- 401 selected server regressions pass, including new rescheduling local HTTP,
+  captured automatic preparation/draw/calendar/Cup and promotion integration.
+  The two previously recorded functionsController baseline cases remain outside
+  this selection; it is not a claim that the full server suite passes.
+- Lint, typecheck, `node --check server/src/server.js`, frontend production build
+  and `git diff --check` pass after the code changes.
+- 32 targeted frontend/admin/tutorial tests pass, recorded in
+  `/private/tmp/programme-frontend.log`; these are helper/render tests, not actual
+  browser operation. Server evidence: `/private/tmp/programme-regressions.log`.
+- `graphify update .` was attempted and failed because the executable is absent.
+- No MySQL/JWT full-season acceptance or production operation was performed.

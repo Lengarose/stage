@@ -101,7 +101,8 @@ async function sources(input,query, cycleId = null, resolveSourceTies = false) {
       const integrity=require('../lib/standingIntegrity').reviewStandings(scope);
       if(integrity.requires_review)fail('Source standings do not match the confirmed league results',409,integrity);
       const roster=list(scope.root.registered_club_ids);
-      if(roster.length!==20 || scope.fixtures.length!==380 || scope.matches.length!==380 || scope.matches.some(m=>!m.match_id || !isConfirmedResult(m)))fail('A source group needs twenty clubs and all 380 confirmed official league matches');
+      if(roster.length!==20 || scope.fixtures.length!==380 || scope.matches.length!==380 || scope.matches.some(m=>!m.match_id))fail('A source group needs twenty clubs and all 380 confirmed official league matches');
+      if(scope.matches.some(m=>!isConfirmedResult(m))){const error=new Error('A source group needs twenty clubs and all 380 confirmed official league matches');error.status=409;error.code='REGIONAL_SOURCE_RESULTS_PENDING';throw error;}
       const pairs=scope.matches.map(m=>`${m.home_club_id}:${m.away_club_id}`);
       if(new Set(pairs).size!==380 || scope.matches.some(m=>!roster.includes(m.home_club_id)||!roster.includes(m.away_club_id)||m.home_club_id===m.away_club_id))fail('The source league schedule is incomplete or contains duplicate/foreign pairings');
       const fixtures=scope.matches.map(m=>({ref:m.id,home:m.home_club_id,away:m.away_club_id}));
@@ -131,8 +132,8 @@ function calculate(input, evidence, seed, results=[], tieVersion=policy.TIE_VERS
   return input.mode==='placement' ? policy.placement(input.target_count,[...evidence.ids,...evidence.newcomers],seed,results,options)
     : policy.transition(evidence.ids.length,input.target_count,evidence.rankings,evidence.newcomers,seed,results,options);
 }
-async function preview(body,actor,query=EXECUTESQL) {
-  await editions.admin(actor,query);
+async function preview(body,actor,query=EXECUTESQL,automatic=false) {
+  if(!automatic)await editions.admin(actor,query);
   const input=request(body), evidence=await sources(input,query,null,true);
   const id=stableId(['regional_cycle',evidence.region_slug,evidence.platform,evidence.reset_series,evidence.season_number]);
   const existing=await model.selectOne(id,query);
@@ -145,7 +146,7 @@ async function preview(body,actor,query=EXECUTESQL) {
     structure:policy.structure(input.target_count),initial_fixtures:plan.fixtures.length,blockers,region_slug:evidence.region_slug,platform:evidence.platform,season_number:evidence.season_number,reset_series:evidence.reset_series,
     confirmed_participants:evidence.ids.length+evidence.newcomers.length,automatic_allocation:autoAllocation.capturesAutomaticAllocation(evidence.participation?.window),financial_mutations:false};
 }
-async function prepare(body,actor) {
+async function applyPreparation(body,actor,automatic=false) {
   if (Object.hasOwn(body,'registration_window_id')) {
     if (Object.keys(body).some(key => key !== 'registration_window_id')) fail('A confirmed-field request only accepts its registration window. Review the returned preview before applying its canonical input.',400);
     const input=await require('./regionalConfirmedCycleService').inputForWindow(body.registration_window_id,actor);
@@ -154,7 +155,7 @@ async function prepare(body,actor) {
   if(body.apply!==true)return withTransaction(query=>preview(body,actor,query));
   if(!String(body.reason || '').trim())fail('An administrative reason is required',400);
   return withTransaction(async query=>{
-    const user=await editions.admin(actor,query);await editions.model.lock(query);
+    const user=automatic?{id:null,email:null}:await editions.admin(actor,query);await editions.model.lock(query);
     const input=request(body);
     // A timeout retry may arrive after allocation moved every current pointer.
     // Resolve its established operation before requiring fresh source editions.
@@ -175,7 +176,8 @@ async function prepare(body,actor) {
       if(hash(existing.input)!==hash(input))fail('A different regional cycle already occupies this target season');
       return {already_applied:true,cycle:existing};
     }
-    const report=await preview(body,actor,query);
+    if(automatic && !require('../lib/regionalSeasonOrchestrationPolicy').enabled({...evidence.participation?.window,status:'published'}))fail('Automatic preparation requires captured current participation conditions.');
+    const report=await preview(body,actor,query,automatic);
     if(report.revision!==body.expected_revision)fail('Regional sources changed since preview; review again');
     if(report.blockers.length)fail('Regional cycle activation requires review',409,report.blockers);
     const seed=crypto.randomBytes(32).toString('hex');
@@ -186,6 +188,7 @@ async function prepare(body,actor) {
     cycle.structure_snapshot=policy.structure(input.target_count);
     cycle.registration_snapshot=[...evidence.registrations,...evidence.sourceRegistrations];
     cycle.participation_window_snapshot=evidence.participation?.window || null;
+    if(automatic)cycle.preparation_mode='automatic_followup';
     if(autoAllocation.capturesAutomaticAllocation(cycle.participation_window_snapshot))cycle.automatic_allocation_policy_version=autoAllocation.VERSION;
     await model.create(cycle,query);
     for(const scope of evidence.source)await editions.model.update({...scope.root,pending_regional_cycle_id:id},identity(scope.root).key,query);
@@ -196,6 +199,20 @@ async function prepare(body,actor) {
     await audit(query,user,'prepare_regional_cycle',null,cycle,body.reason);
     return {applied:true,cycle};
   });
+}
+async function prepare(body,actor) {
+  return applyPreparation(body,actor,false);
+}
+async function reconcilePreparation(windowId) {
+  const input=await require('./regionalConfirmedCycleService').automaticInputForWindow(windowId);
+  if(input.existing_cycle_id) {
+    const cycle=await model.selectOne(input.existing_cycle_id,EXECUTESQL);
+    if(!cycle || cycle.edition_invalidated || !['running','review','ready','allocated'].includes(cycle.status))fail('The saved automatic regional cycle requires review.');
+    return {already_applied:true,cycle};
+  }
+  let report;
+  try{report=await withTransaction(query=>preview(input,null,query,true));}catch(error){if(error.code==='REGIONAL_SOURCE_RESULTS_PENDING')return {waiting_source_results:true};throw error;}
+  return applyPreparation({...input,apply:true,expected_revision:report.revision,reason:'Automatic preparation after the published regional confirmation cutoff'},null,true);
 }
 async function materialize(cycle,plan,clubs,stored,query) {
   for(const fixture of plan.fixtures) {
@@ -400,4 +417,4 @@ async function assertWritableFixture(fixture,query=EXECUTESQL) {
   const cycle=await model.selectOne(fixture.competition_instance_id,query);
   if(!cycle || !['running','review','ready'].includes(cycle.status) || cycle.edition_invalidated)fail('This pathway cycle is closed; its results cannot change sporting rights');
 }
-module.exports={prepare,preview,progress,allocate,reconcileAllocation,read,draw,catalogue,assertWritableFixture,stableId,evaluate};
+module.exports={prepare,reconcilePreparation,preview,progress,allocate,reconcileAllocation,read,draw,catalogue,assertWritableFixture,stableId,evaluate};

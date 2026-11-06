@@ -182,6 +182,7 @@ export default function GameDayTab({
             <button type="button" className="min-h-11 font-semibold" onClick={onRefreshFeeds}>Refresh action feeds →</button>
             {Object.entries(gameDayFeeds).map(([key,feed])=><ActionFeedStatus key={key} feed={feed} label={key==='reviews'?'Pending result reviews':key==='stuck'?'Stuck matches':key==='scheduling'?'Expired fixtures':'Forfeit claims'} onRetry={onRefreshFeeds}/>)}
             {reviewSummary && <p>{reviewSummary.total} pending reviews · showing {reviewSummary.items.length}. Open Disputes for the complete paginated list. Updated: {new Date(reviewSummary.as_of).toLocaleString()}.</p>}
+            {gameDayFeeds.forfeits.status==='ready' && <p>{gameDayFeeds.forfeits.total} pending forfeit claims · showing {forfeits.length}. Open Forfeits for the complete paginated list.</p>}
             {actionCount===null && <p>Some action feeds are not verified. Available items below are a partial overview.</p>}
           </div>
           {queue.length === 0 && actionCount===0 ? (
@@ -224,7 +225,7 @@ export default function GameDayTab({
 
       {activeView === "forfeits" && (
         <AdminGamerSection title="Forfeit Claims" subtitle="Approve valid claims or reject stale requests from resolved matches." icon={Flag}>
-          <ForfeitsTab forfeits={forfeits} feed={gameDayFeeds.forfeits} onRetry={onRefreshFeeds} resolveForfeit={resolveForfeit} />
+          <ForfeitsTab feed={gameDayFeeds.forfeits} resolveForfeit={resolveForfeit} />
         </AdminGamerSection>
       )}
 

@@ -71,3 +71,10 @@ notification delivery or production data mutation occurred. Graphify report/wiki
 and executable remain unavailable.
 
 The overall competition programme is not complete. See competition-delivery-status.md.
+
+## Follow-up
+
+admin-forfeit-pagination-phase6.md replaces this package's unbounded forfeit read
+with a bounded summary and independent cursor list, plus exact/locked snapshot
+checks for new Admin decisions. The stuck Match reads and scheduling caveats
+above remain applicable.

@@ -79,3 +79,11 @@ test('Admin overview distinguishes ready allocation from cycle recovery failures
   const unsupported=row('regional_cycle','cycle',{status:'ready',automatic_allocation_policy_version:'unknown',plan:plan({ready:true})});assert.equal(report([unsupported],[]).issues[0].code,'cycle_allocation_policy');
   assert.equal(report([row('regional_cycle','cycle',{status:'reset',edition_invalidated:true}),job],[]).issues.length,0);
 });
+
+test('new captured transitions connect to automatic semifinals as well as the existing final follow-up',async()=>{
+ const f=fixture(),paths=['../regionalCycleService','../regionalPromotionCalendarService'].map(require.resolve),saved=paths.map(p=>require.cache[p]);
+ require.cache[paths[0]]={exports:{progress:async()=>({cycle:{input:{mode:'transition'},status:'running',participation_window_snapshot:{status:'published',policy_version:'regional_registration_v1',result_policy_version:'regional_result_review_v2',season_orchestration_policy_version:'regional_season_orchestration_v1'},plan:plan({fixtures:[{ref:'promotion:D2A:sf:2-5'}],pending:[{ref:'promotion:D2A:sf:2-5'}]})}})}};
+ require.cache[paths[1]]={exports:{reconcilePromotion:async id=>{f.calls.push(id);return {status:'waiting_semifinals'};},reconcileFinal:async()=>{throw Error('Legacy-only entry must not run');}}};
+ try{await createService(f.options).tick();assert.deepEqual(f.calls,['cycle']);assert.equal(f.jobs.get(jobId('cycle','cycle')).promotion_calendar_status,'waiting_semifinals');}
+ finally{paths.forEach((p,i)=>{require.cache[p]=saved[i];});}
+});

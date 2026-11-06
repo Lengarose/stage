@@ -1,3 +1,4 @@
+import OfficialReschedulePanel from './OfficialReschedulePanel';
 import { useState, useEffect, useRef } from "react";
 import { stageClient } from "@/api/stageClient";
 import { processMatchRevenue, processSoloMatchRevenue } from "@/lib/matchRevenue";
@@ -338,7 +339,7 @@ export default function GameDayDetail({
       {game.competition_href&&<a href={game.competition_href} className="inline-flex min-h-11 items-center px-4 text-sm text-cyan-300">View competition</a>}
       {isCompleted&&<button type="button" onClick={()=>openResultForm(true)} className="min-h-11 border border-white/15 px-4 text-sm text-cyan-300">View Match Report</button>}
       {isClubMatch && isMyMatch && !isCompleted && ['scheduled', 'confirmed', 'in_progress'].includes(game.status) && <div className="px-4">
-        <OfficialMatchPreparation key={`${myClub.id}:${game.id}`} clubId={myClub.id} fixtureId={game.id} onState={setPreparationState} onChanged={async () => {}} hideForbidden />
+        <OfficialMatchPreparation key={`${myClub.id}:${game.id}:${game.confirmed_date || game.scheduled_date}`} clubId={myClub.id} fixtureId={game.id} onState={setPreparationState} onChanged={async () => {}} hideForbidden />
       </div>}
       <section className="px-4" aria-label="Kickoff actions">
         {showKickoffDock ? (
@@ -384,6 +385,7 @@ export default function GameDayDetail({
       </section>
 
       <OfficialResultPolicyNotice game={game} policy={preparationState?.result_policy} />
+      {isMyMatch && preparationState?.official && preparationState.match_id===game.id && myClub?.id && ['scheduled','confirmed'].includes(game.status) && <OfficialReschedulePanel key={`${game.id}:${myClub.id}`} game={game} clubId={myClub.id} onGameUpdate={onGameUpdate} />}
       {showResultDock && (
         <section className="border-t border-[#d8dee8]/15 bg-black/45 px-4 py-4 sm:px-6">
           <div className="mx-auto max-w-3xl space-y-3">

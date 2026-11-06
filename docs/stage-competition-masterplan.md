@@ -71,6 +71,16 @@ bepaalt bij de lancering wie D1 en D2 krijgt.
 - **B:** Bij veertig clubs wordt één D1 en één D2 gebruikt, met sportieve plaatsing.
 - **B:** Wachtende clubs moeten hun status en vervolgstap kunnen zien.
 
+### Kalenderpakket bevestigd op 6 november 2026 [B]
+
+De gebruiker bevestigde expliciet: maximaal 48 uur reserve-aanvulling na de
+bevestigingsweek; daarna twee weken voor de eerste plaatsing; twaalf
+competitieweken plus één overgangsweek; definitieve kalender minimaal 48 uur
+vóór de eerste aftrap. Concrete datums worden vooraf door Admin ingesteld.
+Dit promoveert deze onderdelen van de onderstaande bewaarde uitwerking naar B.
+Het beslist niet de reservevolgorde, behandeling van niet-ondersteunde aantallen,
+Noord-Amerikaanse uren of de precieze volgende inschrijfperiode binnen die cyclus.
+
 ### Bewaarde uitwerking [N]
 
 - Na de bevestigingsweek maximaal 48 uur om vrijgekomen plaatsen via reserves
@@ -171,6 +181,15 @@ Krimp mag niet door onvoorziene extra degradatie worden afgedwongen.
 Ondersteun geen tussenstap of groei boven 240 zonder vastgelegde regels. Leg de
 latere D3-structuur en gekoppelde degradatie vast vóór D3 wordt ingeschakeld.
 
+### Terugkerende inschrijving bevestigd op 6 november 2026 [B]
+
+Voor volgende normale edities: vier weken inschrijving in speelweken 5–8,
+één bevestigingsweek in week 9 en uiterlijk 48 uur reserve-aanvulling aan het
+begin van week 10. Promotieplay-offs blijven in week 11. Na twaalf speelweken
+en één overgangsweek begint de volgende league. Dit vervangt de oudere
+N-beschrijving van bevestiging in weken 10–11 in §15. Het creëert geen vrijstelling
+voor ontbrekende rechten, onbesliste wedstrijden of een onhaalbare kalender.
+
 ## 6. Regiokeuze, overstappen en pauzeren — punt 7
 
 - **B:** Het niveau volgt de club bij een regio-overstap; degraderen kan niet
@@ -223,7 +242,12 @@ Dit bevestigt geen startdatum, Noord-Amerikaans profiel of aanvullend verplaatsi
 - Zes minuten per helft als gekozen uitgangspunt; werkelijke EA FC-instelbaarheid
   nog verifiëren.
 
-### Verplaatsingen [N]
+### Verplaatsingen [B — bevestigd 6 november 2026]
+
+De gebruiker bevestigde het onderstaande Europese pakket expliciet. Het geldt
+niet automatisch voor Noord-Amerika of de nog open uitzonderingen voor rondes
+37–38. Deze bevestiging promoveert alleen de hieronder genoemde termijnen,
+quota, afboeking en speelvensters van N naar B.
 
 - Twee goedgekeurde aanvragen per club per editie; elke wedstrijd afzonderlijk.
   Alleen bij de aanvrager afboeken wanneer de aanvraag is goedgekeurd.
@@ -257,6 +281,13 @@ lokale tijdweergave en een procedure als geen overlap bestaat.
   `Europe/Brussels`. Vrije spelers buiten het venster alleen wanneer zij die
   cyclus niet voor een andere officiële club speelden. Cup-tied na daadwerkelijke
   bekerdeelname. Bestaande sancties volgen de speler.
+
+**B — spelerspakket bevestigd 6 november 2026:** één officiële club per speler;
+transfers tussen seizoenen en in week 6 van maandag 00.00 tot zondag 23.59
+Europe/Brussels. Vrije spelers buiten dat venster alleen als zij die cyclus niet
+voor een andere officiële club speelden. Cup-tied na daadwerkelijke bekerdeelname;
+sancties volgen de speler. Deze onderdelen van bovenstaande N-notities zijn
+hiermee bevestigd; daadwerkelijke aanwezigheid niet als EA-gevalideerd presenteren.
 
 **O:** Oorspronkelijke selectie-, transfer- en tijdregels terugvinden. Controleer
 welke deelnamegegevens echt beschikbaar zijn; presenteer handmatige verklaringen
@@ -333,7 +364,14 @@ voorwaarden; de legacy-timeoutcode blijft daarvoor bestaan.
 
 ## 10. Afwezigheid, storingen en terugtrekking — punt 13
 
-Deze precieze uitwerking is bewaard als **N**; bron en uitvoerbaarheid controleren.
+**B — bevestigd op 6 november 2026:** forfait 3–0 pas na bewijs en beslissing,
+geen fictieve individuele goals; beide afwezig of drie no-shows naar Admin.
+Terugtrekking vóór negentien definitieve heenwedstrijden: alle leaguewedstrijden
+van de club uitsluiten uit stand en stats. Daarna heenronde behouden en alle
+returns administratief 3–0 voor tegenstanders, zonder individuele goals. Iedere
+definitieve ingreep vereist een expliciete Adminbeslissing en behoud van bewijs
+en betaalhistorie. De overige details over onderbreking/hervatting hieronder
+blijven N/O waar niet expliciet bevestigd.
 
 - Forfait 3–0 pas na vaststelling en bewijs, zonder verzonnen spelersgoals/assists.
   Beide afwezig: Admin beslist. Drie no-shows: review, geen blinde uitsluiting.
@@ -516,6 +554,13 @@ behoudt historie. Nieuwe groepen zijn echte nieuwe groepen, nieuwe seizoenen zij
 dat niet. Een leeg afgelopen seizoen mag geen gespeelde prestaties fabriceren.
 
 ### Bewaarde procedure [N]
+
+**B — reservevolgorde, bevestigd 6 november 2026:** eerst verliezende
+D2-promotiefinalisten, daarna de hoogst geëindigde nog niet gepromoveerde clubs.
+Gelijkwaardige kandidaten uit verschillende groepen via opgeslagen loting, niet
+via ruwe punten/doelsaldo. Bestaande sportieve rechten blijven behouden;
+onbevestigde krimp blijft Admin-review. De bevestigde maximale reserveperiode
+staat in §3. Overige hieronder bewaarde details blijven N waar niet bevestigd.
 
 - Volgende deelnamebevestiging vanaf week 10 tot eind week 11.
 - Week 12 en overgangsweek: vrijgekomen plaatsen afhandelen. Reserve-uitnodiging
@@ -1059,3 +1104,25 @@ bronidentiteiten en halvefinaletijden worden herlezen; belasting/conflicten en
 cutoff blijven blokkeren. De interne route gebruikt systeemaudit en is niet via
 een clientflag toegankelijk. Eerste publicaties en uitzonderingen blijven aparte
 gecontroleerde acties. [Bediening en verificatie](regional-promotion-auto-final-phase6.md).
+
+### Fase 3–4/6–7 — gekoppelde seizoensstart, herinschrijving en verplaatsing, 6 november 2026
+
+Nieuw gepubliceerde periodes bewaren expliciet de automatische seizoenspolicy.
+De server koppelt het bestaande bevestigde deelnemersveld aan cyclusvoorbereiding,
+sportieve voortgang, opgeslagen groepsindeling, fixtures, de expliciet gedateerde
+leaguekalender en de geaccepteerde beker. De volgende inschrijfperiode wordt volgens
+de bevestigde weken 5–8/9 voorbereid; geen ontbrekende datums worden verzonnen.
+Normale promotiehalvefinales kunnen voor zulke overgangscycli eveneens automatisch
+volgen uit definitieve bronstanden en de bestaande week-11-kalender. Oudere edities
+worden niet stilzwijgend opgewaardeerd.
+
+Het Europese verplaatsingspakket is aangesloten op GAMEDAY: voorstel, reactie,
+verval/weigering/intrekking en afboeking uitsluitend bij goedkeuring. De bestaande
+kalender- en selectiekoppelingen blijven leidend. Nieuwe standaardteksten zijn Engels.
+
+Zie [uitvoering en vindplaatsen](regional-season-orchestration-phase6.md) en de
+[actuele oorspronkelijke achtfase-matrix](competition-delivery-status.md).
+Deze stap voltooit het volledige programma niet. Reserve-aanvulling, de bevestigde
+spelers- en terugtrekkingspakketten en andere resterende onderdelen blijven zichtbaar
+als bouwwerk; hun beleidsbevestiging is geen bewijs van implementatie.
+Geen productieherstel, reset, push, deployment of live uitbetaling uitgevoerd.

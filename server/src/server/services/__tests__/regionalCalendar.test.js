@@ -180,3 +180,23 @@ test('multiple divisions publish together and preserve an existing unscheduled e
  const p=await f.preview();assert.equal(p.entries.length,760);assert.deepEqual(p.blockers,[]);
  await f.publish(p.revision);assert.equal(f.state.events.matches.length,760);assert.equal(f.state.events.engines[0].match_id,'match');assert.equal(f.state.events.engines[0].scheduled_at,f.state.events.matches.find(m=>m.id==='match').scheduled_date);
 });
+
+
+test('automatic season calendars use the captured Monday and existing transaction without an Admin identity',async()=>{
+ const f=fixture();captureCycle(f);f.state.cycle.participation_window_snapshot={policy_version:'regional_registration_v1',result_policy_version:'regional_result_review_v2',season_orchestration_policy_version:'regional_season_orchestration_v1',league_start_monday:f.body.start_monday};
+ f.model.actor=async()=>{throw Error('A system task must not impersonate an Admin');};
+ const published=await f.service.reconcileCalendar('cycle');assert.equal(published.status,'published');assert.equal(f.state.events.matches.length,380);assert.equal(f.state.audits[0].user.id,null);
+ const before=structuredClone(f.state);assert.equal((await f.service.reconcileCalendar('cycle')).already_published,true);assert.deepEqual(f.state,before);
+});
+test('new automatic calendars require the confirmed 48-hour publication lead time and never invent a date',async()=>{
+ const f=fixture();captureCycle(f);f.state.cycle.participation_window_snapshot={policy_version:'regional_registration_v1',result_policy_version:'regional_result_review_v2',season_orchestration_policy_version:'regional_season_orchestration_v1'};
+ assert.equal((await f.service.reconcileCalendar('cycle')).status,'awaiting_date');
+ f.state.cycle.participation_window_snapshot.league_start_monday='2026-11-02';await assert.rejects(f.service.reconcileCalendar('cycle'),error=>error.details?.some?.(message=>/48 hours/.test(message)) || /conflicts/.test(error.message));assert.equal(f.state.events.matches.length,0);
+});
+
+
+test('an explicitly published manual calendar satisfies a missing captured automatic date without inventing one',async()=>{
+ const f=fixture();captureCycle(f);f.state.cycle.participation_window_snapshot={policy_version:'regional_registration_v1',result_policy_version:'regional_result_review_v2',season_orchestration_policy_version:'regional_season_orchestration_v1'};
+ f.state.record={id:'published',status:'published',edition_ids:['edition'],start_monday:'2026-11-09'};
+ const existing=await f.service.reconcileCalendar('cycle');assert.equal(existing.already_published,true);assert.equal(existing.id,'published');assert.equal(f.state.events.matches.length,0);
+});

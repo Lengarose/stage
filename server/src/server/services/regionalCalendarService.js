@@ -10,10 +10,10 @@ const {busyEvents}=require('../lib/officialCalendarLoad');
 const hash=value=>crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const stableId=value=>{const h=hash(value);return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20,32)}`;};
 function createService({model=new RegionalCalendarModel(),transaction=withTransaction,query=EXECUTESQL,clock=()=>new Date()}={}) {
-  async function action(body,actor) {
+  async function runAction(body,actor,automatic=false) {
     return transaction(async q=>{
-      const user=await model.actor(actor?.id,q);
-      if(!user || user.role_id==null || ![0,2].includes(Number(user.role_id)))fail('Admin calendar access required',403);
+      const user=automatic?{id:null,email:null}:await model.actor(actor?.id,q);
+      if(!automatic && (!user || user.role_id==null || ![0,2].includes(Number(user.role_id))))fail('Admin calendar access required',403);
       await model.lock(q);
       let selected=body.edition_ids,cycle=null;
       if(Object.hasOwn(body,'cycle_id')) {
@@ -22,6 +22,7 @@ function createService({model=new RegionalCalendarModel(),transaction=withTransa
         if(!cycle || cycle.status!=='allocated' || cycle.edition_invalidated || cycle.invalidated_at || !Array.isArray(cycle.allocated_groups) || !cycle.allocated_groups.length)fail('Choose a valid allocated regional cycle before preparing its calendar');
         selected=cycle.allocated_groups.map(g=>g?.id);
       }
+      if(automatic && (!cycle || !require('../lib/regionalSeasonOrchestrationPolicy').enabled({...cycle.participation_window_snapshot,status:'published'}) || body.start_monday!==cycle.participation_window_snapshot.league_start_monday))fail('Automatic calendar publication requires an explicitly captured first playing Monday');
       if(!Array.isArray(selected) || !selected.length || selected.length>12 || selected.some(id=>typeof id!=='string' || !id.trim()) || new Set(selected).size!==selected.length)fail('Select unique regional edition IDs',400);
       const ids=selected.slice().sort(),all=await model.editions(q),catalogue=buildCatalogue(all);
       const editions=ids.map(id=>{
@@ -73,6 +74,8 @@ function createService({model=new RegionalCalendarModel(),transaction=withTransa
       if(selections.length)fail('Existing official selection/preparation evidence prevents initial season publication');
       const busy=busyEvents(events,excluded);
       const plan=planCalendar({editions,fixtures,start_monday:body.start_monday,busy,now:clock()});
+      const capturedCycle=cycle || (editions[0].regional_cycle_id?await model.cycle(editions[0].regional_cycle_id,q):null);
+      if(require('../lib/regionalSeasonOrchestrationPolicy').enabled({...capturedCycle?.participation_window_snapshot,status:'published'}) && Math.min(...plan.entries.map(e=>e.instant))-clock().getTime()<48*3600000)plan.blockers.push('Publish the definitive season calendar at least 48 hours before the first kickoff.');
       const revision=hash([policy,ids,body.start_monday,editions,fixtures,events,selections,...(cycle?[{id:cycle.id,allocated_groups:cycle.allocated_groups,region_slug:cycle.region_slug,platform:cycle.platform,season_number:cycle.season_number,reset_series:cycle.reset_series || 0}]:[])]);
       const result={...plan,id,edition_ids:ids,region_slug:scope.region_slug,season_number:scope.season_number,reset_series:scope.reset_series || 0,...(cycle?{source_cycle_id:cycle.id}:{}),revision,already_published:false,coverage:'Club schedules only; player-level multi-event conflicts and future pathway/cup draws are not generated.'};
       if(body.apply!==true)return result;
@@ -96,6 +99,24 @@ function createService({model=new RegionalCalendarModel(),transaction=withTransa
       return record;
     });
   }
-  return {action,model,query};
+  async function action(body,actor){return runAction(body,actor,false);}
+  async function reconcileCalendar(cycleId){
+    const cycle=await transaction(q=>model.cycle(cycleId,q));
+    if(!cycle || cycle.status!=='allocated' || cycle.edition_invalidated || !require('../lib/regionalSeasonOrchestrationPolicy').enabled({...cycle.participation_window_snapshot,status:'published'}))fail('Automatic calendar publication requires a captured allocated cycle.');
+    const calendarId=stableId(['regional_calendar',cycle.region_slug,cycle.platform,Number(cycle.season_number),Number(cycle.reset_series || 0)]);
+    const saved=await transaction(q=>model.published(calendarId,q));
+    if(saved){
+      if(saved.status!=='published')fail('The stored season calendar requires review.');
+      if(JSON.stringify([...saved.edition_ids].sort())!==JSON.stringify(cycle.allocated_groups.map(g=>g.id).sort()))fail('The published calendar no longer matches this regional allocation.');
+      return {...saved,already_published:true};
+    }
+    const start=cycle.participation_window_snapshot.league_start_monday;
+    if(!start)return {status:'awaiting_date',cycle_id:cycleId};
+    const body={cycle_id:cycleId,start_monday:start};
+    const report=await runAction(body,null,true);
+    if(report.already_published)return report;
+    return runAction({...body,apply:true,expected_revision:report.revision,reason:'Automatic publication of the captured regional season calendar'},null,true);
+  }
+  return {action,reconcileCalendar,model,query};
 }
 module.exports={createService,busyEvents,...createService()};

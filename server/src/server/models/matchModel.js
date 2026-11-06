@@ -5,6 +5,10 @@ const REVIEW_FILTER=`(status='disputed' OR result_state IN ('ADMIN_REVIEW','DISP
       AND COALESCE(status,'') NOT IN ('completed','forfeit','cancelled','canceled','voided','deleted','archived','reset','superseded')
       AND COALESCE(result_state,'') NOT IN ('CONFIRMED','VOIDED','AUTO_CONFIRMED_TIMEOUT')`;
 
+const FORFEIT_FILTER=`forfeit_status='pending' AND COALESCE(forfeit_claimed_by,'')<>''
+      AND COALESCE(status,'') NOT IN ('completed','confirmed','played','forfeit','cancelled','canceled','deleted','voided','archived','reset','superseded')
+      AND COALESCE(result_state,'') NOT IN ('CONFIRMED','VOIDED','AUTO_CONFIRMED_TIMEOUT')`;
+
 function normalizeTournamentId(value) {
   if (value === undefined || value === null || value === '') return null;
   if (String(value).toLowerCase() === 'ranked') return null;
@@ -111,6 +115,14 @@ class Match {
 
   selectResultReviewSummary() {
     return EXECUTESQL(`SELECT *,COUNT(*) OVER() AS review_total FROM matches WHERE ${REVIEW_FILTER} ORDER BY id ASC LIMIT ?`,[10]);
+  }
+
+  selectForfeitReviewPage(cursor,limit) {
+    return EXECUTESQL(`SELECT * FROM matches WHERE id>? AND ${FORFEIT_FILTER} ORDER BY id ASC LIMIT ?`,[cursor,limit+1]);
+  }
+
+  selectForfeitReviewSummary() {
+    return EXECUTESQL(`SELECT *,COUNT(*) OVER() AS forfeit_total FROM matches WHERE ${FORFEIT_FILTER} ORDER BY id ASC LIMIT ?`,[10]);
   }
 
   selectByClub(club_id) {

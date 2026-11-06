@@ -29,7 +29,7 @@ async function component(file){
  }}]});
  const compiled={exports:{}};new Function('require','module','exports',result.outputFiles[0].text)(createRequire(import.meta.url),compiled,compiled.exports);return compiled.exports.default;
 }
-const Layout=await component('AdminGamerUI'),Dashboard=await component('AdminDashboardPanel');
+const Layout=await component('AdminGamerUI'),Dashboard=await component('AdminDashboardPanel'),Forfeits=await component('sections/ForfeitsTab');
 function readyFeeds(){const feeds=initialGameDayFeeds();for(const key of Object.keys(feeds))feeds[key]={status:'ready',total:0,items:[]};return feeds;}
 function render(Component,feeds){return renderToStaticMarkup(React.createElement(MemoryRouter,{},React.createElement(Component,{gameDayFeeds:feeds,players:[],clubs:[],tournaments:[],identityClaims:[],regApplications:[]})));}
 
@@ -44,4 +44,8 @@ test('the shell uses the full review count and all four action categories, not p
 test('the dashboard never calls failed scheduling healthy or claims the GameDay total is zero',()=>{
  const feeds=readyFeeds();feeds.scheduling={status:'error',total:null,items:[]};
  const html=render(Dashboard,feeds);assert.match(html,/Scheduling status not verified/);assert.match(html,/Action total unknown/);assert.match(html,/Expired fixtures could not be loaded/);assert.doesNotMatch(html,/admin.stats.scheduleHealthy/);
+});
+
+test('the independent forfeit list starts loading rather than claiming there are no pending requests',()=>{
+ const html=render(Forfeits,readyFeeds());assert.match(html,/Loading forfeit claims/);assert.match(html,/Up to 50 pending forfeit claims per page/);assert.doesNotMatch(html,/admin.forfeits.noPendingRequests/);
 });

@@ -1,3 +1,4 @@
+import {loadForfeitReviewSummary} from './adminForfeitReview.js';
 import {loadDisputeReviewSummary} from './adminDisputeFocus.js';
 
 export const GAME_DAY_FEED_KEYS = ['reviews', 'forfeits', 'scheduling', 'stuck'];
@@ -52,15 +53,11 @@ async function expiredPages(client,path,type) {
 }
 
 // Raw HTTP is intentional: the generic entity factory converts some 404s into [].
-// Match filtered reads currently return all matching rows; fixture reads need paging.
+// Stuck-match filtered reads still return all matching rows; fixture reads need paging.
 export async function loadAdminGameDayFeeds(client,publish,now=Date.now()) {
   const tasks={
     reviews:()=>loadDisputeReviewSummary(client),
-    forfeits:async()=>{
-      const rows=records(await client.http.get('/matches',{forfeit_status:'pending'}));
-      if(rows.some(row=>row.forfeit_status!=='pending' || typeof row.status!=='string'))throw Error('Invalid forfeit response');
-      return {items:rows.filter(row=>row.forfeit_claimed_by && active(row))};
-    },
+    forfeits:()=>loadForfeitReviewSummary(client),
     scheduling:async()=>({items:(await Promise.all([
       expiredPages(client,'/regional-league-fixtures','regional_league'),
       expiredPages(client,'/competition-fixtures','competition'),

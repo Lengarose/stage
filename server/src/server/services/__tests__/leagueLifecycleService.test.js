@@ -67,7 +67,7 @@ function fixture(kind = 'regional_league', count = 4) {
       return { advanced: true, next_phase: 'completed' };
     });
   } };
-  const service = createLifecycleService({ withTransaction, scopeModel, engine, prizes: { capture: async () => { state.captures++;onCapture(); return { config: {} }; } }, allowTestMode: true });
+  const service = createLifecycleService({ withTransaction, scopeModel, engine, cycleModel:{selectOne:async()=>structuredClone(state.cycle || null)}, prizes: { capture: async () => { state.captures++;onCapture(); return { config: {} }; } }, allowTestMode: true });
   return { service, clubs, kind, get state() { return state; }, root: () => state.roots.edition,
     failAt: n => { failInsert = n; },onCapture:fn=>{onCapture=fn;}, draw: (body = {}, actor = { id: 'admin' }) => service.action(kind, 'edition', { action: 'draw', ...body }, actor),
     action: (action, body = {}) => service.action(kind, 'edition', { action, ...body }, { id: 'admin' }) };
@@ -419,4 +419,18 @@ test('generic GOST initial POST is protected, idempotent and cannot create subse
   } finally {
     await new Promise(resolve => server.close(resolve)); serviceModule.createInitialCompetitionSeason = originalCreate;
   }
+});
+
+
+test('captured automatic regional draws reuse the canonical audited generator without forging an Admin',async()=>{
+ const f=fixture('regional_league',20);Object.assign(f.root(),{division:1,group_code:'A',regional_cycle_id:'cycle'});
+ f.state.cycle={id:'cycle',status:'allocated',allocated_groups:[{id:'edition',permanent_league_id:'permanent',division:1,group_code:'A'}],participation_window_snapshot:{policy_version:'regional_registration_v1',result_policy_version:'regional_result_review_v2',season_orchestration_policy_version:'regional_season_orchestration_v1'}};
+ const result=await f.service.reconcileRegionalDraw('edition','cycle');assert.equal(result.fixtures_created,380);assert.equal(f.state.fixtures.length,380);assert.equal(f.state.audits.at(-1)[1],null);
+ assert.equal((await f.service.reconcileRegionalDraw('edition','cycle')).outcome,'existing');assert.equal(f.state.fixtures.length,380);assert.equal(f.state.captures,1);
+ await assert.rejects(f.draw({automatic:true},{id:'player'}),/Admin/);
+});
+test('an automatic draw rechecks its captured allocation after reward capture',async()=>{
+ const f=fixture('regional_league',20);Object.assign(f.root(),{division:1,group_code:'A',regional_cycle_id:'cycle'});
+ f.state.cycle={id:'cycle',status:'allocated',allocated_groups:[{id:'edition',permanent_league_id:'permanent',division:1,group_code:'A'}],participation_window_snapshot:{policy_version:'regional_registration_v1',result_policy_version:'regional_result_review_v2',season_orchestration_policy_version:'regional_season_orchestration_v1'}};
+ f.onCapture(()=>{f.state.cycle.edition_invalidated=true;});await assert.rejects(f.service.reconcileRegionalDraw('edition','cycle'),/captured regional allocation/);assert.equal(f.state.fixtures.length,0);
 });

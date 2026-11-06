@@ -3975,7 +3975,8 @@ test('Admin browser-review conflicts are returned over HTTP before any result or
   }finally{await new Promise(resolve=>server.close(resolve));}
 });
 
-test('adminMatchActions approve forfeit triggers central final-result progression', async () => {
+test('adminMatchActions legacy and guarded forfeit approval trigger central final-result progression', async () => {
+ for(const guarded of [false,true]){
   const match = {
     id: 'match-forfeit-1',
     status: 'scheduled',
@@ -3985,6 +3986,7 @@ test('adminMatchActions approve forfeit triggers central final-result progressio
     home_club_name: 'Home FC',
     away_club_name: 'Away FC',
     forfeit_claimed_by: 'club-home',
+    forfeit_status: 'pending',
   };
   const auditRows = [];
   const conn = {
@@ -4032,7 +4034,7 @@ test('adminMatchActions approve forfeit triggers central final-result progressio
   await handle(
     {
       params: { name: 'adminMatchActions' },
-      body: { action: 'resolve_forfeit', match_id: 'match-forfeit-1', approve: true },
+      body: { action: 'resolve_forfeit', match_id: 'match-forfeit-1', approve: true, ...(guarded?{expected_forfeit_snapshot:require('../../lib/forfeitReviewSnapshot').forfeitSnapshot(match)}:{}) },
       user: { id: 'admin-1' },
     },
     response,
@@ -4046,6 +4048,7 @@ test('adminMatchActions approve forfeit triggers central final-result progressio
   assert.equal(progressed[0].id, 'match-forfeit-1');
   assert.equal(progressed[0].status, 'forfeit');
   assert.equal(auditRows.length, 1);
+ }
 });
 
 test('tournamentRegistration stores club EA FC name for admin verification without proof photo', async () => {
@@ -4658,4 +4661,31 @@ test('tournamentWithdrawal allows canonical president user to withdraw their clu
   assert.equal(response.statusCode, 200);
   assert.equal(response.body.data.success, true);
   assert.equal(JSON.parse(updates.find((call) => /UPDATE tournaments/.test(call.sql)).params[0]).length, 0);
+});
+
+test('adminMatchActions guarded forfeit decisions reject changed evidence before writes and allow current rejection',async()=>{
+ const {forfeitSnapshot}=require('../../lib/forfeitReviewSnapshot');
+ const original={id:'guarded',status:'scheduled',forfeit_status:'pending',forfeit_claimed_by:'home',forfeit_proof_url:'/uploads/reviewed.png',home_club_id:'home',away_club_id:'away'};
+ let match={...original},writes=0,rollbacks=0;
+ const conn={async beginTransaction(){},async commit(){},async rollback(){rollbacks++;},release(){},async query(sql,args=[]){
+  if(/SELECT tournament_id FROM matches/.test(sql))return [[{}],[]];
+  if(/SELECT \* FROM matches/.test(sql))return [[match],[]];
+  if(/UPDATE matches/.test(sql)){writes++;match={...match,forfeit_status:args[0],forfeit_claimed_by:null,forfeit_proof_url:null};return [{affectedRows:1},[]];}
+  throw Error(`Unexpected SQL: ${sql}`);
+ }};
+ const router=loadFunctionsRouterWithDbMock(async(sql,args=[])=>{
+  if(/SELECT id, email, role_id FROM users/.test(sql))return [{id:args[0],role_id:0,email:'admin@example.test'}];
+  if(/INSERT INTO admin_audit_log/.test(sql)){writes++;return {affectedRows:1};}
+  throw Error(`Unexpected SQL: ${sql}`);
+ },{pool:{promise:()=>({getConnection:async()=>conn})}});
+ const handle=postFunctionHandler(router);
+ for(const approve of [true,false]){
+  match={...original,forfeit_proof_url:'/uploads/changed.png'};
+  const response=makeJsonResponse();await handle({params:{name:'adminMatchActions'},body:{action:'resolve_forfeit',match_id:'guarded',approve,expected_forfeit_snapshot:forfeitSnapshot(original)},user:{id:'admin'}},response);
+  assert.equal(response.statusCode,409);assert.equal(writes,0);
+ }
+ assert.equal(rollbacks,2);
+ match={...original,updated_date:'operational change'};
+ const response=makeJsonResponse();await handle({params:{name:'adminMatchActions'},body:{action:'resolve_forfeit',match_id:'guarded',approve:false,expected_forfeit_snapshot:forfeitSnapshot(original)},user:{id:'admin'}},response);
+ assert.equal(response.statusCode,200,response.body?.error);assert.equal(match.forfeit_status,'rejected');assert.equal(writes,2);
 });

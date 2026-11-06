@@ -131,18 +131,19 @@ function createLifecycleService(options = {}) {
     mutexQueue = pending.catch(() => {});
     return pending;
   }
-  async function action(kind, id, body = {}, actor) {
+  async function runAction(kind, id, body = {}, actor, automatic=false) {
     if (!['regional_league', 'competition_season'].includes(kind)) fail('Unsupported competition kind', 400);
     if (!id || !body || !['draw', 'complete', 'abandon', 'rollover'].includes(body.action)) fail('Expected draw, complete, abandon or rollover action', 400);
     const cycleId=body.expected_regional_cycle_id;
     if(cycleId!==undefined && (kind!=='regional_league' || body.action!=='draw' || typeof cycleId!=='string' || !cycleId.trim() || body.confirmation!==true || !String(body.reason || '').trim()))fail('A cycle-context draw requires an exact regional cycle, confirmation and reason',400);
     // Authenticate before allocating the mutex; never trust role/email from the request.
-    await transaction(query => admin(query, actor));
+    if(!automatic)await transaction(query => admin(query, actor));
     return withMutex(async () => {
       const prepared = await transaction(async query => {
-        const user = await admin(query, actor);
+        const user = automatic?{id:null,email:null,role_id:null}:await admin(query, actor);
         const scope = await model.selectOne(kind, id, query, true);
         const { root } = scope;
+        if(automatic)await automaticDrawSource(query,root,cycleId);
         if(cycleId!==undefined && (root.regional_cycle_id!==cycleId || root.edition_invalidated || root.invalidated_at))fail('The selected group no longer belongs to this valid regional allocation; refresh before drawing');
         if(kind==='regional_league' && root.pending_regional_cycle_id)fail('This edition is a captured source of a regional cycle; finish or reset that whole cycle before changing its lifecycle');
         if (String(root.id) !== String(id)) fail('Selected edition does not match the lifecycle target');
@@ -150,6 +151,7 @@ function createLifecycleService(options = {}) {
         if (body.season_number != null && Number(body.season_number) !== Number(root.season_number || 1)) fail('Selected season changed; reload before continuing');
         if (body.action === 'rollover') return rollover(query, scope, body, user);
         if (body.action === 'abandon') return abandon(query, scope, body, user);
+        if(automatic && ['completed','in_progress','registration'].includes(root.status) && scope.fixtures.length===380){await assertParentNotRetired(query,kind,root);return {action:'draw',outcome:'existing',edition_id:root.id};}
         if (terminal.includes(root.status) && !(body.action === 'complete' && root.status === 'completed')) fail('This edition is closed');
         if (body.action === 'draw') {
           await assertParentNotRetired(query, kind, root);
@@ -189,8 +191,9 @@ function createLifecycleService(options = {}) {
       const captured = await prizes().capture(kind, id, { admin: user, reason: body.reason || 'Capture rewards before drawing fixtures' });
       if (!captured?.config) fail('Review and save the reward configuration before drawing this edition');
       return transaction(async query => {
-        await admin(query, actor);
+        if(!automatic)await admin(query, actor);
         const fresh = await model.selectOne(kind, id, query, true);
+        if(automatic)await automaticDrawSource(query,fresh.root,cycleId);
         if(cycleId!==undefined && (fresh.root.regional_cycle_id!==cycleId || fresh.root.edition_invalidated || fresh.root.invalidated_at))fail('The regional allocation changed before fixture generation; refresh before drawing');
         await assertParentNotRetired(query, kind, fresh.root);
         if (fresh.fixtures.length || fresh.matches.length || terminal.includes(fresh.root.status)) fail('Edition changed before fixture generation');
@@ -217,6 +220,15 @@ function createLifecycleService(options = {}) {
         return result;
       });
     });
+  }
+  async function automaticDrawSource(query,root,cycleId) {
+    const cycleModel=options.cycleModel || new (require('../models/regionalCycleModel').RegionalCycleModel)();
+    const cycle=await cycleModel.selectOne(cycleId,query,true);
+    if(!cycle || cycle.status!=='allocated' || cycle.edition_invalidated || !require('../lib/regionalSeasonOrchestrationPolicy').enabled({...cycle.participation_window_snapshot,status:'published'}) || !cycle.allocated_groups?.some(g=>g.id===root.id && g.permanent_league_id===(root.permanent_league_id || root.id) && Number(g.division)===Number(root.division) && g.group_code===(root.group_code || 'A')) || root.regional_cycle_id!==cycleId)fail('Automatic fixtures require a current captured regional allocation');
+  }
+  async function action(kind,id,body,actor) {return runAction(kind,id,body,actor,false);}
+  async function reconcileRegionalDraw(id,cycleId) {
+    return runAction('regional_league',id,{action:'draw',expected_regional_cycle_id:cycleId,confirmation:true,reason:'Automatic fixture draw for the captured regional season'},null,true);
   }
   async function abandon(query, scope, body, user) {
     const { root, source_type: kind } = scope;
@@ -305,6 +317,6 @@ function createLifecycleService(options = {}) {
       return { outcome: 'created', record };
     }));
   }
-  return { action, withMutex, createInitialCompetitionSeason };
+  return { action, reconcileRegionalDraw, withMutex, createInitialCompetitionSeason };
 }
 module.exports = { ...createLifecycleService(), createLifecycleService, planFixtures, competitionEditionKey, assertEditionWritable };

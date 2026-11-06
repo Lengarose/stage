@@ -418,3 +418,30 @@ test('filtered action reads use both stored Admin roles and retain participant s
   for(const ordinary of [1,null,9]){role=ordinary;assert.equal((await get('forfeit_status=pending')).status,200);assert.match(reads.at(-1).sql,/home_player_id/);assert.ok(reads.at(-1).args.includes('own-player'));assert.ok(reads.at(-1).args.includes('pending'));}
  }finally{await new Promise(resolve=>server.close(resolve));}
 });
+
+test('bounded forfeit pages and summary require stored Admin access and return sanitized failures over HTTP',async()=>{
+ const express=require('express');let role=2,reads=0,fail=false,empty=false;
+ const records=Array.from({length:53},(_,i)=>({id:`claim-${String(i).padStart(3,'0')}`,status:'scheduled',forfeit_status:'pending',forfeit_claimed_by:'home',forfeit_proof_url:'/uploads/private.png'}));
+ const router=loadMatchRouterWithDbMock(async(sql,args=[])=>{
+  if(/FROM users WHERE id = \?/.test(sql))return [{id:'reviewer',role_id:role}];
+  if(/FROM players|FROM clubs/.test(sql))return [];
+  if(/FROM matches/.test(sql)){
+   reads++;assert.match(sql,/forfeit_status='pending'/);assert.match(sql,/forfeit_claimed_by/);assert.match(sql,/AUTO_CONFIRMED_TIMEOUT/);assert.match(sql,/superseded/);assert.match(sql,/ORDER BY id ASC LIMIT \?/);
+   if(fail)throw Error('private database failure');
+   if(/COUNT\(\*\) OVER\(\)/.test(sql)){assert.deepEqual(args,[10]);return empty?[]:records.slice(0,10).map(row=>({...row,forfeit_total:'53'}));}
+   assert.ok(args[1]<=51);return empty?[]:records.filter(row=>row.id>args[0]).slice(0,args[1]);
+  }
+  throw Error(`Unexpected SQL: ${sql}`);
+ });
+ const app=express();app.use((req,res,next)=>{req.user={id:'reviewer',role_id:0};next();});app.use('/matches',router);
+ const server=app.listen(0,'127.0.0.1');await new Promise((resolve,reject)=>{server.once('listening',resolve);server.once('error',reject);});
+ try{
+  const get=async suffix=>{const response=await fetch(`http://127.0.0.1:${server.address().port}/matches/forfeit-reviews${suffix}`);return {status:response.status,data:await response.json()};};
+  for(const allowed of [0,2]){role=allowed;const page=await get('');assert.equal(page.status,200);assert.equal(page.data.items.length,50);assert.equal(page.data.next_cursor,'claim-049');assert.equal(page.data.items[0].forfeit_proof_url,'/uploads/private.png');const summary=await get('/summary');assert.equal(summary.status,200);assert.equal(summary.data.total,53);assert.equal(summary.data.items.length,10);assert.equal(summary.data.items[0].forfeit_total,undefined);}
+  const next=await get('?cursor=claim-049');assert.equal(next.data.items.length,3);assert.equal(next.data.has_more,false);assert.equal(next.data.next_cursor,null);
+  for(const invalid of ['?limit=0','?limit=51','?limit=1.5','?cursor=%0A','?cursor=a&cursor=b'])assert.equal((await get(invalid)).status,400);
+  for(const denied of [1,null,9]){role=denied;const before=reads;assert.equal((await get('')).status,403);assert.equal((await get('/summary')).status,403);assert.equal(reads,before);}
+  role=2;empty=true;assert.deepEqual((await get('')).data.items,[]);assert.equal((await get('/summary')).data.total,0);
+  fail=true;for(const path of ['','/summary']){const result=await get(path);assert.equal(result.status,500);assert.doesNotMatch(JSON.stringify(result.data),/private database/);assert.equal(result.data.items,undefined);}
+ }finally{await new Promise(resolve=>server.close(resolve));}
+});

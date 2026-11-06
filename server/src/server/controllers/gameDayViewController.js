@@ -13,6 +13,16 @@ function createRouter({query=EXECUTESQL,resolveIdentity=resolveUserIdentity}={})
     const rows=await query(`${select} WHERE ${where} ORDER BY m.scheduled_date DESC,m.id LIMIT ? OFFSET ?`,[p,p,...clubs,...clubs,limit,offset]);
     res.json(rows.map(presentMatch));
   }));
+  async function reschedule(id,body,user){
+    try{return await require('../services/officialRescheduleService').act(id,body,user);}
+    catch(error){if(!error.status || error.status>=500)throw fail('The scheduling action could not be completed. Refresh or contact Admin.',500);throw error;}
+  }
+  router.get('/:id/reschedule',wrap(async(req,res)=>{
+    res.json(await reschedule(req.params.id,{action:'read',club_id:req.query.club_id},req.user));
+  }));
+  router.post('/:id/reschedule',express.json(),wrap(async(req,res)=>{
+    res.json(await reschedule(req.params.id,req.body || {},req.user));
+  }));
   router.get('/:id/history',wrap(async(req,res)=>{
     const {match,identity}=await matchAccess(req.user.id,req.params.id,query,resolveIdentity);
     if(!['all','same'].includes(req.query.scope||'all'))throw fail('Invalid history scope.',400);

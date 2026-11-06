@@ -16,19 +16,27 @@ function roster(group) {
 }
 
 function createService({ transaction = withTransaction, windows = new RegionalRegistrationModel(), cycles = new RegionalCycleModel(), editionModel = editions.model, admin = editions.admin, clock = () => new Date() } = {}) {
-  async function inputForWindow(id, actor) {
+  async function derive(id, actor, automatic=false) {
     if (typeof id !== 'string' || !id.trim()) fail('Choose a published registration window.', 400);
     return transaction(async q => {
-      await admin(actor, q);
+      if(!automatic)await admin(actor, q);
       const window = await windows.selectOne(id, q, true);
       if (!window || window.status !== 'published' || window.edition_invalidated || window.invalidated_at) fail('Choose a current published registration window.');
+      if(automatic && !require('../lib/regionalSeasonOrchestrationPolicy').enabled(window))fail('This registration window has no captured automatic season policy.');
       const catalogue = buildCatalogue(await editionModel.selectAll(q, true));
       const definition = catalogue.definitions.find(d => d.id === window.permanent_league_id);
       const anchor = catalogue.groups.find(g => g.permanent_league_id === definition?.id && g.group_code === 'A');
       if (!definition || !anchor || anchor.retired || definition.retired_at || anchor.edition_invalidated || anchor.identity_conflict || anchor.identity_unverified || !anchor.current_edition_id) fail('The registration window has no unambiguous active permanent league.');
       const scope = identity(anchor);
       if (scope.division !== 1 || scope.region_slug !== window.region_slug || scope.platform !== window.platform || Number(scope.reset_series || 0) !== Number(window.reset_series || 0)) fail('The registration window no longer matches its regional system or reset series.');
-      if ((await cycles.selectAll(q)).some(c => !c.edition_invalidated && !['reset','cancelled','superseded'].includes(c.status) && c.participation_window_snapshot?.id === id)) fail('This field already has a saved regional cycle. Open that cycle instead of drawing again.');
+      const saved=(await cycles.selectAll(q)).filter(c => !c.edition_invalidated && !['reset','cancelled','superseded'].includes(c.status) && c.participation_window_snapshot?.id===id);
+      if(saved.length) {
+        if(!automatic || saved.length!==1)fail('This field already has a saved regional cycle. Open that cycle instead of drawing again.');
+        const cycle=saved[0];
+        if(!require('../lib/regionalSeasonOrchestrationPolicy').enabled({...cycle.participation_window_snapshot,status:'published'}) || require('../lib/regionalRegistrationPolicy').windowRevision(cycle.participation_window_snapshot)!==require('../lib/regionalRegistrationPolicy').windowRevision(window))fail('The saved cycle and published automatic participation conditions disagree.');
+        if(cycle.region_slug!==window.region_slug || cycle.platform!==window.platform || Number(cycle.season_number)!==Number(window.season_number) || Number(cycle.reset_series || 0)!==Number(window.reset_series || 0))fail('The saved cycle belongs to a different regional scope.');
+        return {existing_cycle_id:cycle.id};
+      }
       const registrations = await windows.confirmedField(id, q);
       const assessment = assessField(window, registrations, clock());
       if (assessment.status !== 'structure_supported') fail('The complete confirmation field is not ready for cycle preparation.', 409, assessment.blockers.length ? assessment.blockers : [{ code: 'confirmation_open', message: 'Wait until the common confirmation deadline.' }]);
@@ -55,7 +63,7 @@ function createService({ transaction = withTransaction, windows = new RegionalRe
       };
     });
   }
-  return { inputForWindow };
+  return {inputForWindow:(id,actor)=>derive(id,actor),automaticInputForWindow:id=>derive(id,null,true)};
 }
 
 module.exports = { createService, ...createService() };

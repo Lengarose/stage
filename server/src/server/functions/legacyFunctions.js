@@ -5422,7 +5422,7 @@ const HANDLERS = {
     return { data: { success: true, ...result, prizes: prizeResult, tournament } };
   },
 
-  async adminMatchActions({ _auth_user_id, action, match_id, approve, reason }) {
+  async adminMatchActions({ _auth_user_id, action, match_id, approve, reason, expected_forfeit_snapshot }) {
     const admin = await requireAdminUser(_auth_user_id);
     if (!action) throw new Error('action required');
     if (!match_id) throw new Error('match_id required');
@@ -5434,6 +5434,7 @@ const HANDLERS = {
         const rows = await query('SELECT * FROM matches WHERE id = ? LIMIT 1 FOR UPDATE', [match_id]);
         if (!rows.length) throw new Error('Match not found');
         const match = rows[0];
+        if(expected_forfeit_snapshot!=null)require('../lib/forfeitReviewSnapshot').assertForfeitSnapshotCurrent(expected_forfeit_snapshot,match);
         const shouldApprove = approve === true || approve === 'true';
 
         let patch;

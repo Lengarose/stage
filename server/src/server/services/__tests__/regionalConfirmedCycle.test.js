@@ -42,3 +42,18 @@ test('reset, retired, malformed, duplicate-roster and mixed-season sources requi
     const f=fixture();mutate(f);await assert.rejects(f.service.inputForWindow('w',{id:'admin'}));
   }
 });
+
+test('trusted automatic field selection requires the captured version and preserves the exact field',async()=>{
+ const f=fixture(20);
+ await assert.rejects(f.service.automaticInputForWindow('w'),/captured automatic/);
+ Object.assign(f.window,{season_orchestration_policy_version:'regional_season_orchestration_v1',result_policy_version:'regional_result_review_v2'});
+ for(const r of f.registrations)r.accepted_rules_revision=windowRevision(f.window);
+ const input=await f.service.automaticInputForWindow('w');assert.equal(input.target_count,20);assert.equal(input.registration_ids.length,20);
+ f.window.confirmation_closes_at='2026-11-04T19:00:00Z';await assert.rejects(f.service.automaticInputForWindow('w'),/not ready/);
+});
+test('automatic retries resolve the exact captured cycle and reject changed conditions or scope',async()=>{
+ const f=fixture(20);Object.assign(f.window,{season_orchestration_policy_version:'regional_season_orchestration_v1',result_policy_version:'regional_result_review_v2'});
+ f.cycles.push({id:'cycle',status:'allocated',region_slug:f.window.region_slug,platform:f.window.platform,season_number:1,reset_series:0,participation_window_snapshot:structuredClone(f.window)});
+ assert.deepEqual(await f.service.automaticInputForWindow('w'),{existing_cycle_id:'cycle'});
+ f.cycles[0].participation_window_snapshot.rules_text='changed';await assert.rejects(f.service.automaticInputForWindow('w'),/disagree/);
+});

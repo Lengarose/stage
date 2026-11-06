@@ -713,6 +713,27 @@ router.get('/reviews/summary',async(req,res)=>{
   }catch {return res.status(500).json({error:'The result-review summary could not be loaded. Retry or contact Admin.'});}
 });
 
+// Read-only Admin queue views, before the generic match-ID route.
+router.get('/forfeit-reviews',async(req,res)=>{
+  try {
+    if(!isAdminRole(await getAuthContext(req)))return res.status(403).json({error:'Admin forfeit-review access required'});
+    const limit=Number(req.query.limit ?? 50),cursor=req.query.cursor ?? '';
+    if(!Number.isInteger(limit) || limit<1 || limit>50 || typeof cursor!=='string' || cursor.length>128 || cursor!==cursor.trim() || /[\u0000-\u001f\u007f]/.test(cursor))return res.status(400).json({error:'Invalid forfeit-review pagination'});
+    const rows=await new Match().selectForfeitReviewPage(cursor,limit);
+    const items=rows.slice(0,limit),has_more=rows.length>limit;
+    return res.json({items:await enrichMatchRows(items),has_more,next_cursor:has_more?items.at(-1).id:null});
+  }catch{return res.status(500).json({error:'The forfeit-review list could not be loaded. Refresh to try again.'});}
+});
+router.get('/forfeit-reviews/summary',async(req,res)=>{
+  try {
+    if(!isAdminRole(await getAuthContext(req)))return res.status(403).json({error:'Admin forfeit-review access required'});
+    const rows=await new Match().selectForfeitReviewSummary(),total=rows.length?Number(rows[0].forfeit_total):0;
+    if(!Number.isSafeInteger(total) || total<rows.length)throw Error('Invalid forfeit count');
+    const items=rows.map(row=>{const match={...row};delete match.forfeit_total;return match;});
+    return res.json({total,items:await enrichMatchRows(items),as_of:new Date().toISOString()});
+  }catch{return res.status(500).json({error:'The forfeit-review summary could not be loaded. Refresh to try again.'});}
+});
+
 // GET /:id
 router.get('/:id', async (req, res) => {
   try {

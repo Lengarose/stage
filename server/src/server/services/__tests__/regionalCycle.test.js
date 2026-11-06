@@ -549,3 +549,14 @@ test('closed confirmed-field preview uses real HTTP, derives canonical input and
     await assert.rejects(require('../regionalEditionService').admin({id:'ordinary'},async()=>[{id:'ordinary',role_id:null}]),error=>error.status===403);
   }finally{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
 });
+
+test('automatic preparation uses the canonical closed field, system audit and one persistent draw',async()=>{
+ const f=fixture(20),policy=require('../../lib/regionalRegistrationPolicy');
+ const window={id:'automatic-window',permanent_league_id:'root-1',status:'published',region_slug:'fixture-region',platform:'cross-platform',season_number:1,reset_series:0,policy_version:policy.VERSION,result_policy_version:'regional_result_review_v2',season_orchestration_policy_version:'regional_season_orchestration_v1',opens_at:'2026-09-20T12:00:00Z',registration_closes_at:'2026-10-18T12:00:00Z',confirmation_closes_at:'2026-10-25T12:00:00Z',rules_text:'Published rules'};
+ f.state.league_entities.push(f.entity(window,'regional_registration_window'));
+ for(const club of f.state.clubs)f.state.league_entities.push(f.entity({id:`confirmed-${club.id}`,club_id:club.id,registration_window_id:window.id,registration_policy_version:policy.VERSION,accepted_rules_revision:policy.windowRevision(window),status:'approved',participation_status:'confirmed',region_slug:window.region_slug,platform:window.platform,season_number:1,reset_series:0,confirmed_at:'2026-10-20T12:00:00Z',confirmed_player_ids:['a','b','c']},'season_registration'));
+ const first=await f.service.reconcilePreparation(window.id);assert.equal(first.cycle.preparation_mode,'automatic_followup');assert.equal(first.cycle.created_by_user_id,null);assert.equal(first.cycle.plan.ready,true);
+ const retry=await f.service.reconcilePreparation(window.id);assert.equal(retry.already_applied,true);assert.equal(retry.cycle.id,first.cycle.id);assert.equal(f.state.league_entities.filter(r=>r.entity_type==='regional_cycle').length,1);
+ assert.equal(f.state.admin_audit_log.filter(r=>r.action==='prepare_regional_cycle').length,1);
+ await assert.rejects(f.service.prepare({...f.input,automatic:true,apply:true,reason:'Forged automation'},{id:'ordinary'}),/Admin/);
+});

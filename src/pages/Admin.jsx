@@ -1,3 +1,4 @@
+import {resolveReviewedForfeit} from '@/lib/adminForfeitReview';
 // @ts-nocheck — shadcn/ui primitives are untyped forwardRefs under checkJs; substantive admin logic stays typed elsewhere.
 import { useState, useEffect, useRef, useMemo } from "react";
 // Admin sub-components (separation of concerns — moved out of this file)
@@ -123,7 +124,6 @@ export default function Admin(props) {
   const gameDayLoadVersion=useRef(0);
   useEffect(()=>()=>{gameDayLoadVersion.current++;},[]);
   const disputes=gameDayFeeds.reviews.items;
-  const forfeits=gameDayFeeds.forfeits.items;
   const expiredFixtures=gameDayFeeds.scheduling.items;
   const [players, setPlayers] = useState([]);
   const [identityClaims, setIdentityClaims] = useState([]);
@@ -665,29 +665,15 @@ export default function Admin(props) {
     }
   }
 
-  async function resolveForfeit(matchId, approve) {
-    const m = forfeits.find(f => f.id === matchId);
-    if (!m) return;
-    // Defensive: a forfeit on an already-completed match would overwrite the
-    // real result. Surface a clear message before hitting the server (which
-    // will refuse this same case anyway).
-    if (approve && (m.status === "completed" || m.status === "forfeit")) {
-      await swalAlert(t("admin.alerts.forfeitAlreadyResolved", {
-        status: m.status === "forfeit" ? t("admin.alerts.forfeited") : t("admin.alerts.completed"),
-      }));
-      return;
-    }
+  async function resolveForfeit(match, approve) {
     try {
-      await stageClient.functions.invoke("adminMatchActions", {
-        action: "resolve_forfeit",
-        match_id: matchId,
-        approve,
-        reason: approve ? "Approved from admin forfeits panel" : "Rejected from admin forfeits panel",
-      });
+      await resolveReviewedForfeit(stageClient,match,approve);
       await refreshGameDayFeeds();
+      return true;
     } catch (err) {
       const serverMsg = err?.data?.error || err?.message || t("admin.alerts.unknownError");
       await swalAlert(t("admin.alerts.forfeitActionFailed", { action: approve ? t("admin.alerts.approve") : t("admin.alerts.reject"), message: serverMsg }));
+      return false;
     }
   }
 

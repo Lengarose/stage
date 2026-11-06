@@ -104,3 +104,21 @@ test('automatic final retains conflict, cutoff, source-revision and transactiona
   const f=await automaticFixture();finishSemifinals(f);change(f);const before=structuredClone(f.state);await assert.rejects(f.service.reconcileFinal('cycle'));assert.deepEqual(f.state,before);
  }
 });
+
+function captureOrchestration(f) {
+ Object.assign(f.state.cycle.participation_window_snapshot,{season_orchestration_policy_version:'regional_season_orchestration_v1',result_policy_version:'regional_result_review_v2'});
+}
+test('captured season orchestration publishes semifinals once, then follows the recorded winners to Thursday',async()=>{
+ const f=fixture();captureOrchestration(f);
+ assert.equal((await f.service.reconcilePromotion('cycle')).status,'waiting_semifinals');
+ assert.equal(f.state.records.length,1);assert.equal(f.state.records[0].stage,'semifinal');assert.equal(f.state.records[0].publication_mode,'automatic_followup');assert.ok(f.state.audits.every(a=>a.user.id===null));
+ assert.equal((await f.service.reconcilePromotion('cycle')).status,'waiting_semifinals');assert.equal(f.state.records.length,1);
+ finishSemifinals(f);f.state.now='2027-01-19T20:30:00Z';
+ const final=await f.service.reconcilePromotion('cycle');assert.equal(final.status,'published');assert.equal(final.entries[0].scheduled_date,'2027-01-21 20:00:00');assert.equal(f.state.records.length,2);
+});
+test('automatic semifinal publication retains legacy opt-in, final standings, conflict and initial calendar lead requirements',async()=>{
+ const old=fixture();await assert.rejects(old.service.reconcilePromotion('cycle'),/captured/);assert.equal(old.state.records.length,0);
+ for(const change of [f=>{f.state.plan.unresolved_ties=[{clubs:['club1','club2']}];},f=>{f.state.now='2027-01-18T12:00:00Z';},f=>{f.state.plan.fixtures.push({ref:'growth:extra'});},f=>{f.state.bookings.matches.push({id:'conflict',home_club_id:'club0',away_club_id:'else',status:'scheduled',scheduled_date:'2027-01-19 20:00:00',timezone:'Europe/Brussels',type:'league'});},f=>{f.state.fail='notify';}]){
+  const f=fixture();captureOrchestration(f);change(f);const before=structuredClone(f.state);await assert.rejects(f.service.reconcilePromotion('cycle'));assert.deepEqual(f.state,before);
+ }
+});

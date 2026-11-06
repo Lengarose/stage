@@ -19,15 +19,16 @@ function createService({model=new RegionalPromotionCalendarModel(),transaction=w
     return transaction(async q=>{
       const user=automatic?{id:null,email:null}:await model.actor(actor?.id,q);
       if(!automatic && (!user || user.role_id==null || ![0,2].includes(Number(user.role_id))))fail('Admin pathway calendar access required',403);
-      if(automatic && body.stage!=='final')fail('Only the published promotion semifinals can enable automatic finals',403);
       if(!['semifinal','final'].includes(body.stage))fail('Choose the promotion semifinal or final stage',400);
       if(['date','start_monday','fixture_ids','winners'].some(k=>Object.hasOwn(body,k)))fail('Dates and participants follow the recorded source calendar and sporting results',400);
       await model.lock(q);
       const cycle=await model.cycle(cycleId,q);if(!cycle)fail('Regional cycle not found',404);
+      const captured=require('../lib/regionalSeasonOrchestrationPolicy').enabled({...cycle.participation_window_snapshot,status:'published'});
+      if(automatic && body.stage==='semifinal' && !captured)fail('Automatic promotion semifinals require captured season orchestration',403);
       const id=stableId(['regional_promotion_calendar',cycleId,body.stage]),published=await model.published(id,q);
       if(published)return {...published,already_published:true};
-      const parent=automatic?await model.published(stableId(['regional_promotion_calendar',cycleId,'semifinal']),q):null;
-      if(automatic && !parent)return {status:'not_enabled'};
+      const parent=automatic && body.stage==='final'?await model.published(stableId(['regional_promotion_calendar',cycleId,'semifinal']),q):null;
+      if(automatic && body.stage==='final' && !parent)return {status:'not_enabled'};
       if(cycle.input?.mode!=='transition' || cycle.policy_version!==sporting.VERSION || cycle.source_ranking_policy_version!==sporting.SOURCE_RANKING_VERSION || cycle.participation_window_snapshot?.policy_version!==participation.VERSION || !leaguePolicy.regions.includes(cycle.region_slug) || !['running','review','ready'].includes(cycle.status) || cycle.edition_invalidated)fail('Choose a current official European transition with supported sporting and participation policies');
       if(cycle.input.target_count===240 && cycle.source_snapshot?.reduce((n,s)=>n+(s.club_ids?.length || 0),0)===180)fail('The extra five-match expansion route has no approved complete calendar');
       const anchors=(await model.calendars(q)).filter(c=>c.status==='published' && c.policy_version===leaguePolicy.version && cycle.source_edition_ids?.length && cycle.source_edition_ids.every(id=>c.edition_ids?.includes(id)));
@@ -45,7 +46,11 @@ function createService({model=new RegionalPromotionCalendarModel(),transaction=w
       const date=dateAt(anchor.start_monday,(policy.week-1)*7+(body.stage==='semifinal'?policy.semifinal_day:policy.final_day));
       const time=scheduleTime(`${date}T${policy.time}`,policy.timezone);
       if(time.instant<=clock().getTime()+5*60000)blockers.push('The reserved kickoff is too close or has passed; Admin calendar review is required');
-      if(automatic) {
+      // The final's Thursday slot is already published in the semifinal policy
+      // snapshot. Resolving its opponents after Tuesday play is progression,
+      // rather than a new initial calendar with another 48-hour lead period.
+      if(captured && body.stage==='semifinal' && time.instant<clock().getTime()+48*3600000)blockers.push('Publish the definitive promotion calendar at least 48 hours before kickoff');
+      if(automatic && body.stage==='final') {
         const semifinalRefs=groups.flatMap(g=>[`promotion:${g}:sf:2-5`,`promotion:${g}:sf:3-4`]);
         if(parent.status!=='published' || parent.stage!=='semifinal' || parent.cycle_id!==cycleId || parent.source_calendar_id!==anchor.id || parent.policy_version!==policy.version || !parent.policy_snapshot || policyRevision(parent.policy_snapshot)!==policyRevision(policy) || parent.entries?.length!==semifinalRefs.length || new Set(parent.entries.map(e=>e.ref)).size!==semifinalRefs.length || semifinalRefs.some(ref=>!parent.entries.some(e=>e.ref===ref)))fail('The published semifinal calendar no longer matches the approved promotion policy');
         const semifinalMatches=parent.entries.map(entry=>{
@@ -92,12 +97,16 @@ function createService({model=new RegionalPromotionCalendarModel(),transaction=w
         const audit=await model.audit({engine:fixture,calendar:true},user,{engine:fixture,match},{engine,match:updatedMatch},body.reason,q);
         await model.notify(updatedMatch,audit.id,q);
       }
-      const record={...result,status:'published',published_at:clock().toISOString(),policy_snapshot:policy,...(automatic?{publication_mode:'automatic_followup',parent_calendar_id:parent.id}:{})};
+      const record={...result,status:'published',published_at:clock().toISOString(),policy_snapshot:policy,...(automatic?{publication_mode:'automatic_followup',...(parent?{parent_calendar_id:parent.id}:{})}:{})};
       await model.save(record,user,body.reason,q);return record;
     });
   }
   async function action(cycleId,body,actor) {return operate(cycleId,body,actor,false);}
   async function reconcileFinal(cycleId) {return operate(cycleId,{stage:'final',apply:true,reason:'Automatic promotion final after published semifinals and confirmed sporting results'},null,true);}
-  return {action,reconcileFinal};
+  async function reconcilePromotion(cycleId) {
+    await operate(cycleId,{stage:'semifinal',apply:true,reason:'Automatic promotion semifinals from final source standings and the published week-eleven calendar'},null,true);
+    return reconcileFinal(cycleId);
+  }
+  return {action,reconcileFinal,reconcilePromotion};
 }
 module.exports={createService,...createService()};

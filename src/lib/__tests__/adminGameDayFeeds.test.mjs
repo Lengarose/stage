@@ -4,7 +4,7 @@ import {initialGameDayFeeds,loadAdminGameDayFeeds,gameDayFeedCount,gameDayFeedLa
 const now=Date.parse('2026-11-06T20:00:00Z');
 const summary={items:[],total:0,as_of:new Date(now).toISOString()};
 const ready=(items=[],total=items.length)=>({status:'ready',items,total});
-function clientFor(read){return {http:{get:async(path,query)=>path==='/matches/reviews/summary'?summary:read(path,query)}};}
+function clientFor(read,forfeitRead=()=>summary){return {http:{get:async(path,query)=>path==='/matches/reviews/summary'?summary:path==='/matches/forfeit-reviews/summary'?forfeitRead():read(path,query)}};}
 async function load(client){const state=initialGameDayFeeds();await loadAdminGameDayFeeds(client,(key,result)=>{state[key]=result;},now);return state;}
 
 test('counts remain unknown until every requested category is verified, even when arrays are empty',()=>{
@@ -38,9 +38,8 @@ test('a late failed or duplicate scheduling page invalidates the category instea
 test('404, denied, unavailable and malformed reads never become successful empty feeds; unrelated categories remain available',async()=>{
  for(const failure of [Object.assign(Error('missing'),{status:404}),Object.assign(Error('denied'),{status:403}),Error('offline'),null,{items:[]},[null],[{id:'duplicate'},{id:'duplicate'}]]){
   const state=await load(clientFor(async(path,query)=>{
-   if(path==='/matches' && query.forfeit_status){if(failure instanceof Error)throw failure;return failure;}
    return [];
-  }));
+  },()=>{if(failure instanceof Error)throw failure;return failure;}));
   assert.equal(state.forfeits.status,'error');assert.equal(state.reviews.total,0);assert.equal(state.stuck.status,'ready');assert.equal(state.scheduling.status,'ready');assert.doesNotMatch(state.forfeits.error,/offline|denied|missing/);
  }
 });
@@ -55,16 +54,13 @@ test('stuck category requires all candidate reads and filters final results whil
  const failed=await load(clientFor(async(path,query)=>{if(query.status==='disputed')throw Error('one failed');return path==='/matches' && query.status==='scheduled'?[old]:[];}));
  assert.equal(failed.stuck.status,'error');assert.equal(failed.stuck.total,null);assert.deepEqual(failed.stuck.items,[]);
 });
-test('pending forfeits exclude unclaimed and terminal rows; the same match may count in another category',async()=>{
+test('the forfeit total uses the full bounded summary rather than preview length',async()=>{
  const valid={id:'pending',status:'scheduled',forfeit_status:'pending',forfeit_claimed_by:'home',updated_date:'2026-11-01T00:00:00Z'};
- const state=await load(clientFor(async(path,query)=>{
-  if(path!=='/matches')return [];
-  if(query.forfeit_status)return [valid,{...valid,id:'done',status:'completed'},{...valid,id:'no-claim',forfeit_claimed_by:null},{...valid,id:'confirmed',result_state:'CONFIRMED'}];
-  return query.status==='scheduled'?[valid]:[];
- }));
- assert.equal(state.forfeits.total,1);assert.equal(state.stuck.total,1);assert.equal(gameDayActionCount(state),2);
+ const items=Array.from({length:10},(_,i)=>({...valid,id:`claim-${i}`}));
+ const state=await load(clientFor(async(path,query)=>path==='/matches' && query.status==='scheduled'?[valid]:[],()=>({...summary,total:53,items})));
+ assert.equal(state.forfeits.total,53);assert.equal(state.forfeits.items.length,10);assert.equal(state.stuck.total,1);assert.equal(gameDayActionCount(state),54);
 });
 test('review failure stays independent of successful scheduling and forfeit loads',async()=>{
- const state=await load({http:{get:async path=>{if(path==='/matches/reviews/summary')throw Error('failed');return [];}}});
+ const state=await load({http:{get:async path=>{if(path==='/matches/reviews/summary')throw Error('failed');return path==='/matches/forfeit-reviews/summary'?summary:[];}}});
  assert.equal(state.reviews.status,'error');assert.equal(state.scheduling.status,'ready');assert.equal(state.forfeits.total,0);
 });

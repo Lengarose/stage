@@ -655,3 +655,78 @@ competitions on 3 November. See `docs/regional-result-review-phase6.md`.
   stubbed, not actual browser/JWT/MySQL/live proof. Other Admin inventory audits,
   large-backlog performance and real lifecycle e2e remain open. No deploy/push/
   production writes. Graphify report/wiki and command remain unavailable.
+
+
+### Bounded forfeit reviews (local, 6 November 2026)
+
+- Read docs/admin-forfeit-pagination-phase6.md. Match model adds shared pending/
+  claimant/nonterminal filter for GET matches/forfeit-reviews (cursor, max50+1)
+  and /summary (window count + first10). Both stored Admin roles 0/2 only; sanitized
+  failures. No schema/entity changes. Summary count work is not bounded by LIMIT.
+- Shared Admin feed uses full total/preview; ForfeitsTab owns independent cursor
+  pages/errors/empty/refresh/busy state. GameDay labels the preview. Stuck reads
+  remain unbounded and fixture offset pages remain live; not closed in this step.
+- Parent no longer looks up a selected claim in the preview. adminForfeitReview.js
+  rereads the exact ID and compares reviewed claimant/proof/participants/scores/
+  lifecycle fields. New action payload carries expected_forfeit_snapshot v1;
+  legacy handler checks it after FOR UPDATE before writes/audit, 409 on change.
+  No-snapshot legacy behavior remains. Existing audit/progression paths preserved.
+- Ten Match HTTP tests, two selected function tests (including guarded and legacy
+  approval plus stale guard/rejection) and 65 frontend/helper/render tests pass;
+  lint/typecheck/syntax/build/diff pass. Actual MySQL/JWT/browser/lock contention/
+  performance/live remain open. Graphify unavailable; no deploy/push/production writes.
+
+
+### Active full-programme execution and new approvals (6 November 2026)
+
+- User pasted the complete implementation prompt twice; identical SHA256. Latest
+  attachment: /Users/chriskalonji/.codex/attachments/60974515-6eb4-42ed-bfac-c3cd6275d837/Pasted text.txt.
+  Execute all remaining approved scope, not another isolated pagination package.
+  No deployment/push/production repair authorized. Do not make user repeat next step.
+- User explicitly confirmed calendar package (48h reserve maximum, two placement
+  weeks, 12 playing + 1 transition, calendar >=48h before first kickoff); reserve
+  priority; full European rescheduling package; next registration weeks5–8,
+  confirmation9/reserve10; §10 absence/withdrawal package; §8 player/transfer/Cup-tied
+  package. Masterplan + delivery status now record exact approvals. Do not reask.
+- In-progress code: new captured regional_season_orchestration_v1 for newly
+  published windows, optional first league Monday, existing durable worker kind
+  season, canonical internal prepare, internal audited draw/calendar/Cup activation,
+  and new recurring_schedule_v1 next registration ahead of time. Old public window
+  hash shape preserved when optional fields absent; no old-window backfill.
+- Regression log /private/tmp/season-orchestration-regressions.log is being rerun;
+  earlier new test fixes corrected decimal-string assertion, fixture stale window
+  copy and real system Cup activation null actor. Do not claim final tests yet.
+- mysql and docker CLI are absent; actual MySQL full-season acceptance has not run.
+- Still need completion matrix, coherent handoff, unresolved decisions and remaining
+  implementation across phases. Initial orchestration != complete programme.
+
+### Orchestration/rescheduling handoff — verified local follow-up, 6 November
+
+- Read docs/regional-season-orchestration-phase6.md and the original eight-phase
+  matrix in docs/competition-delivery-status.md before continuing. The entire
+  programme is NOT complete; remaining reserve/player/withdrawal/financial/other
+  tournament/phase-8 work is explicit. Do not revert to unrelated dashboard work.
+- New windows capture regional_season_orchestration_v1, recurring schedule and,
+  for Europe, regional_reschedule_europe_v1. Existing accepted hashes unchanged.
+  Canonical prepare → cycle progress/allocation → exact draws → explicit initial
+  calendar → next registration → accepted Cup startup now uses durable workers.
+  Unfinished previous-source results are a normal wait, not a premature cycle.
+- Initial start Monday remains Admin-configured. Recurrence: registration weeks
+  5–8, confirm9, reserves10, next league after12+1 weeks. DST local dates converted
+  separately; no backdating. Existing manually published calendars/windows reused.
+- Normal captured transition worker now publishes semifinal Tuesday week11,
+  then existing confirmed-results final Thursday. Old cycles retain manual first
+  publication. Only initial publication has48h lead; Thursday slot already reserved
+  by semifinal policy, no impossible new48h wait after Tuesday results.
+- GameDay official reschedule GET/POST use stored club permissions/canonical
+  context, quota2 approved requester-only, response/lead/week/slot rules, shared
+  schedule lock, transactional match/source/engine/audit/notice, preparation reset.
+  Legacy/NA/rounds37–38 retain review. No generic CRUD table/dependency added.
+- 401 selected server tests pass (including controlled local HTTP); lint/types/
+  server syntax/build/diff pass. Two historical functionsController baseline
+  cases remain excluded. Frontend targeted run in /private/tmp/programme-frontend.log.
+  Graphify unavailable, mysql/docker unavailable. Real DB/JWT/browser/season
+  acceptance remains undone. No production access/mutation/deploy/push this turn.
+- User latest confirmations are in masterplan and delivery status; do NOT ask
+  again for reserve48h/placement2w/12+1, reserve priority, European rescheduling,
+  recurring weeks5–9, §10 withdrawal/no-shows, §8 players/transfers/Cup-tied.

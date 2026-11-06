@@ -11,7 +11,8 @@ function project(result) {
 async function reconcile(id) {
   const result=await require('./regionalCycleService').progress(id),cycle=result.cycle;
   if(cycle?.input?.mode==='transition' && cycle.status!=='allocated' && cycle.plan?.ready!==true && !cycle.plan?.blockers?.length && cycle.plan?.fixtures?.some(f=>f.ref.startsWith('promotion:')) && !cycle.plan.fixtures.some(f=>f.ref.startsWith('growth:'))) {
-    const calendar=await require('./regionalPromotionCalendarService').reconcileFinal(id);
+    const service=require('./regionalPromotionCalendarService');
+    const calendar=await (require('../lib/regionalSeasonOrchestrationPolicy').enabled({...cycle.participation_window_snapshot,status:'published'})?service.reconcilePromotion(id):service.reconcileFinal(id));
     result.promotion_calendar_status=calendar.status;
   }
   if(cycle?.status==='ready' && cycle.plan?.ready===true && !cycle.plan.blockers?.length && cycle.automatic_allocation_policy_version) {
@@ -21,4 +22,4 @@ async function reconcile(id) {
   return result;
 }
 function createService(options={}) {return createWorker({model:new RegionalCycleRecoveryModel(),reconcile,project,label:'Regional cycle recovery',...options});}
-module.exports={createService,project,...createService()};
+module.exports={createService,project,reconcileCycle:reconcile,...createService()};

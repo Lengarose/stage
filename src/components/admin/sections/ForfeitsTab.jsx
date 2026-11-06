@@ -1,78 +1,62 @@
-import ActionFeedStatus from '@/components/admin/shared/ActionFeedStatus';
-import EmptyState from "@/components/admin/shared/EmptyState";
-import { Button } from "@/components/ui/button";
-import { useTranslation } from "@/hooks/useTranslation";
-import { Flag, Check, X, AlertTriangle } from "lucide-react";
+import {useEffect,useRef,useState} from 'react';
+import {stageClient} from '@/api/stageClient';
+import {loadForfeitReviewPage} from '@/lib/adminForfeitReview';
+import {evidenceLink} from '@/lib/adminDisputeEvidence';
+import EmptyState from '@/components/admin/shared/EmptyState';
+import {Button} from '@/components/ui/button';
+import {useTranslation} from '@/hooks/useTranslation';
+import {Flag,Check,X} from 'lucide-react';
 
-export default function ForfeitsTab({ forfeits, resolveForfeit, feed, onRetry }) {
-  const { t } = useTranslation();
-
-  if(feed && feed.status!=='ready')return <ActionFeedStatus feed={feed} label="Forfeit claims" onRetry={onRetry}/>;
-
-  return (
-    <>
-      {forfeits.length === 0 ? (
-        <EmptyState icon={Flag} text={t("admin.forfeits.noPendingRequests")} />
-      ) : (
-        <div className="space-y-3">
-          {forfeits.map(m => {
-            const claimerName  = m.forfeit_claimed_by === m.home_club_id ? m.home_club_name : m.away_club_name;
-            const isStale      = m.status === "completed" || m.status === "forfeit";
-            const hasScore     = m.home_score != null && m.away_score != null;
-            return (
-              <div
-                key={m.id}
-                className={`bg-card border rounded p-5 flex flex-col sm:flex-row sm:items-center gap-4 ${isStale ? "border-destructive/40" : "border-warning/20"}`}
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-bold text-foreground">{m.home_club_name} vs {m.away_club_name}</p>
-                    {hasScore && (
-                      <span className="text-xs font-mono px-1.5 py-0.5 rounded bg-secondary text-foreground">
-                        {m.home_score} – {m.away_score}
-                      </span>
-                    )}
-                    {isStale && (
-                      <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-widest font-bold px-2 py-0.5 rounded-full bg-destructive/15 text-destructive border border-destructive/30">
-                        <AlertTriangle className="w-3 h-3" />
-                        {m.status === "forfeit" ? t("admin.forfeits.matchAlreadyForfeited") : t("admin.forfeits.matchAlreadyPlayed")}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {t("admin.forfeits.claimedBy", { name: claimerName })}
-                  </p>
-                  {isStale && (
-                    <p className="text-[11px] text-destructive/85 mt-1">
-                      {t("admin.forfeits.staleClaimHint")}
-                    </p>
-                  )}
-                  {m.forfeit_proof_url && <a href={m.forfeit_proof_url} target="_blank" rel="noreferrer" className="text-xs text-primary underline mt-1 block">{t("admin.forfeits.viewProof")}</a>}
-                </div>
-                <div className="flex gap-2 shrink-0">
-                  <Button
-                    size="sm"
-                    disabled={isStale}
-                    onClick={() => resolveForfeit(m.id, true)}
-                    className="bg-success/20 text-success hover:bg-success/30 border-0 gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                    title={isStale ? t("admin.forfeits.cannotApproveStale") : t("admin.forfeits.approveForfeit")}
-                  >
-                    <Check className="w-4 h-4" /> {t("admin.actions.approve")}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => resolveForfeit(m.id, false)}
-                    className="border-destructive/30 text-destructive hover:bg-destructive/10 gap-1"
-                  >
-                    <X className="w-4 h-4" /> {t("admin.actions.reject")}
-                  </Button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </>
-  );
+export default function ForfeitsTab({resolveForfeit,feed}) {
+  const {t}=useTranslation();
+  const [page,setPage]=useState(null),[error,setError]=useState(''),[refresh,setRefresh]=useState(0),[cursors,setCursors]=useState(['']);
+  const [busy,setBusy]=useState(''),[actionError,setActionError]=useState('');
+  const busyRef=useRef(false),mounted=useRef(false);
+  const cursor=cursors.at(-1),current=page?.request_cursor===cursor?page:null;
+  useEffect(()=>{mounted.current=true;return ()=>{mounted.current=false;};},[]);
+  useEffect(()=>{
+    let active=true;setPage(null);setError('');setActionError('');
+    loadForfeitReviewPage(stageClient,cursor).then(result=>{if(active)setPage(result);}).catch(err=>{if(active)setError(err.message);});
+    return ()=>{active=false;};
+  },[cursor,refresh,feed]);
+  async function decide(match,approve) {
+    if(busyRef.current)return;
+    busyRef.current=true;setBusy(match.id);setActionError('');
+    try {
+      const success=await resolveForfeit(match,approve);
+      if(mounted.current && success)setRefresh(value=>value+1);
+    }catch{if(mounted.current)setActionError('The claim could not be processed. Refresh and review it before retrying.');}
+    finally {busyRef.current=false;if(mounted.current)setBusy('');}
+  }
+  return <>
+    <section aria-label="Forfeit review list controls" className="mb-4 space-y-2 border-b border-border pb-4 text-sm">
+      <p>Up to 50 pending forfeit claims per page. Each selected claim is checked again before a decision is submitted.</p>
+      <div className="flex flex-wrap items-center gap-5">
+        <button type="button" disabled={!!busy} className="min-h-11 font-semibold disabled:opacity-40" onClick={()=>{setCursors(['']);setRefresh(v=>v+1);}}>Refresh from first page →</button>
+        <button type="button" disabled={!!busy || !current || cursors.length===1} className="min-h-11 font-semibold disabled:opacity-40" onClick={()=>setCursors(v=>v.slice(0,-1))}>Previous page</button>
+        <button type="button" disabled={!!busy || !current?.has_more} className="min-h-11 font-semibold disabled:opacity-40" onClick={()=>setCursors(v=>[...v,current.next_cursor])}>Next page →</button>
+        <span>Page {cursors.length}</span>
+      </div>
+      {error?<p role="alert" className="text-destructive">Could not load forfeit claims: {error}</p>:!current?<p role="status">Loading forfeit claims…</p>:!current.items.length && cursors.length>1?<p>No pending claims remain on this page. Go back or refresh from the first page.</p>:null}
+      {actionError && <p role="alert" className="text-destructive">{actionError}</p>}
+    </section>
+    {current && !error && !current.items.length && cursors.length===1?<EmptyState icon={Flag} text={t('admin.forfeits.noPendingRequests')}/>:<div className="space-y-3">
+      {(current?.items || []).map(match=>{
+        const claimer=match.forfeit_claimed_by===match.home_club_id?match.home_club_name:match.away_club_name;
+        const proof=evidenceLink(match.forfeit_proof_url);
+        return <div key={match.id} className="flex flex-col gap-4 rounded border border-warning/20 bg-card p-5 sm:flex-row sm:items-center">
+          <div className="min-w-0 flex-1">
+            <p className="font-bold text-foreground">{match.home_club_name || match.home_player_name || 'Home'} vs {match.away_club_name || match.away_player_name || 'Away'}</p>
+            {match.home_score!=null && match.away_score!=null && <p className="text-sm">{match.home_score} – {match.away_score}</p>}
+            <p className="mt-1 text-xs text-muted-foreground">{t('admin.forfeits.claimedBy',{name:claimer || 'Unknown club'})}</p>
+            {proof?<a href={proof} target="_blank" rel="noreferrer" className="mt-1 block text-xs text-primary underline">{t('admin.forfeits.viewProof')}</a>:match.forfeit_proof_url?<p className="text-xs text-destructive">The proof link is unavailable.</p>:null}
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <Button type="button" size="sm" disabled={!!busy} onClick={()=>decide(match,true)} className="gap-1 border-0 bg-success/20 text-success hover:bg-success/30"><Check className="h-4 w-4"/>{t('admin.actions.approve')}</Button>
+            <Button type="button" size="sm" variant="outline" disabled={!!busy} onClick={()=>decide(match,false)} className="gap-1 border-destructive/30 text-destructive hover:bg-destructive/10"><X className="h-4 w-4"/>{t('admin.actions.reject')}</Button>
+          </div>
+        </div>;
+      })}
+    </div>}
+  </>;
 }

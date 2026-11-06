@@ -40,6 +40,14 @@ function report(rows,fixtures,now=new Date()) {
     }
   }
   for(const r of active) {
+    if(r.entity_type==='regional_season_progress' && r.status==='review_required') {
+      const source=active.find(s=>s.entity_type==='regional_registration_window' && s.id===r.source_id);
+      if(source)add({...source,entity_type:r.entity_type},'season_preparation_review','review',`Automatic season preparation requires review. ${r.last_error || 'Check the confirmed field, sporting rights and published conditions.'} Existing cycles and draws are preserved.`,String(r.last_error || '').startsWith('Regional Cup:')?'cups':String(r.last_error || '').startsWith('Season calendar:')?'calendar':'cycles');
+    }
+    if(r.entity_type==='regional_season_progress' && r.stage==='calendar_date_required' && r.status!=='review_required') {
+      const cycle=active.find(c=>c.entity_type==='regional_cycle' && c.id===r.cycle_id);
+      if(cycle)add(cycle,'league_calendar','action','Automatic group fixtures are ready. Set the first league playing Monday in the existing calendar action; no date is inferred.','calendar');
+    }
     if(r.entity_type==='regional_cycle_progress' && r.status==='review_required') {
       const source=active.find(s=>s.entity_type==='regional_cycle' && s.id===r.source_id);
       if(source && ['running','review','ready'].includes(source.status))add({...source,entity_type:r.entity_type},'cycle_recovery_review','review','Automatic regional cycle progression requires review. Check the captured field, official results and sporting decisions.','cycles');
@@ -75,7 +83,7 @@ function report(rows,fixtures,now=new Date()) {
           const assessment=assessField(r,apps,now,{sourceComplete:registrationSourcesComplete});
           const supported=assessment.status==='structure_supported';
           add(r,'field_review',supported?'action':'review',supported
-            ? `Confirmation has closed: ${assessment.confirmed_clubs} confirmed clubs fit an approved capacity. Review sporting rights, placement and the calendar before starting.`
+            ? r.season_orchestration_policy_version==='regional_season_orchestration_v1'?`Confirmation has closed: ${assessment.confirmed_clubs} clubs fit an approved capacity. Automatic cycle preparation is pending; unresolved sporting rights remain with Admin.`:`Confirmation has closed: ${assessment.confirmed_clubs} confirmed clubs fit an approved capacity. Review sporting rights, placement and the calendar before starting.`
             : `Confirmation has closed: ${assessment.confirmed_clubs} confirmed clubs. Resolve the field blockers before preparing a sporting cycle; no clubs have been dropped.`,'cycles',{field_assessment:assessment});
         }else add(r,'field_review','action',`Confirmation has closed: ${confirmed.length} confirmed registrations. Review the field and regional cycle; this view does not automatically remove unconfirmed clubs.`,'cycles');
       }

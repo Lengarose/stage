@@ -222,3 +222,26 @@ test('Cup capture can read accepted confirmation evidence after league start wit
  const before=structuredClone(env.state),field=await env.service.capturedField('uk-ireland','cross-platform',1,0,['club'],env.query);assert.equal(field.registrations[0].club_id,'club');assert.equal(field.window.cup_policy_version,'regional_cup_v1');assert.deepEqual(env.state,before);
  env.state.registrations=[];await assert.rejects(env.apply(window),/started/);env.state.definitions[0].edition_invalidated=true;await assert.rejects(env.service.capturedField('uk-ireland','cross-platform',1,0,['club'],env.query),/invalidated/);
 });
+
+test('new windows disclose automatic preparation and optional configured Monday without modifying legacy public shapes',async()=>{
+ const f=fixture();f.input.league_start_monday='2026-12-21';
+ const published=(await f.publish()).window;
+ assert.equal(published.season_orchestration_policy_version,'regional_season_orchestration_v1');assert.equal(published.league_start_monday,'2026-12-21');
+ const legacy={id:'legacy',policy_version:policy.VERSION};const shape=policy.publicWindow(legacy);assert.equal(Object.hasOwn(shape,'season_orchestration_policy_version'),false);assert.equal(Object.hasOwn(shape,'league_start_monday'),false);
+ const bad=fixture();bad.input.league_start_monday='2026-12-22';await assert.rejects(bad.publish(),/Monday/);
+});
+
+
+test('recurring periods publish the next edition at the approved relative weeks, retain Plus/Cup conditions and retry safely',async()=>{
+ const f=fixture();f.input.league_start_monday='2026-12-21';f.input.include_cup=true;
+ const source=(await f.publish()).window;
+ const next=await f.service.reconcileNextWindow(source.id,'2026-12-21');assert.equal(next.window.season_number,2);assert.equal(next.window.league_start_monday,'2027-03-22');
+ assert.equal(next.window.opens_at,'2027-01-17T23:00:00.000Z');assert.equal(next.window.registration_closes_at,'2027-02-14T23:00:00.000Z');assert.equal(next.window.confirmation_closes_at,'2027-02-21T23:00:00.000Z');assert.equal(next.window.cup_policy_version,'regional_cup_v1');
+ assert.equal(f.state.audits.at(-1)[1],null);assert.equal(f.state.windows.length,2);
+ const retry=await f.service.reconcileNextWindow(source.id,'2026-12-21');assert.equal(retry.already_applied,true);assert.equal(f.state.windows.length,2);
+});
+test('recurring periods use local calendar weeks across DST and do not backdate a missed registration launch',async()=>{
+ const f=fixture();f.input.league_start_monday='2027-03-01';const source=(await f.publish()).window;
+ const next=await f.service.reconcileNextWindow(source.id,'2027-03-01');assert.equal(next.window.opens_at,'2027-03-28T22:00:00.000Z');assert.equal(next.window.registration_closes_at,'2027-04-25T22:00:00.000Z');
+ const late=fixture();const old=(await late.publish()).window;late.at('2027-01-20T12:00:00Z');await assert.rejects(late.service.reconcileNextWindow(old.id,'2026-12-21'),/future|backdated/);assert.equal(late.state.windows.length,1);
+});

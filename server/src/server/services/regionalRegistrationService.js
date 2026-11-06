@@ -33,8 +33,8 @@ function createService({model=new RegionalRegistrationModel(),transaction=withTr
     if(!owns && !(allowAdminRead && isAdmin(user)))fail('Only the current club president or owner can register or confirm this club',403);
     return {user,club,owns:!!owns};
   }
-  async function audit(q,user,action,before,after,reason) {
-    if(!isAdmin(user))return;
+  async function audit(q,user,action,before,after,reason,automatic=false) {
+    if(!automatic && !isAdmin(user))return;
     await q('INSERT INTO admin_audit_log (id,admin_user_id,admin_email,action,entity_type,entity_id,old_value,new_value,reason) VALUES (?,?,?,?,?,?,?,?,?)',[uuid(),user.id,user.email,action,'regional_registration',after.id,JSON.stringify(before || null),JSON.stringify(after),reason || action]);
   }
   async function windows() {
@@ -43,9 +43,9 @@ function createService({model=new RegionalRegistrationModel(),transaction=withTr
       return {...publicWindow(w),phase:unavailable(all,w)?'closed':policy.phase(w,clock())};
     })};
   }
-  async function publish(body,actor) {
+  async function runPublish(body,actor,automatic=false,automaticTiming=null) {
     return transaction(async q=>{
-      const user=await editions.admin(actor,q);if(!isAdmin(user))fail('Admin access required',403);await editions.model.lock(q);
+      const user=automatic?{id:null,email:null}:await editions.admin(actor,q);if(!automatic && !isAdmin(user))fail('Admin access required',403);await editions.model.lock(q);
       const all=(await editions.model.selectAll(q,true)).map(unpack);
       const definition=all.find(r=>r.id===body.permanent_league_id && permanentId(r)===r.id);
       const current=all.find(r=>r.id===definition?.current_edition_id) || definition;
@@ -53,18 +53,27 @@ function createService({model=new RegionalRegistrationModel(),transaction=withTr
       const i=identity({...current,slug:'',season_number:Number(body.season_number),reset_series:Number(body.reset_series)});
       if(Number(i.reset_series || 0)!==Number(current.reset_series || 0))fail('Use the current reset series of this regional system');
       const rows=all.filter(r=>belongs(r,i));
-      const timing=policy.schedule(body.opens_at);
+      const timing=automatic && automaticTiming?automaticTiming:policy.schedule(body.opens_at);
       const cup=require('../lib/regionalCupPlan');
       if(body.include_cup===true && (!cup.policy.names[i.region_slug] || i.region_slug==='north-america'))fail('Confirm this region’s Cup time profile before including mandatory Cup entry');
-      let rules_text=String(body.rules_text || '').trim();
+      const id=stableId(['regional_registration_window',i.region_slug,i.platform,i.reset_series || 0,i.season_number]);
+      const existing=await model.selectOne(id,q,true);
+      const reschedule=require('../lib/officialReschedulePolicy');
+      const rescheduleVersion=existing?existing.reschedule_policy_version:require('../lib/regionalCalendarPolicy.json').regions.includes(i.region_slug)?reschedule.VERSION:null;
+      const base_rules_text=String(body.rules_text || '').trim();
+      let rules_text=base_rules_text;
       if(!rules_text || rules_text.length>12000)fail('Provide the published edition rules before opening registration',400);
       if(body.include_cup===true)rules_text+=`\n\n${cup.rules}`;
       const resultPolicy=require('../lib/regionalResultPolicy');
       rules_text+=`\n\n${resultPolicy.RULES}`;
+      if(rescheduleVersion)rules_text+=`\n\n${reschedule.RULES}`;
       if(rules_text.length>12000)fail('Published rules including Cup terms exceed the supported length',400);
-      const id=stableId(['regional_registration_window',i.region_slug,i.platform,i.reset_series || 0,i.season_number]);
-      const existing=await model.selectOne(id,q,true);
-      const window={id,region_slug:i.region_slug,platform:i.platform,season_number:i.season_number,reset_series:i.reset_series || 0,permanent_league_id:definition.id,...timing,policy_version:policy.VERSION,result_policy_version:resultPolicy.VERSION,confirmation_notice_policy_version:'regional_confirmation_notice_v1',...(body.include_cup===true?{cup_policy_version:cup.policy.version}:{}),rules_text,status:'published'};
+      const orchestration=require('../lib/regionalSeasonOrchestrationPolicy');
+      const orchestrationVersion=existing?existing.season_orchestration_policy_version:orchestration.VERSION;
+      const startMonday=String(body.league_start_monday || '').trim();
+      if(startMonday && (!/^\d{4}-\d{2}-\d{2}$/.test(startMonday) || !Number.isFinite(Date.parse(startMonday+'T00:00:00Z')) || new Date(startMonday+'T00:00:00Z').toISOString().slice(0,10)!==startMonday || new Date(startMonday+'T00:00:00Z').getUTCDay()!==1))fail('Choose a valid Monday for the first league playing week',400);
+      const recurringVersion=existing?existing.recurring_schedule_policy_version:orchestration.RECURRING_VERSION;
+      const window={base_rules_text,...(rescheduleVersion?{reschedule_policy_version:rescheduleVersion}:{}),...(recurringVersion?{recurring_schedule_policy_version:recurringVersion}:{}),...(orchestrationVersion?{season_orchestration_policy_version:orchestrationVersion}:{}),...(startMonday?{league_start_monday:startMonday}:{}),id,region_slug:i.region_slug,platform:i.platform,season_number:i.season_number,reset_series:i.reset_series || 0,permanent_league_id:definition.id,...timing,policy_version:policy.VERSION,result_policy_version:resultPolicy.VERSION,confirmation_notice_policy_version:'regional_confirmation_notice_v1',...(body.include_cup===true?{cup_policy_version:cup.policy.version}:{}),rules_text,status:'published'};
       if(existing && hash(publicWindow(existing))!==hash(publicWindow(window)))fail('A published registration period is immutable; review its existing conditions instead of previewing a replacement.');
       if(!existing) {
         if(rows.some(r=>r.pending_regional_cycle_id && [Number(r.season_number),Number(r.season_number)+1].includes(i.season_number)))fail('An existing captured regional cycle keeps its participation conditions');
@@ -82,9 +91,28 @@ function createService({model=new RegionalRegistrationModel(),transaction=withTr
       }
       if(body.expected_revision!==revision)fail('Registration settings changed since preview');
       await model.create({...window,published_at:clock().toISOString(),published_by:user.id},q);
-      await audit(q,user,'publish_regional_registration',null,window,body.reason);
+      await audit(q,user,'publish_regional_registration',null,window,body.reason,automatic);
       return {applied:true,window:publicWindow(window)};
     });
+  }
+  async function publish(body,actor){return runPublish(body,actor,false);}
+  async function reconcileNextWindow(sourceId,startMonday) {
+    const source=await model.selectOne(sourceId,query);
+    const orchestration=require('../lib/regionalSeasonOrchestrationPolicy');
+    if(!orchestration.enabled(source) || source.recurring_schedule_policy_version!==orchestration.RECURRING_VERSION || !source.base_rules_text)fail('The current edition has no captured recurring registration plan.');
+    const {dateAt}=require('../lib/regionalCalendarPlan');
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(startMonday || '') || new Date(startMonday+'T00:00:00Z').getUTCDay()!==1)fail('The recurring season needs its explicitly published playing Monday.');
+    const at=days=>new Date(require('../lib/officialScheduleTime').scheduleTime(dateAt(startMonday,days)+' 00:00:00','Europe/Brussels').instant).toISOString();
+    const timing={opens_at:at(28),registration_closes_at:at(56),confirmation_closes_at:at(63)};
+    const opens=timing.opens_at;
+    const existing=(await model.selectAll(query)).filter(w=>w.region_slug===source.region_slug && w.platform===source.platform && Number(w.reset_series || 0)===Number(source.reset_series || 0) && Number(w.season_number)===Number(source.season_number)+1);
+    if(existing.length){
+      if(existing.length!==1 || existing[0].status!=='published' || existing[0].edition_invalidated || existing[0].permanent_league_id!==source.permanent_league_id)fail('The next registration period has conflicting edition identity.');
+      return {already_applied:true,window:publicWindow(existing[0])};
+    }
+    const body={permanent_league_id:source.permanent_league_id,season_number:Number(source.season_number)+1,reset_series:Number(source.reset_series || 0),opens_at:opens,league_start_monday:dateAt(startMonday,91),include_cup:source.cup_policy_version==='regional_cup_v1',rules_text:source.base_rules_text,reason:'Automatic next-edition registration: weeks 5–8, confirmation week 9, next league after twelve playing weeks and one transition week'};
+    const preview=await runPublish(body,null,true,timing);
+    return runPublish({...body,apply:true,expected_revision:preview.revision},null,true,timing);
   }
   async function readiness(clubId,actor) {
     return transaction(async q=>{
@@ -202,6 +230,6 @@ function createService({model=new RegionalRegistrationModel(),transaction=withTr
     });
   }
   const capturedField=(region,platform,season,series,clubIds,q=query)=>confirmedField(region,platform,season,series,clubIds,q,{captured:true});
-  return {windows,publish,readiness,apply,confirm,confirmedField,capturedField,remindConfirmation};
+  return {windows,publish,reconcileNextWindow,readiness,apply,confirm,confirmedField,capturedField,remindConfirmation};
 }
 module.exports={createService,...createService()};

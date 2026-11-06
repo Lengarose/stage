@@ -5,7 +5,7 @@ const cup=require('../../lib/regionalCupPlan');
 const {createService}=require('../regionalCupService');
 function fixture() {
  let state={records:[{id:'calendar',entity_type:'regional_calendar',edition_ids:['league'],start_monday:'2026-11-09',status:'published'}],editions:[{id:'league',division:1,season_number:1,region_slug:'uk-ireland',platform:'cross-platform',slug:'uk-ireland-div-1',status:'in_progress',regional_participation_policy_version:'regional_registration_v1',registered_club_ids:Array.from({length:20},(_,i)=>`club${i}`)}],events:{matches:[],engines:[],fixtures:[]},trophy:{state:'assigned',revision:'art-v1',trophy:{id:'trophy',name:'Cup',image_url:'/uploads/cup.png'}},field:{window:{id:'window',cup_policy_version:cup.policy.version}},audits:[]};
- const copy=structuredClone,model={actor:async id=>({id,role_id:id==='admin'?0:1,email:'admin@test'}),lock:async()=>{},records:async()=>copy(state.records),editions:async()=>copy(state.editions),events:async()=>copy(state.events),create:async(type,row,user,reason)=>{if(state.fail)throw Error('audit failed');state.records.push({...copy(row),entity_type:type});state.audits.push({type,user,reason});}};
+ const copy=structuredClone,model={actor:async id=>({id,role_id:id==='admin'?0:1,email:'admin@test'}),lock:async()=>{},cycle:async()=>copy(state.cycle || null),records:async()=>copy(state.records),editions:async()=>copy(state.editions),events:async()=>copy(state.events),create:async(type,row,user,reason)=>{if(state.fail)throw Error('audit failed');state.records.push({...copy(row),entity_type:type});state.audits.push({type,user,reason});}};
  const transaction=async fn=>{const before=copy(state);try{return await fn(()=>{});}catch(e){state=before;throw e;}};
  const service=createService({model,transaction,assignment:async()=>copy(state.trophy),assign:async(id,body,user,tx,type)=>{assert.equal(type,'regional_cup');assert.equal(user.id,'admin');if(body.revision!==state.trophy.revision)throw Object.assign(Error('Trophy changed'),{status:409});return copy(state.trophy);},confirmedField:async()=>copy(state.field),clock:()=>new Date('2026-11-03T00:00:00Z')});
  return {service,get state(){return state;},async configure(){const body={action:'configure',permanent_league_id:'league'},p=await service.action(body,{id:'admin'});return service.action({...body,apply:true,expected_revision:p.revision,reason:'Configure approved Cup'},{id:'admin'});},prepare:body=>service.action({action:'prepare',source_calendar_id:'calendar',...body},{id:'admin'})};
@@ -58,4 +58,13 @@ test('Cup HTTP catalogue, preparation and shared trophy actions are protected an
   assert.equal((await call(`/${id}/trophy`)).data.state,'assigned');assert.equal((await call(`/${id}/trophy`,{trophy_item_id:'trophy',revision:'stale',reason:'Review'})).status,409);assert.equal((await call(`/${id}/trophy`,{trophy_item_id:'trophy',revision:'art-v1',reason:'Review'})).status,200);
   const preview=await call('',{action:'prepare',cup_id:id,source_calendar_id:'calendar'});assert.equal(preview.status,200);assert.equal(preview.data.record.participant_ids.length,20);
  } finally {if(server)await new Promise(resolve=>server.close(resolve));if(saved)require.cache[path]=saved;else delete require.cache[path];}
+});
+
+
+test('automatic Cup preparation derives its configured identity and approved field from the published season',async()=>{
+ const f=fixture();Object.assign(f.state.field.window,{policy_version:'regional_registration_v1',result_policy_version:'regional_result_review_v2',season_orchestration_policy_version:'regional_season_orchestration_v1'});
+ f.state.records[0].source_cycle_id='cycle';f.state.cycle={id:'cycle',status:'allocated',allocated_groups:[{id:'league',division:1,permanent_league_id:'league'}],participation_window_snapshot:structuredClone(f.state.field.window)};
+ const result=await f.service.reconcileForCalendar('calendar');assert.equal(result.record.status,'draft');assert.equal(result.record.participant_ids.length,20);assert.equal(result.record.cup_reward_snapshot.budget,'10000000.00');assert.equal(f.state.audits.at(-1).user.id,null);
+ const before=structuredClone(f.state);assert.equal((await f.service.reconcileForCalendar('calendar')).already_applied,true);assert.deepEqual(f.state,before);
+ const legacy=fixture();await assert.rejects(legacy.service.reconcileForCalendar('calendar'),/captured regional calendar/);
 });

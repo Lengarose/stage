@@ -87,8 +87,9 @@ function createService({model=new RegionalCupModel(),transaction=withTransaction
     return transaction(async q=>{
       const user=actor?.id?await model.actor(actor.id,q):null;
       if(actor && (!user || user.role_id==null || ![0,2].includes(Number(user.role_id))))fail('Admin Cup lifecycle access required',403);
-      if(automatic && body.action!=='advance')fail('Only confirmed result reconciliation may run automatically',403);
+      if(automatic && !['advance','activate'].includes(body.action))fail('Unsupported automatic Cup lifecycle action',403);
       await model.lock(q);const edition=await model.edition(id,q);if(!edition)fail('Cup edition not found',404);
+      if(automatic && body.action==='activate' && !require('../lib/regionalSeasonOrchestrationPolicy').enabled({...edition.participation_window_snapshot,status:'published'}))fail('This Cup has no captured automatic season policy.');
       if(!['activate','advance'].includes(body.action))fail('Choose activate or advance',400);
       if(['seed','winners','clubs','date'].some(k=>Object.hasOwn(body,k)))fail('Cup dates, winners and draws are assigned from captured policy and results',400);
       if(body.action==='activate' && edition.play_enabled && ['running','completed'].includes(edition.status))return {already_applied:true,status:edition.status,edition_id:edition.id};
@@ -113,15 +114,16 @@ function createService({model=new RegionalCupModel(),transaction=withTransaction
       }
       const revision=hash([edition,evidence,planned,consumed?.advancers,champion]);
       const report={edition_id:edition.id,status:edition.status,next_round:number || null,next_kickoff:number?evidence.dates[number-1]?.scheduled_date:null,blockers,revision,champion_pending:champion};
+      if(body.action==='activate' && require('../lib/regionalSeasonOrchestrationPolicy').enabled({...edition.participation_window_snapshot,status:'published'}) && evidence.dates[0].instant-clock().getTime()<48*3600000)blockers.push('Publish the definitive Cup calendar at least 48 hours before the first kickoff.');
       if(body.apply!==true)return report;
-      const reason=automatic?'Confirmed Regional Cup result reconciliation':String(body.reason || '').trim();if(!reason)fail('Explain this Cup lifecycle action',400);
+      const reason=automatic?(body.action==='activate'?'Automatic activation of the captured Regional Cup':'Confirmed Regional Cup result reconciliation'):String(body.reason || '').trim();if(!reason)fail('Explain this Cup lifecycle action',400);
       if(!automatic && revision!==body.expected_revision)fail('Cup lifecycle sources changed; review again');
       if(blockers.length)fail('Resolve Cup lifecycle blockers before continuing',409,blockers);
       if(consumed) {consumed.round.results_revision=consumed.revision;consumed.round.advancers=consumed.advancers;}
       if(champion) {edition.status='completed';edition.winner_club_id=champion;edition.winner_club_name=evidence.clubs.find(c=>c.id===champion)?.name;edition.completed_at=clock().toISOString();edition.honours_state='pending_review';await model.complete(edition.id,q);}
       else {
         if(body.action==='activate') {
-          await model.insert('competition_instances',{id:edition.id,product_type:'regional_cup',legacy_source_type:'regional_cup_edition',legacy_source_id:edition.id,name:edition.name,region:edition.region_slug,platform:edition.platform,status:'in_progress',created_by_user_id:user.id},q);
+          await model.insert('competition_instances',{id:edition.id,product_type:'regional_cup',legacy_source_type:'regional_cup_edition',legacy_source_id:edition.id,name:edition.name,region:edition.region_slug,platform:edition.platform,status:'in_progress',created_by_user_id:user?.id || null},q);
           for(const club of evidence.clubs)await model.insert('competition_participants',{id:stableId([edition.id,club.id]),competition_instance_id:edition.id,participant_type:'club',club_id:club.id,status:'approved'},q);
         }
         const participants=consumed?.advancers || edition.participant_ids,roundSeed=number===1?edition.draw_seed:seed(),actualDraw=cup.drawRound(participants,roundSeed),round={number,seed:roundSeed,participant_ids:participants,draw:actualDraw};
@@ -138,6 +140,7 @@ function createService({model=new RegionalCupModel(),transaction=withTransaction
   }
   async function action(id,body,actor) {if(!actor?.id)fail('Authentication required',401);return operate(id,body,actor,false);}
   async function reconcile(id) {return operate(id,{action:'advance',apply:true},null,true);}
-  return {action,reconcile,assertWritableFixture,evaluate};
+  async function reconcileActivation(id){return operate(id,{action:'activate',apply:true},null,true);}
+  return {action,reconcile,reconcileActivation,assertWritableFixture,evaluate};
 }
 module.exports={createService,winner,resultRevision,...createService()};

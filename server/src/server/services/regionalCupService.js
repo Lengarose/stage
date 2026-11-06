@@ -15,9 +15,10 @@ function createService({model=new RegionalCupModel(),transaction=withTransaction
   async function admin(actor,q) {const user=await model.actor(actor?.id,q);if(!user || user.role_id==null || ![0,2].includes(Number(user.role_id)))fail('Admin Cup access required',403);return user;}
   async function catalogue(actor) {return transaction(async q=>{await admin(actor,q);const rows=await model.records(q);return {definitions:rows.filter(r=>r.entity_type==='regional_cup'),editions:rows.filter(r=>r.entity_type==='regional_cup_edition'),calendars:rows.filter(r=>r.entity_type==='regional_calendar' && r.status==='published').map(c=>({id:c.id,edition_ids:c.edition_ids,start_monday:c.start_monday}))};});}
   async function trophy(id,body,actor) {return transaction(async q=>{const user=await admin(actor,q);await model.lock(q);return body?assign(id,body,user,fn=>fn(q),'regional_cup'):assignment(id,q,true,'regional_cup');});}
-  async function action(body,actor) {
+  async function runAction(body,actor,automatic=false) {
     return transaction(async q=>{
-      const user=await admin(actor,q);await model.lock(q);
+      const user=automatic?{id:null,email:null}:await admin(actor,q);await model.lock(q);
+      if(automatic)await automaticCalendar(body.source_calendar_id,q);
       if(!['configure','prepare'].includes(body.action))fail('Choose configure or prepare for the Regional Cup',400);
       if(['club_ids','fixtures','seed','name','winners'].some(k=>Object.hasOwn(body,k)))fail('Cup names, participants and draws follow the approved regional policy',400);
       const rows=await model.records(q),all=await model.editions(q),catalogue=buildCatalogue(all),blockers=[];
@@ -73,6 +74,32 @@ function createService({model=new RegionalCupModel(),transaction=withTransaction
       return {record,applied:true,draft_only:true,blockers:[]};
     });
   }
-  return {catalogue,trophy,action};
+  async function automaticCalendar(calendarId,q) {
+    const rows=await model.records(q),anchor=rows.find(r=>r.entity_type==='regional_calendar' && r.id===calendarId && r.status==='published');
+    const editions=anchor?await model.editions(q):[];
+    const source=editions.find(e=>e.id===anchor?.edition_ids?.[0]);
+    const cycleId=anchor?.source_cycle_id || source?.regional_cycle_id;
+    const cycle=cycleId?await model.cycle(cycleId,q):null;
+    if(!cycle || cycle.status!=='allocated' || cycle.edition_invalidated || !cycle.allocated_groups?.length || !require('../lib/regionalSeasonOrchestrationPolicy').enabled({...cycle.participation_window_snapshot,status:'published'}) || cycle.participation_window_snapshot.cup_policy_version!==plan.policy.version)fail('Automatic Cup entry requires the captured regional calendar and accepted Cup conditions');
+    if(JSON.stringify([...anchor.edition_ids].sort())!==JSON.stringify(cycle.allocated_groups.map(g=>g.id).sort()))fail('The Cup source calendar omits or changes a captured group.');
+    return {rows,anchor,cycle};
+  }
+  async function action(body,actor){return runAction(body,actor,false);}
+  async function reconcileForCalendar(calendarId) {
+    const {rows,cycle}=await transaction(q=>automaticCalendar(calendarId,q));
+    const existing=rows.filter(r=>r.entity_type==='regional_cup_edition' && r.source_calendar_id===calendarId && !r.edition_invalidated);
+    if(existing.length>1)fail('Multiple Cup editions refer to this calendar; review Cup identity.');
+    if(existing.length)return {record:existing[0],already_applied:true};
+    const root=cycle.allocated_groups.find(g=>Number(g.division)===1)?.permanent_league_id;
+    if(!root)fail('The captured season has no Division 1 permanent identity.');
+    const config={action:'configure',permanent_league_id:root,source_calendar_id:calendarId};
+    let report=await runAction(config,null,true);
+    if(!report.already_applied)report=await runAction({...config,apply:true,expected_revision:report.revision,reason:'Automatic configuration of the approved regional Cup'},null,true);
+    const body={action:'prepare',cup_id:report.record.id,source_calendar_id:calendarId};
+    const preview=await runAction(body,null,true);
+    if(preview.already_applied)return preview;
+    return runAction({...body,apply:true,expected_revision:preview.revision,reason:'Automatic preparation of the accepted Regional Cup field'},null,true);
+  }
+  return {catalogue,trophy,action,reconcileForCalendar};
 }
 module.exports={createService,...createService()};
