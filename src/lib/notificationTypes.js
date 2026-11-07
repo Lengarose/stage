@@ -19,7 +19,6 @@ export const NOTIFICATION_TYPES = {
   contract_terminated: { label: "Contract terminated", settingKey: "contract_updates",  group: "Contracts" },
   contract_expired:    { label: "Contract expired",    settingKey: "contract_updates",  group: "Contracts" },
   contract_completed:  { label: "Contract completed",  settingKey: "contract_updates",  group: "Contracts" },
-  loan_offer:          { label: "Loan offers",         settingKey: "club_updates",      group: "Club" },
 
   match_scheduled:     { label: "Match scheduled",     settingKey: "match_reminders",   group: "Matches" },
   match_result:        { label: "Match results",       settingKey: "match_results",     group: "Matches" },

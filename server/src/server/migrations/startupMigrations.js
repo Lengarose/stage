@@ -1622,7 +1622,10 @@ async function runStartupMigrations() {
     ).catch(() => {});
   }
 
+
   // Shirt sales system (v2) — aggregated per-player-per-match records
+  const shirtPlayerColumn=await EXECUTESQL("SELECT IS_NULLABLE FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='shirt_sales' AND column_name='player_id'");
+  if(shirtPlayerColumn.some(column=>column.IS_NULLABLE==='NO'))await EXECUTESQL('ALTER TABLE shirt_sales MODIFY COLUMN player_id VARCHAR(36) NULL');
   await addCol('shirt_sales', 'match_id', 'VARCHAR(36) NULL');
   await addCol('shirt_sales', 'quantity', 'INT DEFAULT 1');
 
@@ -1755,9 +1758,10 @@ async function runStartupMigrations() {
   const duplicatePermanentKeys = await EXECUTESQL('SELECT regional_league_key FROM league_entities WHERE regional_league_key IS NOT NULL GROUP BY regional_league_key HAVING COUNT(*) > 1');
   if (!duplicatePermanentKeys.length) await addIndex('league_entities', 'idx_le_regional_permanent', '(regional_league_key)', true);
   else console.error('[migration] Permanent regional key conflicts require reviewed repair; unique index was not changed.');
-  const duplicateParentSeasons = await EXECUTESQL('SELECT permanent_league_id,reset_series,season_number FROM league_entities WHERE permanent_league_id IS NOT NULL GROUP BY permanent_league_id,reset_series,season_number HAVING COUNT(*) > 1');
-  if (!duplicateParentSeasons.length) await addIndex('league_entities', 'idx_le_parent_series_season', '(permanent_league_id,reset_series,season_number)', true);
-  else console.error('[migration] Regional parent/series/season conflicts require reviewed repair; unique index was not changed.');
+  // Permanent parent + season alone excludes valid parallel groups. The unique
+  // regional_edition_key already binds region/platform/division/group/series/season.
+  const parentSeasonIndex=await EXECUTESQL("SELECT INDEX_NAME FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name='league_entities' AND index_name='idx_le_parent_series_season'");
+  if(parentSeasonIndex.length)await EXECUTESQL('DROP INDEX idx_le_parent_series_season ON league_entities');
   const duplicateRegionalKeys = await EXECUTESQL('SELECT regional_edition_key FROM league_entities WHERE regional_edition_key IS NOT NULL GROUP BY regional_edition_key HAVING COUNT(*) > 1');
   if (!duplicateRegionalKeys.length) await addIndex('league_entities', 'idx_le_regional_edition', '(regional_edition_key)', true);
   else console.error('[migration] Regional identity key conflicts require admin review; unique index was not changed.');
@@ -1771,8 +1775,8 @@ async function runStartupMigrations() {
     entity_type VARCHAR(50),
     entity_id   VARCHAR(36),
     entity_name VARCHAR(255),
-    old_value   TEXT,
-    new_value   TEXT,
+    old_value   MEDIUMTEXT,
+    new_value   MEDIUMTEXT,
     reason      TEXT,
     created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_aal_entity  (entity_type, entity_id),
@@ -2787,6 +2791,17 @@ async function runStartupMigrations() {
   const payoutInstanceColumns = await EXECUTESQL("SELECT IS_NULLABLE FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='competition_payouts' AND column_name='competition_instance_id'");
   if (payoutInstanceColumns.some(c=>c.IS_NULLABLE === 'NO')) await EXECUTESQL('ALTER TABLE competition_payouts MODIFY COLUMN competition_instance_id VARCHAR(36) NULL');
   await addIndex('competition_payouts','idx_comp_payout_obligation','(source_type,source_id,edition_id,position_no)',true);
+  const auditPayloadColumns=await EXECUTESQL("SELECT COLUMN_NAME,DATA_TYPE FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='admin_audit_log' AND column_name IN ('old_value','new_value')");
+  for(const column of auditPayloadColumns)if(!['mediumtext','longtext'].includes(column.DATA_TYPE))await EXECUTESQL(`ALTER TABLE admin_audit_log MODIFY COLUMN \`${column.COLUMN_NAME}\` MEDIUMTEXT NULL`);
+
+  const clubFormColumn=await EXECUTESQL("SELECT CHARACTER_MAXIMUM_LENGTH FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='clubs' AND column_name='form'");
+  if(clubFormColumn.some(column=>Number(column.CHARACTER_MAXIMUM_LENGTH)<32))await EXECUTESQL('ALTER TABLE clubs MODIFY COLUMN form VARCHAR(32) NULL');
+
+  const notificationRelatedColumn=await EXECUTESQL("SELECT CHARACTER_MAXIMUM_LENGTH FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='notifications' AND column_name='related_id'");
+  if(notificationRelatedColumn.some(column=>Number(column.CHARACTER_MAXIMUM_LENGTH)<255))await EXECUTESQL('ALTER TABLE notifications MODIFY COLUMN related_id VARCHAR(255) NULL');
+
+  await require('./retirePlayerLoans').retirePlayerLoans();
+
 }
 
 module.exports = { runStartupMigrations, migrateRewardConfigPosition };

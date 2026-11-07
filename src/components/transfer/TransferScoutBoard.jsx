@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
-import { BarChart3, Clock, ExternalLink, FileText, Search, Shield, Star, UserRound } from "lucide-react";
+import { Clock, ExternalLink, FileText, Search, Shield, Star, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import TransferBadge from "./TransferBadge";
 import { calculatePlayerValue, formatSTC, getValueTier } from "@/lib/playerValue";
@@ -103,11 +103,10 @@ export default function TransferScoutBoard({
   onSelect,
   canManage,
   canOffer,
-  canRequestLoan,
   getOfferBlockReason,
   onOffer,
-  onRequestLoan,
   windowOpen,
+  officialRecruitment = false,
 }) {
   const { t } = useTranslation();
   const tx = (key, fallback) => {
@@ -284,7 +283,7 @@ export default function TransferScoutBoard({
             </div>
           ) : null}
 
-          {windowOpen === false ? (
+          {windowOpen === false && !officialRecruitment ? (
             <div className="mb-3 flex items-start gap-2 border border-cyan-300/20 bg-cyan-300/8 px-3 py-2 text-xs text-cyan-100/70">
               <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <span>{t("commonPages.transferWindowClosed")}</span>
@@ -307,16 +306,7 @@ export default function TransferScoutBoard({
                 {blockReason === "signed" ? t("commonPages.underContract") : t("commonPages.offerAlreadySent")}
               </div>
             )}
-            {canManage && canRequestLoan ? (
-              <Button
-                type="button"
-                onClick={() => onRequestLoan?.({ player, badgeType: entry.badgeType, contract: entry.contract })}
-                className="h-9 flex-1 gap-2 rounded-none border border-cyan-300/35 bg-transparent font-heading text-[11px] font-black uppercase tracking-[0.14em] text-cyan-200 hover:bg-cyan-300/10"
-              >
-                <BarChart3 className="h-4 w-4" />
-                {tx("commonPages.requestLoan", "Request Loan")}
-              </Button>
-            ) : null}
+
             <Link to={`/players/${player.id}`} className="sm:w-auto">
               <Button type="button" variant="outline" className="h-9 w-full rounded-none border-white/16 bg-transparent px-3 text-white/72 hover:bg-white/8">
                 <ExternalLink className="h-4 w-4" />

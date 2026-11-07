@@ -325,6 +325,7 @@ router.post('/', async (req, res) => {
     if (body.stadium_level == null) body.stadium_level = STARTER_CLUB_FINANCE.stadium_level;
     if (body.stadium_capacity == null) body.stadium_capacity = STARTER_CLUB_FINANCE.stadium_capacity;
     const presidentPlayer = await resolvePresidentPlayerForClub(req, body);
+    if (presidentPlayer) await require('../services/officialPlayerTransferService').assertProfileChange(presidentPlayer, { club_id: body.id || uuidv4() }, EXECUTESQL);
 
     let presidentId = body.president_id || null;
     if (!presidentPlayer && !presidentId && body.president_user_id) {

@@ -27,7 +27,7 @@ const TARGET_TYPE_VALUES = ["min", "exact", "range"];
 export default function InboxContractOffer({ message, onActioned }) {
   const { t } = useTranslation();
   const tx = withTranslationFallback(t);
-  const { windowOpen: realtimeWindowOpen, loading: transferWindowLoading } = useTransferWindowStatus();
+  const { offersAvailable: realtimeWindowOpen, officialRecruitment, loading: transferWindowLoading } = useTransferWindowStatus();
   const [contract, setContract] = useState(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(null);
@@ -362,7 +362,7 @@ export default function InboxContractOffer({ message, onActioned }) {
             : "bg-muted/30 border-border text-muted-foreground"
         }`}>
           <Clock className="w-3.5 h-3.5 shrink-0" />
-          {windowOpen === true
+          {officialRecruitment ? "Official transfer eligibility is checked when you respond." : windowOpen === true
             ? tx("commonPages.icoWindowOpenImmediate", "Transfer window open. Accepting will activate this contract immediately.")
             : windowOpen === false
             ? tx("commonPages.icoWindowClosedQueue", "Transfer window is closed. Accepting will queue the transfer.")

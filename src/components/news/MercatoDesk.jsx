@@ -131,7 +131,6 @@ export default function MercatoDesk({ initialTransferId = "" }) {
           failed: ["failed"],
         };
         if (groups[filter] && !groups[filter].includes(row.status)) return false;
-        if (filter === "loans" && !String(row.deal_type || "").includes("loan")) return false;
         if (filter === "free_agents" && row.deal_type !== "free" && row.from_club_id) return false;
         if (filter === "contract_extensions" && row.deal_type !== "extension") return false;
       }

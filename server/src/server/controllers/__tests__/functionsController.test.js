@@ -3,6 +3,21 @@ const path = require('node:path');
 const test = require('node:test');
 
 function loadFunctionsRouterWithDbMock(executesql, options = {}) {
+  // These legacy contract fixtures have no captured regional participation.
+  // New captured-policy enforcement is covered by the player integration suite.
+  const originalExecute = executesql;
+  executesql = (sql, params) => sql.includes('SELECT DISTINCT w.* FROM league_entities w') ? Promise.resolve([]) : originalExecute(sql, params);
+  if (options.pool) {
+    const sourcePool = options.pool;
+    options = { ...options, pool: { promise: () => ({ getConnection: async () => {
+      const connection = await sourcePool.promise().getConnection();
+      const originalQuery = connection.query.bind(connection);
+      connection.query = (sql, params) => sql.includes('SELECT DISTINCT w.* FROM league_entities w') ? Promise.resolve([[], []]) : originalQuery(sql, params);
+      return connection;
+    } }) } };
+  }
+  const legacyExecute = executesql;
+  executesql = (sql, params) => (sql.includes("SELECT id FROM league_entities WHERE entity_type='regional_registration_window'") || sql.includes('AS official_club_id')) ? Promise.resolve([]) : legacyExecute(sql, params);
   const controllerPath = path.resolve(__dirname, '../functionsController.js');
   const legacyFunctionsPath = path.resolve(__dirname, '../../functions/legacyFunctions.js');
   const dbPath = path.resolve(__dirname, '../../db/database.js');
@@ -561,6 +576,7 @@ test('regionalLeagueFixtureResult processes fixture and triggers central progres
 
 test('createMatchFromLeagueFixture creates match snapshots and links fixture server-side', async () => {
   const inserts = [];
+  let insertedMatch;
   const fixtureUpdates = [];
   const fixture = {
     id: 'fixture-1',
@@ -577,6 +593,7 @@ test('createMatchFromLeagueFixture creates match snapshots and links fixture ser
       away_club_id: 'club-away',
       away_club_name: 'Away Snapshot',
       confirmed_date: '2026-06-01T20:00:00.000Z',
+      scheduling_status: 'confirmed',
       status: 'scheduled',
     }),
   };
@@ -605,6 +622,8 @@ test('createMatchFromLeagueFixture creates match snapshots and links fixture ser
     }
     if (/INSERT INTO matches/.test(sql)) {
       inserts.push(params);
+      const columns = /INSERT INTO matches \(([^)]+)\)/.exec(sql)[1].split(',').map(column => column.trim());
+      insertedMatch = Object.fromEntries(columns.map((column, index) => [column, params[index]]));
       return { affectedRows: 1 };
     }
     if (/UPDATE league_entities SET/.test(sql)) {
@@ -637,14 +656,14 @@ test('createMatchFromLeagueFixture creates match snapshots and links fixture ser
     response,
   );
 
-  assert.equal(response.statusCode, 200);
+  assert.equal(response.statusCode, 200, response.body?.error);
   assert.equal(response.body.data.success, true);
   assert.equal(inserts.length, 1);
   assert.equal(inserts[0][1], null);
   assert.equal(inserts[0][6], 'home-owner@example.test');
   assert.equal(inserts[0][7], 'away-owner@example.test');
-  assert.equal(inserts[0][57], 'fixture-1');
-  assert.equal(inserts[0][58], 'competition');
+  assert.equal(insertedMatch.source_fixture_id, 'fixture-1');
+  assert.equal(insertedMatch.source_fixture_type, 'competition');
   assert.equal(fixtureUpdates.length, 1);
   const linkedFixture = JSON.parse(fixtureUpdates[0][0]);
   assert.equal(linkedFixture.match_id, inserts[0][0]);
@@ -4322,7 +4341,7 @@ test('tournamentRegistration registers player tournaments without an Ultimate Te
   assert.equal(updates.length, 1);
   const proofs = JSON.parse(updates[0].params[1]);
   assert.equal(proofs.player['player-1'].proof_url, '/uploads/ultimate-team.png');
-  assert.equal(proofs.player['player-1'].proof_type, 'ultimate_team');
+  assert.equal(proofs.player['player-1'].proof_type, 'registration_upload');
   assert.match(proofs.player['player-1'].rules_accepted_at, /^\d{4}-\d{2}-\d{2}T/);
 });
 

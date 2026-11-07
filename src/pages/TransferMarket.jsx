@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { LayoutGrid, LayoutList, SlidersHorizontal } from "lucide-react";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import OfferContractDialog from "@/components/contracts/OfferContractDialog";
-import RequestLoanDialog from "@/components/transfer/RequestLoanDialog";
 import TransferWindowBanner from "@/components/transfer/TransferWindowBanner";
 import TransferFilters from "@/components/transfer/TransferFilters";
 import TransferPlayerList from "@/components/transfer/TransferPlayerList";
@@ -11,7 +10,7 @@ import TransferDetailPanel from "@/components/transfer/TransferDetailPanel";
 import { ensureContractOfferInbox } from "@/lib/contractOfferDelivery";
 import { CONTRACT_TYPES } from "@/lib/contractTypes";
 import { getContractTargetPlayerId, normalizePlayerContracts } from "@/lib/playerContractFields";
-import { canShowContractOfferButton, canShowLoanRequestButton, getContractOfferBlockReason } from "@/lib/contractOfferVisibility";
+import { canShowContractOfferButton, getContractOfferBlockReason } from "@/lib/contractOfferVisibility";
 import { buildTransferMarketEntries, normalizeTransferMarketPlayers } from "@/lib/transferMarketEntries";
 import { PAGE_BANNER_HEIGHT_CLASS } from "@/lib/pageBanner";
 import { cn } from "@/lib/utils";
@@ -24,11 +23,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 
 export default function TransferMarket() {
   const { t } = useTranslation();
-  const { currentWindow, windowOpen } = useTransferWindowStatus();
+  const { currentWindow, windowOpen, offersAvailable, officialRecruitment } = useTransferWindowStatus();
   const [loading, setLoading] = useState(true);
   const [freeAgents, setFreeAgents] = useState([]);
   const [expiringPlayers, setExpiringPlayers] = useState([]);
-  const [liveLoans, setLiveLoans] = useState([]);
   const [myClub, setMyClub] = useState(null);
   const [myContracts, setMyContracts] = useState([]);
   const [canManage, setCanManage] = useState(false);
@@ -37,7 +35,6 @@ export default function TransferMarket() {
   // UI state
   const [selected, setSelected] = useState(null); // { player, badgeType, contract, days_left }
   const [offerTarget, setOfferTarget] = useState(null);
-  const [loanTarget, setLoanTarget] = useState(null);
   const [search, setSearch] = useState("");
   const [positionFilter, setPositionFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("all"); // "all" | "free_agent" | "expiring"
@@ -70,7 +67,6 @@ export default function TransferMarket() {
 
       setFreeAgents(normalizedMarket.freeAgents);
       setExpiringPlayers(normalizedMarket.expiringPlayers);
-      setLiveLoans(normalizedMarket.liveLoans);
       setRoomConfig(configRows?.[0] || null);
 
       if (club) {
@@ -89,27 +85,17 @@ export default function TransferMarket() {
 
   function getOfferBlockReason(player, entryContract = null) {
     const contracts = entryContract ? [entryContract, ...myContracts] : myContracts;
-    return getContractOfferBlockReason({ player, playerContracts: contracts });
+    return getContractOfferBlockReason({ player, playerContracts: contracts, viewerClub: myClub });
   }
 
   function canOfferPlayer(player, entryContract = null) {
     const contracts = entryContract ? [entryContract, ...myContracts] : myContracts;
-    return canManage && canCreateContractOffer(windowOpen) && canShowContractOfferButton({ player, viewerClub: myClub, playerContracts: contracts });
-  }
-
-  function canRequestLoanForPlayer(player, entryContract = null) {
-    const contracts = entryContract ? [entryContract, ...myContracts] : myContracts;
-    return canManage && canShowLoanRequestButton({
-      player,
-      viewerClub: myClub,
-      playerContracts: contracts,
-      loans: liveLoans,
-    });
+    return canManage && canCreateContractOffer(offersAvailable) && canShowContractOfferButton({ player, viewerClub: myClub, playerContracts: contracts });
   }
 
   async function handleOffer({ contract_type, offer_note, weekly_salary_stc, signing_bonus_stc, transfer_fee_stc, performance_targets, captaincy_offered }) {
     if (!offerTarget || !myClub) return;
-    if (!canCreateContractOffer(windowOpen)) return;
+    if (!canCreateContractOffer(offersAvailable)) return;
     const targetPlayer = offerTarget.player || offerTarget;
     const result = await stageClient.functions.invoke("contractActions", {
       action: "offer",
@@ -290,10 +276,9 @@ export default function TransferMarket() {
             onSelect={selectEntry}
             canManage={canManage}
             canOffer={canOfferPlayer}
-            canRequestLoan={selected ? canRequestLoanForPlayer(selected.player, selected.contract) : false}
             getOfferBlockReason={getOfferBlockReason}
             onOffer={setOfferTarget}
-            onRequestLoan={setLoanTarget}
+            officialRecruitment={officialRecruitment}
             windowOpen={windowOpen}
           />
         )}
@@ -307,7 +292,7 @@ export default function TransferMarket() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 px-5 pb-5">
-            <TransferWindowBanner window={currentWindow} />
+            <TransferWindowBanner officialRecruitment={officialRecruitment} window={currentWindow} />
             <TransferFilters
               search={search} onSearch={setSearch}
               position={positionFilter} onPosition={setPositionFilter}
@@ -329,10 +314,9 @@ export default function TransferMarket() {
             entry={selected}
             canManage={canManage}
             canOffer={canOfferPlayer}
-            canRequestLoan={selected ? canRequestLoanForPlayer(selected.player, selected.contract) : false}
             getOfferBlockReason={getOfferBlockReason}
             onOffer={(target) => { setDetailsOpen(false); setOfferTarget(target); }}
-            onRequestLoan={(target) => { setDetailsOpen(false); setLoanTarget(target); }}
+            officialRecruitment={officialRecruitment}
             windowOpen={windowOpen}
           />
         </DialogContent>
@@ -346,13 +330,8 @@ export default function TransferMarket() {
         playerContracts={offerTarget ? myContracts.filter(c => getContractTargetPlayerId(c) === (offerTarget.player || offerTarget)?.id) : []}
         clubContracts={myContracts}
         onOffer={handleOffer}
+        officialRecruitment={officialRecruitment}
         windowOpen={windowOpen}
-        club={myClub}
-      />
-      <RequestLoanDialog
-        open={!!loanTarget}
-        onClose={() => setLoanTarget(null)}
-        player={loanTarget?.player || loanTarget}
         club={myClub}
       />
     </div>

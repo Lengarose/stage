@@ -24,7 +24,7 @@ import { useTranslation } from "@/hooks/useTranslation";
 
 export default function CreateContract() {
   const { t } = useTranslation();
-  const { windowOpen, loading: windowStatusLoading } = useTransferWindowStatus();
+  const { offersAvailable, loading: windowStatusLoading } = useTransferWindowStatus();
   const navigate = useNavigate();
   const TARGET_TYPES = [
     { value: "min",   label: t("commonPages.cccTargetMin") },
@@ -104,7 +104,7 @@ export default function CreateContract() {
 
   async function handleSend() {
     if (!selectedPlayer || !selectedType) return;
-    if (!canCreateContractOffer(windowOpen)) return;
+    if (!canCreateContractOffer(offersAvailable)) return;
     setSending(true);
     setSendError(null);
     try {
@@ -193,7 +193,7 @@ export default function CreateContract() {
   const wagePct = club?.wage_budget_stc > 0 && projectedWeeklyWages > 0 ? Math.round((projectedWeeklyWages / club.wage_budget_stc) * 100) : 0;
   const overBudget = club?.wage_budget_stc > 0 && projectedWeeklyWages > club.wage_budget_stc;
 
-  const canProceed = canCreateContractOffer(windowOpen) && selectedPlayer && !playerHasConflict && selectedType;
+  const canProceed = canCreateContractOffer(offersAvailable) && selectedPlayer && !playerHasConflict && selectedType;
 
   if (loading || windowStatusLoading) {
     return (
@@ -225,7 +225,7 @@ export default function CreateContract() {
     );
   }
 
-  if (!canCreateContractOffer(windowOpen)) {
+  if (!canCreateContractOffer(offersAvailable)) {
     return (
       <div className="max-w-2xl mx-auto p-6">
         <div className="bg-card border border-border rounded-xl p-8 text-center">

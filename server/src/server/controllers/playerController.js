@@ -408,6 +408,7 @@ router.patch('/:id', async (req, res) => {
         return res.status(409).json({ error: 'A player with this gamertag already exists' });
       }
     }
+    await require('../services/officialPlayerTransferService').assertProfileChange(current, body, EXECUTESQL);
     const player = new Player({ ...existing[0], ...body });
     await player.update(id);
     const updated = await player.selectOne(id);

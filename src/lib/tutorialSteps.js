@@ -54,7 +54,7 @@ const PLAYER_STEPS = [
       "THE STAGE TIMES → Club News and Mercato show shirts, stadium, and deals.",
       "Open a president from the Presidents directory if you want the person who signs deals.",
       "Follow a club from its page if you want Feed updates. That is not a contract.",
-      "If you are already signed and another club wants you, they send a loan request — you will see it in Inbox.",
+
       "When you like a club, stay ready on Free Agents until their offer lands.",
     ],
   },
@@ -87,22 +87,22 @@ const PLAYER_STEPS = [
     icon: "📥",
     where: "Inbox · Notifications",
     description:
-      "Contracts, loans, match times, and club messages all wait in Inbox. Unread usually means you owe an action.",
+      "Only permanent transfers are supported. Read the contract in Inbox; official competition transfer windows and playing eligibility apply.",
     detail:
       "Deleting a message that still needs a response means the other side never hears back. Finish the action, then leave.",
     tips: [
       "Open unread items first",
-      "Loans need parent then player",
+
       "Do not delete pending decisions",
     ],
     points: [
       "Open Apps → Inbox, or tap the notification.",
       "Contract: Accept / Counter / Decline after you read the wage and length.",
-      "Loan proposal: the parent club accepts first, then you accept, then you play for the borrower.",
-      "Loan return or buy-out: Accept or Reject on that same card.",
+
       "Match invite or time change: Accept, Decline, or send a new date.",
       "After a contract accept, go to Profile — your club crest should be there.",
-      "After a loan accept, you play for the borrowing club until recall, return, or buy.",
+
+      "Read the edition rules before accepting official competition participation.",
       "When Inbox is clear, go to Schedule or GameDay for the next job.",
     ],
   },
@@ -135,7 +135,7 @@ const PLAYER_STEPS = [
     icon: "📰",
     where: "News · Mercato · World News",
     description:
-      "The newspaper tells you what happened. It does not sign you, loan you, or play the match.",
+      "Only permanent transfers are supported. Read the contract in Inbox; official competition transfer windows and playing eligibility apply.",
     detail:
       "Use a story’s club and player links to jump into the real path: profile, club page, Inbox, or GameDay.",
     tips: [
@@ -173,31 +173,32 @@ const PLAYER_STEPS = [
       "Match and cup prizes appear after GameDay confirms the score.",
       "Lifestyle (Apps) is optional assets. Read price and upkeep first.",
       "Store is STAGE Plus and unlocks — not club wages.",
-      "A live loan may split your wage with the parent club. Read the Inbox card.",
+
       "Presidents have a second pot: Club → Office → Finance. Do not mix them.",
       "Leave Club stops the wage. Check Wallet after you leave.",
     ],
   },
   {
-    title: "Move, Loan, Or Leave",
+    title: "Permanent Transfers And Leaving",
     icon: "🚪",
     where: "Profile · Inbox · Leave Club",
     description:
-      "You are not stuck. Leave Club returns you to the market. A loan lets you play elsewhere without changing the parent contract.",
+      "Only permanent transfers are supported. Read the contract in Inbox; official competition transfer windows and playing eligibility apply.",
     detail:
-      "Loans move playing rights only. Purchase options still need you to accept in Inbox before the club changes.",
+      "Only permanent transfers are supported. Read the contract in Inbox; official competition transfer windows and playing eligibility apply.",
     tips: [
       "Leave Club ends the live deal",
-      "Loans arrive in Inbox",
-      "Buy-out still needs your accept",
+
+      "Read the permanent transfer terms before accepting",
     ],
     points: [
       "Leave Club sits on your player profile. Confirm it — the contract ends.",
       "You reappear on Free Agents after you leave.",
-      "If another club wants you while you are signed, they send Request Loan.",
-      "You will see the loan in Inbox after the parent club accepts.",
-      "While on loan you play for the borrower. Recall or early return can send you home.",
-      "Option to buy: you get a purchase message. Accept to move permanently, or reject and stay on loan.",
+      "Leaving does not erase actual participation or Cup-tied status from the current cycle.",
+      "Official club changes follow the between-season and week-six transfer windows; read the free-player exception in the edition rules.",
+
+
+
       "Founder Player + ownership (if you also run a club) is a different leave path — both seats can end.",
       "When you are free again, go back to step one: stay visible and watch Inbox.",
     ],
@@ -236,7 +237,7 @@ const PRESIDENT_STEPS = [
     description:
       "Squad, Feed, Operations, and Office are different jobs. Office is president-only.",
     detail:
-      "Tap a player on Squad for profile, contract, release, role, and loan actions. Finance and stadium live under Office.",
+      "Only permanent transfers are supported. Read the contract in Inbox; official competition transfer windows and playing eligibility apply.",
     tips: [
       "Squad is the roster",
       "Office is president-only",
@@ -245,7 +246,7 @@ const PRESIDENT_STEPS = [
     points: [
       "Open your club from Profile → Club.",
       "Squad: tap a gamecard — View profile, View contract, Release, Remove role.",
-      "LOAN / OUT badges show who is borrowed or sent out.",
+
       "Feed is club posts. Operations is applicants, staff, and lineups.",
       "Office (president only): Contracts, Stadium, Finance, Shirts, Trophies, History, Chat.",
       "Players cannot open Office. Do not expect them to sign themselves.",
@@ -260,7 +261,7 @@ const PRESIDENT_STEPS = [
     description:
       "Recruit with contract offers. Talks live in Inbox. There is no public Join button.",
     detail:
-      "Offer trial, academy, squad, important, or star. Founder Player is not something you offer to other people. Signed players at other clubs are loan targets.",
+      "Only permanent transfers are supported. Read the contract in Inbox; official competition transfer windows and playing eligibility apply.",
     tips: [
       "Scout Free Agents first",
       "Send offers from the profile or Office",
@@ -268,11 +269,11 @@ const PRESIDENT_STEPS = [
     ],
     points: [
       "Free Agents = no club. Open the player → send a contract offer.",
-      "Transfer Market = signed players. Use Request Loan, not a second contract.",
+
       "Scouting: file a report with clips. A squad vote is advisory. You decide.",
       "Set wage, length, and type in Club Office → Contracts or on the profile.",
       "The player answers in Inbox. Until they accept they are not on your squad.",
-      "Loan path: you request → parent accepts → player accepts → they play for you.",
+
       "From Squad you can recall, request return, or exercise an option to buy.",
       "Fill the roster before Competitions → Register. Empty clubs stall GameDay.",
     ],
@@ -363,7 +364,7 @@ const PRESIDENT_STEPS = [
       "World News for country desks",
     ],
     points: [
-      "THE STAGE TIMES → Mercato is the market tape (rumours, official, loans, free agents).",
+
       "Club News covers stadium, shirts, and trophies — useful before you spend.",
       "Rankings is a scout list. Open a player, then Scouting or an offer.",
       "World News: continent, then country. Home nations share one UK desk.",
@@ -374,20 +375,20 @@ const PRESIDENT_STEPS = [
     ],
   },
   {
-    title: "Loans, Release, And Leaving",
+    title: "Permanent Transfers And Leaving",
     icon: "🚪",
     where: "Squad · Inbox · Leave Club",
     description:
-      "Loans move playing rights. Release ends a deal. Leaving as founder is a different, heavier path.",
+      "Only permanent transfers are supported. Read the contract in Inbox; official competition transfer windows and playing eligibility apply.",
     detail:
       "Recall, early return, and option-to-buy all start on the squad gamecard and finish in Inbox.",
     tips: [
-      "Loan from Transfer Market",
+
       "Release from the gamecard",
       "Founder leave ends both seats",
     ],
     points: [
-      "Request Loan on a signed player at another club (Transfer Market or their profile).",
+
       "You accept as parent if someone asks for your player. They then accept.",
       "On Squad: Recall (if allowed), Request return, Accept/Reject return, Exercise option.",
       "Exercise option sends a permanent offer. The player must still accept.",
@@ -421,7 +422,7 @@ const BOTH_STEPS = [
       "You can play for your own club and still run it.",
       "Home / Apps is shared. The rail only changes which identity you are holding.",
       "Settings → How STAGE works replays the full map.",
-      "If a button is missing (Office, Request Loan), you are on the wrong surface.",
+
     ],
   },
   {
@@ -433,18 +434,18 @@ const BOTH_STEPS = [
     detail:
       "Your founder wage is still a player contract paid by the club pot into your personal Wallet.",
     tips: [
-      "Inbox for offers and loans",
+
       "GameDay to play",
       "Wallet for personal STC",
     ],
     points: [
-      "Watch Inbox for contracts, loans, and time changes — including ones you sent as president.",
+
       "Set Availability so you do not double-book the fixture you also scheduled.",
       "For official regional matches, check personal Plus, the published kickoff, and your selection in GameDay.",
       "Personal Wallet collects the founder wage and match prizes.",
       "Showcase and Rankings still matter if you ever move clubs.",
       "Leave Club on the player surface ends the founder player deal.",
-      "A loan to another club means you play there while you still run your own office.",
+
       "Read THE STAGE TIMES Player / Mercato desks for your own market noise.",
     ],
   },
@@ -459,15 +460,15 @@ const BOTH_STEPS = [
     tips: [
       "Office for contracts and money",
       "Register the club",
-      "Squad gamecards for loans and release",
+
     ],
     points: [
-      "Recruit from Free Agents (contract) or Transfer Market (loan).",
+
       "Finish every deal in Inbox. There is no Join button.",
       "Office → Contracts / Finance / Stadium / Shirts.",
       "Register / Competitions / Tournaments / International — always as the club.",
       "Follow published official kickoff times, then play on GameDay if you are in the checked selection.",
-      "Release and loan actions sit on Squad gamecards.",
+
       "Do not pay yourself a star wage that empties the club you also have to run.",
       "THE STAGE TIMES Club / Mercato desks are your public reputation.",
     ],
@@ -503,17 +504,17 @@ const BOTH_STEPS = [
     description:
       "One inbox for both seats. Read the card: are you the player, the parent club, or the president who sent the offer?",
     detail:
-      "Loan cards especially change meaning depending on who must accept.",
+      "Only permanent transfers are supported. Read the contract in Inbox; official competition transfer windows and playing eligibility apply.",
     tips: [
       "Read who the message is for",
       "Do not delete pending items",
       "Act, then switch surface if needed",
     ],
     points: [
-      "Open every unread item. The type label says Contract, Loan, Match, Schedule.",
+
       "A contract you sent as president is waiting on the player — not on you.",
       "A contract sent to you as a player is waiting on you.",
-      "Loan: parent accept, then player accept. You might be both, in order.",
+
       "Match time changes need the opponent. You may be arranging as president and playing as player.",
       "After you act, switch to Club or Player to see the squad / profile update.",
       "Notifications open the same Inbox thread.",
@@ -563,7 +564,7 @@ const BOTH_STEPS = [
       "Your founder wage is a transfer from Finance to Wallet.",
       "Lifestyle and Store never take from Finance.",
       "Paying yourself too much star money starves the squad you also manage.",
-      "Loans can split a wage — read the Inbox card.",
+
       "Leave Club on the player side stops that wage. Founder leave can stop both seats.",
       "If a number looks wrong, keep the ledger row before you contact an admin.",
     ],
@@ -588,7 +589,7 @@ const BOTH_STEPS = [
       "Search if you know a name. Directories if you do not.",
       "THE STAGE TIMES story links are shortcuts into club and player files.",
       "If a control is missing, switch Player / President / Club.",
-      "Contracts and loans always finish in Inbox. Matches always finish on GameDay.",
+
       "When in doubt: Inbox first, then Schedule, then GameDay.",
     ],
   },

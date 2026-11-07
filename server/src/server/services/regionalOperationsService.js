@@ -79,6 +79,11 @@ function report(rows,fixtures,now=new Date()) {
         }
       }
       if(state==='closed' && !active.some(c=>c.entity_type==='regional_cycle' && c.participation_window_snapshot?.id===r.id)) {
+        if(require('../lib/regionalReservePolicy').active(r,now)) {
+          const invited=apps.filter(a=>a.reserve_invitation).length,answered=apps.filter(a=>a.reserve_response).length;
+          add(r,'reserve_responses','action',`Shared reserve period: ${answered} of ${invited} invited clubs responded. Deadline ${require('../lib/regionalReservePolicy').deadline(r)}. No late new applications or guaranteed Division 1 places.`,'registration');
+          continue;
+        }
         if(r.policy_version) {
           const assessment=assessField(r,apps,now,{sourceComplete:registrationSourcesComplete});
           const supported=assessment.status==='structure_supported';

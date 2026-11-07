@@ -1,0 +1,98 @@
+{
+  "browser": "Chrome headless via CDP",
+  "source": "Real Vite routes and isolated MySQL/JWT API; synthetic acceptance clubs and trophies",
+  "flows": [
+    {
+      "view": "Regional hub desktop",
+      "url": "/leagues",
+      "title": "Regional Leagues",
+      "viewport": 1440,
+      "width": 1440,
+      "loanAction": false,
+      "text": "ACCEPTANCE DIVISION 2\n\nDivision 2 · Group A · 20 / 20 clubs\n\nSeason 2 · in progress\n\nChampion and promotion play-off winner advance; positions 2–5 enter the play-offs.\n\nExplore league\nRegional Cups\nTHE ROAD TO GOST\n\nGOST qualification is not open yet. Regional results do not reserve a future GOST place.\n\nSTAGE Supreme League\nSTAGE Elite League\nSTAGE Challenger League\n\nMATCHS\n\nSCHEDULE\nINBOX\nNOTIFICATIONS\n\nCOMPETE\n\nTOURNAMENTS\nINTERNATIONAL\nRANKINGS\n\nCLUB\n\nPLAYERS\nPRESIDENTS\nFREE AGENTS\nSCOUTING\nTRANSFER ROOM\nWALLET\n\nCOMMUNITY\n\nFEED\nDISCORD\n\nACCOUNT\n\nPROFILE\nSEARCH\nLIFESTYLE\nSTORE\nNEWS\nSETTINGS"
+    },
+    {
+      "view": "League Clubs tab clicked on desktop",
+      "url": "/leagues/uk-ireland-div-1-s2?tab=clubs",
+      "title": "Acceptance Division 1",
+      "viewport": 1440,
+      "width": 1440,
+      "loanAction": false,
+      "text": "tform · Country unavailable\n\nAcceptance Club 4\n\nCross-Platform · Country unavailable\n\nAcceptance Club 5\n\nCross-Platform · Country unavailable\n\nAcceptance Club 6\n\nCross-Platform · Country unavailable\n\nAcceptance Club 7\n\nCross-Platform · Country unavailable\n\nAcceptance Club 8\n\nCross-Platform · Country unavailable\n\nAcceptance Club 9\n\nCross-Platform · Country unavailable\n\nMATCHS\n\nSCHEDULE\nINBOX\nNOTIFICATIONS\n\nCOMPETE\n\nTOURNAMENTS\nINTERNATIONAL\nRANKINGS\n\nCLUB\n\nPLAYERS\nPRESIDENTS\nFREE AGENTS\nSCOUTING\nTRANSFER ROOM\nWALLET\n\nCOMMUNITY\n\nFEED\nDISCORD\n\nACCOUNT\n\nPROFILE\nSEARCH\nLIFESTYLE\nSTORE\nNEWS\nSETTINGS"
+    },
+    {
+      "view": "League Clubs mobile",
+      "url": "/leagues/uk-ireland-div-1-s2?tab=clubs",
+      "title": "Acceptance Division 1",
+      "viewport": 390,
+      "width": 390,
+      "loanAction": false,
+      "text": "elected season, clubs, fixtures, table and rules.\n\n2\n\nUse Your club’s participation to apply during registration, then confirm in the shared confirmation week. Sporting placement determines your group.\n\n3\n\nCheck the published schedule in your local time. Regional Cups have their own page; GOST qualification is not open yet.\n\nDone\n\nMATCHS\n\nSchedule\nInbox\nNotifications\n\nCOMPETE\n\nTournaments\nInternational\nRankings\n\nCLUB\n\nPlayers\nPresidents\nFree Agents\nScouting\nTransfer Room\nWallet\n\nCOMMUNITY\n\nFeed\nDiscord\n\nACCOUNT\n\nProfile\nSearch\nLifestyle\nStore\nNews\nSettings\nDashboard\nMatchs\nCompete\nClub\n9+\nMore",
+      "tabs": [
+        {
+          "name": "Overview",
+          "underline": "none",
+          "border": "0px",
+          "active": null
+        },
+        {
+          "name": "Clubs",
+          "underline": "none",
+          "border": "0px",
+          "active": "page"
+        },
+        {
+          "name": "Stages",
+          "underline": "none",
+          "border": "0px",
+          "active": null
+        },
+        {
+          "name": "Table",
+          "underline": "none",
+          "border": "0px",
+          "active": null
+        },
+        {
+          "name": "Stats",
+          "underline": "none",
+          "border": "0px",
+          "active": null
+        },
+        {
+          "name": "Rewards",
+          "underline": "none",
+          "border": "0px",
+          "active": null
+        },
+        {
+          "name": "History",
+          "underline": "none",
+          "border": "0px",
+          "active": null
+        }
+      ]
+    },
+    {
+      "view": "Transfer market mobile",
+      "url": "/transfer-market",
+      "viewport": 390,
+      "width": 390,
+      "loanAction": false,
+      "text": "M\n0\nGames left\n-\nScout completion\n100%\nSEND CONTRACT OFFER\nGuide\n\nTRANSFER ROOM\n\nTransfer Room\n\nStep 3 of 3\n\n1\n\nBrowse players and transfer opportunities across the market.\n\n2\n\nUse filters to narrow by role, value, availability or club context.\n\n3\n\nOpen a transfer detail before making a move so the terms are clear.\n\nDone\n\nMATCHS\n\nSchedule\nInbox\nNotifications\n\nCOMPETE\n\nTournaments\nInternational\nRankings\n\nCLUB\n\nPlayers\nPresidents\nFree Agents\nScouting\nTransfer Room\nWallet\n\nCOMMUNITY\n\nFeed\nDiscord\n\nACCOUNT\n\nProfile\nSearch\nLifestyle\nStore\nNews\nSettings\nDashboard\nMatchs\nCompete\nClub\n9+\nTransfer Room"
+    },
+    {
+      "view": "Player profile mobile",
+      "url": "/players/7220e2e8-120c-49dd-badf-5ec071d5b2cb",
+      "title": "Player 0-0",
+      "viewport": 390,
+      "width": 390,
+      "loanAction": false,
+      "text": "\n\nASSISTS\n\n0\n\nCareer\n\nCLUB\n\nACCEPTANCE CLUB 0\n\nAvailable profile\n\nCONTRACT\n\nOPEN\n\nNo weekly salary set\n\nNEXT MATCH\n\nNO SCHEDULED FIXTURE\n\nGameDay ready\n\nPLAYER SIGNAL\nPROFILE\nPLAYER 0-0\nPLATFORM\nCROSS-PLATFORM\nCOUNTRY\nUNITED KINGDOM\nSTAGE ROLE\nSQUAD PLAYER\nLATEST FROM THE PLAYER\nP\nPhoto\nPost\nNo posts yet. Share your first moment!\n\nMATCHS\n\nSchedule\nInbox\nNotifications\n\nCOMPETE\n\nTournaments\nInternational\nRankings\n\nCLUB\n\nPlayers\nPresidents\nFree Agents\nScouting\nTransfer Room\nWallet\n\nCOMMUNITY\n\nFeed\nDiscord\n\nACCOUNT\n\nProfile\nSearch\nLifestyle\nStore\nNews\nSettings\nDashboard\nMatchs\nCompete\nClub\n9+\nMore"
+    }
+  ],
+  "complete": false,
+  "runtime_errors": [],
+  "browser_route_complete": true,
+  "finished_at": "2026-11-07T17:08:03.680Z"
+}

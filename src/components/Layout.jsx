@@ -2077,7 +2077,7 @@ export default function Layout() {
   const navigate  = useNavigate();
   const { t } = useTranslation();
   const { user: authContextUser } = useAuth();
-  const { windowOpen: transferWindowOpen } = useTransferWindowStatus();
+  const { offersAvailable: transferWindowOpen } = useTransferWindowStatus();
   const [isAdmin,          setIsAdmin]          = useState(false);
   const [authUser,         setAuthUser]         = useState(null);
   const [currentUserId,    setCurrentUserId]    = useState(null);
@@ -2156,7 +2156,7 @@ export default function Layout() {
   useEffect(() => {
     (async () => {
       if (!await stageClient.auth.isAuthenticated()) return;
-      const { user: u, player: p, club: c, presidentClub, president } = await resolveMyPlayerAndClub();
+      const { user: u, player: p, club: c, presidentClub } = await resolveMyPlayerAndClub();
       if (!u) return;
       setCurrentUserId(u.id || null);
       const activePresidentClub = presidentClub || null;
@@ -2170,8 +2170,6 @@ export default function Layout() {
       const effectiveIntent = hasBothIdentities ? "both" : storedIntent;
       setAccountIntent(effectiveIntent);
       if (effectiveIntent !== storedIntent) writeAccountIntent(effectiveIntent, u.id);
-      const resolvedPresidentId = president?.id || activePresidentClub?.president_id || null;
-      setMyPresidentId(resolvedPresidentId);
 
       // President club identity. Player club membership is tracked separately.
       if (activePresidentClub?.id) {

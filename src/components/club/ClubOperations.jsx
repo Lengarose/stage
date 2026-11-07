@@ -69,7 +69,7 @@ export default function ClubOperations({
   onStaffRolesChanged,
 }) {
   const { t } = useTranslation();
-  const { windowOpen } = useTransferWindowStatus();
+  const { windowOpen, offersAvailable, officialRecruitment } = useTransferWindowStatus();
   const [activeSection, setActiveSection] = useState("applicants");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(null);
@@ -194,7 +194,7 @@ export default function ClubOperations({
 
   async function handleOfferContract(terms) {
     if (!offerApplicant) return;
-    if (!canCreateContractOffer(windowOpen)) return;
+    if (!canCreateContractOffer(offersAvailable)) return;
     await applicantAction(offerApplicant, "offer-contract", terms);
     setOfferApplicant(null);
   }
@@ -372,7 +372,7 @@ export default function ClubOperations({
                 {applicant.player_id && <Link to={`/players/${applicant.player_id}`}><Button type="button" size="sm" variant="outline" className="text-xs">{t("commonPages.viewProfile")}</Button></Link>}
                 <Button type="button" size="sm" variant="outline" disabled={busy === `review:${applicant.id}`} onClick={() => applicantAction(applicant, "review")} className="text-xs">{t("commonPages.coopMarkReviewed")}</Button>
                 <Button type="button" size="sm" disabled={busy === `offer-trial:${applicant.id}`} onClick={() => applicantAction(applicant, "offer-trial")} className="text-xs">{t("commonPages.coopOfferTrial")}</Button>
-                {canCreateContractOffer(windowOpen) ? (
+                {canCreateContractOffer(offersAvailable) ? (
                   <Button type="button" size="sm" variant="outline" onClick={() => setOfferApplicant(applicant)} className="text-xs">{t("commonPages.offerContract")}</Button>
                 ) : null}
                 <Button type="button" size="sm" variant="outline" disabled={busy === `decline:${applicant.id}`} onClick={() => applicantAction(applicant, "decline")} className="text-xs border-destructive/30 text-destructive">{t("commonPages.profDecline")}</Button>
@@ -480,6 +480,7 @@ export default function ClubOperations({
         existingActiveContract={false}
         playerContracts={normalizePlayerContracts(contracts).filter((contract) => getContractTargetPlayerId(contract) === offerApplicant?.player_id)}
         onOffer={handleOfferContract}
+        officialRecruitment={officialRecruitment}
         windowOpen={windowOpen}
         club={club}
       />

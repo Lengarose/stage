@@ -242,19 +242,8 @@ router.post('/:id/cancel', async (req, res) => {
 });
 
 // PATCH /:id
-router.patch('/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const existing = await new PlayerContract().selectOne(id);
-    if (!existing.length) return res.status(404).json({ error: 'Not found' });
-    const contract = new PlayerContract({ ...existing[0], ...req.body });
-    await contract.update(id);
-    const updated = await contract.selectOne(id);
-    res.json(updated[0]);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
-  }
+router.patch('/:id', (_req, res) => {
+  res.status(409).json({ error: 'Use the contract offer, response or termination action. Contracts cannot be changed through generic profile updates.' });
 });
 
 // DELETE /:id

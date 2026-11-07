@@ -197,6 +197,7 @@ function makeRouter(entityType) {
     router.get('/registration-readiness/:clubId',action(req => registration.readiness(req.params.clubId,req.user)));
     router.post('/registration-windows/:windowId/apply',action(req => registration.apply(req.params.windowId,req.body || {},req.user)));
     router.post('/registrations/:registrationId/confirm',action(req => registration.confirm(req.params.registrationId,req.body || {},req.user)));
+    router.post('/registrations/:registrationId/reserve',action(req => registration.respondReserve(req.params.registrationId,req.body || {},req.user)));
     router.post('/calendar',action(req => require('../services/regionalCalendarService').action(req.body || {},req.user)));
     const cups=require('../services/regionalCupService');
     router.get('/operations',action(req => require('../services/regionalOperationsService').overview(req.user)));
@@ -271,7 +272,7 @@ function makeRouter(entityType) {
         if (!admin) return res.status(403).json({ error: 'Admin access required.' });
       }
       if (entityType === 'season_registration') {
-        if(['registration_window_id','registration_policy_version','participation_status','confirmed_player_ids','confirmed_at','confirmed_by_user_id','accepted_rules_revision'].some(k=>Object.hasOwn(body,k)))return res.status(409).json({error:'Use the protected regional registration and confirmation actions.'});
+        if(['reserve_invitation','reserve_response','registration_window_id','registration_policy_version','participation_status','confirmed_player_ids','confirmed_at','confirmed_by_user_id','accepted_rules_revision'].some(k=>Object.hasOwn(body,k)))return res.status(409).json({error:'Use the protected regional registration and confirmation actions.'});
         const userRows = await EXECUTESQL('SELECT id, email, role_id FROM users WHERE id = ? LIMIT 1', [req.user?.id || null]);
         const user = userRows[0] || null;
         const isAdmin = [0, 2].includes(Number(user?.role_id));
@@ -329,7 +330,7 @@ function makeRouter(entityType) {
 
       const current = parseRow(existing[0]);
       if(entityType==='season_registration' && current.registration_policy_version)return res.status(409).json({error:'Use the protected regional registration workflow for this edition.'});
-      if(entityType==='season_registration' && ['registration_window_id','registration_policy_version','participation_status','confirmed_player_ids','confirmed_at','confirmed_by_user_id','accepted_rules_revision'].some(k=>Object.hasOwn(req.body || {},k)))return res.status(409).json({error:'Protected participation fields require the regional registration workflow.'});
+      if(entityType==='season_registration' && ['reserve_invitation','reserve_response','registration_window_id','registration_policy_version','participation_status','confirmed_player_ids','confirmed_at','confirmed_by_user_id','accepted_rules_revision'].some(k=>Object.hasOwn(req.body || {},k)))return res.status(409).json({error:'Protected participation fields require the regional registration workflow.'});
       if (entityType==='competition_season') {
         if(!await getAdminUser(req))return res.status(403).json({error:'Admin access required'});
         if(['completed','cancelled','abandoned','reset','superseded'].includes(req.body?.status) || ['competition_id','season_number','reset_series','next_season_id','previous_season_id'].some(k=>Object.hasOwn(req.body || {},k)&&req.body[k]!==current[k]))return res.status(409).json({error:'Use the reviewed season lifecycle action for completion, abandonment, rollover or identity changes.'});

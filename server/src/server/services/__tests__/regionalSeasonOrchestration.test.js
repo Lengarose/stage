@@ -1,8 +1,9 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {createService,createReconciler,project}=require('../regionalSeasonOrchestrationService');
+const {createService,createReconciler:makeReconciler,project}=require('../regionalSeasonOrchestrationService');
 const {RegionalSeasonProgressModel}=require('../../models/regionalSeasonProgressModel');
 const {jobId}=require('../../models/regionalProgressModel');
+const createReconciler=options=>makeReconciler({reserve:async()=>({status:'not_enabled'}),...options});
 test('season handoff follows canonical preparation, sporting recovery, group draws and explicit calendar',async()=>{
  const calls=[],cycle={id:'cycle',status:'running'};
  const reconcile=createReconciler({prepare:async id=>{calls.push(['prepare',id]);return {cycle};},progress:async id=>{calls.push(['progress',id]);return {cycle:{id,status:'allocated',allocated_groups:[{id:'D1A'},{id:'D2A'}],participation_window_snapshot:{league_start_monday:'2026-12-21'}}};},draw:async(...args)=>calls.push(['draw',...args]),calendar:async id=>{calls.push(['calendar',id]);return {id:'calendar',status:'published'};}});
@@ -52,4 +53,9 @@ test('a configured recurring edition is published before Cup exceptions can bloc
 test('a confirmed next-season field waits normally for unfinished source matches without preparing a premature cycle',async()=>{
  let called=false;const run=createReconciler({prepare:async()=>({waiting_source_results:true}),progress:async()=>{called=true;},draw:async()=>{called=true;}});
  const result=project(await run('next-window'));assert.equal(result.stage,'waiting_source_results');assert.equal(result.status,'waiting_results');assert.equal(result.cycle_id,null);assert.equal(called,false);
+});
+
+test('reserve invitation recovery precedes field preparation and waits for the shared cutoff',async()=>{
+ let prepared=0;const run=createReconciler({reserve:async()=>({status:'awaiting_reserves'}),prepare:async()=>{prepared++;}});
+ assert.equal(project(await run('window')).stage,'waiting_reserves');assert.equal(prepared,0);
 });

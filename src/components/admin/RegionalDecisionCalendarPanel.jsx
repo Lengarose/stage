@@ -3,6 +3,7 @@ import { stageClient } from '@/api/stageClient';
 
 export default function RegionalDecisionCalendarPanel({ cycleId }) {
   const [dates, setDates] = useState(['', '', '']);
+  const [stage,setStage]=useState('decisions');
   const [preview, setPreview] = useState(null);
   const [reason, setReason] = useState('');
   const [confirmed, setConfirmed] = useState(false);
@@ -12,7 +13,7 @@ export default function RegionalDecisionCalendarPanel({ cycleId }) {
     setBusy(true); setError('');
     try {
       const round_slots = dates.flatMap((date, index) => date ? [{ round: index + 1, date }] : []);
-      const report = await stageClient.http.post(`/regional-leagues/cycles/${encodeURIComponent(cycleId)}/decision-calendar`, { round_slots, apply, reason, fixture_ids: preview?.fixture_ids, expected_revision: preview?.revision });
+      const report = await stageClient.http.post(`/regional-leagues/cycles/${encodeURIComponent(cycleId)}/decision-calendar`, { stage,round_slots, apply, reason, fixture_ids: preview?.fixture_ids, expected_revision: preview?.revision });
       setPreview(report); setConfirmed(false);
     } catch (err) { setError(err.message); setPreview(null); setConfirmed(false); }
     finally { setBusy(false); }
@@ -21,6 +22,7 @@ export default function RegionalDecisionCalendarPanel({ cycleId }) {
     <h5 className="font-semibold">Additional sporting decision calendar</h5>
     <p>Reconcile official results and the recorded draw first. Select only the rounds that still need scheduling: one round for two clubs, up to three for a mini-league. Times below use Europe/Brussels. This does not choose winners or new opponents.</p>
     <fieldset disabled={busy} className="space-y-3">
+      <label className="block">Calendar stage<select value={stage} className="ml-3 min-h-11 border border-border bg-background px-2" onChange={e=>{const next=e.target.value;setStage(next);setDates(Array(next==='placement'?5:next==='placement_decisions'?1:3).fill(''));setPreview(null);setConfirmed(false);}}><option value="decisions">Additional tied-standings decisions</option><option value="placement">Initial placement groups</option><option value="placement_decisions">Placement third-place deciding matches</option></select></label>
       <div className="grid gap-3 md:grid-cols-3">{dates.map((date, index) => <label key={index}>Round {index + 1}<input type="datetime-local" value={date} className="min-h-11 w-full border border-border bg-background px-2" onChange={e => { setDates(dates.map((old, i) => i === index ? e.target.value : old)); setPreview(null); setConfirmed(false); }} /></label>)}</div>
       <button type="button" disabled={!dates.some(Boolean)} onClick={() => run()} className="min-h-11 font-semibold disabled:opacity-40">Review schedule →</button>
       {preview && <div className="space-y-3">

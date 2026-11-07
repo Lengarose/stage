@@ -63,6 +63,7 @@ function makeConnection({ failOnSql = null, existing = {} } = {}) {
     },
     async query(sql, params = []) {
       calls.push({ sql, params });
+      if (sql.includes('SELECT DISTINCT w.* FROM league_entities w')) return [[], []];
       if (failOnSql && failOnSql.test(sql)) {
         throw new Error('Injected failure');
       }

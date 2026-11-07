@@ -1,3 +1,4 @@
+const CONTRACT_EXECUTION_TOKEN = Symbol('accepted-contract-worker');
 const { EXECUTESQL, pool } = require('../db/database');
 const axios = require('axios').default;
 const bcrypt = require('bcryptjs');
@@ -7419,31 +7420,12 @@ const HANDLERS = {
       expiring_players.push({ player: playerRows[0], contract: c, days_left });
     }
 
-    // The market has to be able to say a player is already out on loan —
-    // otherwise the Request Loan button is offered for a player who will be
-    // rejected with LOAN_ALREADY_LIVE only after the request is submitted.
-    let loaned_player_ids = [];
-    let live_loans = [];
-    try {
-      const loanRows = await EXECUTESQL(
-        `SELECT id, player_id, parent_club_id, loan_club_id, status, end_date, purchase_type
-           FROM player_loans
-          WHERE status IN ('PROPOSED','AWAITING_PLAYER','PENDING_WINDOW','ACTIVE')`,
-        []
-      );
-      live_loans = loanRows;
-      loaned_player_ids = [...new Set(loanRows.map((row) => String(row.player_id)))];
-    } catch (err) {
-      console.warn('[getTransferMarket] loan annotation failed:', err?.message || err);
-    }
 
     return {
       data: {
         free_agents,
         expiring_players,
         current_window: currentWindow,
-        loaned_player_ids,
-        live_loans,
       },
     };
   },
@@ -7523,7 +7505,7 @@ const HANDLERS = {
   },
 
   async contractManagement({
-    action, _auth_user_id,
+    action, _auth_user_id, _contract_execution_token,
     team_id, user_id, target_player_id, offered_by,
     contract_id, weekly_salary_stc, signing_bonus_stc, transfer_fee_stc,
     contract_type, start_date, end_date, max_days, max_games,
@@ -7704,8 +7686,10 @@ const HANDLERS = {
       const playerClubId = contract.player_club_id ? String(contract.player_club_id) : '';
       const contractClubId = contract.team_id ? String(contract.team_id) : '';
       if (!playerClubId || playerClubId === contractClubId) {
-        return HANDLERS.contractManagement({ action: 'accept', contract_id });
+        return HANDLERS.contractManagement({ action: 'accept', contract_id, _auth_user_id });
       }
+      const [recipient] = await EXECUTESQL('SELECT user_id FROM players WHERE id=? LIMIT 1', [contract.user_id]);
+      if (!recipient?.user_id || String(recipient.user_id) !== String(_auth_user_id || '')) throw Object.assign(new Error('Only the player receiving this contract can accept it.'), { status: 403 });
       await EXECUTESQL("UPDATE player_contracts SET status = 'pending_window', updated_date = NOW() WHERE id = ?", [contract_id]);
       await markContractInboxStatus({ contractIds: [contract_id], status: 'accepted' }).catch(() => {});
       const updated = await EXECUTESQL('SELECT *, user_id AS target_player_id FROM player_contracts WHERE id = ? LIMIT 1', [contract_id]);
@@ -7746,10 +7730,6 @@ const HANDLERS = {
         const contracts = await query('SELECT * FROM player_contracts WHERE id = ? LIMIT 1 FOR UPDATE', [contract_id]);
         if (!contracts.length) throw new Error('Contract not found');
         const contract = contracts[0];
-        if (!['pending', 'pending_window', 'negotiating'].includes(contract.status)) {
-          throw new Error(`Cannot accept contract with status: ${contract.status}`);
-        }
-
         const players = await query('SELECT * FROM players WHERE id = ? LIMIT 1 FOR UPDATE', [contract.user_id]);
         const clubs = await query('SELECT * FROM clubs WHERE id = ? LIMIT 1 FOR UPDATE', [contract.team_id]);
         if (!players.length) throw new Error('Player not found');
@@ -7761,6 +7741,15 @@ const HANDLERS = {
           err.status = 400;
           throw err;
         }
+
+        const worker = _contract_execution_token === CONTRACT_EXECUTION_TOKEN && contract.status === 'pending_window';
+        if (!worker && (!player.user_id || String(player.user_id) !== String(_auth_user_id || ''))) {
+          const err = new Error('Only the player receiving this contract can accept it.');
+          err.status = 403;
+          throw err;
+        }
+        if (contract.status === 'active' && player.club_id === contract.team_id) return { endDate: contract.end_date, startDate: contract.start_date, alreadyApplied: true };
+        if (!['pending', 'pending_window', 'negotiating'].includes(contract.status)) throw new Error(`Cannot accept contract with status: ${contract.status}`);
 
         if (contract.contract_type !== 'ownership') {
           await assertClubContractFinance({
@@ -7777,6 +7766,8 @@ const HANDLERS = {
             contractType: contract.contract_type,
           }, { query });
         }
+
+        if (contract.contract_type !== 'ownership') await require('../services/officialPlayerTransferService').assertMove({ player, targetClubId: contract.team_id, referenceId: contract.id, actorId: _auth_user_id }, query);
 
         const endDate = new Date(Date.now() + (Number(contract.max_days) || 180) * 86400000).toISOString().split('T')[0];
         await query(
@@ -7852,10 +7843,10 @@ const HANDLERS = {
           });
         }
 
-        return { endDate };
+        return { endDate, startDate: today };
       });
       const transfer = await recordContractMercatoEvent(contract_id, 'accept').catch(() => null);
-      return { success: true, data: { status: 'active', start_date: today, end_date: result.endDate, transfer_id: transfer?.id || null } };
+      return { success: true, data: { status: 'active', start_date: result.startDate, end_date: result.endDate, already_applied: Boolean(result.alreadyApplied), transfer_id: transfer?.id || null } };
     }
 
     // ── terminate ────────────────────────────────────────────────────────────
@@ -8104,14 +8095,14 @@ const HANDLERS = {
     throw new Error(`Unknown contractManagement action: ${action}`);
   },
 
-  async transferWindowActions({ action, label, start_date, end_date, notes, window_id }) {
+  async transferWindowActions({ _auth_user_id, action, label, start_date, end_date, notes, window_id }) {
     const current = await getCurrentTransferWindow();
 
     if (action === 'get_current') {
       // Prefer the live open window; otherwise return the most recent closed one for admin UI.
       // Do not name this binding `window` — shadows the browser global if this ever runs in a web context.
       const transferWindow = current || (await getLatestTransferWindow());
-      return { data: { window: transferWindow } };
+      return { data: { window: transferWindow, official_recruitment: await require('../services/officialPlayerTransferService').recruitmentAvailable(_auth_user_id,EXECUTESQL) } };
     }
 
     if (action === 'open_window') {
@@ -8147,7 +8138,7 @@ const HANDLERS = {
         try {
           // pending_window means the player already accepted while the window was closed.
           // Opening the window should complete the same server-side activation path.
-          await HANDLERS.contractManagement({ action: 'accept', contract_id: c.id });
+          await HANDLERS.contractManagement({ action: 'accept', contract_id: c.id, _contract_execution_token: CONTRACT_EXECUTION_TOKEN });
           executed += 1;
         } catch (err) {
           errors.push({ contract_id: c.id, error: err.message });

@@ -38,7 +38,8 @@ async function assertCanCreateContractOffer({
   query = null,
 }) {
   if (!playerId || !teamId) return;
-  await assertTransferWindowOpenForContractOffer();
+  const official = await require('./officialPlayerTransferService').assertOfferWindow({ playerId, teamId }, query || EXECUTESQL);
+  if (!official) await assertTransferWindowOpenForContractOffer();
   const group = contractGroup(contractType);
   const params = [playerId, teamId, ...LIVE_CONTRACT_STATUSES];
   let allowedClause = '';

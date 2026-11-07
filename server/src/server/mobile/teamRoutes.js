@@ -281,6 +281,11 @@ router.post('/:id/join-requests/:requestId/accept', async (req, res) => {
         return fail(res, 409, 'This player has a live loan and cannot join a club yet');
       }
     }
+    if (row.player_id) {
+      const [player] = await EXECUTESQL('SELECT * FROM players WHERE id=? LIMIT 1', [row.player_id]);
+      if (!player) return fail(res, 404, 'Player not found');
+      await require('../services/officialPlayerTransferService').assertProfileChange(player, { club_id: req.params.id }, EXECUTESQL);
+    }
     const jr = new JoinRequest({ ...row, status: 'accepted' });
     await jr.update(row.id);
     if (row.player_id) {

@@ -44,7 +44,7 @@ export const PAGE_GUIDE_STEPS_EN = {
   tournamentClubs: [
     'Open Tournaments → your event → Clubs to see every participating team.',
     'Tap a club to open its page: squad, president, record, and trophies.',
-    'Use this before match day to learn the opponent’s spine and who is on loan.',
+
     'Presidents: confirm your club is registered here, not only on your own profile.',
     'If your club is missing, go to Register or the tournament entry button.',
     'From a club page you can open the president, the squad, or THE STAGE TIMES coverage.',
@@ -76,7 +76,7 @@ export const PAGE_GUIDE_STEPS_EN = {
   club: [
     'Your club page is the public shop window: crest, squad, record, and office.',
     'Open it from Profile (Club tab) or a news / ranking link.',
-    'Squad: tap a player for profile, contract, release, role, or loan actions.',
+
     'Feed: club posts. Operations: applicants, staff, lineups (if you can run ops).',
     'Office is president-only: Contracts, Stadium, Finance, Shirts, Trophies, History, Chat.',
     'Players do not join with a public Join button — they sign a contract from Inbox.',
@@ -95,15 +95,14 @@ export const PAGE_GUIDE_STEPS_EN = {
     'After full time, return here to see the next matchday.',
   ],
   inbox: [
-    'Inbox is the decision desk: contracts, loans, match times, club messages.',
+
     'Open Apps → Inbox, or tap a notification. Unread usually means you owe an action.',
     'Contract offer: read wage, length, and type, then Accept, Counter, or Decline.',
-    'Loan proposal: parent club, then the player, must accept before it goes live.',
-    'Loan return / buy-out messages use the same card — Accept or Reject there.',
+
     'Match invite or time change: Accept, Decline, or propose a new date.',
     'Do not delete a message that still needs a response.',
     'After you accept a contract you leave Free Agents and appear on that club’s squad.',
-    'After you accept a loan you play for the borrowing club until recall, return, or buy.',
+
     'Clear Inbox, then go to Schedule / GameDay or Club Office for the next job.',
   ],
   tournaments: [
@@ -143,7 +142,7 @@ export const PAGE_GUIDE_STEPS_EN = {
     'Players: this is how other clubs see your rating and record.',
     'A ranking row is not a contract. Offers still go through Inbox.',
     'Country and region chips help you find local rivals.',
-    'From a profile you can follow, offer a contract, or request a loan.',
+
     'Match results on GameDay are what move these numbers.',
   ],
   players: [
@@ -151,7 +150,7 @@ export const PAGE_GUIDE_STEPS_EN = {
     'Search by name, then open a profile for position, OVR, club, and showcase.',
     'Presidents: this is a scout start. Next stop is Scouting, then a contract offer.',
     'Players: compare yourself and find teammates or rivals.',
-    'A signed player already has a club — use Request Loan, not a contract offer.',
+
     'A free agent has no club — send a contract from their profile or Club Office.',
     'Follow someone from the profile if you want their feed later.',
     'Inbox is where the offer actually gets accepted.',
@@ -173,7 +172,7 @@ export const PAGE_GUIDE_STEPS_EN = {
     'Presidents: send a contract offer from the profile or Club Office → Contracts.',
     'Choose type (trial, academy, squad, important, star). Founder Player is not for recruits.',
     'The player answers in Inbox. Until they accept, they stay on this list.',
-    'Do not use Request Loan here — loans need a parent club.',
+
     'After they sign, they leave this list and appear on your Squad tab.',
   ],
   scouting: [
@@ -182,17 +181,17 @@ export const PAGE_GUIDE_STEPS_EN = {
     'The president can open a squad vote. The vote is advisory only.',
     'The president decides: send a contract from the report, or shelve it.',
     'Open the player from the report to see the live profile and market status.',
-    'If they are signed elsewhere, switch to a loan request instead of a contract.',
+
     'Accepted deals leave Scouting and show on Squad / Contracts.',
     'Keep reports honest — presidents and players will open the same clips.',
   ],
   transfers: [
     'Transfer Market is where signed players and listed deals live.',
     'Filter by position, value, or availability, then open the player.',
-    'On a signed player, a president of another club taps Request Loan — not Join.',
-    'Loan terms: dates, fee, wage split, recall, and option or obligation to buy.',
-    'The parent club accepts in Inbox, then the player accepts, then the loan activates.',
+
+
     'Permanent moves still go through a contract offer, not a silent transfer.',
+    'For official competitions, check the edition transfer window and free-player eligibility before signing.',
     'Mercato stories on THE STAGE TIMES open the same player and club files.',
     'Your own listed players are managed from Club Office and the squad gamecards.',
   ],
@@ -204,7 +203,7 @@ export const PAGE_GUIDE_STEPS_EN = {
     'STAGE Plus and credits are separate from club STC.',
     'Presidents: club wages and prizes are under Club → Office → Finance.',
     'If a payment looks wrong, keep the row visible before you contact an admin.',
-    'Leave Club stops the wage. A live loan may split that wage with the parent club.',
+
   ],
   feed: [
     'Feed is the social layer: posts, follows, and club moments.',
@@ -220,7 +219,7 @@ export const PAGE_GUIDE_STEPS_EN = {
     'Discord is the community room, not the place contracts are signed.',
     'Open Apps → Discord for the invite and server widget.',
     'Use it for voice lobbies, announcements, and wider talk.',
-    'Match times, contract offers, and loan replies still belong in Inbox.',
+
     'GameDay chat is for that fixture only — do not rely on Discord for official times.',
     'Admins may post rule changes here and in THE STAGE TIMES. Read both.',
     'If a link is missing, check Settings or the community page again later.',
@@ -242,7 +241,7 @@ export const PAGE_GUIDE_STEPS_EN = {
     'Showcase clips are what presidents watch before they send an offer.',
     'Availability tells your club when you can play GameDay.',
     'If you are a free agent, clubs find you on Free Agents and Transfer Market.',
-    'If you are signed, another club can Request Loan from this page.',
+
     'Leave Club ends the live contract and puts you back on the market.',
     'Player + President accounts switch Player / President / Club on this hub.',
     'Trophies, lifestyle, and EA FC link sit under More on the player surface.',
@@ -250,7 +249,7 @@ export const PAGE_GUIDE_STEPS_EN = {
   search: [
     'Search is the fastest jump to a player, club, or president you can name.',
     'Type a gamertag, club name, or tag, then open the result.',
-    'Player result → profile (contract, loan, follow).',
+
     'Club result → club page (squad, office, competitions).',
     'Use Find Players when you are browsing, not searching a name.',
     'Rankings and THE STAGE TIMES are better when you do not know the name yet.',
@@ -285,13 +284,13 @@ export const PAGE_GUIDE_STEPS_EN = {
     'Tournaments and Competitions desks follow brackets, tables, and champions.',
     'Daily News is today only. World News: pick a continent, then a country chip.',
     'UK stories may use GB, UK, ENG, SCO, WAL, or NIR — they count as the same desk.',
-    'A story is a file, not an action. Sign, loan, and play still go through Inbox and GameDay.',
+
     'Use Club file / player links on a story to jump straight into the app path.',
   ],
   dashboard: [
     'Home is the command center: next match, inbox pressure, and shortcuts into Apps.',
     'A fixture tile jumps to GameDay. A calendar tile jumps to Schedule.',
-    'Unread Inbox means a contract, loan, or time proposal is waiting.',
+
     'Club tiles open your club page (squad, office, finance).',
     'Apps (the grid) is how you reach Transfer Market, Free Agents, News, Wallet, Register.',
     'Profile tab is your player / president / club identity rail.',
@@ -305,7 +304,7 @@ export const PAGE_GUIDE_STEPS_EN = {
     'Presidents send new offers from Club Office or from a player profile.',
     'Types: trial, academy, squad, important, star. Founder Player is only for club creation.',
     'A live contract is what puts a player on the squad. Terminating it is Release.',
-    'Loans do not replace the parent contract. They add a playing-rights deal on top.',
+
     'When a deal is waiting on someone, Inbox is the place they will see it.',
   ],
 };

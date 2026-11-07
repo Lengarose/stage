@@ -8,7 +8,7 @@ import { useTransferWindowStatus } from "@/lib/useTransferWindowStatus";
 import { Loader2, Check, X, ClipboardList } from "lucide-react";
 
 export default function InboxTrialRequest({ message, onActioned }) {
-  const { windowOpen } = useTransferWindowStatus();
+  const { offersAvailable } = useTransferWindowStatus();
   const [loading, setLoading] = useState(null);
   const [done, setDone] = useState(null);
   const safeMessage = message && typeof message === "object" ? message : {};
@@ -30,7 +30,7 @@ export default function InboxTrialRequest({ message, onActioned }) {
   const trialMeta      = CONTRACT_TYPES.trial;
 
   async function offerTrial() {
-    if (!canCreateContractOffer(windowOpen)) return;
+    if (!canCreateContractOffer(offersAvailable)) return;
     setLoading("offer");
     try {
       // Create trial PlayerContract (pending — player still needs to accept)
@@ -162,7 +162,7 @@ export default function InboxTrialRequest({ message, onActioned }) {
       </div>
 
       <div className="flex gap-2">
-        {canCreateContractOffer(windowOpen) ? (
+        {canCreateContractOffer(offersAvailable) ? (
           <Button
             size="sm"
             onClick={offerTrial}

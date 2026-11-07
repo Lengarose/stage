@@ -17,7 +17,6 @@ export const MERCATO_FILTERS = [
   { id: "negotiations", label: "Negotiations" },
   { id: "completed", label: "Completed" },
   { id: "failed", label: "Failed" },
-  { id: "loans", label: "Loans" },
   { id: "free_agents", label: "Free Agents" },
   { id: "contract_extensions", label: "Extensions" },
 ];

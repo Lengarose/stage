@@ -14,13 +14,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText, Plus, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { canCreateContractOffer } from "@/lib/transferWindowAccess";
-import { getLoanForContract } from "@/lib/playerLoanDisplay";
 import { useTransferWindowStatus } from "@/lib/useTransferWindowStatus";
 import { useTranslation } from "@/hooks/useTranslation";
 
 export default function ContractsTab({ club, players, myPlayer, canManage, onPlayerReleased }) {
   const { t } = useTranslation();
-  const { windowOpen } = useTransferWindowStatus();
+  const { windowOpen, offersAvailable, officialRecruitment } = useTransferWindowStatus();
   const [contracts, setContracts] = useState([]);
   const [playerMap, setPlayerMap] = useState({});
   const [loading, setLoading] = useState(true);
@@ -28,7 +27,6 @@ export default function ContractsTab({ club, players, myPlayer, canManage, onPla
   const [renewDialog, setRenewDialog] = useState(null);   // contract object
   const [activeTab, setActiveTab] = useState("active");
   const [contractError, setContractError] = useState(null);
-  const [loans, setLoans] = useState([]);
 
   useEffect(() => {
     if (!club?.id) return;
@@ -76,8 +74,6 @@ export default function ContractsTab({ club, players, myPlayer, canManage, onPla
     }
 
     setContracts(safeContracts);
-    const loanRows = await stageClient.entities.PlayerLoan.filter({ parent_club_id: club.id, status: "ACTIVE" }).catch(() => []);
-    setLoans(Array.isArray(loanRows) ? loanRows : []);
 
     const pMap = {};
     for (const p of players) pMap[p.id] = p;
@@ -98,7 +94,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage, onPla
   async function offerContract({ contract_type, offer_note, weekly_salary_stc, signing_bonus_stc, transfer_fee_stc, performance_targets, captaincy_offered }) {
     setContractError(null);
     const player = offerDialog;
-    if (!canCreateContractOffer(windowOpen)) return;
+    if (!canCreateContractOffer(offersAvailable)) return;
 
     let newContract;
     try {
@@ -267,7 +263,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage, onPla
   }
 
   async function renewContract({ contract_type, offer_note, weekly_salary_stc, signing_bonus_stc, performance_targets }) {
-    if (!canCreateContractOffer(windowOpen)) return;
+    if (!canCreateContractOffer(offersAvailable)) return;
     const contract = renewDialog;
     const player   = playerMap[getContractTargetPlayerId(contract)];
     const typeMeta = CONTRACT_TYPES[contract_type] || CONTRACT_TYPES.squad;
@@ -318,7 +314,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage, onPla
   const myPendingContracts = safeContracts.filter(c =>
     getContractTargetPlayerId(c) === myPlayer?.id && (c.status === "pending" || c.status === "negotiating")
   );
-  const canManageContractOffers = canManage && canCreateContractOffer(windowOpen);
+  const canManageContractOffers = canManage && canCreateContractOffer(offersAvailable);
 
   if (loading) {
     return (
@@ -368,7 +364,6 @@ export default function ContractsTab({ club, players, myPlayer, canManage, onPla
             <ContractCard
               key={c.id}
               contract={c}
-              loan={getLoanForContract(c, loans)}
               player={playerMap[getContractTargetPlayerId(c)]}
               canManage={false}
               isMyContract={true}
@@ -431,7 +426,6 @@ export default function ContractsTab({ club, players, myPlayer, canManage, onPla
                       <ContractCard
                         key={c.id}
                         contract={c}
-                        loan={getLoanForContract(c, loans)}
                         player={playerMap[getContractTargetPlayerId(c)]}
                         canManage={canManage}
                         isMyContract={getContractTargetPlayerId(c) === myPlayer?.id}
@@ -450,7 +444,6 @@ export default function ContractsTab({ club, players, myPlayer, canManage, onPla
                   <ContractCard
                     key={c.id}
                     contract={c}
-                    loan={getLoanForContract(c, loans)}
                     player={playerMap[getContractTargetPlayerId(c)]}
                     canManage={canManage}
                     isMyContract={getContractTargetPlayerId(c) === myPlayer?.id}
@@ -475,7 +468,6 @@ export default function ContractsTab({ club, players, myPlayer, canManage, onPla
               <ContractCard
                 key={c.id}
                 contract={c}
-                loan={getLoanForContract(c, loans)}
                 player={playerMap[getContractTargetPlayerId(c)]}
                 canManage={canManage}
                 isMyContract={getContractTargetPlayerId(c) === myPlayer?.id}
@@ -498,7 +490,6 @@ export default function ContractsTab({ club, players, myPlayer, canManage, onPla
               <ContractCard
                 key={c.id}
                 contract={c}
-                loan={getLoanForContract(c, loans)}
                 player={playerMap[getContractTargetPlayerId(c)]}
                 canManage={canManage}
                 isMyContract={false}
@@ -543,6 +534,7 @@ export default function ContractsTab({ club, players, myPlayer, canManage, onPla
         playerContracts={offerDialog ? safeContracts.filter(c => getContractTargetPlayerId(c) === offerDialog.id && LIVE.includes(c.status)) : []}
         existingActiveContract={null}
         onOffer={offerContract}
+        officialRecruitment={officialRecruitment}
         windowOpen={windowOpen}
       />
 

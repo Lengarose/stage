@@ -229,7 +229,7 @@ CREATE TABLE IF NOT EXISTS clubs (
   stadium_level       INT          DEFAULT 0,
   stadium_capacity    INT          DEFAULT 5000,
   tier                VARCHAR(50)  DEFAULT 'bronze',
-  form                VARCHAR(20),
+  form                VARCHAR(32),
   win_streak          INT          DEFAULT 0,
   loss_streak         INT          DEFAULT 0,
   status              VARCHAR(50)  DEFAULT 'active',
@@ -599,7 +599,7 @@ CREATE TABLE IF NOT EXISTS notifications (
   body            TEXT,
   `read`          TINYINT(1)   DEFAULT 0,
   link            VARCHAR(500),
-  related_id      VARCHAR(36),
+  related_id      VARCHAR(255),
   idempotency_key VARCHAR(190),
   created_date    DATETIME     DEFAULT CURRENT_TIMESTAMP
 );
@@ -764,7 +764,7 @@ CREATE TABLE IF NOT EXISTS stc_transactions (
 -- ── shirt_sales ───────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS shirt_sales (
   id              VARCHAR(36)   PRIMARY KEY,
-  player_id       VARCHAR(36)   NOT NULL,
+  player_id       VARCHAR(36)   NULL,
   player_gamertag VARCHAR(100),
   shirt_number    INT,
   club_id         VARCHAR(36),
@@ -1373,14 +1373,14 @@ CREATE TABLE IF NOT EXISTS competition_standings (
   goals_against            INT DEFAULT 0,
   goal_difference          INT DEFAULT 0,
   points                   INT DEFAULT 0,
-  rank                     INT,
+  `rank`                   INT,
   final_position           INT,
   is_promoted              TINYINT(1) DEFAULT 0,
   is_relegated             TINYINT(1) DEFAULT 0,
   is_eliminated            TINYINT(1) DEFAULT 0,
   updated_date             DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (competition_instance_id, participant_id),
-  INDEX idx_comp_standings_rank (competition_instance_id, rank),
+  INDEX idx_comp_standings_rank (competition_instance_id, `rank`),
   INDEX idx_comp_standings_participant (participant_id)
 );
 
@@ -1882,7 +1882,7 @@ SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='position'),'SELECT 1','ALTER TABLE match_player_stats ADD COLUMN position VARCHAR(50) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='clean_sheet'),'SELECT 1','ALTER TABLE match_player_stats ADD COLUMN clean_sheet TINYINT(1) NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='is_motm'),'SELECT 1','ALTER TABLE match_player_stats ADD COLUMN is_motm TINYINT(1) NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-SET @t='notifications'; SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='related_id'),'SELECT 1','ALTER TABLE notifications ADD COLUMN related_id VARCHAR(36) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+SET @t='notifications'; SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='related_id'),'SELECT 1','ALTER TABLE notifications ADD COLUMN related_id VARCHAR(255) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @t='player_contracts'; SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='games_played'),'SELECT 1','ALTER TABLE player_contracts ADD COLUMN games_played INT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='transfer_window_id'),'SELECT 1','ALTER TABLE player_contracts ADD COLUMN transfer_window_id VARCHAR(36) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name='salary_per_game_stc'),'SELECT 1','ALTER TABLE player_contracts ADD COLUMN salary_per_game_stc BIGINT NULL DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
@@ -2203,7 +2203,6 @@ CREATE TABLE IF NOT EXISTS league_entities (
   UNIQUE KEY idx_le_regional_edition (regional_edition_key),
   UNIQUE KEY idx_le_regional_permanent (regional_league_key),
   UNIQUE KEY idx_le_competition_edition (competition_edition_key),
-  UNIQUE KEY idx_le_parent_series_season (permanent_league_id, reset_series, season_number),
   INDEX idx_le_league      (entity_type, league_id),
   INDEX idx_le_season      (entity_type, season_id),
   INDEX idx_le_comp        (entity_type, competition_id)
@@ -2219,7 +2218,8 @@ SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='league_entities' AND column_name='permanent_league_id'),'SELECT 1','ALTER TABLE league_entities ADD COLUMN permanent_league_id VARCHAR(36) NULL')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='league_entities' AND column_name='reset_series'),'SELECT 1','ALTER TABLE league_entities ADD COLUMN reset_series INT DEFAULT 0')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name='league_entities' AND index_name='idx_le_regional_permanent') OR EXISTS(SELECT regional_league_key FROM league_entities WHERE regional_league_key IS NOT NULL GROUP BY regional_league_key HAVING COUNT(*)>1),'SELECT 1','CREATE UNIQUE INDEX idx_le_regional_permanent ON league_entities (regional_league_key)')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
-SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name='league_entities' AND index_name='idx_le_parent_series_season') OR EXISTS(SELECT permanent_league_id,reset_series,season_number FROM league_entities WHERE permanent_league_id IS NOT NULL GROUP BY permanent_league_id,reset_series,season_number HAVING COUNT(*)>1),'SELECT 1','CREATE UNIQUE INDEX idx_le_parent_series_season ON league_entities (permanent_league_id,reset_series,season_number)')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
+-- Parallel groups share parent/series/season; regional_edition_key includes the group.
+SET @sql=(SELECT IF(EXISTS(SELECT 1 FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name='league_entities' AND index_name='idx_le_parent_series_season'),'DROP INDEX idx_le_parent_series_season ON league_entities','SELECT 1')); PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 -- Admin audit log — records moderation/admin actions across all entities.
 CREATE TABLE IF NOT EXISTS admin_audit_log (
   id            VARCHAR(36)  PRIMARY KEY,
@@ -2229,8 +2229,8 @@ CREATE TABLE IF NOT EXISTS admin_audit_log (
   entity_type   VARCHAR(50),
   entity_id     VARCHAR(36),
   entity_name   VARCHAR(255),
-  old_value     TEXT,
-  new_value     TEXT,
+  old_value     MEDIUMTEXT,
+  new_value     MEDIUMTEXT,
   reason        TEXT,
   created_date  DATETIME     DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_aal_entity  (entity_type, entity_id),

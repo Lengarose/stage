@@ -8,11 +8,11 @@ import {
   getSignedClubIdForPlayer,
 } from "../contractOfferVisibility.js";
 
-test("signed players do not show the contract offer button", () => {
+test("the same club cannot offer a duplicate active player contract", () => {
   assert.equal(
     canShowContractOfferButton({
       player: { id: "player-1", club_id: "club-current" },
-      viewerClub: { id: "club-viewer" },
+      viewerClub: { id: "club-current" },
       playerContracts: [],
     }),
     false
@@ -31,7 +31,7 @@ test("an active accepted contract links the player to its club even when player.
       viewerClub: { id: "club-viewer" },
       playerContracts: contracts,
     }),
-    false
+    true
   );
 });
 
@@ -69,77 +69,11 @@ test("contract conflict checks ignore malformed rows from the API", () => {
   );
 });
 
-test("signed players show Request Loan to a different club, not a contract offer", () => {
-  const player = { id: "player-1", club_id: "club-a" };
-  const viewerClub = { id: "club-b" };
-  const playerContracts = [
-    { id: "contract-1", user_id: "player-1", team_id: "club-a", status: "active" },
-  ];
-
-  assert.equal(canShowContractOfferButton({ player, viewerClub, playerContracts }), false);
-  assert.equal(canShowLoanRequestButton({ player, viewerClub, playerContracts }), true);
-});
-
-test("a club cannot request a loan for its own contracted player", () => {
-  assert.equal(
-    canShowLoanRequestButton({
-      player: { id: "player-1", club_id: "club-a" },
-      viewerClub: { id: "club-a" },
-      playerContracts: [],
-    }),
-    false
-  );
-});
-
-test("free agents do not get a loan request button", () => {
-  assert.equal(
-    canShowLoanRequestButton({
-      player: { id: "player-free" },
-      viewerClub: { id: "club-b" },
-      playerContracts: [],
-    }),
-    false
-  );
-});
-
-test("the loan request button is hidden for a player who already has a live loan", () => {
-  const player = { id: "player-1", club_id: "club-a" };
-  const viewerClub = { id: "club-b" };
-
-  assert.equal(canShowLoanRequestButton({ player, viewerClub, loans: [] }), true);
-
-  for (const status of ["PROPOSED", "AWAITING_PLAYER", "PENDING_WINDOW", "ACTIVE"]) {
-    assert.equal(
-      canShowLoanRequestButton({
-        player,
-        viewerClub,
-        loans: [{ player_id: "player-1", status }],
-      }),
-      false,
-      status,
-    );
+test("removed loans never expose a request action, regardless of legacy status", () => {
+  for (const status of [null, "PROPOSED", "ACTIVE", "COMPLETED", "RETIRED"]) {
+    assert.equal(canShowLoanRequestButton({
+      player: { id: "player", club_id: "old" }, viewerClub: { id: "new" },
+      loans: status ? [{ player_id: "player", status }] : [],
+    }), false);
   }
-
-  for (const status of ["COMPLETED", "PURCHASED", "RECALLED", "TERMINATED_EARLY"]) {
-    assert.equal(
-      canShowLoanRequestButton({
-        player,
-        viewerClub,
-        loans: [{ player_id: "player-1", status }],
-      }),
-      true,
-      status,
-    );
-  }
-});
-
-test("another player's live loan does not hide the button", () => {
-  assert.equal(
-    canShowLoanRequestButton({
-      player: { id: "player-1", club_id: "club-a" },
-      viewerClub: { id: "club-b" },
-      loans: [{ player_id: "player-2", status: "ACTIVE" }],
-    }),
-    true,
-  );
 });

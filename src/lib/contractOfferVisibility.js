@@ -7,15 +7,16 @@ export function findBlockingContractConflict({
   selectedType = "squad",
   playerContracts = [],
   existingActiveContract = null,
+  targetClubId = null,
 } = {}) {
   const isOwnershipOffer = selectedType === "ownership";
   // API rows are not trusted; a malformed contract must not crash transfer routes.
   const liveConflict = normalizePlayerContracts(playerContracts).find((contract) => (
-    LIVE_CONTRACT_STATUSES.has(contract.status) &&
+    (!targetClubId || !contract.team_id || String(contract.team_id) === String(targetClubId)) && LIVE_CONTRACT_STATUSES.has(contract.status) &&
     (isOwnershipOffer ? getContractType(contract) === "ownership" : getContractType(contract) !== "ownership")
   ));
 
-  return liveConflict || existingActiveContract || null;
+  return liveConflict || ((!targetClubId || String(existingActiveContract?.team_id) === String(targetClubId)) ? existingActiveContract : null) || null;
 }
 
 export function getSignedClubIdForPlayer(player, playerContracts = []) {
@@ -28,10 +29,12 @@ export function getSignedClubIdForPlayer(player, playerContracts = []) {
   return activeContract?.team_id || null;
 }
 
-export function getContractOfferBlockReason({ player, playerContracts = [] } = {}) {
-  if (getSignedClubIdForPlayer(player, playerContracts)) return "signed";
+export function getContractOfferBlockReason({ player, playerContracts = [], viewerClub = null } = {}) {
+  const signedClub=getSignedClubIdForPlayer(player, playerContracts);
+  if (signedClub && (!viewerClub?.id || String(signedClub)===String(viewerClub.id))) return "signed";
   const hasLiveOffer = normalizePlayerContracts(playerContracts).some((contract) => (
     getContractTargetPlayerId(contract) === player?.id &&
+    (!viewerClub?.id || !contract.team_id || String(contract.team_id)===String(viewerClub.id)) &&
     LIVE_CONTRACT_STATUSES.has(contract.status)
   ));
   return hasLiveOffer ? "live_offer" : null;
@@ -44,34 +47,10 @@ export function canShowContractOfferButton({
   limitedTournamentId = null,
 } = {}) {
   if (!player?.id || !viewerClub?.id || limitedTournamentId) return false;
-  return getContractOfferBlockReason({ player, playerContracts }) === null;
+  return getContractOfferBlockReason({ player, playerContracts, viewerClub }) === null;
 }
 
-// Mirrors the server's LIVE_LOAN_STATUSES. A player with a loan in any of
-// these states is rejected by proposeLoan with LOAN_ALREADY_LIVE, so the
-// button must not be offered.
-const LIVE_LOAN_STATUSES = new Set(["PROPOSED", "AWAITING_PLAYER", "PENDING_WINDOW", "ACTIVE"]);
-
-export function hasLiveLoan(player, loans = []) {
-  const playerId = String(player?.id || "");
-  if (!playerId) return false;
-  return (loans || []).some((loan) => (
-    String(loan?.player_id || "") === playerId &&
-    LIVE_LOAN_STATUSES.has(String(loan?.status || "").toUpperCase())
-  ));
-}
-
-export function canShowLoanRequestButton({
-  player,
-  viewerClub,
-  playerContracts = [],
-  loans = [],
-  limitedTournamentId = null,
-} = {}) {
-  if (!player?.id || !viewerClub?.id || limitedTournamentId) return false;
-  const signedClubId = getSignedClubIdForPlayer(player, playerContracts);
-  if (!signedClubId) return false;
-  if (String(signedClubId) === String(viewerClub.id)) return false;
-  // A player can only be on one loan at a time.
-  return !hasLiveLoan(player, loans);
+// Compatibility for old consumers: loans have been removed from the app.
+export function canShowLoanRequestButton() {
+  return false;
 }

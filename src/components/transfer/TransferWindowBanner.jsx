@@ -2,7 +2,8 @@ import { CheckCircle, AlertCircle, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isTransferWindowOpen } from "@/lib/transferWindow";
 
-export default function TransferWindowBanner({ window: currentWindow }) {
+export default function TransferWindowBanner({ window: currentWindow, officialRecruitment = false }) {
+  if (officialRecruitment) return <div className="border border-border bg-secondary/30 p-3 text-sm"><p className="font-semibold">Official competition transfer rules</p><p className="mt-1 text-muted-foreground">Permanent transfers follow the between-season and week-six windows. Eligible free players may sign outside those windows. The server checks both clubs and the player before accepting a move.</p></div>;
   const isOpen = isTransferWindowOpen(currentWindow);
 
   return (

@@ -1126,3 +1126,46 @@ Deze stap voltooit het volledige programma niet. Reserve-aanvulling, de bevestig
 spelers- en terugtrekkingspakketten en andere resterende onderdelen blijven zichtbaar
 als bouwwerk; hun beleidsbevestiging is geen bewijs van implementatie.
 Geen productieherstel, reset, push, deployment of live uitbetaling uitgevoerd.
+
+### Reservebereidheid en reactiedeadline — bevestigd 6 november 2026 [B]
+
+Reservebereidheid wordt vóór de gemeenschappelijke reserve-deadline vastgelegd.
+Definitieve D1-vacatures worden pas na de promotieplay-offs toegewezen volgens
+het reeds goedgekeurde voorrangsbeleid. Er worden daarvoor geen late nieuwe
+inschrijvers toegelaten. Alle uitgenodigde bestaande aanmeldingen antwoorden tot
+één gemeenschappelijke deadline, maximaal 48 uur na de bevestigingsweek; geen
+extra individuele reactietermijn of verlenging. Bereidheid garandeert geen plaats
+of D1-recht. Dit lost de timing tussen reserveweek 10 en play-offs in week 11 op.
+
+### Fase 3–4/6–8 — reserves, Cup-tied en echte seizoenstest, 6 november 2026
+
+Zie `docs/competition-acceptance-phase8.md` voor de lokale uitvoering. Nieuwe
+perioden leggen reservevoorwaarden vast; bestaande aanmeldingen kunnen op de
+uitnodiging reageren tot dezelfde deadline. De definitieve overgang behoudt
+historische bronuitslagen en vult D1-vacatures pas na de play-offs via het bevestigde
+reservebeleid. Nieuwe Cup-voorwaarden controleren daadwerkelijke verklaarde
+bekerdeelname bij selectie/gereedmelden/aftrap; banknominatie alleen telt niet.
+
+De normale seizoenroute is op geïsoleerde MySQL 8.4 en echte JWT/HTTP uitgevoerd:
+plaatsing, 38 league-rondes, beker, promotie, prijzen, trofeeën en een wedstrijd
+in editie 2. Een aparte vacaturevariant en herstel in een nieuw Node-proces zijn
+meegenomen. Dit voltooit de volledige uitzonderingsmatrix en het hele programma
+niet. Transfers, terugtrekkingsgevolgen, verdere integratie en browsercontrole
+blijven open bouwwerk. De opgeslagen JSON-resultaten vermelden die grens expliciet.
+Geen productieherstel of deployment uitgevoerd.
+
+## 29. Spelerstransfers en afschaffing van leningen — bevestigd 7 november 2026
+
+**B:** De eerste plaatsingsfase telt na de gezamenlijke deelnamebevestiging als
+lopende editie. Gewone clubwissels zijn dan gesloten tot het goedgekeurde
+transfervenster; de bestaande uitzondering voor vrije spelers blijft gelden.
+
+**B:** De gebruiker heeft leningen afgeschaft: alleen definitieve transfers.
+Dit vervangt de vraag over contractuele terugkeer na een lening. Geen nieuwe
+leenaanvraag, activering, tijdelijke speelregistratie, terugroepactie of
+leenkoopoptie in de app. Eerdere betaalhistorie en definitieve transfers behouden;
+geen verzonnen terugbetaling. De oude gegevens mogen als historische bron blijven.
+
+Lokale implementatie en precieze beperkingen staan in
+[Official player transfers](official-player-transfers-phase3.md). Dit is geen
+bevestiging dat alle acht bouwfases of alle uitzonderingen gereed zijn.

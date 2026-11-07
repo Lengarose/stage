@@ -1,0 +1,51 @@
+{
+  "database": "stage_acceptance_831833c5cf10",
+  "started_at": "2026-11-06T22:04:43.794Z",
+  "steps": [
+    {
+      "step": "registration-confirmation-reserve-placement",
+      "clubs": 40,
+      "placement_fixtures": 80
+    },
+    {
+      "step": "placement-and-first-calendar",
+      "matches": 84,
+      "groups": 2,
+      "league_fixtures": 760
+    },
+    {
+      "step": "reschedule-rollback-opponent-approval-and-single-charge",
+      "passed": true
+    },
+    {
+      "step": "unchanged-2-2-away-first-stale-and-retry",
+      "passed": true
+    },
+    {
+      "step": "final-D1-vacancy-after-playoffs",
+      "promoted_reserves": 1,
+      "final_clubs": 40
+    },
+    {
+      "step": "league-cup-promotion-rollover",
+      "league_matches": 760,
+      "cup_matches": 39,
+      "total_matches": 886,
+      "next_cycle": "ad7a7ba4-7681-a677-831e-8e5b3e211746"
+    },
+    {
+      "step": "fresh-process-worker-recovery",
+      "passed": true
+    },
+    {
+      "step": "persisted-cup-prizes-trophy-retry-and-next-edition-play",
+      "cup_prize_total": 10000000,
+      "next_match": "05f0221a-ca98-ed37-5b62-001106cbeafd"
+    }
+  ],
+  "complete": false,
+  "evidence_provenance": "Synthetic result declarations and inline test images; no EA game, OCR verification or real payment provider.",
+  "normal_season_route_complete": true,
+  "blocker": "Remaining approved player/withdrawal exception implementation and complete acceptance matrix still pending",
+  "finished_at": "2026-11-06T22:26:45.592Z"
+}

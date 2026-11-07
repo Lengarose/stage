@@ -16,7 +16,9 @@ function createService({model=new RegionalPromotionCalendarModel(),transaction=w
       const user=await model.actor(actor?.id,q);if(!user || user.role_id==null || ![0,2].includes(Number(user.role_id)))fail('Admin decision calendar access required',403);
       await model.lock(q);
       const cycle=await model.cycle(cycleId,q);if(!cycle)fail('Regional cycle not found',404);
-      if(!Array.isArray(body.round_slots) || !body.round_slots.length || body.round_slots.length>3 || body.round_slots.some(s=>!Number.isInteger(s.round)||s.round<1||s.round>3) || new Set(body.round_slots.map(s=>s.round)).size!==body.round_slots.length)fail('Provide one valid kickoff for each decision round, up to three rounds',400);
+      const stage=body.stage || 'decisions',limit=stage==='placement'?5:stage==='placement_decisions'?1:3;
+      if(!['decisions','placement','placement_decisions'].includes(stage) || stage!=='decisions' && cycle.input?.mode!=='placement')fail('Choose a supported calendar stage for this cycle.',400);
+      if(!Array.isArray(body.round_slots) || !body.round_slots.length || body.round_slots.length>limit || body.round_slots.some(s=>!Number.isInteger(s.round)||s.round<1||s.round>limit) || new Set(body.round_slots.map(s=>s.round)).size!==body.round_slots.length)fail('Provide one valid kickoff for each pending round.',400);
       const slots=body.round_slots.slice().sort((a,b)=>a.round-b.round).map(s=>({round:s.round,...scheduleTime(s.date,calendarPolicy.timezone)}));
       if(body.apply===true) {
         if(!Array.isArray(body.fixture_ids) || !body.fixture_ids.length || body.fixture_ids.some(id=>typeof id!=='string') || new Set(body.fixture_ids).size!==body.fixture_ids.length)fail('Provide the reviewed decision fixture IDs',400);
@@ -25,11 +27,12 @@ function createService({model=new RegionalPromotionCalendarModel(),transaction=w
       }
       if(!calendarPolicy.regions.includes(cycle.region_slug) || cycle.edition_invalidated || !['running','review','ready'].includes(cycle.status) || cycle.policy_version!==sporting.VERSION || cycle.tie_policy_version!==sporting.TIE_VERSION || cycle.participation_window_snapshot?.policy_version!=='regional_registration_v1')fail('Choose a current official European cycle with the recorded sporting-decision policy');
       const fresh=await evaluate(cycle,q),plan=fresh.plan,stored=fresh.stored,matches=await model.cycleMatches(cycle.id,q);
-      const pending=plan.pending.filter(f=>f.ref.includes(':tie:'));
+      const pending=plan.pending.filter(f=>stage==='placement'?/^placement:g\d+:r/.test(f.ref):stage==='placement_decisions'?f.ref.startsWith('placement:decision:'):f.ref.includes(':tie:'));
       if(!pending.length)fail('There are no pending supplementary decision fixtures to schedule');
       const rounds=[...new Set(pending.map(f=>f.round))].sort((a,b)=>a-b);
       if(hash(rounds)!==hash(slots.map(s=>s.round)))fail('Choose exactly the rounds of the current pending sporting decisions',400);
       const blockers=[...(plan.blockers || [])];
+      if(stage!=='decisions' && require('../lib/regionalSeasonOrchestrationPolicy').enabled({...cycle.participation_window_snapshot,status:'published'}) && slots.some(s=>s.instant-clock().getTime()<48*3600000))blockers.push('Publish initial placement kickoffs at least 48 hours before play.');
       let sourceCalendars=[];
       if(cycle.input?.mode==='transition' && cycle.source_snapshot?.some(s=>Number(s.identity?.division)===2)) {
         const anchors=(await model.calendars(q)).filter(c=>c.status==='published' && c.policy_version===calendarPolicy.version && cycle.source_edition_ids?.length && cycle.source_edition_ids.every(id=>c.edition_ids?.includes(id)));
@@ -60,7 +63,7 @@ function createService({model=new RegionalPromotionCalendarModel(),transaction=w
       const busy=busyEvents(events,excluded),from=Math.min(...entries.map(e=>e.instant))-7*86400000,to=Math.max(...entries.map(e=>e.instant))+7*86400000;
       blockers.push(...loadViolations([...busy.filter(e=>e.instant>=from && e.instant<=to),...entries]));
       const revision=hash([cycle,plan,stored,matches,selections,events,slots,sourceCalendars]);
-      const report={id,cycle_id:cycle.id,stage:'decisions',timezone:calendarPolicy.timezone,round_slots:slots.map(s=>({round:s.round,date:s.wall})),fixture_ids:ids,entries,revision,blockers:[...new Set(blockers)],already_published:false};
+      const report={id,cycle_id:cycle.id,stage,timezone:calendarPolicy.timezone,round_slots:slots.map(s=>({round:s.round,date:s.wall})),fixture_ids:ids,entries,revision,blockers:[...new Set(blockers)],already_published:false};
       if(body.apply!==true)return report;
       if(!String(body.reason || '').trim())fail('Explain this decision calendar publication',400);
       if(body.expected_revision!==revision)fail('Decision calendar sources changed; review a fresh preview');

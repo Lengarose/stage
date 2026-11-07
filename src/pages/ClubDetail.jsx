@@ -37,7 +37,6 @@ import StadiumUpgrade from "../components/club/StadiumUpgrade";
 import { cn } from "@/lib/utils";
 import { getContractTargetPlayerId, getContractType, normalizePlayerContracts } from "@/lib/playerContractFields";
 import { mergeActiveContractPlayersIntoSquad } from "@/lib/clubSquadContracts";
-import { applyLoanAnnotations, canExercisePurchaseOption, canProposeEarlyEnd, isEarlyEndWaitingOnClub, isLoanRecallable, isPurchaseAwaitingPlayer, splitSquadByLoan } from "@/lib/playerLoanDisplay";
 import { isClubPresidentForUser, isAdminUser as isClubAccessAdmin } from "@/lib/clubPresidentAccess";
 import { asObject, asObjectArray } from "@/lib/safeData";
 import { buildClubPlayerStatMap, formatClubRating, getClubPlayerStats, getClubStatValue } from "@/lib/clubPlayerStats";
@@ -47,7 +46,7 @@ import ClubAchievementsTab from "@/components/rewards/ClubAchievementsTab";
 import { useChatChannel } from "@/lib/ChatNotificationsContext";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useAuth } from "@/lib/AuthContext";
-import { swalConfirm, swalError, swalPrompt } from "@/lib/swal";
+import { swalConfirm } from "@/lib/swal";
 import GamerClubProfileHero from "@/components/profile/gamer/GamerClubProfileHero";
 import { GamerClubPhotoFrame } from "@/components/profile/gamer/GamerClubCard";
 import GamerClubTabNav from "@/components/profile/gamer/GamerClubTabNav";
@@ -448,22 +447,6 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
           );
         }
 
-        const [incomingLoans, outgoingLoans] = await Promise.all([
-          stageClient.entities.PlayerLoan.filter({ loan_club_id: id, status: "ACTIVE" }).catch(() => []),
-          stageClient.entities.PlayerLoan.filter({ parent_club_id: id, status: "ACTIVE" }).catch(() => []),
-        ]);
-        const loans = [...asObjectArray(incomingLoans), ...asObjectArray(outgoingLoans)];
-        const loanPlayerIds = [...new Set(loans.map((loan) => loan.player_id).filter(Boolean))];
-        const presentIds = new Set(playerData.map((player) => player.id));
-        const missingLoanIds = loanPlayerIds.filter((playerId) => !presentIds.has(playerId));
-        if (missingLoanIds.length) {
-          const extraPlayers = await Promise.all(
-            missingLoanIds.map((playerId) => stageClient.entities.Player.get(playerId).catch(() => null))
-          );
-          playerData = [...playerData, ...asObjectArray(extraPlayers)];
-        }
-        playerData = applyLoanAnnotations(playerData, loans, id);
-
         const [matchesHomeRaw, matchesAwayRaw, tmHomeRaw, tmAwayRaw] = await Promise.all([
           stageClient.profileMatches.list({ home_club_id: id, status: "completed" }, "round", 30).catch(() => []),
           stageClient.profileMatches.list({ away_club_id: id, status: "completed" }, "round", 30).catch(() => []),
@@ -744,173 +727,6 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
     navigate(clubsListPath);
   }
 
-  async function handleRecallLoan(player) {
-    const loanId = player?.loan_id;
-    if (!loanId) return;
-    const confirmed = await swalConfirm(
-      t("commonPages.recallPlayerConfirm") || "Recall this player from the loan? Playing rights return immediately. The loan fee is not refunded.",
-      {
-        title: t("commonPages.recallPlayer") || "Recall player",
-        confirmText: t("commonPages.recallPlayer") || "Recall",
-        cancelText: t("commonPages.cancel") || "Cancel",
-      }
-    );
-    if (!confirmed) return;
-    try {
-      await stageClient.http.post(`/player-loans/${encodeURIComponent(loanId)}/recall`, {});
-      setPlayers((prev) => asObjectArray(prev).map((row) => {
-        if (row.id !== player.id) return row;
-        const next = { ...row, selectable: true };
-        delete next.loan_id;
-        delete next.loan_status;
-        delete next.on_loan_club_id;
-        delete next.on_loan_club_name;
-        delete next.loan_end_date;
-        delete next.recall_allowed;
-        delete next.recall_after_date;
-        delete next.loan_recallable;
-        delete next.early_end_proposed_by_club_id;
-        return next;
-      }));
-    } catch (err) {
-      await swalError(err?.data?.code || err?.message || (t("commonPages.loanActionFailed") || "Could not recall this player."));
-    }
-  }
-
-  // Exercising an option to buy is its own loan endpoint, not a contract offer:
-  // the player still has to accept the permanent terms before ownership moves.
-  async function handleExerciseOption(player) {
-    const loanId = player?.loan_id;
-    if (!loanId) return;
-    const salaryText = await swalPrompt(
-      t("commonPages.exerciseOptionSalaryPrompt") || "Weekly salary (STC) for the permanent contract",
-      {
-        title: t("commonPages.exerciseOption") || "Exercise option to buy",
-        confirmText: t("commonPages.continue") || "Continue",
-        cancelText: t("commonPages.cancel") || "Cancel",
-      }
-    );
-    if (salaryText === null) return;
-    const weeklySalary = Number(salaryText);
-    if (!Number.isFinite(weeklySalary) || weeklySalary < 0) {
-      await swalError(t("commonPages.invalidAmount") || "Enter a valid amount.");
-      return;
-    }
-    const daysText = await swalPrompt(
-      t("commonPages.exerciseOptionDaysPrompt") || "Contract length in days (leave empty to keep the current end date)",
-      {
-        title: t("commonPages.exerciseOption") || "Exercise option to buy",
-        confirmText: t("commonPages.exerciseOption") || "Exercise option",
-        cancelText: t("commonPages.cancel") || "Cancel",
-      }
-    );
-    if (daysText === null) return;
-    const days = daysText === "" ? 0 : Number(daysText);
-    if (!Number.isFinite(days) || days < 0) {
-      await swalError(t("commonPages.invalidAmount") || "Enter a valid number of days.");
-      return;
-    }
-    try {
-      await stageClient.http.post(`/player-loans/${encodeURIComponent(loanId)}/exercise-option`, {
-        weekly_salary_stc: weeklySalary,
-        max_days: days,
-      });
-      setPlayers((prev) => asObjectArray(prev).map((row) => (
-        row.id === player.id
-          ? { ...row, purchase_offer_status: "AWAITING_PLAYER", can_exercise_purchase_option: false }
-          : row
-      )));
-    } catch (err) {
-      await swalError(err?.data?.code || err?.message || (t("commonPages.loanActionFailed") || "Could not exercise this option."));
-    }
-  }
-
-  function clearLoanFields(row) {
-    const next = { ...row, selectable: true };
-    delete next.loan_id;
-    delete next.loan_badge;
-    delete next.loan_status;
-    delete next.on_loan_club_id;
-    delete next.on_loan_club_name;
-    delete next.loan_from_club_id;
-    delete next.loan_from_club_name;
-    delete next.loan_end_date;
-    delete next.recall_allowed;
-    delete next.recall_after_date;
-    delete next.loan_recallable;
-    delete next.early_end_proposed_by_club_id;
-    return next;
-  }
-
-  async function handleProposeEarlyEnd(player) {
-    const loanId = player?.loan_id;
-    if (!loanId) return;
-    const confirmed = await swalConfirm(
-      t("commonPages.requestReturnConfirm") || "Request an early return of this player? The other club must accept. The loan fee is not refunded.",
-      {
-        title: t("commonPages.requestReturn") || "Request return",
-        confirmText: t("commonPages.requestReturn") || "Request return",
-        cancelText: t("commonPages.cancel") || "Cancel",
-      }
-    );
-    if (!confirmed) return;
-    try {
-      await stageClient.http.post(`/player-loans/${encodeURIComponent(loanId)}/early-end`, {
-        actor_club_id: id,
-      });
-      setPlayers((prev) => asObjectArray(prev).map((row) => (
-        row.id === player.id
-          ? { ...row, early_end_proposed_by_club_id: id }
-          : row
-      )));
-    } catch (err) {
-      await swalError(err?.data?.code || err?.message || (t("commonPages.loanActionFailed") || "Could not request this return."));
-    }
-  }
-
-  async function handleAcceptEarlyEnd(player) {
-    const loanId = player?.loan_id;
-    if (!loanId) return;
-    const confirmed = await swalConfirm(
-      t("commonPages.acceptReturnConfirm") || "Accept the early return? Playing rights go back to the parent club immediately. The loan fee is not refunded.",
-      {
-        title: t("commonPages.acceptReturn") || "Accept return",
-        confirmText: t("commonPages.acceptReturn") || "Accept return",
-        cancelText: t("commonPages.cancel") || "Cancel",
-      }
-    );
-    if (!confirmed) return;
-    try {
-      await stageClient.http.post(`/player-loans/${encodeURIComponent(loanId)}/early-end-accept`, {
-        actor_club_id: id,
-      });
-      setPlayers((prev) => asObjectArray(prev).flatMap((row) => {
-        if (row.id !== player.id) return [row];
-        if (player.loan_status === "loaned_in" && String(row.club_id) !== String(id)) return [];
-        return [clearLoanFields(row)];
-      }));
-    } catch (err) {
-      await swalError(err?.data?.code || err?.message || (t("commonPages.loanActionFailed") || "Could not accept this return."));
-    }
-  }
-
-  async function handleRejectEarlyEnd(player) {
-    const loanId = player?.loan_id;
-    if (!loanId) return;
-    try {
-      await stageClient.http.post(`/player-loans/${encodeURIComponent(loanId)}/early-end-reject`, {
-        actor_club_id: id,
-      });
-      setPlayers((prev) => asObjectArray(prev).map((row) => (
-        row.id === player.id
-          ? { ...row, early_end_proposed_by_club_id: null }
-          : row
-      )));
-    } catch (err) {
-      await swalError(err?.data?.code || err?.message || (t("commonPages.loanActionFailed") || "Could not reject this return."));
-    }
-  }
-
   async function saveLogo(localUrl, position, zoom) {
     const file = pendingFileRef.current;
     if (!file) return;
@@ -939,7 +755,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
   }
 
   const safePlayers = asObjectArray(players);
-  const { selectable: selectablePlayers, onLoan: onLoanPlayers } = splitSquadByLoan(safePlayers);
+  const selectablePlayers = safePlayers;
   const safeMatches = asObjectArray(matches);
   const safeTournamentMatches = asObjectArray(tournamentMatches);
   const safeClubTournamentRegistrations = asObjectArray(clubTournamentRegistrations);
@@ -1230,83 +1046,10 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
                     onAssignRole={assignRole}
                       onRemoveRole={removePlayerRole}
                       onRelease={releaseSquadPlayer}
-                      canRequestReturn={(isPresident || isOwner) && Boolean(p.loan_id) && canProposeEarlyEnd({
-                        status: "ACTIVE",
-                        parent_club_id: p.loan_from_club_id,
-                        loan_club_id: id,
-                        early_end_proposed_by_club_id: p.early_end_proposed_by_club_id,
-                      }, id)}
-                      canRespondToReturn={(isPresident || isOwner) && Boolean(p.loan_id) && isEarlyEndWaitingOnClub({
-                        status: "ACTIVE",
-                        early_end_proposed_by_club_id: p.early_end_proposed_by_club_id,
-                      }, id)}
-                      onRequestReturn={() => handleProposeEarlyEnd(p)}
-                      onAcceptReturn={() => handleAcceptEarlyEnd(p)}
-                      onRejectReturn={() => handleRejectEarlyEnd(p)}
-                      canExerciseOption={(isPresident || isOwner) && Boolean(p.loan_id) && canExercisePurchaseOption({
-                        status: "ACTIVE",
-                        loan_club_id: id,
-                        purchase_type: p.purchase_type,
-                        purchase_offer_status: p.purchase_offer_status,
-                        purchase_option_deadline: p.purchase_option_deadline,
-                        end_date: p.loan_end_date,
-                      }, id)}
-                      purchaseAwaitingPlayer={Boolean(p.loan_id) && isPurchaseAwaitingPlayer({
-                        status: "ACTIVE",
-                        purchase_offer_status: p.purchase_offer_status,
-                      })}
-                      onExerciseOption={() => handleExerciseOption(p)}
                       onCardBackgroundChanged={handlePlayerCardBackgroundChanged}
                   />
                 ))}
                 </div>
-                {onLoanPlayers.length ? (
-                  <div className="space-y-3">
-                    <p className="text-xs uppercase tracking-wider text-white/40">{t("commonPages.onLoan") || "On loan"}</p>
-                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                      {onLoanPlayers.map(p => (
-                        <PlayerCard
-                          key={p.id}
-                          player={p}
-                          currentUser={currentUser}
-                          myPlayer={myPlayer}
-                          isPresident={isPresident}
-                          isOwner={isOwner}
-                          isClubMember={isMember}
-                          isCaptain={isCaptain || isViceCaptain}
-                          isStaff={operationStaffRoles.length > 0}
-                          nextFixture={nextFixture}
-                          availability={availabilityByPlayerId.get(String(p.id))}
-                          contracts={getPlayerContracts(safeClubContracts, p.id)}
-                          clubStats={getClubPlayerStats(clubPlayerStatsById, p)}
-                          onAssignRole={assignRole}
-                          onRemoveRole={removePlayerRole}
-                          onRelease={releaseSquadPlayer}
-                          canRecallLoan={(isPresident || isOwner) && Boolean(p.loan_id) && isLoanRecallable({
-                            status: "ACTIVE",
-                            recall_allowed: p.recall_allowed,
-                            recall_after_date: p.recall_after_date,
-                          })}
-                          onRecallLoan={() => handleRecallLoan(p)}
-                          canRequestReturn={(isPresident || isOwner) && Boolean(p.loan_id) && canProposeEarlyEnd({
-                            status: "ACTIVE",
-                            parent_club_id: id,
-                            loan_club_id: p.on_loan_club_id,
-                            early_end_proposed_by_club_id: p.early_end_proposed_by_club_id,
-                          }, id)}
-                          canRespondToReturn={(isPresident || isOwner) && Boolean(p.loan_id) && isEarlyEndWaitingOnClub({
-                            status: "ACTIVE",
-                            early_end_proposed_by_club_id: p.early_end_proposed_by_club_id,
-                          }, id)}
-                          onRequestReturn={() => handleProposeEarlyEnd(p)}
-                          onAcceptReturn={() => handleAcceptEarlyEnd(p)}
-                          onRejectReturn={() => handleRejectEarlyEnd(p)}
-                          onCardBackgroundChanged={handlePlayerCardBackgroundChanged}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
               </div>
             )}
           </TabsContent>
@@ -4188,16 +3931,6 @@ function PlayerCard({
   onAssignRole,
   onRemoveRole,
   onRelease,
-  canRecallLoan = false,
-  onRecallLoan,
-  canRequestReturn = false,
-  onRequestReturn,
-  canRespondToReturn = false,
-  onAcceptReturn,
-  onRejectReturn,
-  canExerciseOption = false,
-  purchaseAwaitingPlayer = false,
-  onExerciseOption,
   clubStats,
   onCardBackgroundChanged,
 }) {
@@ -4424,9 +4157,6 @@ function PlayerCard({
                   {isPresidentRole ? <Shield className="h-2.5 w-2.5" /> : null}
                   {roleLabel}
                 </StatusPill>
-                {player.loan_badge === "LOAN" ? (
-                  <StatusPill className="border-amber-300/35 bg-amber-400/10 text-amber-200">Loan</StatusPill>
-                ) : null}
               </div>
             </div>
           </div>
@@ -4501,36 +4231,6 @@ function PlayerCard({
                     ) : null}
                   </>
                 ) : null}
-                {(canExerciseOption || canRecallLoan || canRequestReturn || canRespondToReturn || purchaseAwaitingPlayer) ? (
-                  <>
-                    <DropdownMenuSeparator className="bg-white/10" />
-                    {canExerciseOption ? (
-                      <DropdownMenuItem className={menuItemClass} onSelect={(event) => handleMenuSelect(event, onExerciseOption)}>
-                        <FileText className="h-4 w-4" /> {t("commonPages.exerciseOption") || "Exercise option to buy"}
-                      </DropdownMenuItem>
-                    ) : null}
-                    {canRecallLoan ? (
-                      <DropdownMenuItem className={menuItemClass} onSelect={(event) => handleMenuSelect(event, onRecallLoan)}>
-                        <UserMinus className="h-4 w-4" /> {t("commonPages.recallPlayer") || "Recall"}
-                      </DropdownMenuItem>
-                    ) : null}
-                    {canRequestReturn ? (
-                      <DropdownMenuItem className={menuItemClass} onSelect={(event) => handleMenuSelect(event, onRequestReturn)}>
-                        <UserMinus className="h-4 w-4" /> {t("commonPages.requestReturn") || "Request return"}
-                      </DropdownMenuItem>
-                    ) : null}
-                    {canRespondToReturn ? (
-                      <>
-                        <DropdownMenuItem className={menuItemClass} onSelect={(event) => handleMenuSelect(event, onAcceptReturn)}>
-                          <Check className="h-4 w-4" /> {t("commonPages.acceptReturn") || "Accept return"}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className={menuItemClass} onSelect={(event) => handleMenuSelect(event, onRejectReturn)}>
-                          <X className="h-4 w-4" /> {t("commonPages.rejectReturn") || "Reject"}
-                        </DropdownMenuItem>
-                      </>
-                    ) : null}
-                  </>
-                ) : null}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -4557,17 +4257,6 @@ function PlayerCard({
           <StatCell label="MP" value={clubMatches} />
         </div>
 
-        {player.loan_status === "loaned_out" ? (
-          <p className="relative z-[1] mt-3 truncate text-[10px] text-white/45">
-            {t("commonPages.onLoanAt") || "On loan at"} {player.on_loan_club_name || player.on_loan_club_id}
-            {player.loan_end_date ? ` · ${player.loan_end_date}` : ""}
-          </p>
-        ) : null}
-        {purchaseAwaitingPlayer ? (
-          <p className="relative z-[1] mt-3 text-[10px] uppercase tracking-[0.16em] text-emerald-200/70">
-            {t("commonPages.purchaseAwaitingPlayer") || "Awaiting player response"}
-          </p>
-        ) : null}
       </article>
 
       <Dialog open={statsOpen} onOpenChange={setStatsOpen}>

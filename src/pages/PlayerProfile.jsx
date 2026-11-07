@@ -25,11 +25,9 @@ import PlayerCareerSummary from "@/components/profile/PlayerCareerSummary";
 import PlayerTransferHistory from "@/components/profile/PlayerTransferHistory";
 import { CONTRACT_TYPES, getContractProgress } from "@/lib/contractTypes";
 import OfferContractDialog from "@/components/contracts/OfferContractDialog";
-import RequestLoanDialog from "@/components/transfer/RequestLoanDialog";
 import TransferPaymentDialog from "@/components/contracts/TransferPaymentDialog";
 import { ensureContractOfferInbox } from "@/lib/contractOfferDelivery";
-import { canShowContractOfferButton, canShowLoanRequestButton, getSignedClubIdForPlayer } from "@/lib/contractOfferVisibility";
-import { getPlayingClubId } from "@/lib/playerLoanDisplay";
+import { canShowContractOfferButton, getSignedClubIdForPlayer } from "@/lib/contractOfferVisibility";
 import { getContractType, normalizePlayerContracts } from "@/lib/playerContractFields";
 import { getClubPresidentContactEmail } from "@/lib/clubPresidentAccess";
 import { canCreateContractOffer } from "@/lib/transferWindowAccess";
@@ -54,7 +52,7 @@ function formatUpcomingMatch(match, club) {
   return `${when} vs ${opponent || "Opponent"}`;
 }
 
-function PlayerProfileOverview({ player, club, activeContract, activeLoan, upcomingMatches, clubStats, career }) {
+function PlayerProfileOverview({ player, club, activeContract, upcomingMatches, clubStats, career }) {
   const nextMatch = asObjectArray(upcomingMatches)[0] || null;
   const playerCareer = career?.player_career || {};
   const clubCareer = career?.club_career || {};
@@ -78,7 +76,7 @@ function PlayerProfileOverview({ player, club, activeContract, activeLoan, upcom
           <div className="border border-white/10 bg-white/[0.03] p-4">
             <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-white/40"><Shield className="h-3.5 w-3.5 text-cyan-300" /> Club</p>
             <p className="mt-2 truncate font-heading text-xl font-black uppercase text-white">{club?.name || "Free Agent"}</p>
-            <p className="mt-1 text-xs text-white/42">{activeLoan ? "On loan assignment" : activeContract ? "Under contract" : "Available profile"}</p>
+            <p className="mt-1 text-xs text-white/42">{activeContract ? "Under contract" : "Available profile"}</p>
           </div>
           <div className="border border-white/10 bg-white/[0.03] p-4">
             <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-white/40"><FileText className="h-3.5 w-3.5 text-amber-300" /> Contract</p>
@@ -120,7 +118,7 @@ function PlayerProfileOverview({ player, club, activeContract, activeLoan, upcom
 export default function PlayerProfile({ overridePlayerId, tournamentId = null, editMode: _editMode } = {}) {
   const { t } = useTranslation();
   const { user: authUser } = useAuth();
-  const { windowOpen } = useTransferWindowStatus();
+  const { windowOpen, offersAvailable, officialRecruitment } = useTransferWindowStatus();
   const params = useParams();
   const id = overridePlayerId || params.id;
   const limitedTournamentId =
@@ -147,9 +145,6 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
   const [playerContracts, setPlayerContracts] = useState([]);
   const [viewerClub, setViewerClub] = useState(null);
   const [offerDialogOpen, setOfferDialogOpen] = useState(false);
-  const [loanDialogOpen, setLoanDialogOpen] = useState(false);
-  const [activeLoan, setActiveLoan] = useState(null);
-  const [ownerClub, setOwnerClub] = useState(null);
   const [transferPayOpen, setTransferPayOpen] = useState(false);
   const navigate = useNavigate();
   const visibleClubRole = getVisibleFootballRole(player);
@@ -190,10 +185,7 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
           const LIVE = ["active", "pending", "pending_window", "negotiating"];
           const liveContracts = safeContracts.filter(c => LIVE.includes(c.status));
           const signedClubId = getSignedClubIdForPlayer(p, safeContracts);
-          const loanRows = await stageClient.entities.PlayerLoan.filter({ player_id: p.id, status: "ACTIVE" }).catch(() => []);
-          const liveLoan = (Array.isArray(loanRows) ? loanRows : []).find((row) => String(row.status || "").toUpperCase() === "ACTIVE") || null;
-          setActiveLoan(liveLoan);
-          const playingClubId = getPlayingClubId(p, liveLoan ? [liveLoan] : []) || signedClubId;
+          const playingClubId = signedClubId;
           setPlayerContracts(liveContracts);
           setActiveContract(safeContracts.find(c => c.status === "active") || null);
           const presidentClubRows = await stageClient.entities.Club
@@ -203,19 +195,15 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
           setPresidedClub(presidentClub);
 
           if (playingClubId) {
-            const [clubsRaw, ownerRaw, tmHomeRaw, tmAwayRaw] = await Promise.all([
+            const [clubsRaw, tmHomeRaw, tmAwayRaw] = await Promise.all([
               stageClient.entities.Club.get(playingClubId)
                 .then((clubRecord) => clubRecord ? [clubRecord] : [])
                 .catch(() => stageClient.entities.Club.filter({ id: playingClubId }).catch(() => [])),
-              liveLoan?.parent_club_id
-                ? stageClient.entities.Club.get(liveLoan.parent_club_id).catch(() => null)
-                : Promise.resolve(null),
               stageClient.profileMatches.list({ home_club_id: playingClubId, status: "scheduled" }, "round", 20).catch(() => []),
               stageClient.profileMatches.list({ away_club_id: playingClubId, status: "scheduled" }, "round", 20).catch(() => []),
             ]);
             const clubs = asObjectArray(clubsRaw);
             if (clubs.length > 0) setClub(clubs[0]);
-            setOwnerClub(asObject(ownerRaw));
             setUpcomingMatches(asObjectArray([...asObjectArray(tmHomeRaw), ...asObjectArray(tmAwayRaw)]));
           } else {
             setClub(presidentClub);
@@ -280,7 +268,7 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
 
   async function handleOfferContract(terms) {
     if (!viewerClub?.id || !player?.id) return;
-    if (!canCreateContractOffer(windowOpen)) return;
+    if (!canCreateContractOffer(offersAvailable)) return;
     const typeMeta = CONTRACT_TYPES[terms.contract_type] || CONTRACT_TYPES.squad;
     let recipientEmail = player.email;
     if (!recipientEmail) {
@@ -357,17 +345,10 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
   const managementClub = presidedClub || (club?.president_player_id === player?.id ? club : null);
   const managementBadges = getPlayerManagementBadges({ player, club: managementClub, contracts: playerContracts });
   const signedClubIdForProfile = getSignedClubIdForPlayer(player, playerContracts);
-  const canOfferProfileContract = canCreateContractOffer(windowOpen) && canShowContractOfferButton({
+  const canOfferProfileContract = canCreateContractOffer(offersAvailable) && canShowContractOfferButton({
     player,
     viewerClub,
     playerContracts,
-    limitedTournamentId,
-  });
-  const canRequestProfileLoan = canShowLoanRequestButton({
-    player,
-    viewerClub,
-    playerContracts,
-    loans: activeLoan ? [activeLoan] : [],
     limitedTournamentId,
   });
 
@@ -413,17 +394,6 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
                     <FileText className="w-3.5 h-3.5" /> {t("commonPages.offerContract")}
                   </Button>
                 ) : null}
-                {canRequestProfileLoan ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setLoanDialogOpen(true)}
-                    className="gap-1.5 h-9 px-3 text-xs border-amber-400/30 text-amber-300 hover:bg-amber-500/10 bg-transparent font-heading uppercase"
-                  >
-                    <FileText className="w-3.5 h-3.5" /> {t("commonPages.requestLoan") || "Request Loan"}
-                  </Button>
-                ) : null}
                 {windowOpen === true && signedClubIdForProfile && signedClubIdForProfile !== viewerClub.id && club ? (
                   <Button
                     type="button"
@@ -440,12 +410,6 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
           </>
         ) : null}
       >
-        {activeLoan ? (
-          <p className="text-xs text-amber-200/80">
-            {t("commonPages.onLoanFrom") || "On loan from"} {ownerClub?.name || activeLoan.parent_club_name || "parent club"}
-            {activeLoan.end_date ? ` ${t("commonPages.until") || "until"} ${activeLoan.end_date}` : ""}
-          </p>
-        ) : null}
         {activeContract ? (() => {
           const progress = getContractProgress(activeContract);
           return (
@@ -486,7 +450,6 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
               player={player}
               club={club}
               activeContract={activeContract}
-              activeLoan={activeLoan}
               upcomingMatches={upcomingMatches}
               clubStats={clubStats}
               career={career}
@@ -553,13 +516,8 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
         playerContracts={playerContracts}
         existingActiveContract={null}
         onOffer={handleOfferContract}
+        officialRecruitment={officialRecruitment}
         windowOpen={windowOpen}
-        club={viewerClub}
-      />
-      <RequestLoanDialog
-        open={loanDialogOpen}
-        onClose={() => setLoanDialogOpen(false)}
-        player={player}
         club={viewerClub}
       />
 

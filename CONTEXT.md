@@ -730,3 +730,121 @@ competitions on 3 November. See `docs/regional-result-review-phase6.md`.
 - User latest confirmations are in masterplan and delivery status; do NOT ask
   again for reserve48h/placement2w/12+1, reserve priority, European rescheduling,
   recurring weeks5–9, §10 withdrawal/no-shows, §8 players/transfers/Cup-tied.
+
+### Remaining-programme execution — reserves and real season acceptance, 6 Nov
+
+- Active user request is the executable full remaining-programme prompt in
+  /Users/chriskalonji/.codex/attachments/1732ed2a-9fb6-4918-aa57-cb45182e6d8d/Pasted text.txt.
+  No push/deploy/live repair. Do not claim overall completion or rebuild working code.
+- New explicit approvals: reserve willingness before common cutoff, final D1
+  vacancy allocation after promotion playoffs; all responses by common max48h
+  cutoff, no individual extension or new late applicants. Recorded in masterplan.
+- New policy regional_reserves_v1: published only on new windows, immutable old
+  shapes/hashes. Existing applications get in-app invitations, accept/decline
+  with Plus/3-player rechecks, audit and idempotency. Worker waits common48h.
+  Late accepted candidates get verified captured reserve timestamps. Transition
+  engine preserves source sporting evidence, then final rights remove unconfirmed
+  next-season clubs and fill D1 with reserve-willing D2 finalists/remaining positions
+  via saved seeded draw; replacements fill D2. Insufficient/unapproved counts review.
+- Existing decision-calendar planner/UI now supports placement (5 rounds) and
+  placement_decisions (1), explicit Admin dates and existing guards. No invented
+  default placement weekdays. Cup-tied enforcement added on new cup_tied_policy_v1
+  (actual constant regional_cup_tied_v1) terms: publication/ready/reserve/kickoff;
+  actual declared prior Cup participation, not bench; no EA verification claim.
+- MySQL8.4 installed via approved brew command. Dedicated data dir
+  /private/tmp/stage-season-acceptance-mysql-v2 and socket
+  /private/tmp/stage-season-acceptance.sock, skip-networking/mysqlx0. No brew service.
+  Temporary mysqld process may still be running. Never substitute production.
+- New scripts server/scripts/acceptance/{bootstrap,season,structures,restart-probe}.cjs.
+  Bootstrap only allowed temp socket, random stage_acceptance_<12hex> DB and
+  ephemeral JWT secrets; actual Express, JWT verification, stored roles, SQL.
+  Controlled app clock only; no host-clock changes. Many temporary failed-run DBs
+  retained as isolated artifacts, no production/testdata mixing.
+- Real MySQL defects fixed: quote schema rank; shirt_sales.player_id nullable for
+  existing SET NULL FK; admin audit before/after MEDIUMTEXT; JSON deadline params
+  JSON.stringify + SQL JSON_UNQUOTE to avoid shared ISO->DATETIME coercion; club
+  form VARCHAR32 (JSON5 needs21 chars); notification related_id VARCHAR255 for
+  match:event; remove wrong parent/series/season unique index excluding parallel
+  groups, retain unique regional edition key including group. Schema + startup
+  aligned. Existing handled duplicate-index/absent-old-table startup logs remain.
+- Latest normal season acceptance passed against real MySQL/JWT: 40 clubs, 160
+  players,39 confirmations+1 reserve;84 placement;760league;39Cup;3promotion;
+  7m/3m Cup payouts, club/player awards, no double settlement;first edition2 match;
+  injected notice failure rolls schedule back;opponent-only approval/quota once;
+  away-first2-2, stale rejection, unchanged confirmation, retry; fresh Node-process
+  worker recovery preserves fixture/payment/award counts.
+  Saved report docs/acceptance-results/normal-season-2026-11-06.json.
+  complete:false is intentional: normal_season_route_complete:true is not all
+  approved exceptions/features. Synthetic inline SVG proof, no actual EA/OCR/payment.
+- All8structure capacities20..240 persist on MySQL (not activation or full played
+  seasons at all sizes); report docs/acceptance-results/structures-2026-11-06.json.
+- 409 selected server tests,32 frontend tests pass;lint/types/syntax/build pass.
+  Two known baseline functionsController tests run separately still fail500vs200
+  createMatchFromLeagueFixture and registration_upload vs ultimate_team expectation.
+  Graphify still missing. Actual browser QA/full exception matrix not done.
+- Read docs/competition-acceptance-phase8.md and delivery status next. Missing
+  APPROVED code: transfer/free-entry/loan/sanction/individual conflict enforcement;
+  withdrawal/no-show/stat corrections/financial exceptions; organizer tournament
+  schedule consent; remaining UI/rules/tutorial coverage;full exception tests/reset.
+  Unresolved policies remain NA times, unsupported admission/shrinkage,180->240
+  extra calendar,cross-region priority/pause,premium/payment/financial/outage detail.
+- Do NOT silently treat the normal season baseline as phase8 or full programme done.
+- Final real-DB vacancy variant now passes too:41 timely next applications,
+ 40confirmed (one original D1 club declines), stored post-playoff reserve promotion,
+ new entrant D2, preserved outgoing historical standings. A real null-right bug in
+ old-source standing flags was fixed (not-confirmed != automatic relegation).
+ Latest saved normal report includes this case and fresh-process recovery.
+ Final targeted cycle/reserve/Cup-tied run:33pass. Two original baseline failures
+ explicitly confirmed. Prepared docs/competition-deployment-manifest-2026-11-06.md
+ and docs/repair-previews/regional-identity-readonly.sql; neither deployed/executed
+ against production. Exact repair SQL is only a first-level inventory, not deletion
+ permission. All unimplemented approved work remains in the handoff/delivery list.
+
+### 7 November 2026 — player transfers and loans removed (ongoing programme)
+
+- User confirmed placement is in-season after shared confirmation; explicitly
+  removed loans instead of approving a loan-return policy. No need to ask again.
+- Read `docs/official-player-transfers-phase3.md` for code seams, captured policy,
+  archived loan data and exact limitations. New windows disclose transfer terms;
+  no old window hashes are upgraded. All original dirty work was preserved.
+- Actual contract acceptance now requires the recipient's stored linked user;
+  the pending worker uses a private Symbol token. Active acceptance retries do
+  not double-charge. Generic contract PATCH no longer mutates business fields.
+- New official rosters/transfer receipts are checked at publication/readiness/
+  kickoff; individual published selection/solo-match overlap is checked. New
+  official free-player offers do not depend on a global manual transfer window.
+- All active loan UI, entity and action entry points are removed/retired.
+  Startup `retirePlayerLoans` snapshots live rows and retires them transactionally;
+  no ledger/history deletion, refund or live operation occurred.
+- Normal real-MySQL/JWT season rerun passed, report updated from
+  `/private/tmp/stage-current-season.log` to the existing normal-season JSON.
+- `player-exceptions.cjs` now passes real MySQL/JWT/HTTP (7 November report):
+  forbidden/allowed transfers, actual free-player offers, ownership, retries,
+  Plus expiry, individual overlap, generic mutation rejection and removed loans.
+- Browser fixture uses only the saved normal isolated acceptance DB. It completes
+  the synthetic viewer's country for the real onboarding gate; no server workers.
+  Vite localhost4174 proxies only to fixture localhost18088, Chrome CDP19222 uses
+  `/private/tmp/stage-acceptance-chrome`. Do not connect to production as fallback.
+- Browser QA exposed stale `setMyPresidentId` call in Layout (no state exists).
+  It aborted identity setup; removed the dead call and unused binding. Rerun QA.
+- Current full frontend run: 481 tests, 476 pass, five source-shape failures in
+  unchanged Admin/GameDay/photo-frame code or existing HeaderIdentityMenu shape.
+  Do not claim full-suite success. Current player/contract server selection79
+  passes. Separate player/club paths36/37; known legacy captain-profile case fails.
+- Final verification, docs manifest and browser evidence still being finished.
+  The whole programme remains incomplete; do not report all phases complete.
+
+Final player-follow-up evidence: combined server164/163pass with one known
+legacy captain-edit failure; full frontend481/476pass with five existing source
+shape failures. Lint/typecheck/backend syntax/build pass. The corrected Layout
+source test passes. Chrome five-view route now passes with zero runtime errors;
+normal real season and latest player-exception reports pass, overall complete
+remains false. See docs/competition-admin-user-guide.md and the exact combined
+7 November deployment manifest (including NEW files and loan retirement).
+Graphify update attempted, command absent. No live operation, push or deployment.
+
+Final cross-region refinement: free-player offers and acceptance refuse active
+foreign captured-cycle actual participation for Admin review; do not infer cycle
+priority/pause rights. Bench-only evidence remains allowed. The updated isolated
+HTTP player report passes; combined server remains163/164 with the same baseline.
+All temporary API/Vite/Chrome QA processes were stopped; MySQL is left reusable.

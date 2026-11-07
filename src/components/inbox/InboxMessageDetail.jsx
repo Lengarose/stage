@@ -7,11 +7,6 @@ import { Trash2, Check, X, Calendar, Shield, AlertTriangle, ChevronLeft } from "
 import { cn } from "@/lib/utils";
 import { getEffectiveInboxActionType, inboxGameDayHref, isMatchCancelRequest } from "@/lib/inboxActionTypes";
 import InboxContractOffer from "@/components/inbox/InboxContractOffer";
-import InboxLoanProposal from "@/components/inbox/InboxLoanProposal";
-import InboxLoanRecalled from "@/components/inbox/InboxLoanRecalled";
-import InboxLoanEarlyEnd from "@/components/inbox/InboxLoanEarlyEnd";
-import InboxLoanPurchaseOffer from "@/components/inbox/InboxLoanPurchaseOffer";
-import InboxLoanTerminatedEarly from "@/components/inbox/InboxLoanTerminatedEarly";
 import InboxTrialRequest from "@/components/inbox/InboxTrialRequest";
 import InboxScheduleProposal from "@/components/inbox/InboxScheduleProposal";
 import {
@@ -304,40 +299,6 @@ export default function InboxMessageDetail({
                 }}
               />
             )}
-            {message.message_type === "loan_proposal" && (effectiveActionType === "loan_parent_response" || effectiveActionType === "loan_player_response") && (
-              <InboxLoanProposal
-                message={message}
-                onActioned={(action) => {
-                  if (action === "accept") onStatusChanged?.(message.id, "accepted");
-                  if (action === "reject") onStatusChanged?.(message.id, "declined");
-                }}
-              />
-            )}
-            {message.message_type === "loan_purchase" && effectiveActionType === "loan_purchase_response" && (
-              <InboxLoanPurchaseOffer
-                message={message}
-                onActioned={(action) => {
-                  if (action === "accept") onStatusChanged?.(message.id, "accepted");
-                  if (action === "reject") onStatusChanged?.(message.id, "declined");
-                }}
-              />
-            )}
-            {message.message_type === "loan_recalled" && (
-              <InboxLoanRecalled message={message} />
-            )}
-            {message.message_type === "loan_early_end" && effectiveActionType === "loan_early_end_response" && (
-              <InboxLoanEarlyEnd
-                message={message}
-                onActioned={(action) => {
-                  if (action === "accept") onStatusChanged?.(message.id, "accepted");
-                  if (action === "reject") onStatusChanged?.(message.id, "declined");
-                }}
-              />
-            )}
-            {message.message_type === "loan_terminated_early" && (
-              <InboxLoanTerminatedEarly message={message} />
-            )}
-
             {message.message_type === "league_schedule" && (
               <InboxScheduleProposal
                 message={message}

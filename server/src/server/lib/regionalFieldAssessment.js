@@ -29,7 +29,7 @@ function assessField(window, registrations, now = new Date(), { sourceComplete =
     if (r.registration_policy_version !== VERSION || r.accepted_rules_revision !== revision) block('changed_conditions', 'A confirmation does not match the published participation conditions.');
     if (r.region_slug !== window.region_slug || r.platform !== window.platform || Number(r.season_number) !== Number(window.season_number) || Number(r.reset_series || 0) !== Number(window.reset_series || 0)) block('scope_mismatch', 'A confirmation belongs to a different regional edition.');
     const at = Date.parse(r.confirmed_at);
-    if (!Number.isFinite(at) || at < times[1] || at >= times[2]) block('confirmation_time', 'A confirmation has no valid timestamp inside the shared confirmation week.');
+    if (!Number.isFinite(at) || !require('./regionalReservePolicy').validConfirmation(window,r)) block('confirmation_time', 'A confirmation has no valid timestamp inside its published confirmation or reserve window.');
     const players = r.confirmed_player_ids;
     if (!Array.isArray(players) || players.length < 3 || players.some(id => typeof id !== 'string' || !id.trim()) || new Set(players).size !== players.length) block('confirmation_roster', 'A confirmation has no valid captured selection of at least three players.');
   }

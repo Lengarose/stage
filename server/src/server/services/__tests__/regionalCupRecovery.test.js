@@ -7,7 +7,7 @@ function fixture() {
   const jobs=new Map(),cups=[{id:'cup',status:'running',play_enabled:true}],calls=[],sqls=[];
   const query=async(sql,v=[])=>{
     sqls.push(sql);
-    if(sql.startsWith('SELECT e.id'))return cups.filter(c=>(c.status==='running' || c.status==='completed' && jobs.get(jobId(c.id))?.status==='running') && c.play_enabled && !c.edition_invalidated && (!jobs.get(jobId(c.id))?.next_attempt_at || jobs.get(jobId(c.id)).next_attempt_at<=v[0])).map(c=>({id:c.id}));
+    if(sql.startsWith('SELECT e.id'))return cups.filter(c=>(c.status==='running' || c.status==='completed' && jobs.get(jobId(c.id))?.status==='running') && c.play_enabled && !c.edition_invalidated && (!jobs.get(jobId(c.id))?.next_attempt_at || jobs.get(jobId(c.id)).next_attempt_at<=JSON.parse(v[0]))).map(c=>({id:c.id}));
     if(sql.startsWith('INSERT IGNORE')){if(!jobs.has(v[0]))jobs.set(v[0],JSON.parse(v[1]));return {};}
     if(sql.startsWith('SELECT * FROM league_entities')){const j=jobs.get(v[0]);return j?[{id:j.id,data_json:JSON.stringify(j)}]:[];}
     if(sql.startsWith('UPDATE league_entities')){jobs.set(v[2],JSON.parse(v[0]));return {};}

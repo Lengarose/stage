@@ -1542,3 +1542,19 @@ module.exports = {
   paySplitWeeklySalary,
   getClubLoanWageDelta,
 };
+
+// Loan creation and conversion are retired. Internal read/calculation helpers
+// remain only to interpret archived financial records and pre-migration hosts.
+function loansRemoved() {
+  throw loanError('LOANS_REMOVED', 'Player loans are no longer available. Use a permanent transfer.', 410);
+}
+for (const action of ['proposeLoan', 'rejectLoanByParent', 'acceptLoanByParent',
+  'rejectLoanByPlayer', 'acceptLoanByPlayer', 'activateLoan', 'cancelLoan',
+  'recallLoan', 'proposeEarlyEnd', 'acceptEarlyEnd', 'rejectEarlyEnd',
+  'exercisePurchaseOption', 'acceptPurchaseByPlayer', 'rejectPurchaseByPlayer',
+  'convertLoanToPurchase']) module.exports[action] = loansRemoved;
+// Old automatic callers may still invoke these names; they must not activate,
+// charge or convert any historical pending agreement after removal.
+module.exports.activatePendingWindowLoans = async () => ({ activated: 0, purchased: 0, errors: [] });
+module.exports.activatePendingLoans = module.exports.activatePendingWindowLoans;
+module.exports.completeDueLoans = async () => ({ completed: 0, errors: [] });

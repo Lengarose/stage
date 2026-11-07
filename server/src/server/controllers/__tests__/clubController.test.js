@@ -3,6 +3,8 @@ const path = require('node:path');
 const test = require('node:test');
 
 function loadClubRouterWithDbMock(executesql, { requireClubPermissionMock, clubPermissionResult } = {}) {
+  const originalExecute = executesql;
+  executesql = (sql, params) => sql.includes('SELECT DISTINCT w.* FROM league_entities w') ? Promise.resolve([]) : originalExecute(sql, params);
   const controllerPath = path.resolve(__dirname, '../clubController.js');
   const modelPath = path.resolve(__dirname, '../../models/clubModel.js');
   const staffRoleModelPath = path.resolve(__dirname, '../../models/clubStaffRoleModel.js');

@@ -24,10 +24,10 @@ class RegionalRegistrationModel {
         AND w.status='published' AND JSON_UNQUOTE(JSON_EXTRACT(w.data_json,'$.policy_version'))='regional_registration_v1'
         AND JSON_UNQUOTE(JSON_EXTRACT(w.data_json,'$.confirmation_notice_policy_version'))='regional_confirmation_notice_v1'
         AND w.id IN (${windowIds.map(()=>'?').join(',')})
-        AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(j.data_json,'$.next_attempt_at')),'')<=?
-        AND JSON_UNQUOTE(JSON_EXTRACT(w.data_json,'$.registration_closes_at'))<=?
-        AND JSON_UNQUOTE(JSON_EXTRACT(w.data_json,'$.confirmation_closes_at'))>?
-      ORDER BY r.id LIMIT 80`,[after,...windowIds,now,now,now]);
+        AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(j.data_json,'$.next_attempt_at')),'')<=JSON_UNQUOTE(?)
+        AND JSON_UNQUOTE(JSON_EXTRACT(w.data_json,'$.registration_closes_at'))<=JSON_UNQUOTE(?)
+        AND JSON_UNQUOTE(JSON_EXTRACT(w.data_json,'$.confirmation_closes_at'))>JSON_UNQUOTE(?)
+      ORDER BY r.id LIMIT 80`,[after,...windowIds,...[now,now,now].map(value=>JSON.stringify(value))]);
   }
   async notificationSettings(email,query) {return (await query('SELECT notification_settings FROM players WHERE LOWER(email)=LOWER(?) LIMIT 1 FOR UPDATE',[email]))[0]?.notification_settings;}
   async saveConfirmationNotice(notice,query) {
@@ -35,12 +35,15 @@ class RegionalRegistrationModel {
       [notice.id,notice.email,'club_update','Confirm your regional participation',notice.body,notice.link,notice.registration_id,notice.key]);
   }
   async actor(id,query) {return (await query('SELECT id,email,role_id FROM users WHERE id=? FOR UPDATE',[id]))[0];}
+  async saveReserveNotice(notice,query) {
+    await query('INSERT INTO notifications (id,recipient_email,type,title,body,link,related_id,idempotency_key) VALUES (?,?,?,?,?,?,?,?)',
+      [notice.id,notice.email,'club_update','Regional reserve response requested',notice.body,notice.link,notice.registration_id,notice.key]);
+  }
   async club(id,query) {return (await query('SELECT id,name,tag,logo_url,platform,president_user_id,user_id,owner_email FROM clubs WHERE id=? FOR UPDATE',[id]))[0];}
   async actorPlayer(user,query) {return (await query('SELECT id,subscription,subscription_expires_at FROM players WHERE user_id=? OR LOWER(TRIM(email))=LOWER(TRIM(?)) ORDER BY user_id=? DESC,updated_date DESC LIMIT 1 FOR UPDATE',[user.id,user.email,user.id]))[0];}
   async players(clubId,query) {
-    return query(`SELECT p.id,p.gamertag,p.club_id,p.subscription,p.subscription_expires_at,COALESCE(pl.loan_club_id,p.club_id) AS playing_club_id
-      FROM players p LEFT JOIN player_loans pl ON pl.player_id=p.id AND pl.status='ACTIVE'
-      WHERE p.club_id=? OR pl.loan_club_id=? ORDER BY p.id FOR UPDATE`,[clubId,clubId]);
+    return query(`SELECT p.id,p.gamertag,p.club_id,p.subscription,p.subscription_expires_at,p.club_id AS playing_club_id
+      FROM players p WHERE p.club_id=? ORDER BY p.id FOR UPDATE`,[clubId]);
   }
 }
 module.exports={RegionalRegistrationModel};

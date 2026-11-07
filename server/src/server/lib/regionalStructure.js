@@ -250,4 +250,4 @@ function transition(from,to,groups,newIds,seed,results=[],options={}) {
   if(d1.length!==target.groups.filter(g=>g.division===1).length*20)fail('The sporting route does not fill the target Division 1');
   return {ready:true,fixtures,pending:[],source_rankings,groups:allocation(to,d1,d2,seed),rights:[...oldIds,...newIds].map(club_id=>({club_id,division:d1.includes(club_id)?1:2,route:newIds.includes(club_id)?'new_entry':up.includes(club_id)?(expansion || (from===180&&to===240?'expansion_promotion':'promotion')):retained.includes(club_id)?'retained':'division_2'}))};
 }
-module.exports={VERSION,TIE_VERSION,SOURCE_RANKING_VERSION,SIZES,structure,placement,transition,standings,roundRobin,shuffle,unique,unresolvedTies,resolveTies,leagueResultRevision,finalLeagueTable};
+module.exports={allocation,decide,VERSION,TIE_VERSION,SOURCE_RANKING_VERSION,SIZES,structure,placement,transition,standings,roundRobin,shuffle,unique,unresolvedTies,resolveTies,leagueResultRevision,finalLeagueTable};

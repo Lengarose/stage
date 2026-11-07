@@ -19,7 +19,7 @@ import {
 
 const TARGET_TYPE_VALUES = ["min", "exact", "range"];
 
-export default function OfferContractDialog({ open, onClose, player, existingActiveContract, playerContracts = [], clubContracts = null, onOffer, windowOpen, isNegotiation, existingContract, club }) {
+export default function OfferContractDialog({ open, onClose, player, existingActiveContract, playerContracts = [], clubContracts = null, onOffer, windowOpen, officialRecruitment = false, isNegotiation, existingContract, club }) {
   const { t } = useTranslation();
   const [selectedType, setSelectedType] = useState(existingContract?.contract_type || "squad");
   const [note, setNote] = useState(existingContract?.offer_note || "");
@@ -37,9 +37,9 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
 
   const statOptions = getStatOptionsForPosition(player?.position);
   const groupedStats = groupStatOptions(statOptions);
-  const offerLockedByWindow = !isNegotiation && windowOpen !== true;
+  const offerLockedByWindow = !isNegotiation && windowOpen !== true && !officialRecruitment;
   const blockingConflict = !isNegotiation
-    ? findBlockingContractConflict({ selectedType, playerContracts, existingActiveContract })
+    ? findBlockingContractConflict({ selectedType, playerContracts, existingActiveContract, targetClubId: club?.id })
     : null;
   const weeklySalaryNumber = parseInt(weeklySalary, 10) || 0;
   const wageCap = Number(club?.wage_budget_stc || 0);
@@ -150,7 +150,7 @@ export default function OfferContractDialog({ open, onClose, player, existingAct
             {/* Transfer window awareness */}
             {!lockContractType && <div className={`text-xs px-3 py-2 border flex items-center gap-2 ${windowOpen === false ? "bg-blue-500/10 border-blue-500/20 text-blue-400" : "bg-success/10 border-success/20 text-success"}`}>
               <FileText className="w-3.5 h-3.5 shrink-0" />
-              {windowOpen === false
+              {officialRecruitment ? "Official transfer eligibility is checked by the server. Eligible free players may sign outside playing week six." : windowOpen === false
                 ? t("commonPages.ocdWindowClosed")
                 : windowOpen === true
                 ? t("commonPages.ocdWindowOpen")

@@ -3,6 +3,8 @@ const path = require('node:path');
 const test = require('node:test');
 
 function loadPlayerContractRouterWithMocks(executesql, deliveryMock) {
+  const legacyExecute = executesql;
+  executesql = (sql, params) => (sql.includes("SELECT id FROM league_entities WHERE entity_type='regional_registration_window'") || sql.includes('AS official_club_id')) ? Promise.resolve([]) : legacyExecute(sql, params);
   const controllerPath = path.resolve(__dirname, '../playerContractController.js');
   const modelPath = path.resolve(__dirname, '../../models/playerContractModel.js');
   const inboxModelPath = path.resolve(__dirname, '../../models/inboxMessageModel.js');

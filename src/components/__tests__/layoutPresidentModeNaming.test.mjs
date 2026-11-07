@@ -22,8 +22,9 @@ test("layout shell uses president-mode names for club identity navigation", () =
 
 test("layout resolves president identity from resolveMyPlayerAndClub", () => {
   const source = readFileSync(resolve(root, "src/components/Layout.jsx"), "utf8");
-  assert.match(source, /presidentClub, president \}/);
-  assert.match(source, /resolvedPresidentId = president\?\.id/);
+  assert.match(source, /presidentClub \} = await resolveMyPlayerAndClub/);
+  assert.match(source, /setMyClub\(activePresidentClub\)/);
+  assert.doesNotMatch(source, /setMyPresidentId/);
 });
 
 test("president Home always includes My Club", () => {

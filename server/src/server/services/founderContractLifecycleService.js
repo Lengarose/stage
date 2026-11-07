@@ -328,6 +328,7 @@ async function createFounderContractLifecycle(input, options = {}) {
       club: input.club,
     });
     const clubId = clubShell.id;
+    await require('./officialPlayerTransferService').assertMove({ player, targetClubId: clubId, referenceId: founderKey, actorId: user.id }, query);
 
     const playerContract = await ensureFounderContract(query, {
       clubId,

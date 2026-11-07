@@ -80,13 +80,23 @@ async function sources(input,query, cycleId = null, resolveSourceTies = false) {
     if (registration.status!=='approved' || !registration.club_id || i.region_slug!==first.region_slug || i.platform!==first.platform || i.season_number!==season_number || Number(registration.reset_series || 0)!==reset_series) fail('New entrants require approved registrations for the exact target region, platform, season and reset series');
   }
   const newcomers=registrations.map(r=>r.club_id);
+  let reserveField=null;
+  if(input.mode==='transition') {
+    const windows=new (require('../models/regionalRegistrationModel').RegionalRegistrationModel)();
+    const matching=(await windows.selectAll(query)).filter(w=>w.status==='published' && w.region_slug===first.region_slug && w.platform===first.platform && Number(w.season_number)===season_number && Number(w.reset_series || 0)===reset_series);
+    if(matching.length===1 && matching[0].reserve_policy_version===require('../lib/regionalReservePolicy').VERSION) {
+      const entries=await windows.confirmedField(matching[0].id,query);
+      const confirmed=entries.filter(r=>r.status==='approved' && r.participation_status==='confirmed');
+      reserveField={confirmed:confirmed.map(r=>r.club_id),willing:confirmed.filter(r=>r.reserve_response?.decision==='accept').map(r=>r.club_id)};
+    }
+  }
   policy.unique([...ids,...newcomers],'Regional participants');
   const participantSet=new Set([...ids,...newcomers]);
   for(const group of catalogue.groups.filter(g=>g.current_edition_id && !source.some(s=>s.root.id===g.current_edition_id))) {
     if(!finished.includes(group.status) && !['reset','cancelled','abandoned','superseded'].includes(group.status) && (list(group.registered_club_ids) || []).some(id=>participantSet.has(id)))fail('A club is still participating in another current regional group');
   }
   if(input.mode==='placement' && catalogue.editions.some(e=>finished.includes(e.status) && (list(e.registered_club_ids) || []).some(id=>participantSet.has(id))))fail('Clubs with prior regional sporting rights cannot be placed again as launch newcomers');
-  if(ids.length+newcomers.length!==input.target_count)fail('The confirmed field does not fill the selected target structure');
+  if((reserveField?ids.filter(id=>reserveField.confirmed.includes(id)).length:ids.length)+newcomers.length!==input.target_count)fail('The confirmed field does not fill the selected target structure');
   const clubs=await model.clubs([...ids,...newcomers],query);
   if(clubs.length!==ids.length+newcomers.length)fail('A participating club is unavailable; review withdrawals');
   const sourceRegistrations=(await model.linkedRegistrations([...ids,...newcomers],query)).filter(r=>participantSet.has(r.club_id) && !input.registration_ids.includes(r.id) && input.source_edition_ids.includes(r.assigned_league_id));
@@ -121,16 +131,20 @@ async function sources(input,query, cycleId = null, resolveSourceTies = false) {
     if(matching.length!==1 || matching[0].retired || matching[0].retired_at || matching[0].status==='retired')fail('Configure one active permanent league for every target division before preparing the cycle',409,{division});
     definitions.push(matching[0]);
   }
-  const participation=await require('./regionalRegistrationService').confirmedField(first.region_slug,first.platform,season_number,reset_series,[...ids,...newcomers],query);
+  const participation=await require('./regionalRegistrationService').confirmedField(first.region_slug,first.platform,season_number,reset_series,[...ids.filter(id=>!reserveField || reserveField.confirmed.includes(id)),...newcomers],query);
   const source_revision=hash({source:source.map(sourceProjection),registrations,sourceRegistrations,clubs,...(participation?{participation}:{}),definitions:definitions.map(d=>({id:d.id,trophy_item_id:d.trophy_item_id,rules:d.rules,retired:d.retired,reward_defaults:d.reward_defaults}))});
-  return {source,ids,newcomers,rankings,clubs,definitions,registrations,sourceRegistrations,participation,source_revision,region_slug:first.region_slug,platform:first.platform,season_number,reset_series};
+  return {source,ids,newcomers,rankings,clubs,definitions,registrations,sourceRegistrations,participation,reserveField,source_revision,region_slug:first.region_slug,platform:first.platform,season_number,reset_series};
 }
 function calculate(input, evidence, seed, results=[], tieVersion=policy.TIE_VERSION, sourceVersion=policy.SOURCE_RANKING_VERSION) {
   if(tieVersion && tieVersion!==policy.TIE_VERSION)fail('Unsupported supplementary sporting decision policy');
   if(sourceVersion && sourceVersion!==policy.SOURCE_RANKING_VERSION)fail('Unsupported final league ranking policy');
   const options={resolve_ties:tieVersion===policy.TIE_VERSION,resolve_source_ties:sourceVersion===policy.SOURCE_RANKING_VERSION};
-  return input.mode==='placement' ? policy.placement(input.target_count,[...evidence.ids,...evidence.newcomers],seed,results,options)
-    : policy.transition(evidence.ids.length,input.target_count,evidence.rankings,evidence.newcomers,seed,results,options);
+  if(input.mode==='placement')return policy.placement(input.target_count,[...evidence.ids,...evidence.newcomers],seed,results,options);
+  if(!evidence.reserveField)return policy.transition(evidence.ids.length,input.target_count,evidence.rankings,evidence.newcomers,seed,results,options);
+  const entrants=policy.shuffle(evidence.newcomers,`${seed}:confirmed-entrants`),growth=input.target_count-evidence.ids.length;
+  if(growth<0)fail('Regional shrinkage requires an approved sporting policy.');
+  const plan=policy.transition(evidence.ids.length,input.target_count,evidence.rankings,entrants.slice(0,growth),seed,results,options);
+  return require('../lib/regionalReserveAllocation').resolve(plan,{count:input.target_count,...evidence.reserveField,replacements:entrants.slice(growth),seed,results,rankings:evidence.rankings});
 }
 async function preview(body,actor,query=EXECUTESQL,automatic=false) {
   if(!automatic)await editions.admin(actor,query);
@@ -144,7 +158,7 @@ async function preview(body,actor,query=EXECUTESQL,automatic=false) {
   return {id,input,version:policy.VERSION,tie_policy_version:policy.TIE_VERSION,source_ranking_policy_version:policy.SOURCE_RANKING_VERSION,source_revision:evidence.source_revision,
     revision:hash([input,evidence.source_revision,policy.VERSION,policy.TIE_VERSION,policy.SOURCE_RANKING_VERSION]),existing_cycle_id:existing?.id || null,
     structure:policy.structure(input.target_count),initial_fixtures:plan.fixtures.length,blockers,region_slug:evidence.region_slug,platform:evidence.platform,season_number:evidence.season_number,reset_series:evidence.reset_series,
-    confirmed_participants:evidence.ids.length+evidence.newcomers.length,automatic_allocation:autoAllocation.capturesAutomaticAllocation(evidence.participation?.window),financial_mutations:false};
+    confirmed_participants:evidence.reserveField?evidence.reserveField.confirmed.length:evidence.ids.length+evidence.newcomers.length,automatic_allocation:autoAllocation.capturesAutomaticAllocation(evidence.participation?.window),financial_mutations:false};
 }
 async function applyPreparation(body,actor,automatic=false) {
   if (Object.hasOwn(body,'registration_window_id')) {
@@ -365,7 +379,7 @@ async function applyAllocation(id,body,actor,automatic=false) {
     if(cycle.input.mode==='transition')for(const scope of evidence.source)for(const row of scope.standings) {
       const right=plan.rights.find(r=>r.club_id===row.club_id);
       const position=(plan.source_rankings || evidence.rankings).find(g=>g.ref===`D${scope.root.division}${identity(scope.root).group_code}`).ranked_club_ids.indexOf(row.club_id)+1;
-      const record={...row,final_position:position,is_promoted:right.division<Number(scope.root.division),is_relegated:right.division>Number(scope.root.division)};
+      const record={...row,final_position:position,is_promoted:!!right && right.division<Number(scope.root.division),is_relegated:!!right && right.division>Number(scope.root.division),...(!right?{next_edition_participation:'not_confirmed'}:{})};
       await query("UPDATE league_entities SET data_json=?,updated_date=NOW() WHERE id=? AND entity_type='regional_league_standing'",[JSON.stringify(record),row.id]);
     }
     if(cycle.input.mode==='transition' && plan.source_rankings) {

@@ -6,7 +6,7 @@ import TransferBadge from "./TransferBadge";
 import { calculatePlayerValue, formatSTC, getValueTier } from "@/lib/playerValue";
 import { useTranslation } from "@/hooks/useTranslation";
 
-export default function TransferDetailPanel({ entry, canManage, canOffer, canRequestLoan, getOfferBlockReason, onOffer, onRequestLoan, windowOpen }) {
+export default function TransferDetailPanel({ entry, canManage, canOffer, getOfferBlockReason, onOffer, windowOpen, officialRecruitment = false }) {
   const { t } = useTranslation();
   const tx = (key, fallback) => {
     const value = t(key);
@@ -136,7 +136,7 @@ export default function TransferDetailPanel({ entry, canManage, canOffer, canReq
         </div>
 
         {/* Transfer window note */}
-        {windowOpen === false && (
+        {windowOpen === false && !officialRecruitment && (
           <div className="flex items-start gap-2 bg-blue-500/10 border border-blue-500/20 rounded-xl px-3 py-2.5 mb-4 text-xs text-blue-400">
             <Clock className="w-3.5 h-3.5 mt-0.5 shrink-0" />
             <span>{t("commonPages.transferWindowClosed")}</span>
@@ -154,17 +154,7 @@ export default function TransferDetailPanel({ entry, canManage, canOffer, canReq
               {t("commonPages.sendContractOffer")}
             </Button>
           )}
-          {canManage && canRequestLoan && (
-            <Button
-              type="button"
-              onClick={() => onRequestLoan?.({ player, badgeType, contract })}
-              className="w-full gap-2 rounded-none border border-[#f5c542]/40 bg-transparent font-heading text-sm font-black uppercase tracking-[0.18em] text-[#f5c542] hover:bg-[#f5c542]/10"
-            >
-              <FileText className="w-4 h-4" />
-              {tx("commonPages.requestLoan", "Request Loan")}
-            </Button>
-          )}
-          {blockReason && !canRequestLoan && (
+          {blockReason && (
             <div className="w-full text-center py-2.5 rounded-xl bg-muted border border-border text-sm text-muted-foreground font-medium">
               {blockReason === "signed" ? t("commonPages.underContract") : t("commonPages.offerAlreadySent")}
             </div>

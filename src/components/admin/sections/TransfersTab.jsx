@@ -46,7 +46,7 @@ export default function TransfersTab() {
   const [saved, setSaved] = useState(false);
   const [record, setRecord] = useState(null);
   const [form, setForm] = useState(DEFAULT_CONFIG);
-  const [market, setMarket] = useState({ freeAgents: [], expiringPlayers: [], liveLoans: [] });
+  const [market, setMarket] = useState({ freeAgents: [], expiringPlayers: [] });
   const [pendingContracts, setPendingContracts] = useState([]);
   const [currentWindow, setCurrentWindow] = useState(null);
 

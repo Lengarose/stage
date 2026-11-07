@@ -419,7 +419,7 @@ function makeEntity(name) {
 // ── Entity registry ────────────────────────────────────────────────────────────
 const ENTITY_NAMES = [
   'Player', 'President', 'Club', 'Match', 'MatchHighlight', 'Tournament', 'Post', 'Comment',
-  'MatchPlayerStat', 'Notification', 'PlayerContract', 'PlayerLoan', 'InboxMessage',
+  'MatchPlayerStat', 'Notification', 'PlayerContract', 'InboxMessage',
   'Prediction',
   'DirectMessage', 'STCTransaction', 'ShirtSale', 'DressingRoom',
   'JoinRequest', 'Follow', 'LifestyleItem', 'LifestylePurchase',

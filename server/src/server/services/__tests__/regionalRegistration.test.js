@@ -19,10 +19,10 @@ function fixture() {
     actorPlayer:async()=>copy(state.registrar),players:async()=>copy(state.players),
     registrations:async club=>copy(state.registrations.filter(r=>r.club_id===club)),registration:async id=>copy(state.registrations.find(r=>r.id===id)),
     confirmedField:async id=>copy(state.registrations.filter(r=>r.registration_window_id===id)),
-    notificationSettings:async()=>copy(state.noticeSettings),saveConfirmationNotice:async notice=>{state.notifications.push(copy(notice));},
+    notificationSettings:async()=>copy(state.noticeSettings),saveReserveNotice:async notice=>{state.notifications.push(copy(notice));},saveConfirmationNotice:async notice=>{state.notifications.push(copy(notice));},
     saveRegistration:async(record,_,create)=>{if(injected)throw Error('Injected failure');if(create)state.registrations.push(copy(record));else state.registrations[state.registrations.findIndex(r=>r.id===record.id)]=copy(record);},
   };
-  const query=async(sql,values)=>{if(sql.startsWith('INSERT INTO admin_audit_log')){state.audits.push(values);return {};}if(sql.startsWith('SELECT c.*'))return state.clubs.filter(c=>c.id===values[0]).map(c=>({...copy(c),president_user_email:state.users.find(u=>u.id===c.president_user_id)?.email}));throw Error(`Unexpected SQL ${sql}`);};
+  const query=async(sql,values)=>{if(sql.startsWith('INSERT INTO club_operation_audit_logs'))return {};if(sql.startsWith('INSERT INTO admin_audit_log')){state.audits.push(values);return {};}if(sql.startsWith('SELECT c.*'))return state.clubs.filter(c=>c.id===values[0]).map(c=>({...copy(c),president_user_email:state.users.find(u=>u.id===c.president_user_id)?.email}));throw Error(`Unexpected SQL ${sql}`);};
   let queue=Promise.resolve();
   const transaction=fn=>{
     const run=queue.then(async()=>{const before=copy(state);try{return await fn(query);}catch(err){state=before;throw err;}});queue=run.catch(()=>{});return run;
@@ -154,7 +154,7 @@ test('a regional field waits for the common deadline and a confirmation; existin
   await assert.rejects(env.service.confirmedField('uk-ireland','cross-platform',1,0,['club']),/deadline/);
   env.at(window.confirmation_closes_at);await assert.rejects(env.service.confirmedField('uk-ireland','cross-platform',1,0,['club']),/valid confirmation/);
   env.at(window.registration_closes_at);await env.service.confirm(registration.id,{policy_version:policy.VERSION,player_ids:['p1','p2','p3']},{id:'owner'});
-  env.at(window.confirmation_closes_at);const proof=await env.service.confirmedField('uk-ireland','cross-platform',1,0,['club']);assert.equal(proof.registrations.length,1);
+  env.at(require('../../lib/regionalReservePolicy').deadline(window));const proof=await env.service.confirmedField('uk-ireland','cross-platform',1,0,['club']);assert.equal(proof.registrations.length,1);
   env.state.registrations.push({...env.state.registrations[0],id:'other-confirmed',club_id:'another-club'});
   await assert.rejects(env.service.confirmedField('uk-ireland','cross-platform',1,0,['club']),/omits confirmed clubs/);
 });
@@ -211,7 +211,7 @@ module.exports={fixture};
 test('new Cup entry conditions are published before confirmation and cannot be retrofitted to old periods',async()=>{
  const env=fixture();env.input.include_cup=true;const {window}=await env.publish();assert.equal(window.cup_policy_version,'regional_cup_v1');assert.match(window.rules_text,/enter automatically/);
  env.at(window.opens_at);const {registration}=await env.apply(window);env.at(window.registration_closes_at);await env.service.confirm(registration.id,{policy_version:policy.VERSION,player_ids:['p1','p2','p3']},{id:'owner'});env.at(window.confirmation_closes_at);
- const field=await env.service.confirmedField('uk-ireland','cross-platform',1,0,['club'],env.query);assert.equal(field.window.cup_policy_version,'regional_cup_v1');
+ env.at(require('../../lib/regionalReservePolicy').deadline(window));const field=await env.service.confirmedField('uk-ireland','cross-platform',1,0,['club'],env.query);assert.equal(field.window.cup_policy_version,'regional_cup_v1');
  const old=fixture();await old.publish();old.input.include_cup=true;await assert.rejects(old.publish(),/immutable/);assert.equal(old.state.windows[0].cup_policy_version,undefined);
  const na=fixture();na.state.definitions[0].region_slug='north-america';na.state.definitions[0].slug='north-america-div-1';na.input.include_cup=true;await assert.rejects(na.publish(),/time profile/);
 });
@@ -219,7 +219,7 @@ test('new Cup entry conditions are published before confirmation and cannot be r
 test('Cup capture can read accepted confirmation evidence after league start without reopening registration',async()=>{
  const env=fixture();env.input.include_cup=true;const {window}=await env.publish();env.at(window.opens_at);const {registration}=await env.apply(window);env.at(window.registration_closes_at);await env.service.confirm(registration.id,{policy_version:policy.VERSION,player_ids:['p1','p2','p3']},{id:'owner'});env.at(window.confirmation_closes_at);env.state.definitions[0].status='in_progress';
  await assert.rejects(env.service.confirmedField('uk-ireland','cross-platform',1,0,['club'],env.query),/started/);
- const before=structuredClone(env.state),field=await env.service.capturedField('uk-ireland','cross-platform',1,0,['club'],env.query);assert.equal(field.registrations[0].club_id,'club');assert.equal(field.window.cup_policy_version,'regional_cup_v1');assert.deepEqual(env.state,before);
+ env.at(require('../../lib/regionalReservePolicy').deadline(window));const before=structuredClone(env.state),field=await env.service.capturedField('uk-ireland','cross-platform',1,0,['club'],env.query);assert.equal(field.registrations[0].club_id,'club');assert.equal(field.window.cup_policy_version,'regional_cup_v1');assert.deepEqual(env.state,before);
  env.state.registrations=[];await assert.rejects(env.apply(window),/started/);env.state.definitions[0].edition_invalidated=true;await assert.rejects(env.service.capturedField('uk-ireland','cross-platform',1,0,['club'],env.query),/invalidated/);
 });
 
@@ -244,4 +244,24 @@ test('recurring periods use local calendar weeks across DST and do not backdate 
  const f=fixture();f.input.league_start_monday='2027-03-01';const source=(await f.publish()).window;
  const next=await f.service.reconcileNextWindow(source.id,'2027-03-01');assert.equal(next.window.opens_at,'2027-03-28T22:00:00.000Z');assert.equal(next.window.registration_closes_at,'2027-04-25T22:00:00.000Z');
  const late=fixture();const old=(await late.publish()).window;late.at('2027-01-20T12:00:00Z');await assert.rejects(late.service.reconcileNextWindow(old.id,'2026-12-21'),/future|backdated/);assert.equal(late.state.windows.length,1);
+});
+
+test('reserve invitations use one shared deadline and acceptance rechecks Plus, roster and ownership',async()=>{
+ const f=fixture(),{window}=await f.publish();f.at(window.opens_at);const {registration}=await f.apply(window);
+ f.at(window.confirmation_closes_at);const status=await f.service.reconcileReserves(window.id);assert.equal(status.status,'awaiting_reserves');assert.equal(f.state.notifications.length,1);
+ const invitation=structuredClone(f.state.registrations[0].reserve_invitation);await f.service.reconcileReserves(window.id);assert.deepEqual(f.state.registrations[0].reserve_invitation,invitation);assert.equal(f.state.notifications.length,1);
+ const body={decision:'accept',player_ids:['p1','p2','p3']};await assert.rejects(f.service.respondReserve(registration.id,body,{id:'other'}),e=>e.status===403);
+ f.state.players[2].subscription='free';await assert.rejects(f.service.respondReserve(registration.id,body,{id:'owner'}),/active Plus/);f.state.players[2].subscription='stage_plus';
+ const [a,b]=await Promise.all([f.service.respondReserve(registration.id,body,{id:'owner'}),f.service.respondReserve(registration.id,body,{id:'owner'})]);assert.equal(a.registration.id,b.registration.id);assert.equal(b.already_applied,true);
+ assert.equal(require('../../lib/regionalReservePolicy').validConfirmation(window,f.state.registrations[0]),true);
+ await assert.rejects(f.service.confirmedField('uk-ireland','cross-platform',1,0,['club']),/reserve deadline/);
+ f.at(status.deadline);assert.equal((await f.service.confirmedField('uk-ireland','cross-platform',1,0,['club'])).registrations.length,1);
+});
+test('decline or reserve silence never confirms, and exact deadline does not extend per invitation',async()=>{
+ for(const decision of ['decline','silence']){
+  const f=fixture(),{window}=await f.publish();f.at(window.opens_at);const {registration}=await f.apply(window);f.at(new Date(Date.parse(window.confirmation_closes_at)+47*3600000).toISOString());
+  await f.service.reconcileReserves(window.id);assert.equal(f.state.registrations[0].reserve_invitation.deadline,require('../../lib/regionalReservePolicy').deadline(window));
+  if(decision==='decline')await f.service.respondReserve(registration.id,{decision},{id:'owner'});
+  f.at(require('../../lib/regionalReservePolicy').deadline(window));await assert.rejects(f.service.respondReserve(registration.id,{decision:'accept',player_ids:['p1','p2','p3']},{id:'owner'}));assert.equal(f.state.registrations[0].participation_status,'registered');
+ }
 });

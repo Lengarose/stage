@@ -7,6 +7,7 @@ const {identity,unpack,fail}=require('../lib/regionalEditionIdentity');
 const {permanentId}=require('../lib/regionalLeagueHierarchy');
 const editions=require('./regionalEditionService');
 const policy=require('../lib/regionalRegistrationPolicy');
+const reserves=require('../lib/regionalReservePolicy');
 const {resolveClubPresidentContact}=require('./clubContactService');
 const {parseMaybeJson,resolveDelivery}=require('./notificationPreferenceService');
 const hash=value=>crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -61,12 +62,18 @@ function createService({model=new RegionalRegistrationModel(),transaction=withTr
       const reschedule=require('../lib/officialReschedulePolicy');
       const rescheduleVersion=existing?existing.reschedule_policy_version:require('../lib/regionalCalendarPolicy.json').regions.includes(i.region_slug)?reschedule.VERSION:null;
       const base_rules_text=String(body.rules_text || '').trim();
+      const reserveVersion=existing?existing.reserve_policy_version:reserves.VERSION;
+      const cupTied=require('./officialCupTiedService'),cupTiedVersion=existing?existing.cup_tied_policy_version:body.include_cup===true?cupTied.VERSION:null;
+      const transfers=require('./officialPlayerTransferService'),transferVersion=existing?existing.player_transfer_policy_version:transfers.VERSION;
       let rules_text=base_rules_text;
       if(!rules_text || rules_text.length>12000)fail('Provide the published edition rules before opening registration',400);
       if(body.include_cup===true)rules_text+=`\n\n${cup.rules}`;
       const resultPolicy=require('../lib/regionalResultPolicy');
       rules_text+=`\n\n${resultPolicy.RULES}`;
       if(rescheduleVersion)rules_text+=`\n\n${reschedule.RULES}`;
+      if(reserveVersion)rules_text+=`\n\n${reserves.RULES}`;
+      if(transferVersion)rules_text+=`\n\n${transfers.RULES}`;
+      if(cupTiedVersion)rules_text+=`\n\n${cupTied.RULES}`;
       if(rules_text.length>12000)fail('Published rules including Cup terms exceed the supported length',400);
       const orchestration=require('../lib/regionalSeasonOrchestrationPolicy');
       const orchestrationVersion=existing?existing.season_orchestration_policy_version:orchestration.VERSION;
@@ -74,6 +81,9 @@ function createService({model=new RegionalRegistrationModel(),transaction=withTr
       if(startMonday && (!/^\d{4}-\d{2}-\d{2}$/.test(startMonday) || !Number.isFinite(Date.parse(startMonday+'T00:00:00Z')) || new Date(startMonday+'T00:00:00Z').toISOString().slice(0,10)!==startMonday || new Date(startMonday+'T00:00:00Z').getUTCDay()!==1))fail('Choose a valid Monday for the first league playing week',400);
       const recurringVersion=existing?existing.recurring_schedule_policy_version:orchestration.RECURRING_VERSION;
       const window={base_rules_text,...(rescheduleVersion?{reschedule_policy_version:rescheduleVersion}:{}),...(recurringVersion?{recurring_schedule_policy_version:recurringVersion}:{}),...(orchestrationVersion?{season_orchestration_policy_version:orchestrationVersion}:{}),...(startMonday?{league_start_monday:startMonday}:{}),id,region_slug:i.region_slug,platform:i.platform,season_number:i.season_number,reset_series:i.reset_series || 0,permanent_league_id:definition.id,...timing,policy_version:policy.VERSION,result_policy_version:resultPolicy.VERSION,confirmation_notice_policy_version:'regional_confirmation_notice_v1',...(body.include_cup===true?{cup_policy_version:cup.policy.version}:{}),rules_text,status:'published'};
+      if(reserveVersion)window.reserve_policy_version=reserveVersion;
+      if(cupTiedVersion)window.cup_tied_policy_version=cupTiedVersion;
+      if(transferVersion)window.player_transfer_policy_version=transferVersion;
       if(existing && hash(publicWindow(existing))!==hash(publicWindow(window)))fail('A published registration period is immutable; review its existing conditions instead of previewing a replacement.');
       if(!existing) {
         if(rows.some(r=>r.pending_regional_cycle_id && [Number(r.season_number),Number(r.season_number)+1].includes(i.season_number)))fail('An existing captured regional cycle keeps its participation conditions');
@@ -117,11 +127,13 @@ function createService({model=new RegionalRegistrationModel(),transaction=withTr
   async function readiness(clubId,actor) {
     return transaction(async q=>{
       const {user,club,owns}=await clubAccess(clubId,actor,q,true);
-      const report=policy.rosterReport(await model.players(club.id,q),club.id,clock());
+      const players=await model.players(club.id,q);
+      const report=policy.rosterReport(players,club.id,clock());
       const ownPlus=policy.plusStatus(await model.actorPlayer(user,q),clock());
       const registrations=await model.registrations(club.id,q);
       return {club:{id:club.id,name:club.name},can_manage_registration:owns,registrar_status:ownPlus,...report,
         registrations:registrations.map(r=>({id:r.id,registration_window_id:r.registration_window_id || null,registration_policy_version:r.registration_policy_version || null,region_slug:r.region_slug,platform:r.platform,season_number:r.season_number,status:r.status,participation_status:r.participation_status,confirmed_player_ids:r.confirmed_player_ids || [],confirmed_at:r.confirmed_at || null,
+          reserve_invitation:r.reserve_invitation || null,reserve_response:r.reserve_response || null,
           assigned_league_id:r.assigned_league_id || null,assigned_division:r.assigned_division || null,assigned_group_code:r.assigned_group_code || null}))};
     });
   }
@@ -177,7 +189,7 @@ function createService({model=new RegionalRegistrationModel(),transaction=withTr
       if(policy.plusStatus(registrar,confirmedAt)!=='eligible')fail('The confirming president needs active personal STAGE Plus',403);
       const report=policy.rosterReport(players,club.id,confirmedAt);
       if(selected.some(id=>!report.players.some(p=>p.id===id&&p.status==='eligible')))fail('A selected player needs active Plus or is registered to another playing club');
-      const next={...record,status:'approved',participation_status:'confirmed',confirmed_at:confirmedAt.toISOString(),confirmed_by_user_id:user.id,confirmed_player_ids:selected.slice().sort()};
+      const next={...record,status:'approved',participation_status:'confirmed',confirmed_at:confirmedAt.toISOString(),confirmed_by_user_id:user.id,confirmed_player_ids:selected.slice().sort(),...(window.player_transfer_policy_version?{club_roster_player_ids:players.map(p=>p.id).sort()}:{})};
       await model.saveRegistration(next,q);await audit(q,user,'confirm_regional_participation',record,next);
       return {applied:true,registration:next};
     });
@@ -196,6 +208,7 @@ function createService({model=new RegionalRegistrationModel(),transaction=withTr
       if(entries.length!==1 || entries[0].registration_policy_version!==policy.VERSION || entries[0].status!=='approved' || entries[0].participation_status!=='confirmed' ||
         entries[0].accepted_rules_revision!==hash(publicWindow(window)) || !Array.isArray(entries[0].confirmed_player_ids) || new Set(entries[0].confirmed_player_ids).size<3)fail('Every participant needs a valid confirmation for this regional edition; missing confirmations require review',409,{club_id:id});
     }
+    if(window.reserve_policy_version===reserves.VERSION && clock().getTime()<Date.parse(reserves.deadline(window)))fail('Wait until the common reserve deadline before finalizing the regional field.');
     return {window:publicWindow(window),registrations:records.filter(r=>clubIds.includes(r.club_id))};
   }
   async function remindConfirmation(id) {
@@ -229,7 +242,58 @@ function createService({model=new RegionalRegistrationModel(),transaction=withTr
       return {status};
     });
   }
+  async function reconcileReserves(windowId) {
+    return transaction(async q=>{
+      await editions.model.lock(q);
+      const window=await getWindow(windowId,q,{captured:true});
+      if(window.reserve_policy_version!==reserves.VERSION)return {status:'not_enabled'};
+      const now=clock();
+      if(now.getTime()<Date.parse(window.confirmation_closes_at))return {status:'awaiting_confirmation'};
+      if(!reserves.active(window,now))return {status:'closed',deadline:reserves.deadline(window)};
+      const records=await model.confirmedField(window.id,q);
+      for(const record of records) {
+        if(!['pending','approved'].includes(record.status) || record.reserve_invitation)continue;
+        if(record.registration_policy_version!==policy.VERSION || record.accepted_rules_revision!==policy.windowRevision(window) || record.region_slug!==window.region_slug || record.platform!==window.platform || Number(record.season_number)!==Number(window.season_number) || Number(record.reset_series || 0)!==Number(window.reset_series || 0))fail('Reserve invitations require unchanged original participation evidence.');
+        const contact=await resolveClubPresidentContact({clubId:record.club_id,query:q,forUpdate:true});
+        if(!contact.email)fail('A reachable club president is required for reserve invitations.');
+        const inApp=resolveDelivery(parseMaybeJson(await model.notificationSettings(contact.email,q),{}),'club_updates').inApp;
+        const invitation={version:reserves.VERSION,offered_at:clock().toISOString(),deadline:reserves.deadline(window),notification_status:inApp?'stored':'muted'};
+        if(!reserves.active(window,clock()))return {status:'closed',deadline:invitation.deadline};
+        if(inApp)await model.saveReserveNotice({id:stableId(['regional_reserve_notice',window.id,record.id]),email:contact.email,registration_id:record.id,body:`Respond before ${invitation.deadline} (UTC). Existing applicants only; active personal Plus and at least three eligible players are required. Reserve willingness does not guarantee entry or Division 1. Final sporting allocation follows the published rules.`,link:`/register-league?club=${encodeURIComponent(record.club_id)}&region=${encodeURIComponent(window.region_slug)}`,key:`regional_reserve:${window.id}:${record.id}`},q);
+        const next={...record,reserve_invitation:invitation};
+        await model.saveRegistration(next,q);await audit(q,{id:null,email:null},'invite_regional_reserve',record,next,'Shared reserve supplementation period',true);
+      }
+      return {status:'awaiting_reserves',deadline:reserves.deadline(window)};
+    });
+  }
+  async function respondReserve(id,body,actor) {
+    return transaction(async q=>{
+      await editions.model.lock(q);
+      const record=await model.registration(id,q);
+      if(!record || !record.reserve_invitation)fail('Reserve invitation not found',404);
+      const {user,club}=await clubAccess(record.club_id,actor,q);
+      const window=await getWindow(record.registration_window_id,q);
+      if(!['accept','decline'].includes(body.decision))fail('Accept or decline the reserve invitation.',400);
+      if(record.reserve_response){if(record.reserve_response.decision===body.decision)return {already_applied:true,registration:record};fail('This reserve response is already final.');}
+      if(!['pending','approved'].includes(record.status) || !reserves.active(window,clock()) || record.reserve_invitation.version!==reserves.VERSION || record.reserve_invitation.deadline!==reserves.deadline(window) || record.accepted_rules_revision!==policy.windowRevision(window))fail('The shared reserve deadline passed or the invitation requires review.');
+      let selected=[],players=[];
+      if(body.decision==='accept'){
+        if(policy.plusStatus(await model.actorPlayer(user,q),clock())!=='eligible')fail('The responding president needs active personal STAGE Plus',403);
+        selected=body.player_ids;
+        if(!Array.isArray(selected) || selected.length<3 || selected.some(id=>typeof id!=='string') || new Set(selected).size!==selected.length)fail('Select at least three different eligible Plus players',400);
+        players=await model.players(club.id,q);
+        const report=policy.rosterReport(players,club.id,clock());
+        if(selected.some(id=>!report.players.some(p=>p.id===id && p.status==='eligible')))fail('Every selected reserve participant needs active Plus and playing registration for this club.');
+      }
+      const now=clock();if(!reserves.active(window,now))fail('The common reserve deadline passed; no response was saved.');
+      const next={...record,reserve_response:{decision:body.decision,responded_at:now.toISOString(),by_user_id:user.id}};
+      if(body.decision==='accept' && record.participation_status!=='confirmed')Object.assign(next,{status:'approved',participation_status:'confirmed',confirmed_at:now.toISOString(),confirmed_by_user_id:user.id,confirmed_player_ids:selected.slice().sort(),...(window.player_transfer_policy_version?{club_roster_player_ids:players.map(p=>p.id).sort()}:{})});
+      await model.saveRegistration(next,q);await audit(q,user,'respond_regional_reserve',record,next);
+      await q('INSERT INTO club_operation_audit_logs (id,club_id,actor_user_id,actor_email,action,entity_type,entity_id,old_value,new_value,reason,created_date) VALUES (?,?,?,?,?,?,?,?,?,?,NOW())',[uuid(),club.id,user.id,user.email,'respond_regional_reserve','season_registration',id,JSON.stringify(record),JSON.stringify(next),'Shared reserve invitation response']);
+      return {applied:true,registration:next};
+    });
+  }
   const capturedField=(region,platform,season,series,clubIds,q=query)=>confirmedField(region,platform,season,series,clubIds,q,{captured:true});
-  return {windows,publish,reconcileNextWindow,readiness,apply,confirm,confirmedField,capturedField,remindConfirmation};
+  return {windows,publish,reconcileNextWindow,readiness,apply,confirm,confirmedField,capturedField,remindConfirmation,reconcileReserves,respondReserve};
 }
 module.exports={createService,...createService()};

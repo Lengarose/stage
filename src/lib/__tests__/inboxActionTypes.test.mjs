@@ -16,12 +16,12 @@ test("legacy actionable inbox messages recover their action type from message_ty
   assert.equal(getEffectiveInboxActionType({ message_type: "match_invite" }), "accept_decline_date");
   assert.equal(getEffectiveInboxActionType({ message_type: "contract_offer" }), "contract_negotiation");
   assert.equal(getEffectiveInboxActionType({ message_type: "trial_request" }), "trial_response");
-  assert.equal(getEffectiveInboxActionType({ message_type: "loan_proposal" }), "loan_parent_response");
-  assert.equal(getEffectiveInboxActionType({ message_type: "loan_early_end" }), "loan_early_end_response");
+  assert.equal(getEffectiveInboxActionType({ message_type: "loan_proposal" }), "none");
+  assert.equal(getEffectiveInboxActionType({ message_type: "loan_early_end" }), "none");
   assert.equal(getEffectiveInboxActionType({
     message_type: "loan_proposal",
     action_type: "loan_player_response",
-  }), "loan_player_response");
+  }), "none");
   assert.equal(getEffectiveInboxActionType({ message_type: "general" }), "none");
 });
 
@@ -41,7 +41,7 @@ test("inboxMessageNeedsAction uses the recovered action type", () => {
   assert.equal(inboxMessageNeedsAction({ message_type: "contract_offer", status: "pending" }), true);
   assert.equal(inboxMessageNeedsAction({ message_type: "trial_request", status: "accepted" }), false);
   assert.equal(inboxMessageNeedsAction({ message_type: "loan_recalled", status: "pending" }), false);
-  assert.equal(inboxMessageNeedsAction({ message_type: "loan_early_end", status: "pending" }), true);
+  assert.equal(inboxMessageNeedsAction({ message_type: "loan_early_end", status: "pending" }), false);
   assert.equal(inboxMessageNeedsAction({ message_type: "loan_terminated_early", status: "pending" }), false);
 });
 

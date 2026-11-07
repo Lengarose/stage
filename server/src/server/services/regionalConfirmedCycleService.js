@@ -38,6 +38,7 @@ function createService({ transaction = withTransaction, windows = new RegionalRe
         return {existing_cycle_id:cycle.id};
       }
       const registrations = await windows.confirmedField(id, q);
+      if(window.reserve_policy_version===require('../lib/regionalReservePolicy').VERSION && clock().getTime()<Date.parse(require('../lib/regionalReservePolicy').deadline(window)))fail('Wait until the common reserve deadline before preparing the final field.');
       const assessment = assessField(window, registrations, clock());
       if (assessment.status !== 'structure_supported') fail('The complete confirmation field is not ready for cycle preparation.', 409, assessment.blockers.length ? assessment.blockers : [{ code: 'confirmation_open', message: 'Wait until the common confirmation deadline.' }]);
       const groups = catalogue.groups.filter(g => {
@@ -54,7 +55,7 @@ function createService({ transaction = withTransaction, windows = new RegionalRe
       const sourceClubs = source.flatMap(roster);
       if (new Set(sourceClubs).size !== sourceClubs.length) fail('A club appears in multiple current groups; review source rosters.');
       const confirmed = registrations.filter(r => r.status === 'approved' && r.participation_status === 'confirmed');
-      if (sourceClubs.some(id => !confirmed.some(r => r.club_id === id))) fail('A club with existing sporting rights has not confirmed. Review vacancies or withdrawals; it cannot be silently dropped.');
+      if (sourceClubs.some(id => !confirmed.some(r => r.club_id === id)) && window.reserve_policy_version!==require('../lib/regionalReservePolicy').VERSION) fail('A club with existing sporting rights has not confirmed. Review vacancies or withdrawals; it cannot be silently dropped.');
       return {
         mode: placement ? 'placement' : 'transition',
         source_edition_ids: source.map(g => g.current_edition_id).sort(),
