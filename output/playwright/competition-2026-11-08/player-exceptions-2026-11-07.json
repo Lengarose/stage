@@ -1,0 +1,17 @@
+{
+  "database": "stage_acceptance_bd2e1e234c55",
+  "started_at": "2026-11-08T19:03:05.907Z",
+  "scenarios": [
+    "Outsider forbidden and placement transfer rejected atomically, without financial or contract changes",
+    "Week-six permanent transfer persists one receipt; a lost-response retry charges no second fee; profile PATCH cannot bypass registration",
+    "Individual tournament overlap rejected from persisted MySQL fixtures; adjacent blocks allowed",
+    "Actual owner/outsider HTTP lineup permissions; expired Plus rejected at publication, readiness and kickoff; a failed kickoff creates no frozen selection",
+    "Actual HTTP free-player signing outside week six rejects prior declared play for another club but permits bench-only evidence",
+    "Actual official free-player offer and acceptance work outside the general transfer window; signed-player offers outside official windows are refused",
+    "Loan actions removed for all four actual JWT roles; retirement snapshots source once, preserves club registration and financial history"
+  ],
+  "complete": false,
+  "scope": "Permanent player transfers, individual conflicts and removal of loans; not the full programme exception matrix.",
+  "player_exception_route_complete": true,
+  "finished_at": "2026-11-08T19:03:10.348Z"
+}

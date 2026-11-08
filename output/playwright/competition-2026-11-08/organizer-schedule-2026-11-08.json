@@ -1,0 +1,13 @@
+{
+  "database": "stage_acceptance_1f73a9e46508",
+  "started_at": "2026-11-08T19:03:08.769Z",
+  "scenarios": [
+    "Actual creation captures new scheduling terms; owner-only publication, exact snapshot consent before paid entry, outsider and conflicting entry refusal; registered participants prevent silent replacement",
+    "Actual initial draw applies participant-accepted fixed rounds; generic schedule PATCH cannot escape them",
+    "Organizer-requested fixture change preserves the old time until both actual participants agree; outsider refusal, persisted exception, notification and acceptance retries verified",
+    "Bounded windows allow a complete 40-minute block and reject a kickoff whose block overruns the end"
+  ],
+  "complete": false,
+  "organizer_schedule_route_complete": true,
+  "finished_at": "2026-11-08T19:03:12.324Z"
+}
