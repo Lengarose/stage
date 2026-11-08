@@ -42,7 +42,7 @@ function placements(scope, config) {
       if (!readiness.ready) return {map,blocked:readiness.reason};
     }
   }
-  if (matches.some(m => m.status !== 'bye' && !isConfirmedResult(m))) return { map, blocked: 'Required fixtures remain unconfirmed, missing a decision, cancelled or voided' };
+  if (matches.some(m => m.status !== 'bye' && !require('./regionalWithdrawal').resolvedFixture(scope,m))) return { map, blocked: 'Required fixtures remain unconfirmed, missing a decision, cancelled or voided' };
   if (leagueOnly) {
     const officialLeague = ['regional_league','competition_season'].includes(scope.source_type);
     if (officialLeague && require('./standingIntegrity').reviewStandings(scope).requires_review) return { map, blocked:'Final standings integrity requires authorised historical review before settlement' };

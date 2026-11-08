@@ -26,7 +26,7 @@ export default function OfficialCompetitionDecisions({ definitions = [], onRefre
         club_id: withdrawal.club, evidence_url: withdrawal.evidence, reason: withdrawal.reason,
         apply, ...(apply ? { expected_revision: preview?.revision } : {}),
       });
-      if (apply) { setPreview(null); setNotice('Withdrawal applied. Review sporting rights and vacancies before the next cycle.'); await onRefresh?.(); }
+      if (apply) { setPreview(null); setNotice('Withdrawal applied. Eligible clubs continue with the corrected table. Next-season places follow the confirmed reserve field.'); await onRefresh?.(); }
       else setPreview(result);
     });
   }
@@ -58,7 +58,7 @@ export default function OfficialCompetitionDecisions({ definitions = [], onRefre
       <label className="block text-xs">Evidence link<input className={inputClass} value={withdrawal.evidence} onChange={e => editWithdrawal('evidence', e.target.value)} /></label>
       <label className="block text-xs">Decision reason<textarea className={inputClass} value={withdrawal.reason} onChange={e => editWithdrawal('reason', e.target.value)} /></label>
       <button type="button" className="min-h-10 text-sm font-bold" disabled={!withdrawal.edition || !withdrawal.club} onClick={() => withdraw(false)}>Preview withdrawal consequences</button>
-      {preview && <div className="space-y-2 text-sm"><p>{preview.mode === 'retain_first_half' ? 'Retain the first half; replace all returns with administrative results.' : 'Exclude all league results of this club.'} {preview.changes?.length || 0} fixtures affected. No individual goals or payments are generated.</p><button type="button" className="min-h-10 font-bold text-destructive" disabled={!preview.revision || !withdrawal.reason.trim() || !withdrawal.evidence.trim()} onClick={() => withdraw(true)}>Confirm this withdrawal decision</button></div>}
+      {preview && <div className="space-y-2 text-sm"><p>{preview.mode === 'retain_first_half' ? 'Retain the first half; replace all returns with administrative results.' : 'Exclude all league results of this club.'} {preview.changes?.length || 0} fixtures affected. No individual goals or payments are generated.</p><p>{preview.future_registration_ids?.length || 0} next-season applications will be withdrawn. A new application must follow the published registration dates; no place is reserved.</p><button type="button" className="min-h-10 font-bold text-destructive" disabled={!preview.revision || !withdrawal.reason.trim() || !withdrawal.evidence.trim()} onClick={() => withdraw(true)}>Confirm this withdrawal decision</button></div>}
     </fieldset>
     <fieldset disabled={busy} className="space-y-3">
       <legend className="font-bold">Player suspensions</legend>

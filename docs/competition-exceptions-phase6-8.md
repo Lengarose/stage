@@ -38,13 +38,33 @@ advance eligible clubs. Withdrawal cannot blindly rewrite an already allocated
 cycle, captured qualification or paid settlement. Those dependencies are held for
 existing Admin review and their history remains intact.
 
-**Not a completed automatic withdrawal-to-next-season path:** the current
-`withdrawal_review_required` guard prevents automatic finalization/allocation
-until the outstanding sporting vacancy policy is resolved. Annulled fixtures are
-not fabricated as played scores to satisfy the normal 380-confirmed-results rule.
-A combined full season with withdrawal, corrected final awards and replacement
-allocation is not claimed by the individual consequence tests. The masterplan's
-open sporting vacancy/exception details remain open.
+**Completion follow-up:** an explicitly approved annulment now satisfies fixture
+resolution for league completion and source-cycle preparation, while remaining
+excluded from standings and player statistics. The original group roster and
+all fixture identities remain historical. Corrected eligible rankings feed the
+existing sporting decisions and reserve allocation. Withdrawn old rights are
+removed even if the club submits a fresh timely application; that application
+enters as an ordinary replacement at the lowest existing tier. A D1-only
+20-club region therefore admits its confirmed replacement in D1; no imaginary
+D2 is created. Where D2 exists, the established D2 reserve priority remains.
+
+Already pending/confirmed applications for the immediately following edition in
+the same regional system are withdrawn as part of the explicit decision, with
+original records preserved in its receipt/audit. The preview lists these
+applications before confirmation. A fresh application is possible during the
+published registration period and must complete normal confirmation. No new
+registration deadline, grace period or automatically restored sporting right is
+introduced. Reopening preserves the original application ID, including IDs
+created by an earlier regional transfer.
+
+The captured reward budget and position amounts remain unchanged. An empty
+finishing position after withdrawal is shown as not awarded, with its original
+amount retained as unawarded budget; it is not redistributed. Existing paid or
+ambiguous obligations continue through the existing explicit financial review.
+Lack of enough confirmed reserves, an unsupported count, unresolved sporting
+decisions or unapproved shrinkage still uses the existing exception route.
+These genuine exceptions are not replaced with newly invented admission rules.
+No new tests or test scenarios were added/run for this completion follow-up.
 
 Absence facts are separate from scores. Both clubs absent or three confirmed
 absence facts in the same edition require review. Review closure does not itself
@@ -111,3 +131,24 @@ Reports intentionally retain `complete: false` for the overall programme and a
 separate true route-completion flag. Read the current [delivery status](competition-delivery-status.md)
 for remaining implementation, open policy and production milestones. Graphify is
 unavailable in this workspace; no graph update is claimed.
+
+
+## Implementation flow and verification scope
+
+The user invoked `ask-matt`; its direct implementation route used the existing
+masterdocument as the specification and the existing local ticket convention
+under `.scratch/competition-completion/`. No interview, external tracker or new
+policy framework was introduced. The user expressly excluded new checks/tests;
+no test files or scenarios changed and no tests were run for this delta. Existing
+lint/typecheck and backend syntax commands were used as repository requirements.
+The saved acceptance reports above predate this delta.
+
+The implementation flow's source review found two issues that were corrected:
+
+| Axis | Finding and correction |
+| --- | --- |
+| Standards | No hard documented-standard violation. Reopening now preserves an existing application ID, so transferred registrations update their actual row. |
+| Spec | The D1-only twenty-club replacement route now uses the lowest existing tier instead of requiring a nonexistent D2 reserve candidate. |
+
+Production deployment, the exact live duplicate-ID repair, launch dates and
+intentionally deferred policy remain separate. GOST and D3 stay closed.

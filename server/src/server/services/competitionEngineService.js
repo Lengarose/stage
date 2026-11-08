@@ -1485,12 +1485,9 @@ async function advanceRegionalLeagueUnlocked(fixture) {
   if (!fixture?.league_id) return { advanced: false, reason: 'unsupported_fixture' };
   const fixtures = await listLegacyRegionalLeagueFixtures(fixture.league_id);
   if (!fixtures.length) return { advanced: false, reason: 'no_league_fixtures' };
-  if (fixtures.some(row => !isFinishedStatus(row.status, { regional: true }))) {
-    return { advanced: false, reason: 'league_not_complete' };
-  }
-
   const league = await selectLeagueEntityById('regional_league', fixture.league_id);
   if (!league) return { advanced: false, reason: 'league_not_found' };
+  if (fixtures.some(row => !isFinishedStatus(row.status, { regional: true }) && !require('../lib/regionalWithdrawal').resolvedFixture({source_type:'regional_league',root:league},row))) return {advanced:false,reason:'league_not_complete'};
   if (String(league.status || '').toLowerCase() === 'completed') {
     return { advanced: false, reason: 'already_completed' };
   }
@@ -1498,15 +1495,16 @@ async function advanceRegionalLeagueUnlocked(fixture) {
   const standings = await listLegacyRegionalLeagueStandings(fixture.league_id);
   if (!standings.length) return { advanced: false, reason: 'no_standings' };
 
-  if(league.regional_structure_version)for(const [index,row] of sortStandingRows(standings).entries()) {
+  const orderedStandings=sortStandingRows(standings).sort((a,b)=>Number(!!a.is_excluded)-Number(!!b.is_excluded));
+  if(league.regional_structure_version)for(const [index,row] of orderedStandings.entries()) {
     await updateLeagueEntityData('regional_league_standing',row.id,{...row,final_position:index+1,is_promoted:false,is_relegated:false,is_stage_qualified:false,stage_competition_slug:null},{league_id:league.id,club_id:row.club_id});
   }
 
   const result = league.regional_structure_version
     ? {type:'regional_cycle',cycle_id:league.regional_cycle_id,rights_pending:true}
     : Number(league.division || 1) === 1
-    ? await processRegionalDivisionOneEnd(league, standings)
-    : await processRegionalDivisionTwoEnd(league, standings);
+    ? await processRegionalDivisionOneEnd(league, orderedStandings.filter(row=>!row.is_excluded))
+    : await processRegionalDivisionTwoEnd(league, orderedStandings.filter(row=>!row.is_excluded));
 
   await updateLeagueEntityData('regional_league', league.id, {
     ...league,
@@ -1522,14 +1520,12 @@ async function advanceLeagueEdition(kind, fixture, { dryRun = false, admin = nul
   if (!id) return { advanced:false,reason:'unsupported_fixture' };
   if(kind==='regional_league') {
     const root=await selectLeagueEntityById(kind,id);
-    if(root?.withdrawal_review_required)return {advanced:false,reason:'Club withdrawal requires sporting rights and vacancy review'};
     if(root?.pending_regional_cycle_id)return {advanced:false,reason:'Final league places and sporting rights are being resolved by the captured regional cycle',cycle_id:root.pending_regional_cycle_id};
   }
   const prizes = require('./competitionPrizeService');
   if (!dryRun) await prizes.capture(kind,id);
   const result = await database.withTransaction(async query => {
     const scope = await new (require('../models/competitionScopeModel').CompetitionScopeModel)().selectOne(kind,id,query,!dryRun);
-    if(kind==='regional_league' && scope.root.withdrawal_review_required)return {advanced:false,reason:'Club withdrawal requires sporting rights and vacancy review'};
     if(kind==='regional_league' && scope.root.pending_regional_cycle_id)return {advanced:false,reason:'Final league places and sporting rights are being resolved by the captured regional cycle',cycle_id:scope.root.pending_regional_cycle_id};
     if (scope.root.edition_invalidated || ['reset','cancelled','abandoned','superseded','retired'].includes(scope.root.status)) return {advanced:false,reason:'Edition is closed or invalidated'};
     const requestedPhase = fixture.phase || 'league';
@@ -1540,7 +1536,7 @@ async function advanceLeagueEdition(kind, fixture, { dryRun = false, admin = nul
     if ((fixture.phase || 'league') === 'league') {
       const integrity = require('../lib/standingIntegrity').reviewStandings(scope);
       if (integrity.requires_review) return { advanced:false, reason:'Standings integrity requires authorised review', integrity };
-      const ordered = sortStandingRows(scope.standings);
+      const ordered = sortStandingRows(scope.standings).filter(row=>!row.is_excluded && !(scope.root.withdrawn_club_ids || []).includes(row.club_id));
       if (ordered.some((r,i) => i > 0 && Number(r.points) === Number(ordered[i-1].points) && Number(r.goal_difference) === Number(ordered[i-1].goal_difference) && Number(r.goals_for) === Number(ordered[i-1].goals_for))) return { advanced:false, reason:kind==='regional_league'?'Finishing positions remain tied; prepare the next-season regional cycle to apply head-to-head criteria and any required sporting decisions':'Finishing positions or qualification seeding remain tied under sporting criteria; authorised resolution required' };
     }
     const progress = await progressionQueries.run(query,async () => {

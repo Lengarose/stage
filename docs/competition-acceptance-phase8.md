@@ -266,3 +266,13 @@ do not claim a combined season exercising every exceptional branch. Browser
 screenshots now include the actual forms, rather than only the page header.
 Latest frontend/build/check totals are recorded in the current delivery status.
 Production operations remain unexecuted.
+
+
+## Completion delta — no new tests requested
+
+The approved post-withdrawal completion, corrected rewards and reserve rollover
+are now connected. The user expressly asked for no new checks/tests. No test
+cases/files or test scenarios were added or run for this delta. Earlier full
+suite, MySQL/JWT and Chrome results document the earlier baseline, not this
+follow-up. Existing lint/typecheck/backend syntax requirements are separate from
+that historical acceptance evidence. Production has not been touched.

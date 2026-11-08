@@ -11,10 +11,14 @@ function planComponentPrizes(scope,config,payments=[],ledgers=[]) {
   let eligible=[];
   try{eligible=eligibleClubIds(scope);}catch(e){blocked.push(e.message);}
   const cup=config.model==='regional_cup_rewards_v1';
+  const regional=config.model==='regional_positions_v1';
+  const withdrawn=regional?require('./regionalWithdrawal').withdrawnIds(scope):[];
   if(!['regional_positions_v1','gost_components_v1','regional_cup_rewards_v1'].includes(config.model)||config.funding!=='system')blocked.push('Unrecognized reward model/funding policy');
   if(cup)try{require('./regionalCupRewards').validate(config,scope.root);}catch(e){blocked.push(e.message);}
-  if(config.roster && JSON.stringify(config.roster)!==JSON.stringify(eligible))blocked.push('Eligible registrations changed after the edition snapshot; authorised review required');
-  const regional=config.model==='regional_positions_v1';
+  const capturedRoster=regional?parse(scope.root.registered_club_ids,[]).map(String).sort():eligible;
+  if(config.roster && JSON.stringify(config.roster)!==JSON.stringify(eligible)
+    && !(withdrawn.length && JSON.stringify(config.roster)===JSON.stringify(capturedRoster)
+      && capturedRoster.filter(id=>!eligible.includes(id)).every(id=>withdrawn.includes(id))))blocked.push('Eligible registrations changed after the edition snapshot; authorised review required');
   const sportingRows=regional?config.rows.map(r=>({position:r.position,amount:r.stc_amount})): [{position:1,amount:'0.00'},{position:2,amount:'0.00'}];
   const placed=placements(scope,sportingRows);
   if(placed.blocked)blocked.push(placed.blocked);
@@ -24,8 +28,9 @@ function planComponentPrizes(scope,config,payments=[],ledgers=[]) {
   const obligations=definitions.map(d=>{
     const key=regional?`prize:${scope.source_type}:${scope.root.id}:${scope.edition_id}:${d.position}`:`prize:${scope.source_type}:${scope.root.id}:${scope.edition_id}:${d.component_key}`;
     const reasons=[];
-    let expected=0n;try{expected=cents(d.amount);}catch{reasons.push('Invalid captured reward amount');}
-    if(!d.recipient || !eligible.includes(String(d.recipient)))reasons.push('Eligible reward recipient is unresolved');
+    const withheld=regional && withdrawn.length>0 && d.position>eligible.length && d.position<=capturedRoster.length;
+    let expected=0n;try{expected=withheld?0n:cents(d.amount);}catch{reasons.push('Invalid captured reward amount');}
+    if(!withheld && (!d.recipient || !eligible.includes(String(d.recipient))))reasons.push('Eligible reward recipient is unresolved');
     const payment=payments.find(p=>p.idempotency_key===key);
     if(payment&&(String(payment.club_id)!==String(d.recipient)||cents(payment.amount_stc)!==expected))reasons.push('Established obligation changed; authorised reversal/review required');
     const old=ledgers.filter(l=>String(l.club_id)===String(d.recipient)&&!l.settlement_key&&(scope.legacy_references.includes(l.reference_id)||scope.ambiguous_legacy_references?.includes(l.reference_id)));
@@ -35,12 +40,13 @@ function planComponentPrizes(scope,config,payments=[],ledgers=[]) {
     if(paid>expected)reasons.push('Existing payment exceeds the established obligation');
     if(payment?.status==='paid'&&!proven.some(l=>l.id===payment.ledger_transaction_id))reasons.push('Paid obligation has no matching ledger evidence');
     const profile=scope.participants.find(p=>String(p.id)===String(d.recipient));
-    return {key,component_key:d.component_key,position:d.position,recipient_id:d.recipient||null,recipient_type:'club',recipient_name:profile?.name||null,expected_amount:stc(expected),proven_payment:stc(paid),missing_amount:stc(paid<expected?expected-paid:0n),ledger_ids:proven.map(l=>l.id),blocking_reasons:reasons};
+    return {key,component_key:d.component_key,position:d.position,recipient_id:d.recipient||null,recipient_type:'club',recipient_name:profile?.name||null,expected_amount:stc(expected),proven_payment:stc(paid),missing_amount:stc(paid<expected?expected-paid:0n),ledger_ids:proven.map(l=>l.id),blocking_reasons:reasons,...(withheld?{withheld_amount:stc(cents(d.amount)),withheld_reason:'No eligible finishing club after the approved withdrawal'}:{})};
   });
   const total=obligations.reduce((s,o)=>s+cents(o.expected_amount),0n);
-  if(total!==cents(config.budget))blocked.push('Captured budget does not equal the exact obligations');
+  const withheld=obligations.reduce((sum,o)=>sum+cents(o.withheld_amount || 0),0n);
+  if(total+withheld!==cents(config.budget))blocked.push('Captured budget does not equal the exact obligations');
   if(scope.root.effective_prize_budget_stc!=null&&cents(scope.root.effective_prize_budget_stc)!==cents(config.budget))blocked.push('Edition funding budget differs from the approved snapshot');
   const anyBlocked=blocked.length||obligations.some(o=>o.blocking_reasons.length);
-  return {state:anyBlocked?'blocked':total===0n?'zero_prize':obligations.some(o=>cents(o.missing_amount)>0n)?'unpaid':'paid',blocking_reasons:blocked,obligations,budget:stc(total),configuration_version:config.version};
+  return {state:anyBlocked?'blocked':total===0n?'zero_prize':obligations.some(o=>cents(o.missing_amount)>0n)?'unpaid':'paid',blocking_reasons:blocked,obligations,budget:stc(total+withheld),unawarded_amount:stc(withheld),configuration_version:config.version};
 }
 module.exports={eligibleClubIds,planComponentPrizes};

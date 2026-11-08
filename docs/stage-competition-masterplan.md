@@ -1192,3 +1192,23 @@ Open blijven de reeds als O bewaarde details van hervatting, afwijkende velden,
 krimp en sportieve vacature-afhandeling buiten de goedgekeurde normale route.
 De huidige terugtrekkingsafhandeling bewaart die gevallen in bestaande review;
 zij verklaart geen onbesliste promotie- of plaatsingsrechten automatisch definitief.
+
+
+### Afronding goedgekeurde terugtrekkingsflow — 8 november 2026 [L]
+
+De eerdere melding dat de volledige afsluiting na terugtrekking nog niet was
+gebouwd, is hiermee vervangen: definitief uitgesloten duels gelden als opgelost,
+blijven uitgesloten uit stand/stats en blokkeren de normale afsluiting niet meer.
+Gecorrigeerde gerechtigde posities voeden prijzen en de bestaande reservelogica.
+Niet-bezette prijsposities blijven onuitgekeerd binnen het oorspronkelijke budget.
+Een teruggetrokken club behoudt geen automatisch recht voor de volgende editie;
+een tijdige nieuwe aanvraag volgt de normale instroom op het laagste bestaande
+niveau. Bij uitsluitend D1 is dat D1; er wordt geen niet-bestaande D2 aangemaakt.
+Een getroffen volgende aanvraag staat in de bestaande Admin-preview en blijft als
+origineel bewaard in het besluit. Geen extra termijn of nieuw toelatingsbeleid.
+
+Dit sluit geen nog open beleid stilzwijgend: onvoldoende bevestigde reserves,
+krimp, niet-ondersteunde aantallen en afhankelijke historische betalingen volgen
+de bestaande uitzonderingsroute. De gebruiker vroeg uitdrukkelijk geen nieuwe
+controles/tests toe te voegen: geen testbestanden of scenario's toegevoegd of
+uitgevoerd. De eerdere testresultaten gelden niet als verificatie van deze delta.

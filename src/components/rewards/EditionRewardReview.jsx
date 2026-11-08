@@ -39,10 +39,11 @@ export default function EditionRewardReview({sourceId,sourceType,configurationVe
       <details><summary>Original And Proposed Configuration</summary><pre className="max-h-80 overflow-auto whitespace-pre-wrap break-all text-xs">{JSON.stringify({original:adoption.original,proposed:adoption.proposed},null,2)}</pre></details>
       <button type="button" className="mt-2 text-primary disabled:opacity-40" disabled={busy||!adoption.dry_run} onClick={()=>action('adopt_reward_configuration',true)}>Apply Reviewed Configuration To Unpaid Edition</button></div>}
     {report&&<><p role="status" className="text-sm">Settlement: {report.state} · Trophy: {report.trophy_state||'Not reviewed'}</p>
+      {Number(report.unawarded_amount)>0 && <p className="text-sm text-muted-foreground">Unawarded after withdrawal: {report.unawarded_amount} STC. The original budget is preserved; this amount is not redistributed.</p>}
       <details><summary className="text-xs">Captured Edition Configuration</summary><pre className="max-h-80 overflow-auto whitespace-pre-wrap break-all text-xs">{JSON.stringify(report.config||null,null,2)}</pre></details>
       {report.blocking_reasons?.map((r,i)=><p key={i} className="text-xs text-warning">{r}</p>)}
       <div className="max-h-96 overflow-auto"><table className="w-full text-xs"><thead><tr>{['Club','Component / Position','Expected STC','Proven Paid','Missing','Status'].map(h=><th key={h} className="p-2 text-left">{h}</th>)}</tr></thead><tbody>
-        {report.obligations?.map(o=><tr key={o.key} className="border-t border-border"><td className="p-2">{o.recipient_name||o.recipient_id||'Unresolved'}</td><td className="p-2">{o.component_key||o.position}</td><td className="p-2">{o.expected_amount}</td><td className="p-2">{o.proven_payment}</td><td className="p-2">{o.missing_amount}</td><td className="p-2">{o.blocking_reasons?.join('; ')||'Verified'}</td></tr>)}
+        {report.obligations?.map(o=><tr key={o.key} className="border-t border-border"><td className="p-2">{o.recipient_name||o.recipient_id||(o.withheld_reason?'Not awarded':'Unresolved')}</td><td className="p-2">{o.component_key||o.position}</td><td className="p-2">{o.expected_amount}</td><td className="p-2">{o.proven_payment}</td><td className="p-2">{o.missing_amount}</td><td className="p-2">{o.blocking_reasons?.join('; ')||o.withheld_reason||'Verified'}</td></tr>)}
       </tbody></table></div></>}
   </section>;
 }

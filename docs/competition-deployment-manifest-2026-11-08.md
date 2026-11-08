@@ -76,6 +76,32 @@ Lint, typecheck, backend syntax and frontend build pass. Full server **1,023/1,0
 exception/organizer/regional-transfer tests and Chrome desktop/mobile routes pass.
 See [precise evidence](competition-exceptions-phase6-8.md). A normal complete
 40-club season also passes; a full season combining every exception does not yet
-have evidence. Post-withdrawal final allocation and the existing open masterplan
-policy remain incomplete. Graphify is unavailable. This manifest does not certify
+have evidence. Post-withdrawal final allocation was subsequently connected in the completion
+delta below. Existing open masterplan policy remains deferred. Graphify is unavailable. This manifest does not certify
 production, authorize deployment or claim all eight phases are complete.
+
+
+## Completion delta on 8 November — same release, not deployed
+
+The approved withdrawal completion, corrected captured prizes and supported
+reserve rollover are now connected. This supplements the earlier upload list.
+No new dependency, schema table, migration, test case or control screen was added.
+Existing source modules changed:
+
+- `server/src/server/lib/competitionPrizes.js`
+- `server/src/server/lib/componentPrizePlan.js`
+- `server/src/server/lib/leagueRoundReadiness.js`
+- `server/src/server/lib/regionalReserveAllocation.js`
+- `server/src/server/lib/regionalStructure.js`
+- `server/src/server/lib/regionalWithdrawal.js`
+- `server/src/server/services/competitionEngineService.js`
+- `server/src/server/services/regionalConfirmedCycleService.js`
+- `server/src/server/services/regionalCycleService.js`
+- `server/src/server/services/regionalRegistrationService.js`
+- `server/src/server/services/regionalWithdrawalService.js`
+
+Rebuild the complete frontend for any later authorized upload; its registration,
+withdrawal preview and Rewards copy were updated. Earlier 1,023/482 test totals
+and season evidence predate this delta. Per the user's instruction, tests were
+not rerun and no new tests/checks were added. Existing lint/typecheck/backend
+syntax requirements were used. No production repair, reset or deployment ran.

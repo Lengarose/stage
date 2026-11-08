@@ -19,7 +19,7 @@ See [exception implementation and evidence](competition-exceptions-phase6-8.md).
 | Approved work | Current local state |
 | --- | --- |
 | Evidence-backed forfeits | Explicit Admin score decision, canonical/source synchronization, original evidence, transactional audit and retry safety; no individual goals. |
-| Withdrawal result/stat consequences | Before/after nineteen definitive first-half games; includes played returns, retained raw appearances and corrected career totals. Withdrawn clubs excluded from honours/prize placements/promotion. Sporting vacancies and downstream dependencies remain review; full post-withdrawal season allocation is not claimed. |
+| Withdrawal result/stat consequences | Before/after nineteen definitive first-half games; includes played returns, retained raw appearances and corrected career totals. Withdrawn clubs excluded from honours/prize placements/promotion. Approved annulments count as resolved for completion; corrected prize placements and confirmed reserve rollover are connected. Unsupported fields and existing paid/downstream dependencies keep their established exception handling. |
 | Explicit suspensions | Admin impose/revoke with dates and competition scope; selection/readiness/kickoff enforcement follows player identity. No invented automatic penalties. |
 | Earned-tier regional moves | President request, destination conditions, available matching tier only, preserved historical rights/rosters and current affiliation; audited Admin review without forced places. Drawn/Cup/different-cycle conflicts remain review. |
 | Financial exceptions | Explicit club/player refunds and compensation in separate ledgers, retry protection and refund cap; paid obligations/history preserved. No unapproved automatic amounts. |
@@ -27,14 +27,20 @@ See [exception implementation and evidence](competition-exceptions-phase6-8.md).
 | English pages and instructions | Existing registration, GameDay, management and Rewards locations extended; published withdrawal terms included in new windows; useful tutorials retained. Actual desktop/mobile Chrome evidence recorded. |
 | Normal complete season | Real isolated MySQL/JWT route passes through placement, 760 league fixtures, Cup, promotion, rewards, next edition and process recovery. Additional exception scripts pass separately; they are not a full season with every exception combined. |
 
-Still not completed: the entire combined exception matrix and post-withdrawal
-sporting/vacancy finalization; interruption/resumption details still open in the
-masterplan; unsupported counts/shrinkage/180→240 calendar; premium payment-outage
+The remaining approved withdrawal completion, prizes and reserve rollover are
+now implemented. No checks or tests were added, and no tests were run in this
+follow-up, as requested. Only the existing required lint/typecheck/syntax
+commands were used. The older full-suite and season evidence below
+predates this completion diff and does not verify it.
+
+Still deferred by the masterplan: interruption/resumption details; unsupported counts/shrinkage/180→240 calendar; premium payment-outage
 policy; North-American hours, absolute launch dates, GOST/D3. No production-ID
 inspection/repair, deployment or live verification has occurred. These are not
-new work packages. Do not mark all eight phases complete.
+new implementation work packages. Production and unexecuted acceptance work must
+not be represented as completed. No new build prompt is required for the three
+approved withdrawal gaps addressed here.
 
-Latest checks: lint, typecheck, backend syntax and frontend build pass; server **1,023/1,023** including enabled local MySQL, frontend **482/482**. Exact acceptance limits are in the handoff above.
+Last full run before this completion diff: lint, typecheck, backend syntax and frontend build passed; server **1,023/1,023** including enabled local MySQL, frontend **482/482**. These test totals were not rerun for the completion diff. Exact acceptance limits are in the handoff above.
 The old tables and dated entries below describe their original checkpoints.
 
 ## Original eight-phase position — 6 November follow-up

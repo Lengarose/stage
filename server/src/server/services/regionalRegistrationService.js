@@ -156,7 +156,7 @@ function createService({model=new RegionalRegistrationModel(),transaction=withTr
       const {user,club}=await clubAccess(body.club_id,actor,q);
       const registrations=await model.registrations(club.id,q);
       const old=registrations.find(r=>r.registration_window_id===windowId);
-      if(old)return {already_applied:true,registration:old};
+      if(old && old.status!=='withdrawn')return {already_applied:true,registration:old};
       const window=await getWindow(windowId,q);
       if(body.policy_version!==window.policy_version)fail('Review the current participation conditions before registering');
       if(policy.phase(window,clock())!=='registration')fail('Registration is not open; the common confirmation week does not extend registration');
@@ -164,12 +164,12 @@ function createService({model=new RegionalRegistrationModel(),transaction=withTr
       const clubPlatform=identity({...window,slug:'',division:1,platform:club.platform}).platform;
       if(window.platform!=='cross-platform' && clubPlatform!==window.platform)fail('Club platform does not match this regional edition');
       if(registrations.some(r=>r.registration_policy_version===policy.VERSION && Number(r.season_number)===window.season_number && Number(r.reset_series || 0)===window.reset_series && !['withdrawn','rejected','removed','cancelled'].includes(r.status)))fail('The club already has a regional application for this cycle; region transfer requires review');
-      const record={id:stableId(['regional_registration',window.id,club.id]),club_id:club.id,club_name:club.name,club_tag:club.tag || '',club_logo_url:club.logo_url || '',owner_email:user.email,
+      const record={id:old?.id || stableId(['regional_registration',window.id,club.id]),club_id:club.id,club_name:club.name,club_tag:club.tag || '',club_logo_url:club.logo_url || '',owner_email:user.email,
         target_type:'regional_league',region_slug:window.region_slug,region:window.region_slug,platform:window.platform,season_number:window.season_number,reset_series:window.reset_series,
         registration_window_id:window.id,registration_policy_version:policy.VERSION,status:'pending',participation_status:'registered',applied_at:clock().toISOString(),applied_by_user_id:user.id,
-        accepted_rules_revision:hash(publicWindow(window)),note_from_club:String(body.note || '').slice(0,2000)};
+        accepted_rules_revision:hash(publicWindow(window)),note_from_club:String(body.note || '').slice(0,2000),...(old?{previous_application:old}:{})};
       if(policy.phase(window,clock())!=='registration')fail('Registration closed while processing this request; no application was saved');
-      await model.saveRegistration(record,q,true);await audit(q,user,'apply_regional_registration',null,record);
+      await model.saveRegistration(record,q,!old);await audit(q,user,'apply_regional_registration',old || null,record);
       return {applied:true,registration:record};
     });
   }

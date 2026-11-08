@@ -65,10 +65,11 @@ function decide(fixture, results, pending) {
   if([true,1].includes(result.decided_on_penalties)&&['home','away'].includes(result.penalty_winner_side))return result.penalty_winner_side==='home'?fixture.home:fixture.away;
   pending.push({...fixture,review:'A confirmed penalty winner or sporting decision is required'});return null;
 }
-function standings(ids, fixtures, results) {
+function standings(ids, fixtures, results, {excluded=[]}={}) {
   const rows=new Map(ids.map(id=>[id,{id,points:0,gd:0,gf:0}]));
   const played=[];
   for(const f of fixtures) {
+    if(results.some(r=>r.ref===f.ref && r.resolved_withdrawal && r.status==='cancelled'))continue;
     const result=resultFor(f,results);
     if(!result)return null;
     const [h,a]=score(result),home=rows.get(f.home),away=rows.get(f.away);
@@ -77,7 +78,7 @@ function standings(ids, fixtures, results) {
     played.push({f,h,a});
   }
   const compare=(a,b)=>b.points-a.points||b.gd-a.gd||b.gf-a.gf;
-  const sorted=[...rows.values()].sort(compare);
+  const sorted=[...rows.values()].filter(row=>!excluded.includes(row.id)).sort(compare);
   // Resolve global ties using the mini-table. Still tied => explicit sporting review,
   // never alphabetical/ID placement at a decisive boundary.
   for(let i=0;i<sorted.length;) {
@@ -95,7 +96,7 @@ function standings(ids, fixtures, results) {
     }
     i=end;
   }
-  return sorted;
+  return [...sorted,...excluded.filter(id=>rows.has(id)).map(id=>({...rows.get(id),excluded:true,tied:false,tied_with:[]}))];
 }
 function unresolvedTies(table, cutoffs, group_ref) {
   // Report only ties crossing a sporting boundary. This describes the review;
@@ -209,7 +210,9 @@ function transition(from,to,groups,newIds,seed,results=[],options={}) {
   const expansion=from===60&&to===80?'wide_80':from===120&&to===180?'wide_180':null;
   const down=expansion?4:source.relegated_per_d1;
   for(const group of groups.filter(g=>g.division===2)) {
-    const ids=group.ranked_club_ids;
+    const ids=group.ranked_club_ids.filter(id=>!group.table?.find(row=>row.id===id)?.excluded);
+    const needed=expansion==='wide_80'?14:expansion==='wide_180'?9:5;
+    if(ids.length<needed)fail('The confirmed sporting route has too few eligible Division 2 clubs after withdrawal; use the existing exception review.');
     if(expansion) {
       const direct=expansion==='wide_80'?10:5;
       up.push(...ids.slice(0,direct));

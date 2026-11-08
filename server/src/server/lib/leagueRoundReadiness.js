@@ -1,5 +1,5 @@
 'use strict';
-const { isConfirmedResult } = require('./tournamentStatistics');
+const { resolvedFixture } = require('./regionalWithdrawal');
 const { resolvedTie } = require('./tournamentProgression');
 function roundReadiness(scope, phase = 'league') {
   const rows = scope.matches.filter(m => m.type === phase);
@@ -16,7 +16,7 @@ function roundReadiness(scope, phase = 'league') {
   } else expected = {playoff_round:16,knockout_r16:16,knockout_qf:8,knockout_sf:4,knockout_final:1}[phase];
   const blocked = reason => ({ready:false,reason,message:'Awaiting completion of the previous round before the draw.'});
   if (!expected || rows.length !== expected || new Set(rows.map(m=>m.fixture_id || m.id)).size !== expected) return blocked('Missing or duplicate expected fixtures');
-  if (rows.some(m=>!isConfirmedResult(m))) return blocked('Required results remain unconfirmed or unresolved');
+  if (rows.some(m=>!resolvedFixture(scope,m))) return blocked('Required results remain unconfirmed or unresolved');
   if (phase === 'league') {
     const counts = new Map(scope.participants.map(p=>[p.id,0]));
     const pairs = new Set();

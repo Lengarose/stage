@@ -59,7 +59,7 @@ function createService({ transaction = withTransaction, windows = new RegionalRe
       return {
         mode: placement ? 'placement' : 'transition',
         source_edition_ids: source.map(g => g.current_edition_id).sort(),
-        registration_ids: confirmed.filter(r => !sourceClubs.includes(r.club_id)).map(r => r.id).sort(),
+        registration_ids: confirmed.filter(r => !sourceClubs.includes(r.club_id) || source.some(g=>(g.withdrawn_club_ids || []).includes(r.club_id))).map(r => r.id).sort(),
         target_count: assessment.confirmed_clubs,
       };
     });

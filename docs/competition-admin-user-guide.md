@@ -87,4 +87,16 @@ organizers publish playing conditions and request fixture-time changes inside th
 tournament page; both affected participants must accept a requested new kickoff.
 These controls create auditable decisions rather than silently replacing history.
 The earlier outstanding-work paragraphs are superseded by the current delivery
-status; the complete post-withdrawal allocation route is still explicitly open.
+status; the approved post-withdrawal completion/reserve route is now connected. Genuine missing-reserve, unsupported-field and historical-payment exceptions retain their existing handling.
+
+
+### Withdrawal completion
+
+The withdrawal preview also lists next-season applications affected by the
+decision. After confirmation, the corrected league can finish without counting
+annulled fixtures as played. Eligible clubs keep the established ranking and
+prize rules. Unoccupied prize positions show `Not awarded` in Rewards and their
+amounts are not redistributed. The normal confirmed reserve field fills supported
+next-season structures; no automatic old place survives for a withdrawn club.
+During an open registration period, the club can apply again through the existing
+regional participation page and must complete ordinary confirmation.
