@@ -40,6 +40,10 @@ function report(rows,fixtures,now=new Date()) {
     }
   }
   for(const r of active) {
+    if(r.entity_type==='regional_transfer_request' && r.status==='review_required')add(r,'regional_transfer_review','review',`Regional transfer at the earned tier requires review. ${(r.review_reasons||[]).join(' ')}`,'registration',{club_id:r.club_id});
+    if(r.entity_type==='regional_league' && r.regional_transfer_vacancy)add(r,'regional_transfer_vacancy','review','A regional transfer left an unfilled place. Preserve confirmed clubs and use the existing reserve/vacancy order before drawing this group.','registration');
+    if(r.entity_type==='official_absence_decision' && r.status==='review_required' && (r.absent_side==='both'||r.review_club_ids?.length))add(r,'absence_review','review',r.absent_side==='both'?'Both clubs were recorded absent. An Admin must decide the match; no score has been awarded.':'A club has at least three confirmed absences in this edition. Review the evidence; no automatic exclusion applies.','results',{match_id:r.match_id});
+    if(r.entity_type==='regional_league' && r.withdrawal_review_required)add(r,'withdrawal_sporting_review','review','An Admin-applied withdrawal changed this league. Review sporting rights and vacancies before preparing its next cycle. Original evidence and paid history are preserved.','sources');
     if(r.entity_type==='regional_season_progress' && r.status==='review_required') {
       const source=active.find(s=>s.entity_type==='regional_registration_window' && s.id===r.source_id);
       if(source)add({...source,entity_type:r.entity_type},'season_preparation_review','review',`Automatic season preparation requires review. ${r.last_error || 'Check the confirmed field, sporting rights and published conditions.'} Existing cycles and draws are preserved.`,String(r.last_error || '').startsWith('Regional Cup:')?'cups':String(r.last_error || '').startsWith('Season calendar:')?'calendar':'cycles');

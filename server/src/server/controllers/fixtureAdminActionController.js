@@ -244,49 +244,17 @@ router.post('/declare-forfeit', async (req, res) => {
       return res.status(400).json({ error: `Unknown fixture_type: ${fixture_type}` });
     }
 
-    const fixture = await getFixture(fixture_type, fixture_id);
-    if (!fixture) return res.status(404).json({ error: 'Fixture not found' });
-
-    const isHomeForfeit = forfeiting_club_id === fixture.home_club_id;
-    const winnerId   = isHomeForfeit ? fixture.away_club_id   : fixture.home_club_id;
-    const winnerName = isHomeForfeit ? fixture.away_club_name : fixture.home_club_name;
-    const forfeitingName = isHomeForfeit ? fixture.home_club_name : fixture.away_club_name;
-
-    const noteLine = `Forfeit declared: ${forfeitingName} forfeited.${admin_note ? ' ' + admin_note : ''}`;
-    const newAdminNotes = appendAdminNote(fixture.admin_notes, noteLine);
-
-    await updateFixture(fixture_type, fixture_id, {
-      scheduling_status: 'confirmed',
-      status: 'forfeit',
-      winner_club_id: winnerId,
-      winner_club_name: winnerName,
-      admin_notes: newAdminNotes,
-    });
-
-    const audit = await writeAudit({
-      fixture,
-      fixture_type,
-      action_type: 'declare_forfeit',
-      ctx,
-      payload: {
-        forfeiting_club_id, forfeiting_club_name: forfeitingName,
-        winner_club_id: winnerId, winner_club_name: winnerName,
-      },
-      admin_note: noteLine,
-    });
-
+    const decision = await require('../services/fixtureForfeitService').declare({
+      fixture_id, fixture_type, forfeiting_club_id, admin_note,
+      evidence_url: req.body.evidence_url,
+    }, ctx);
+    const progression = await competitionEngineService.advanceAfterFinalResult(decision.match)
+      .catch(err => ({ triggered: false, reason: 'progression_error', error: err.message }));
     const updated = await getFixture(fixture_type, fixture_id);
-    const progression = await competitionEngineService.advanceAfterFinalResult(
-      { fixture: updated },
-      { sourceType: fixture_type },
-    ).catch((err) => {
-      console.error('[fixture admin progression]', err.message);
-      return { triggered: false, reason: 'progression_error', error: err.message };
-    });
-    res.json({ success: true, fixture: updated, audit, progression });
+    res.json({ success: true, ...decision, fixture: updated, progression });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message });
+    res.status(err.status || 500).json({ error: err.message });
   }
 });
 

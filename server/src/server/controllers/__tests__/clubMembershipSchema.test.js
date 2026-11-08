@@ -68,7 +68,7 @@ test('message delivery tables include idempotency fields in schema and startup m
   const schema = fs.readFileSync(path.join(root, 'server/schema.sql'), 'utf8');
   const startupMigrations = fs.readFileSync(path.join(root, 'server/src/server/migrations/startupMigrations.js'), 'utf8');
 
-  assert.match(schema, /CREATE TABLE IF NOT EXISTS notifications \([\s\S]*related_id\s+VARCHAR\(36\)/);
+  assert.match(schema, /CREATE TABLE IF NOT EXISTS notifications \([\s\S]*related_id\s+VARCHAR\(255\)/);
   assert.match(schema, /CREATE TABLE IF NOT EXISTS notifications \([\s\S]*idempotency_key\s+VARCHAR\(190\)/);
   assert.match(schema, /CREATE TABLE IF NOT EXISTS inbox_messages \([\s\S]*sender_gamertag\s+VARCHAR\(100\)/);
   assert.match(schema, /CREATE TABLE IF NOT EXISTS inbox_messages \([\s\S]*sender_avatar_url\s+TEXT/);

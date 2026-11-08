@@ -1,0 +1,68 @@
+{
+  "browser": "Chrome headless via CDP",
+  "source": "Real Vite routes and isolated MySQL/JWT API; synthetic acceptance clubs and trophies",
+  "flows": [
+    {
+      "view": "Tournament published conditions desktop",
+      "url": "/tournaments/98e4abe9-0932-4baa-84d5-e6e9a98199b8",
+      "title": "Browser schedule example",
+      "viewport": 1440,
+      "width": 1440,
+      "loanAction": false,
+      "text": "cept this schedule and the displayed competition rules before entry\nCONFIGURED PRIZE POOL\n0 STC\nView prize breakdown\nCREDITS\n0\n/ 50\nRegister as Player\n(50 credits)\nStages\nLeague Table\nStats\nPlayers\nStage\nLeague Phase\n\nDraw not made yet.\n\nNo registered participants yet.\n\nFixtures\n0\nLeague Phase\nNo upcoming fixtures in this stage.\nResults\n0\nLeague Phase\nNo results yet.\n\nMATCHS\n\nSCHEDULE\nINBOX\nNOTIFICATIONS\n\nCOMPETE\n\nTOURNAMENTS\nINTERNATIONAL\nRANKINGS\n\nCLUB\n\nPLAYERS\nPRESIDENTS\nFREE AGENTS\nSCOUTING\nTRANSFER ROOM\nWALLET\n\nCOMMUNITY\n\nFEED\nDISCORD\n\nACCOUNT\n\nPROFILE\nSEARCH\nLIFESTYLE\nSTORE\nNEWS\nSETTINGS"
+    },
+    {
+      "view": "Actual browser schedule acceptance",
+      "accepted": true
+    },
+    {
+      "view": "Tournament published conditions mobile",
+      "url": "/tournaments/98e4abe9-0932-4baa-84d5-e6e9a98199b8",
+      "title": "Browser schedule example",
+      "viewport": 390,
+      "width": 390,
+      "loanAction": false,
+      "text": "ts yet.\nGuide\n\nTOURNAMENT\n\nTournaments\n\nStep 3 of 3\n\n1\n\nBrowse available tournaments and open one to inspect rules, teams and schedule.\n\n2\n\nAdmins and eligible club presidents can create or manage tournaments from tournament controls.\n\n3\n\nPlayers should check registration status and deadlines before match day starts.\n\nDone\n\nMATCHS\n\nSchedule\nInbox\nNotifications\n\nCOMPETE\n\nTournaments\nInternational\nRankings\n\nCLUB\n\nPlayers\nPresidents\nFree Agents\nScouting\nTransfer Room\nWallet\n\nCOMMUNITY\n\nFeed\nDiscord\n\nACCOUNT\n\nProfile\nSearch\nLifestyle\nStore\nNews\nSettings\nDashboard\nMatchs\nCompete\nClub\n9+\nTournaments"
+    },
+    {
+      "view": "Admin decision forms mobile",
+      "url": "/admin/leagues",
+      "title": "Regional Leagues",
+      "viewport": 390,
+      "width": 390,
+      "loanAction": false,
+      "text": "IN PROGRESS\nView\nEnd Season\nAbandon season\nView Fixtures\n\nFIXTURES ALREADY GENERATED\n\n0 selected · 0 open spots · 21 available\n\nCHOOSE CLUBS\nCLEAR\nADD CLUBS\nSIMULATE FIXTURES\nLOGO\nUpload PNG/image for public league page\nBANNER\nUpload PNG/image for public league page\n\nDIV 1 QUALIFICATION\n\nSeed competitions first\n\nEdit qualification slots for this region.\n\nOPERATIONS\n\nClubs\nTransfer Room\n\nCOMPETITION SYSTEMS\n\nRegional Leagues\nGOST\nInternational\nRankings\nAnalytics\n\nCONTENT\n\nNews\nStore\nLifestyle\n\nSYSTEM\n\nTrophies\nRewards\nHome Page\nLanding Page\nDiscord\nDash\nTournois\nGameDay\nPlayers\nRegional Leagues"
+    },
+    {
+      "view": "Admin decision forms desktop",
+      "url": "/admin/leagues",
+      "title": "Regional Leagues",
+      "viewport": 1440,
+      "width": 1440,
+      "loanAction": false,
+      "text": "roup uses Regional cycles above for sporting allocation and the next season. Its capacity and promotion route are managed together with the other groups.\n\nD2A\n\nAcceptance Division 2\n\nSeason 2 · 20/20 clubs · champion + play-off winner promoted\n\nIN PROGRESS\nView\nEnd Season\nAbandon season\nView Fixtures\n\nFIXTURES ALREADY GENERATED\n\n0 selected · 0 open spots · 21 available\n\nCHOOSE CLUBS\nCLEAR\nADD CLUBS\nSIMULATE FIXTURES\nLOGO\nUpload PNG/image for public league page\nBANNER\nUpload PNG/image for public league page\n\nDIV 1 QUALIFICATION\n\nSeed competitions first\n\nEdit qualification slots for this region."
+    },
+    {
+      "view": "Admin financial exception form desktop",
+      "url": "/admin/rewards",
+      "title": "Rewards",
+      "viewport": 1440,
+      "width": 1440,
+      "loanAction": false,
+      "text": "xplicit review.\n\nCup edition\nChoose an edition\nSTAGE UK & Ireland Cup · season 1 · completed\nSTAGE UK & Ireland Cup · season 2 · running\nReload Cup editions\nReview payments and trophy →\nPreview reward terms for an existing edition →\nRegional Edition Identity Review\nReview identities (read only)\n\nSELECT REWARD SOURCE\n\nGOST\n\nREGIONAL LEAGUES\n\nAcceptance Division 1\nDivision 1 · Season 2 · in_progress · uk-ireland · cross-platform\nID: 7f38e174-a0a6-4c69-a99e-d1487e5ac6c2\nAcceptance Division 2\nDivision 2 · Season 2 · in_progress · uk-ireland · cross-platform\nID: ce2fedeb-92a1-4208-b193-43fbac4e4aad"
+    },
+    {
+      "view": "Admin financial exception form mobile",
+      "url": "/admin/rewards",
+      "title": "Rewards",
+      "viewport": 390,
+      "width": 390,
+      "loanAction": false,
+      "text": "ional Edition Identity Review\nReview identities (read only)\n\nSELECT REWARD SOURCE\n\nGOST\n\nREGIONAL LEAGUES\n\nAcceptance Division 1\nDivision 1 · Season 2 · in_progress · uk-ireland · cross-platform\nID: 7f38e174-a0a6-4c69-a99e-d1487e5ac6c2\nAcceptance Division 2\nDivision 2 · Season 2 · in_progress · uk-ireland · cross-platform\nID: ce2fedeb-92a1-4208-b193-43fbac4e4aad\n\nOPERATIONS\n\nClubs\nTransfer Room\n\nCOMPETITION SYSTEMS\n\nRegional Leagues\nGOST\nInternational\nRankings\nAnalytics\n\nCONTENT\n\nNews\nStore\nLifestyle\n\nSYSTEM\n\nTrophies\nRewards\nHome Page\nLanding Page\nDiscord\nDash\nTournois\nGameDay\nPlayers\nRewards"
+    }
+  ],
+  "complete": false,
+  "runtime_errors": [],
+  "browser_route_complete": true,
+  "finished_at": "2026-11-08T03:17:40.440Z"
+}

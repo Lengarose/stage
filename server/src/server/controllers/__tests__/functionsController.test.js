@@ -4006,6 +4006,7 @@ test('adminMatchActions legacy and guarded forfeit approval trigger central fina
     away_club_name: 'Away FC',
     forfeit_claimed_by: 'club-home',
     forfeit_status: 'pending',
+    forfeit_proof_url: '/uploads/no-show.png',
   };
   const auditRows = [];
   const conn = {
@@ -4014,6 +4015,7 @@ test('adminMatchActions legacy and guarded forfeit approval trigger central fina
     async rollback() {},
     release() {},
     async query(sql, params = []) {
+      if (/INSERT INTO admin_audit_log/.test(sql)) { auditRows.push(params); return [{ affectedRows: 1 }, []]; }
       if (/SELECT \* FROM matches WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[match], []];
       if (/SELECT tournament_id FROM matches WHERE id = \? LIMIT 1/.test(sql)) return [[{ tournament_id: match.tournament_id }], []];
       if (/UPDATE matches\s+SET status = \?/.test(sql)) {
@@ -4021,6 +4023,8 @@ test('adminMatchActions legacy and guarded forfeit approval trigger central fina
         match.forfeit_status = params[1];
         match.winner_club_id = params[2];
         match.winner_club_name = params[3];
+        match.home_score = params[4];
+        match.away_score = params[5];
         return [{ affectedRows: 1 }, []];
       }
       if (/SELECT \* FROM matches WHERE id = \? LIMIT 1/.test(sql)) return [[match], []];
@@ -4067,6 +4071,8 @@ test('adminMatchActions legacy and guarded forfeit approval trigger central fina
   assert.equal(progressed[0].id, 'match-forfeit-1');
   assert.equal(progressed[0].status, 'forfeit');
   assert.equal(auditRows.length, 1);
+  assert.equal(match.home_score, 3);
+  assert.equal(match.away_score, 0);
  }
 });
 
@@ -4689,6 +4695,7 @@ test('adminMatchActions guarded forfeit decisions reject changed evidence before
  const conn={async beginTransaction(){},async commit(){},async rollback(){rollbacks++;},release(){},async query(sql,args=[]){
   if(/SELECT tournament_id FROM matches/.test(sql))return [[{}],[]];
   if(/SELECT \* FROM matches/.test(sql))return [[match],[]];
+  if(/INSERT INTO admin_audit_log/.test(sql)){writes++;return [{affectedRows:1},[]];}
   if(/UPDATE matches/.test(sql)){writes++;match={...match,forfeit_status:args[0],forfeit_claimed_by:null,forfeit_proof_url:null};return [{affectedRows:1},[]];}
   throw Error(`Unexpected SQL: ${sql}`);
  }};

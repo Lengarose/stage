@@ -32,5 +32,8 @@ test("profile photo editing uses the same player and club card previews", () => 
   assert.match(shell, /photoPreviewClub/);
   assert.match(shell, /<GamerPlayerPhotoFrame/);
   assert.match(shell, /<GamerClubPhotoFrame/);
-  assert.match(editor, /aspect-\[3\/4\][\s\S]{0,160}\[clip-path:polygon\(12%_0,100%_0,88%_100%,0_100%\)\]/);
+  assert.match(editor, /<GamerPlayerPhotoFrame/);
+  assert.match(editor, /<GamerClubPhotoFrame/);
+  assert.match(editor, /imagePosition=\{position\}/);
+  assert.match(editor, /imageZoom=\{zoom\}/);
 });

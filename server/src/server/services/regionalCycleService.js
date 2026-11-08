@@ -53,6 +53,7 @@ async function sources(input,query, cycleId = null, resolveSourceTies = false) {
     const raw = all.find(r=>r.id===id);
     if (!raw || describe(raw).identity_error || describe(raw).indexed_json_differences.length) fail('Source edition identity requires review',409,{id});
     const scope = await scopes.selectOne('regional_league',id,query,true);
+    if(scope.root.withdrawal_review_required)fail('An applied club withdrawal requires sporting rights and vacancy review before the next cycle.');
     const current = catalogue.groups.find(g=>g.current_edition_id===id);
     if (!current || current.identity_conflict || current.retired || scope.root.edition_invalidated) fail('Use the unambiguous current edition of an active permanent division',409,{id});
     source.push(scope);

@@ -15,7 +15,7 @@ function loadRouter({ executesql, serviceMock = {}, actionModelMock = {} }) {
     id: dbPath,
     filename: dbPath,
     loaded: true,
-    exports: { EXECUTESQL: executesql, pool: {} },
+    exports: { EXECUTESQL: executesql, withTransaction: work => work(executesql), pool: {} },
   };
   class FixtureAdminActionMock {
     constructor(payload) {
@@ -49,6 +49,7 @@ function loadRouter({ executesql, serviceMock = {}, actionModelMock = {} }) {
       ...serviceMock,
     },
   };
+  delete require.cache[require.resolve('../../services/fixtureForfeitService')];
   return require(routerPath);
 }
 
@@ -85,6 +86,12 @@ test('declare-forfeit triggers central final-result progression for updated comp
   };
   const router = loadRouter({
     executesql: async (sql, params = []) => {
+      if (/SELECT \* FROM competition_fixtures|SELECT \* FROM matches/.test(sql)) return [];
+      if (/INSERT INTO fixture_admin_actions/.test(sql)) return { affectedRows: 1 };
+      if (/SELECT \* FROM league_entities WHERE id=\? AND entity_type=\?/.test(sql)) {
+        if (params[1] === 'competition_season') return [{ id: 'season-1', status: 'in_progress', data_json: '{}' }];
+        return [{ id: fixture.id, data_json: JSON.stringify(fixture) }];
+      }
       if (/SELECT id, role_id, email FROM users WHERE id = \? LIMIT 1/.test(sql)) {
         return [{ id: 'admin-1', role_id: 0, email: 'admin@example.test' }];
       }
@@ -98,7 +105,7 @@ test('declare-forfeit triggers central final-result progression for updated comp
           data_json: JSON.stringify(fixture),
         }];
       }
-      if (/UPDATE league_entities\s+SET data_json = \?/.test(sql)) {
+      if (/UPDATE league_entities\s+SET data_json\s*=\s*\?/.test(sql)) {
         fixture = JSON.parse(params[0]);
         return { affectedRows: 1 };
       }
@@ -120,6 +127,8 @@ test('declare-forfeit triggers central final-result progression for updated comp
       fixture_id: 'fixture-1',
       fixture_type: 'competition',
       forfeiting_club_id: 'club-home',
+      evidence_url: '/uploads/no-show.png',
+      admin_note: 'Reviewed the attendance proof.',
     },
   }, response);
 
@@ -127,6 +136,9 @@ test('declare-forfeit triggers central final-result progression for updated comp
   assert.equal(response.body.fixture.status, 'forfeit');
   assert.equal(response.body.progression.triggered, true);
   assert.equal(progressed.length, 1);
-  assert.equal(progressed[0].payload.fixture.status, 'forfeit');
-  assert.equal(progressed[0].options.sourceType, 'competition');
+  assert.equal(progressed[0].payload.status, 'forfeit');
+  assert.equal(response.body.fixture.home_score, 0);
+  assert.equal(response.body.fixture.away_score, 3);
+  assert.equal(response.body.fixture.administrative_result, 1);
+  assert.equal(response.body.audit.payload.before.status, 'scheduled');
 });

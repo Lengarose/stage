@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import OfficialCompetitionDecisions from './OfficialCompetitionDecisions';
 import { Plus, Archive, Trash2, Search } from 'lucide-react';
 import { stageClient } from '@/api/stageClient';
 import { adminEndpointError, managementPreviewReady, buildLeagueManagementRequest } from '@/lib/adminLeagueLifecycle';
@@ -91,6 +92,7 @@ export default function RegionalLeagueManagementPanel({ definitions = [], trophy
         {repairPreview && <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-all text-xs">{JSON.stringify(repairPreview, null, 2)}</pre>}
       </div>
     </fieldset>
+    <OfficialCompetitionDecisions definitions={definitions} onRefresh={onRefresh} />
     {applied && <p role="status" className="text-sm">League management operation confirmed. Catalogue refreshed.</p>}
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
   </section>;

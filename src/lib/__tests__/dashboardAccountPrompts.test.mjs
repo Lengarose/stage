@@ -38,7 +38,8 @@ test("header identity menus route public identities to Player and Club surfaces"
   );
 
   assert.match(desktopIdentityMenu, /myPlayer\s*\?\s*\([\s\S]{0,360}<Link\s+to="\/profile"/);
-  assert.match(desktopIdentityMenu, /myClubId\s*\?\s*\([\s\S]{0,360}<Link\s+to=\{`\/clubs\/\$\{myClubId\}`\}/);
+  assert.match(desktopIdentityMenu, /clubMenuId\s*\?\s*\([\s\S]{0,360}<Link\s+to=\{`\/clubs\/\$\{clubMenuId\}`\}/);
+  assert.match(desktopIdentityMenu, /const clubMenuId = showAsPresident \? myClubId : \(playerClubId \|\| myClubId\)/);
   assert.doesNotMatch(desktopIdentityMenu, /\/presidents\//);
   assert.match(mobileIdentityMenu, /myPlayer\s*\?\s*\([\s\S]{0,360}<Link\s+to="\/profile"/);
   assert.match(mobileIdentityMenu, /presidentClub\?\.id\s*\?\s*\([\s\S]{0,360}<Link\s+to=\{`\/clubs\/\$\{presidentClub\.id\}`\}/);

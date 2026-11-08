@@ -354,11 +354,12 @@ export async function flagForAdminReview(fixture, fixtureType, adminNote = "") {
 
 // ─── Admin: declare forfeit ───────────────────────────────────────────────────
 
-export async function declareForfeit({ fixture, fixtureType, forfeitingClubId, adminNote = "" }) {
+export async function declareForfeit({ fixture, fixtureType, forfeitingClubId, evidenceUrl, adminNote = "" }) {
   const res = await stageClient.http.post("/fixture-admin-actions/declare-forfeit", {
     fixture_id:          fixture.id,
     fixture_type:        fixtureType,
     forfeiting_club_id:  forfeitingClubId,
+    evidence_url:       evidenceUrl,
     admin_note:          adminNote || null,
   });
   return res?.fixture || null;

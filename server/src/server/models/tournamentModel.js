@@ -6,6 +6,7 @@ const { applyStoredTournamentRules } = require('../utils/tournamentRuleTemplates
 class Tournament {
   constructor(body = {}) {
     this.id                      = body.id;
+    this.schedule_policy_version = body.schedule_policy_version || null;
     this.name                    = body.name;
     this.description             = body.description;
     this.type                    = body.type;
@@ -116,8 +117,8 @@ class Tournament {
        winner_club_id, winner_club_name,
        banner_url, banner_color, banner_position,
        trophy_url, trophy_item_id,
-       registered_players, registered_clubs, registration_proofs)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+       registered_players, registered_clubs, registration_proofs, schedule_policy_version)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
     const values = [
       this.id, this.name, this.description, this.type, this.participant_type,
       this.platform, this.region, this.max_teams,
@@ -131,12 +132,12 @@ class Tournament {
       this.winner_club_id, this.winner_club_name,
       this.banner_url, this.banner_color, this.banner_position,
       this.trophy_url, this.trophy_item_id,
-      this.registered_players, this.registered_clubs, this.registration_proofs,
+      this.registered_players, this.registered_clubs, this.registration_proofs, this.schedule_policy_version,
     ];
     return EXECUTESQL(sql, values);
   }
 
-  update(id) {
+  update(id, query = EXECUTESQL) {
     const sql = `UPDATE tournaments SET
       name=?, description=?, type=?, participant_type=?, platform=?, region=?, max_teams=?,
       entry_credits=?, entry_fee_stc=?, prize_description=?, prize_pool_stc=?,
@@ -167,7 +168,7 @@ class Tournament {
       this.registered_players, this.registered_clubs, this.registration_proofs,
       id,
     ];
-    return EXECUTESQL(sql, values);
+    return query(sql, values);
   }
 
   delete(id) {

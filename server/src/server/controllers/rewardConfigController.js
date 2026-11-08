@@ -13,6 +13,7 @@
  */
 const express = require('express');
 const router = express.Router();
+router.post('/adjustments', async (req,res) => {try {res.json(await require('../services/competitionAdjustmentService').action(req.body || {},req.user));}catch(err){res.status(err.status || 500).json({error:err.message});}});
 const { EXECUTESQL } = require('../db/database');
 const RewardConfigModel = require('../models/rewardConfigModel');
 const { v4: uuidv4 } = require('uuid');

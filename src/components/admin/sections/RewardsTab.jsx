@@ -1,3 +1,4 @@
+import CompetitionAdjustmentPanel from "@/components/rewards/CompetitionAdjustmentPanel";
 import RewardConfigPanel from "@/components/rewards/RewardConfigPanel";
 import DivisionTwoRewardReview from '@/components/rewards/DivisionTwoRewardReview';
 import {useState} from 'react';
@@ -22,6 +23,7 @@ export default function RewardsTab({
 
   return (
     <div className="max-w-2xl space-y-5">
+      <CompetitionAdjustmentPanel />
       <h3 className="font-heading text-lg uppercase tracking-tight text-foreground flex items-center gap-2">
         <Coins className="w-5 h-5 text-warning" /> {t("admin.rewards.seasonRewards")}
       </h3>

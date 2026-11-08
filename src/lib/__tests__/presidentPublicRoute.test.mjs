@@ -40,5 +40,5 @@ test("admin president transfer view link goes to the player profile", () => {
 test("GameDay loads fixtures for signed club and presidentClub", () => {
   const gameDay = read("src/pages/GameDay.jsx");
   assert.match(gameDay, /presidentClub/);
-  assert.match(gameDay, /const clubIds = \[club\?\.id, player\?\.club_id, presidentClub\?\.id\]/);
+  assert.match(gameDay, /uniqueIdentityClubs\(\s*myClub,\s*presidentClub,\s*myPlayer\?\.club_id/);
 });

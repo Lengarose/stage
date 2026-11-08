@@ -550,6 +550,7 @@ async function runStartupMigrations() {
   await addCol('matches', 'away_stream_url',   'TEXT NULL');
 
   // Forfeit workflow
+  await addCol('tournaments', 'schedule_policy_version', 'VARCHAR(40) NULL');
   await addCol('matches', 'forfeit_claimed_by', 'VARCHAR(255) NULL');
   await addCol('matches', 'forfeit_proof_url',  'TEXT NULL');
   await addCol('matches', 'forfeit_status',     'VARCHAR(50) NULL');

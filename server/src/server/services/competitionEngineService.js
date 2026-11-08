@@ -779,10 +779,11 @@ async function syncCompetitionFixtureResult(match, sourceFixtureId) {
     aggregate_away_score: match.aggregate_away_score ?? null,
     home_penalties: match.home_penalties ?? null,
     away_penalties: match.away_penalties ?? null,
-    status: 'completed',
+    administrative_result: Number(match.administrative_result) || 0,
+    status: match.status === 'forfeit' ? 'forfeit' : 'completed',
     stats_processed: true,
   };
-  await updateLeagueEntityData('competition_fixture', sourceFixtureId, nextFixture, { status: 'completed' });
+  await updateLeagueEntityData('competition_fixture', sourceFixtureId, nextFixture, { status: nextFixture.status });
 
   if (String(fixture.phase || 'league') === 'league') {
     const standingRows = await EXECUTESQL(
@@ -845,10 +846,12 @@ async function syncRegionalLeagueFixtureResult(match, sourceFixtureId) {
     away_score: awayScore,
     winner_club_id: winnerClubId,
     winner_club_name: winnerClubName,
-    status: 'played',
+    status: match.status === 'forfeit' ? 'forfeit' : 'played',
+    result_state: match.result_state || 'CONFIRMED',
+    administrative_result: Number(match.administrative_result) || 0,
     stats_processed: true,
   };
-  await updateLeagueEntityData('regional_league_fixture', sourceFixtureId, nextFixture, { status: 'played' });
+  await updateLeagueEntityData('regional_league_fixture', sourceFixtureId, nextFixture, { status: nextFixture.status });
 
   const standingRows = await EXECUTESQL(
     `SELECT * FROM league_entities
@@ -1519,12 +1522,14 @@ async function advanceLeagueEdition(kind, fixture, { dryRun = false, admin = nul
   if (!id) return { advanced:false,reason:'unsupported_fixture' };
   if(kind==='regional_league') {
     const root=await selectLeagueEntityById(kind,id);
+    if(root?.withdrawal_review_required)return {advanced:false,reason:'Club withdrawal requires sporting rights and vacancy review'};
     if(root?.pending_regional_cycle_id)return {advanced:false,reason:'Final league places and sporting rights are being resolved by the captured regional cycle',cycle_id:root.pending_regional_cycle_id};
   }
   const prizes = require('./competitionPrizeService');
   if (!dryRun) await prizes.capture(kind,id);
   const result = await database.withTransaction(async query => {
     const scope = await new (require('../models/competitionScopeModel').CompetitionScopeModel)().selectOne(kind,id,query,!dryRun);
+    if(kind==='regional_league' && scope.root.withdrawal_review_required)return {advanced:false,reason:'Club withdrawal requires sporting rights and vacancy review'};
     if(kind==='regional_league' && scope.root.pending_regional_cycle_id)return {advanced:false,reason:'Final league places and sporting rights are being resolved by the captured regional cycle',cycle_id:scope.root.pending_regional_cycle_id};
     if (scope.root.edition_invalidated || ['reset','cancelled','abandoned','superseded','retired'].includes(scope.root.status)) return {advanced:false,reason:'Edition is closed or invalidated'};
     const requestedPhase = fixture.phase || 'league';
@@ -1975,6 +1980,7 @@ async function advanceCommunitySwissUcl(tournament, allMatches) {
 }
 
 async function insertCommunityTournamentMatch(tournament, home, away, round, type, extra = {}) {
+  if(tournament.schedule_policy_version)extra=await require('./tournamentScheduleService').forMatch(tournament,{...extra,type,round,home_club_id:home.id,away_club_id:away.id,home_player_id:home.id,away_player_id:away.id});
   const isPlayer = Boolean(home.player || away.player) || String(tournament.participant_type || '').toLowerCase() === 'player';
   const rawStatus = String(extra.status || '').toLowerCase();
   const hasConfirmedSchedule = Boolean(extra.confirmed_date || extra.scheduled_date || extra.scheduling_status === 'confirmed');
@@ -2268,7 +2274,7 @@ async function syncMatchResultToSource(matchOrId) {
   const match = typeof matchOrId === 'string'
     ? (await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [matchOrId]))[0]
     : matchOrId;
-  if (!match?.id || match.status !== 'completed') return { synced: false, reason: 'match_not_completed' };
+  if (!match?.id || !(match.status === 'completed' || (match.status === 'forfeit' && Number(match.administrative_result) === 1 && match.result_state === 'CONFIRMED'))) return { synced: false, reason: 'match_not_completed' };
 
   const { engineFixture, sourceType, legacyResult } = await withSourceResultTransaction(async () => {
     const [mapped] = await EXECUTESQL('SELECT * FROM competition_fixtures WHERE match_id = ? LIMIT 1', [match.id]);
@@ -2330,7 +2336,7 @@ async function advanceAfterFinalResult(finalResult, options = {}) {
     if (!isFinishedStatus(matchStatus)) {
       return { triggered: false, reason: 'match_not_final' };
     }
-    const sync = matchStatus === 'completed'
+    const sync = matchStatus === 'completed' || (matchStatus === 'forfeit' && Number(match.administrative_result) === 1 && match.result_state === 'CONFIRMED')
       ? await syncMatchResultToSource(match).catch((err) => ({
         synced: false,
         reason: 'sync_error',

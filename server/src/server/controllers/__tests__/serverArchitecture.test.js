@@ -46,7 +46,7 @@ test('server bootstrap delegates startup migrations to a migrations module', () 
   assert.doesNotMatch(server, /async function runStartupMigrations/);
   assert.match(startupMigrations, /async function runStartupMigrations/);
   assert.match(startupMigrations, /CREATE TABLE IF NOT EXISTS club_memberships/);
-  assert.match(startupMigrations, /module\.exports = \{ runStartupMigrations \}/);
+  assert.match(startupMigrations, /module\.exports = \{ runStartupMigrations(?:, [a-zA-Z]+)* \}/);
 });
 
 test('functions controller delegates RPC dispatching to a functions router module', () => {

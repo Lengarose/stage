@@ -7,9 +7,11 @@ test('MySQL TEXT/native JSON/null-safe guarded confirmation and no-op semantics'
   const mysql = require('mysql2/promise');
   const host = process.env.STAGE_TEST_MYSQL_HOST || '127.0.0.1';
   const database = process.env.STAGE_TEST_MYSQL_DATABASE;
+  const socketPath=process.env.STAGE_TEST_MYSQL_SOCKET;
+  if(socketPath)assert(/^\/private\/tmp\/stage-season-acceptance[^/]*\.sock$/.test(socketPath),'Use the dedicated local acceptance socket');
   assert(['127.0.0.1','localhost','::1'].includes(host), 'This test only permits a loopback database');
-  assert(database && database.endsWith('_test'), 'Use an explicit disposable _test database, not production');
-  const conn = await mysql.createConnection({ host, database, port: Number(process.env.STAGE_TEST_MYSQL_PORT || 3306), user: process.env.STAGE_TEST_MYSQL_USER, password: process.env.STAGE_TEST_MYSQL_PASSWORD, dateStrings: true });
+  assert(database && (database.endsWith('_test') || socketPath && /^stage_acceptance_[a-f0-9]{12}$/.test(database)), 'Use an explicit disposable _test database, not production');
+  const conn = await mysql.createConnection({ ...(socketPath?{socketPath}:{host}), database, port: Number(process.env.STAGE_TEST_MYSQL_PORT || 3306), user: process.env.STAGE_TEST_MYSQL_USER, password: process.env.STAGE_TEST_MYSQL_PASSWORD, dateStrings: true });
   const query = async (sql, args = []) => (await conn.query(sql, args))[0];
   try {
     await query('CREATE TEMPORARY TABLE matches (id VARCHAR(36) PRIMARY KEY,home_submission TEXT,away_submission TEXT,result_history JSON,home_dispute_submission TEXT,away_dispute_submission TEXT,result_state VARCHAR(40),status VARCHAR(40),result_submit_side VARCHAR(8),correction_count INT,home_counter_count INT,stats_processed TINYINT DEFAULT 0,report_finalized TINYINT DEFAULT 0,result_away_submitted TINYINT DEFAULT 0,updated_date DATETIME)');

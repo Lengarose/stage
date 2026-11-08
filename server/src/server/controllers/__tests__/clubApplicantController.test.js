@@ -43,7 +43,7 @@ function loadClubApplicantRouterWithMocks(executesql, deliveryMock) {
     id: dbPath,
     filename: dbPath,
     loaded: true,
-    exports: { EXECUTESQL: executesql },
+    exports: { EXECUTESQL: (sql, args) => sql.includes("entity_type='regional_registration_window'") ? Promise.resolve([]) : executesql(sql, args) },
   };
   require.cache[operationsPath] = {
     id: operationsPath,

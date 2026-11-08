@@ -41,7 +41,7 @@ function createService({model=new RegionalRegistrationModel(),transaction=withTr
   async function windows() {
     const all=(await editions.model.selectAll(query)).map(unpack);
     return {windows:(await model.selectAll(query)).filter(w=>w.status==='published').map(w=>{
-      return {...publicWindow(w),phase:unavailable(all,w)?'closed':policy.phase(w,clock())};
+      return {...publicWindow(w),transfer_conditions_revision:hash(publicWindow(w)),phase:unavailable(all,w)?'closed':policy.phase(w,clock())};
     })};
   }
   async function runPublish(body,actor,automatic=false,automaticTiming=null) {
@@ -66,6 +66,7 @@ function createService({model=new RegionalRegistrationModel(),transaction=withTr
       const cupTied=require('./officialCupTiedService'),cupTiedVersion=existing?existing.cup_tied_policy_version:body.include_cup===true?cupTied.VERSION:null;
       const transfers=require('./officialPlayerTransferService'),transferVersion=existing?existing.player_transfer_policy_version:transfers.VERSION;
       let rules_text=base_rules_text;
+      const withdrawalPolicy=require('../lib/regionalWithdrawal');
       if(!rules_text || rules_text.length>12000)fail('Provide the published edition rules before opening registration',400);
       if(body.include_cup===true)rules_text+=`\n\n${cup.rules}`;
       const resultPolicy=require('../lib/regionalResultPolicy');
@@ -74,13 +75,14 @@ function createService({model=new RegionalRegistrationModel(),transaction=withTr
       if(reserveVersion)rules_text+=`\n\n${reserves.RULES}`;
       if(transferVersion)rules_text+=`\n\n${transfers.RULES}`;
       if(cupTiedVersion)rules_text+=`\n\n${cupTied.RULES}`;
+      rules_text+=`\n\n${withdrawalPolicy.RULES}`;
       if(rules_text.length>12000)fail('Published rules including Cup terms exceed the supported length',400);
       const orchestration=require('../lib/regionalSeasonOrchestrationPolicy');
       const orchestrationVersion=existing?existing.season_orchestration_policy_version:orchestration.VERSION;
       const startMonday=String(body.league_start_monday || '').trim();
       if(startMonday && (!/^\d{4}-\d{2}-\d{2}$/.test(startMonday) || !Number.isFinite(Date.parse(startMonday+'T00:00:00Z')) || new Date(startMonday+'T00:00:00Z').toISOString().slice(0,10)!==startMonday || new Date(startMonday+'T00:00:00Z').getUTCDay()!==1))fail('Choose a valid Monday for the first league playing week',400);
       const recurringVersion=existing?existing.recurring_schedule_policy_version:orchestration.RECURRING_VERSION;
-      const window={base_rules_text,...(rescheduleVersion?{reschedule_policy_version:rescheduleVersion}:{}),...(recurringVersion?{recurring_schedule_policy_version:recurringVersion}:{}),...(orchestrationVersion?{season_orchestration_policy_version:orchestrationVersion}:{}),...(startMonday?{league_start_monday:startMonday}:{}),id,region_slug:i.region_slug,platform:i.platform,season_number:i.season_number,reset_series:i.reset_series || 0,permanent_league_id:definition.id,...timing,policy_version:policy.VERSION,result_policy_version:resultPolicy.VERSION,confirmation_notice_policy_version:'regional_confirmation_notice_v1',...(body.include_cup===true?{cup_policy_version:cup.policy.version}:{}),rules_text,status:'published'};
+      const window={base_rules_text,withdrawal_policy_version:withdrawalPolicy.VERSION,...(rescheduleVersion?{reschedule_policy_version:rescheduleVersion}:{}),...(recurringVersion?{recurring_schedule_policy_version:recurringVersion}:{}),...(orchestrationVersion?{season_orchestration_policy_version:orchestrationVersion}:{}),...(startMonday?{league_start_monday:startMonday}:{}),id,region_slug:i.region_slug,platform:i.platform,season_number:i.season_number,reset_series:i.reset_series || 0,permanent_league_id:definition.id,...timing,policy_version:policy.VERSION,result_policy_version:resultPolicy.VERSION,confirmation_notice_policy_version:'regional_confirmation_notice_v1',...(body.include_cup===true?{cup_policy_version:cup.policy.version}:{}),rules_text,status:'published'};
       if(reserveVersion)window.reserve_policy_version=reserveVersion;
       if(cupTiedVersion)window.cup_tied_policy_version=cupTiedVersion;
       if(transferVersion)window.player_transfer_policy_version=transferVersion;

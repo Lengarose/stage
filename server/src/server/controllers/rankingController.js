@@ -221,6 +221,7 @@ function mapPhysicalFixture(row, sourceType) {
     division: row.division,
     phase: row.phase || row.type || 'league',
     status: row.status,
+    administrative_result: row.administrative_result,
     home_club_id: row.home_club_id,
     away_club_id: row.away_club_id,
     home_score: homeScore,
@@ -244,6 +245,8 @@ function mapEntityFixture(row, sourceType) {
     division: data.division,
     phase: data.phase || data.type || 'league',
     status: data.status || row.status,
+    administrative_result: data.administrative_result,
+    excluded_from_standings: data.excluded_from_standings,
     home_club_id: data.home_club_id,
     away_club_id: data.away_club_id,
     home_score: homeScore,
@@ -256,7 +259,7 @@ async function getOfficialFixtures() {
   const fixtures = [];
   const seen = new Set();
   const add = (fixture) => {
-    if (!fixture.home_club_id || !fixture.away_club_id || !isCompleted(fixture)) return;
+    if (fixture.excluded_from_standings || !fixture.home_club_id || !fixture.away_club_id || !isCompleted(fixture)) return;
     if (!fixture.match_id) fixture.match_id = fixture.raw_id;
     const key = `${fixture.source_type}:${fixture.raw_id || fixture.match_id}`;
     if (seen.has(key)) return;
@@ -265,7 +268,7 @@ async function getOfficialFixtures() {
   };
 
   const tournamentMatches = await query(
-    `SELECT m.id, m.id AS match_id, m.competition_context, m.type, m.status,
+    `SELECT m.id, m.id AS match_id, m.competition_context, m.type, m.status, m.administrative_result,
             m.home_club_id, m.away_club_id, m.home_score, m.away_score, m.winner_club_id,
             t.name AS tournament_name
        FROM matches m
@@ -416,7 +419,7 @@ function buildPlayerRankings(players, fixtures, statRows, clubRankings) {
 
   for (const stat of statRows) {
     const fixture = fixtureByMatch.get(String(stat.match_id));
-    if (!fixture) continue;
+    if (!fixture || Number(fixture.administrative_result)===1 || fixture.status==='forfeit') continue;
     const player = getPlayer(stat);
     if (!player?.id) continue;
     if (!map.has(player.id)) {

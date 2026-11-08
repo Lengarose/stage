@@ -1938,6 +1938,8 @@ async function fulfilCheckoutSession(session) {
 }
 
 async function insertTournamentMatch(query, match) {
+  const [scheduleTournament] = await query('SELECT * FROM tournaments WHERE id=?', [match.tournament_id]);
+  if (scheduleTournament?.schedule_policy_version) match = await require('../services/tournamentScheduleService').forMatch(scheduleTournament, match, query);
   const id = match.id || uuidv4();
   const rawStatus = String(match.status || '').toLowerCase();
   const hasConfirmedSchedule = Boolean(match.confirmed_date || match.scheduled_date || match.scheduling_status === 'confirmed');
@@ -1952,8 +1954,8 @@ async function insertTournamentMatch(query, match) {
         away_player_id, away_player_name, away_player_email,
         home_score, away_score, status, mode, type, round, group_number, scheduled_date,
         scheduling_status, home_proposed_date, away_proposed_date, last_proposed_by,
-        proposal_count, confirmed_date, allow_penalties, created_date, updated_date)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+        proposal_count, confirmed_date, allow_penalties, timezone, created_date, updated_date)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
     [
       id,
       match.tournament_id,
@@ -1982,6 +1984,7 @@ async function insertTournamentMatch(query, match) {
       Number(match.proposal_count || 0),
       match.confirmed_date || null,
       penaltiesFlagForCreatedMatch({ type: matchType, phase: match.phase }),
+      match.timezone || null,
     ]
   );
   return id;
@@ -2951,6 +2954,14 @@ function buildTournamentDrawMatches(tournament, entries) {
   const matches = [];
   let numGroups = Number(tournament.num_groups || 0) || 2;
 
+  if (type === 'league' && tournament.schedule_policy_version) {
+    const fixtures=require('../lib/regionalStructure').roundRobin(seeded.map(e=>e.id),'organizer_league');
+    const rounds=Math.max(...fixtures.map(f=>f.round));
+    const byId=new Map(seeded.map(e=>[e.id,e]));
+    for(const f of fixtures)matches.push(makeMatch(byId.get(f.home),byId.get(f.away),f.round,'league'));
+    for(const f of fixtures)matches.push(makeMatch(byId.get(f.away),byId.get(f.home),f.round+rounds,'league'));
+    return {matches,numGroups:null};
+  }
   if (type === 'league') {
     for (let i = 0; i < seeded.length; i += 1) {
       for (let j = i + 1; j < seeded.length; j += 1) {
@@ -2970,6 +2981,7 @@ function buildTournamentDrawMatches(tournament, entries) {
       groups[index % numGroups].push(entry);
     });
     groups.forEach((group, groupIndex) => {
+      if(tournament.schedule_policy_version){const byId=new Map(group.map(e=>[e.id,e]));for(const f of require('../lib/regionalStructure').roundRobin(group.map(e=>e.id),'organizer_group'))matches.push(makeMatch(byId.get(f.home),byId.get(f.away),f.round,'group',{group_number:groupIndex}));return;}
       for (let i = 0; i < group.length; i += 1) {
         for (let j = i + 1; j < group.length; j += 1) {
           matches.push(makeMatch(group[i], group[j], 1, 'group', { group_number: groupIndex }));
@@ -3637,9 +3649,22 @@ async function createTournamentDraw(tournament) {
   const { matches, numGroups } = buildTournamentDrawMatches(tournament, entries);
   if (!matches.length) throw new Error('Could not generate a draw with the registered participants');
 
-  for (const payload of matches) {
-    const match = new Match({ ...payload, tournament_id: tournament.id });
-    await match.create();
+  if(tournament.schedule_policy_version) {
+    await withTransaction(async query => {
+      const [current]=await query('SELECT * FROM tournaments WHERE id=? FOR UPDATE',[tournament.id]);
+      if(!current || current.status!=='registration' || String(current.registered_clubs)!==String(tournament.registered_clubs) || String(current.registered_players)!==String(tournament.registered_players))throw Object.assign(Error('Tournament participation changed. Refresh before drawing.'),{status:409});
+      const existing=await query('SELECT id FROM matches WHERE tournament_id=? LIMIT 1',[tournament.id]);
+      if(existing.length)throw Object.assign(Error('The draw already exists. Refresh its fixtures.'),{status:409});
+      const planned=[];
+      for(const payload of matches)planned.push(await require('../services/tournamentScheduleService').forMatch(current,payload,query));
+      require('../services/tournamentScheduleService').assertDraw(planned);
+      for(const payload of planned)await new Match({...payload,tournament_id:tournament.id}).create(query);
+    });
+  } else {
+    for (const payload of matches) {
+      const match = new Match({ ...payload, tournament_id: tournament.id });
+      await match.create();
+    }
   }
   if (numGroups) {
     await EXECUTESQL('UPDATE tournaments SET num_groups = ?, updated_date = NOW() WHERE id = ?', [numGroups, tournament.id]);
@@ -5453,6 +5478,9 @@ const HANDLERS = {
             err.code   = 'MATCH_ALREADY_RESOLVED';
             throw err;
           }
+          if (!String(match.forfeit_proof_url || '').trim()) {
+            throw Object.assign(new Error('Review evidence is required before approving a forfeit.'), { status: 422 });
+          }
           const winnerId = match.forfeit_claimed_by;
           if (!winnerId) {
             const err = new Error('This forfeit claim has no claimant on record — it cannot be approved. Reject the claim to clear it.');
@@ -5473,12 +5501,16 @@ const HANDLERS = {
             forfeit_status: 'approved',
             winner_club_id: winnerId,
             winner_club_name: winnerName,
+            home_score: String(winnerId) === String(match.home_club_id) ? 3 : 0,
+            away_score: String(winnerId) === String(match.away_club_id) ? 3 : 0,
+            decided_on_penalties: 0, penalty_winner_side: null,
+            result_state: 'CONFIRMED', administrative_result: 1,
           };
           await query(
             `UPDATE matches
-             SET status = ?, forfeit_status = ?, winner_club_id = ?, winner_club_name = ?, result_state = 'CONFIRMED', administrative_result = 1, updated_date = NOW()
+             SET status = ?, forfeit_status = ?, winner_club_id = ?, winner_club_name = ?, home_score = ?, away_score = ?, decided_on_penalties = 0, penalty_winner_side = NULL, result_state = 'CONFIRMED', administrative_result = 1, updated_date = NOW()
              WHERE id = ?`,
-            [patch.status, patch.forfeit_status, patch.winner_club_id, patch.winner_club_name, match_id]
+            [patch.status, patch.forfeit_status, patch.winner_club_id, patch.winner_club_name, patch.home_score, patch.away_score, match_id]
           );
         } else {
           patch = {
@@ -5496,17 +5528,14 @@ const HANDLERS = {
 
         const updatedRows = await query('SELECT * FROM matches WHERE id = ? LIMIT 1', [match_id]);
         const updated = updatedRows[0] || { ...match, ...patch };
-        await createAuditLog({
-          adminUserId: admin.id,
-          adminEmail: admin.email,
-          action: shouldApprove ? 'approve_tournament_forfeit' : 'reject_tournament_forfeit',
-          entityType: 'match',
-          entityId: match_id,
-          entityName: `${match.home_club_name || 'Home'} vs ${match.away_club_name || 'Away'}`,
-          oldValue: match,
-          newValue: updated,
-          reason: reason || null,
-        });
+        await query(
+          `INSERT INTO admin_audit_log
+            (id, admin_user_id, admin_email, action, entity_type, entity_id, old_value, new_value, reason, created_date)
+           VALUES (?, ?, ?, ?, 'match', ?, ?, ?, ?, NOW())`,
+          [uuidv4(), admin.id, admin.email,
+            shouldApprove ? 'approve_tournament_forfeit' : 'reject_tournament_forfeit',
+            match_id, JSON.stringify(match), JSON.stringify(updated), reason || null],
+        );
         return updated;
       });
 
@@ -7208,7 +7237,7 @@ const HANDLERS = {
       const existingMatchId = meta.created_match_id || message.related_entity_id;
       const nextDate = toMysqlDateTime(meta.scheduled_date);
       if (existingMatchId && nextDate) {
-        await require('../services/officialScheduleService').assertLegacyMatchWrite(existingMatchId,EXECUTESQL);
+        await require('../services/officialScheduleService').assertLegacyMatchWrite(existingMatchId,EXECUTESQL,nextDate);
         await EXECUTESQL('UPDATE matches SET scheduled_date = ?, updated_date = NOW() WHERE id = ?', [nextDate, existingMatchId]);
         await broadcastMatchById(existingMatchId);
       }
@@ -7280,7 +7309,7 @@ const HANDLERS = {
       const existingMatchId = meta.created_match_id || message.related_entity_id;
       const targetDate = toMysqlDateTime(meta.scheduled_date);
       if (existingMatchId && targetDate) {
-        await require('../services/officialScheduleService').assertLegacyMatchWrite(existingMatchId,EXECUTESQL);
+        await require('../services/officialScheduleService').assertLegacyMatchWrite(existingMatchId,EXECUTESQL,targetDate);
         await EXECUTESQL(
           'UPDATE matches SET scheduled_date = ?, updated_date = NOW() WHERE id = ?',
           [targetDate, existingMatchId]
@@ -11371,6 +11400,7 @@ const HANDLERS = {
       const tRows = await query('SELECT * FROM tournaments WHERE id = ? LIMIT 1 FOR UPDATE', [tournament_id]);
       if (!tRows.length) return fail('Tournament not found');
       const tournament = tRows[0];
+      await require('../services/tournamentScheduleService').assertEntry(tournament, tournament.participant_type === 'player' ? 'player' : 'club', tournament.participant_type === 'player' ? player_id : club_id, query);
       const rulesError = registrationRulesError(tournament, { rules_accepted, rules_template_id });
       if (rulesError) return fail(rulesError);
 

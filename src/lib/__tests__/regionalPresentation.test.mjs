@@ -66,3 +66,9 @@ test('permanent routes select the explicit current edition and preserve exact hi
  assert.equal(regionalSystems(rows,{archive:true})[0].editions.length,2);
  assert.equal(regionalSystems(rows.map(row=>({...row,retired:true}))).length,0);
 });
+
+test('withdrawn clubs remain visible after eligible clubs without rewriting retained points',()=>{
+ const rows=[{club_id:'withdrawn',points:57,is_excluded:true},{club_id:'eligible',points:50}];
+ const ranked=orderRegionalStandings({status:'in_progress',withdrawn_club_ids:['withdrawn']},rows);
+ assert.deepEqual(ranked.map(r=>r.club_id),['eligible','withdrawn']);assert.equal(ranked[1].points,57);assert.equal(rows[0].club_id,'withdrawn');
+});

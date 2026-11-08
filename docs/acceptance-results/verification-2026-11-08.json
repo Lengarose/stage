@@ -1,0 +1,22 @@
+{
+  "date": "2026-11-08",
+  "server": {
+    "tests": 1023,
+    "pass": 1023,
+    "fail": 0,
+    "skipped": 0,
+    "mysql_guarded_confirmation_enabled": true
+  },
+  "frontend": {
+    "tests": 482,
+    "pass": 482,
+    "fail": 0
+  },
+  "lint": "pass",
+  "typecheck": "pass",
+  "backend_syntax": "pass",
+  "build": "pass",
+  "graphify": "unavailable",
+  "production_operations": false,
+  "complete": false
+}

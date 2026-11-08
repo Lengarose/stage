@@ -8,6 +8,9 @@ import { useTranslation } from "@/hooks/useTranslation";
 
 export default function ExpiredFixtureRow({ fixture, onResolved, busy, setBusy }) {
   const { t } = useTranslation();
+  const [evidenceUrl, setEvidenceUrl] = useState("");
+  const [decisionReason, setDecisionReason] = useState("");
+  const [error, setError] = useState("");
   const [forceDate, setForceDate] = useState("");
   const [forceTime, setForceTime] = useState("");
   const [showForce, setShowForce] = useState(false);
@@ -24,14 +27,16 @@ export default function ExpiredFixtureRow({ fixture, onResolved, busy, setBusy }
   }
 
   async function handleForfeit(side) {
+    setError("");
+    if (!evidenceUrl.trim() || !decisionReason.trim()) { setError("Provide the reviewed evidence link and the reason before declaring a forfeit."); return; }
     const clubName = side === "home" ? fixture.home_club_name : fixture.away_club_name;
     if (!(await swalConfirm(t("admin.disputes.declareForfeitConfirm", { club: clubName })))) return;
     setBusy(id);
     try {
       const forfeitingClubId = side === "home" ? fixture.home_club_id : fixture.away_club_id;
-      await declareForfeit({ fixture, fixtureType: fixture._fixtureType, forfeitingClubId });
+      await declareForfeit({ fixture, fixtureType: fixture._fixtureType, forfeitingClubId, evidenceUrl, adminNote: decisionReason });
       onResolved();
-    } finally { setBusy(null); }
+    } catch (err) { setError(err.message || "The forfeit decision could not be saved."); } finally { setBusy(null); }
   }
 
   async function handleFlag() {
@@ -53,6 +58,14 @@ export default function ExpiredFixtureRow({ fixture, onResolved, busy, setBusy }
         <p className="text-xs font-bold text-foreground">{fixture.home_club_name} vs {fixture.away_club_name}</p>
         <p className="text-[10px] text-muted-foreground">{context}</p>
       </div>
+      <p className="text-xs text-muted-foreground">A forfeit awards 3–0 after an Admin decision. Individual player goals are not awarded.</p>
+      <label className="block text-xs">Reviewed evidence link
+        <Input value={evidenceUrl} onChange={e => setEvidenceUrl(e.target.value)} placeholder="/uploads/… or https://…" />
+      </label>
+      <label className="block text-xs">Decision reason
+        <Input value={decisionReason} onChange={e => setDecisionReason(e.target.value)} />
+      </label>
+      {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
       {!showForce ? (
         <div className="flex gap-2 flex-wrap">
           <Button size="sm" onClick={() => setShowForce(true)} disabled={isBusy}

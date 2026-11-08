@@ -78,7 +78,7 @@ function createService({query=EXECUTESQL,transaction=withTransaction,rosters=new
   }
   async function validate(body,q,options,ctx) {
     const selection=validateRoster(body,await rosters.players(body.club_id,q),clock(),options);
-    if(ctx){await require('./officialCupTiedService').assertSelection(ctx,{...selection,club_id:body.club_id},q);await require('./officialPlayerTransferService').assertSelection(ctx,{...selection,club_id:body.club_id},q);if(options.publish)await require('./officialPlayerConflictService').assertSelection(ctx,selection,q);}
+    if(ctx){await require('./officialPlayerSanctionService').assertSelection(ctx,selection,q,clock());await require('./officialCupTiedService').assertSelection(ctx,{...selection,club_id:body.club_id},q);await require('./officialPlayerTransferService').assertSelection(ctx,{...selection,club_id:body.club_id},q);if(options.publish)await require('./officialPlayerConflictService').assertSelection(ctx,selection,q);}
     return selection;
   }
   async function assertEditable(body,existing,q) {
@@ -106,7 +106,7 @@ function createService({query=EXECUTESQL,transaction=withTransaction,rosters=new
       const result_policy=resultPolicy?{match_id:ctx.match.id,version:resultPolicy.version,response_hours:resultPolicy.responseHours,allow_either_initial:resultPolicy.allowEitherInitial,timeout_action:'admin_review'}:null;
       let eligible=null,eligibility_message=null,player_labels={};
       if(current && !(await snapshot(ctx.match.id,q))) {
-        try {const roster=await rosters.players(clubId,q);player_labels=Object.fromEntries(roster.filter(p=>playerIds(current.selection).ids.includes(p.id)).map(p=>[p.id,p.gamertag || p.id]));validateRoster(current.selection,roster,clock(),{publish:true});await require('./officialCupTiedService').assertSelection(ctx,{...playerIds(current.selection),club_id:clubId},q);await require('./officialPlayerTransferService').assertSelection(ctx,{...playerIds(current.selection),club_id:clubId},q);await require('./officialPlayerConflictService').assertSelection(ctx,playerIds(current.selection),q);eligible=true;}
+        try {const roster=await rosters.players(clubId,q);player_labels=Object.fromEntries(roster.filter(p=>playerIds(current.selection).ids.includes(p.id)).map(p=>[p.id,p.gamertag || p.id]));validateRoster(current.selection,roster,clock(),{publish:true});await require('./officialPlayerSanctionService').assertSelection(ctx,playerIds(current.selection),q,clock());await require('./officialCupTiedService').assertSelection(ctx,{...playerIds(current.selection),club_id:clubId},q);await require('./officialPlayerTransferService').assertSelection(ctx,{...playerIds(current.selection),club_id:clubId},q);await require('./officialPlayerConflictService').assertSelection(ctx,playerIds(current.selection),q);eligible=true;}
         catch(err) {if(err.status!==422)throw err;eligible=false;eligibility_message=err.message;}
       }
       return {official:true,match_id:ctx.match.id,result_policy,allow_either_initial_result:resultPolicy?.allowEitherInitial===true,eligible,eligibility_message,player_labels,...windows,started:Boolean(await snapshot(ctx.match.id,q)),lineup_id:current?.lineup_id || null,selection:current?playerIds(current.selection):null,selection_revision:current?selectionRevision(current.selection):null,ready_at:current?.ready_at || null,opponent_ready:Boolean(state.sides[ctx.match.home_club_id===clubId?ctx.match.away_club_id:ctx.match.home_club_id]?.ready_at)};
@@ -209,7 +209,7 @@ function createService({query=EXECUTESQL,transaction=withTransaction,rosters=new
         pending.push({side,clubId,lineup:rows[0],players:await rosters.players(clubId,q)});
       }
       const now=clock();
-      for(const entry of pending){selections[entry.side]={club_id:entry.clubId,...validateRoster(entry.lineup,entry.players,now,{publish:true})};await require('./officialCupTiedService').assertSelection(ctx,selections[entry.side],q);await require('./officialPlayerTransferService').assertSelection(ctx,selections[entry.side],q);await require('./officialPlayerConflictService').assertSelection(ctx,selections[entry.side],q);}
+      for(const entry of pending){selections[entry.side]={club_id:entry.clubId,...validateRoster(entry.lineup,entry.players,now,{publish:true})};await require('./officialPlayerSanctionService').assertSelection(ctx,selections[entry.side],q,now);await require('./officialCupTiedService').assertSelection(ctx,selections[entry.side],q);await require('./officialPlayerTransferService').assertSelection(ctx,selections[entry.side],q);await require('./officialPlayerConflictService').assertSelection(ctx,selections[entry.side],q);}
       const record={id:snapshotId(ctx.match.id),policy_version:VERSION,match_id:ctx.match.id,edition_id:ctx.root.id,started_at:now.toISOString(),started_by_user_id:actor?.id || null,selections};
       await q("INSERT INTO league_entities (id,entity_type,data_json) VALUES (?,'official_match_selection',?)",[record.id,JSON.stringify(record)]);
       await write(q,ctx.match);

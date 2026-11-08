@@ -10,7 +10,7 @@ function busyEvents({matches=[],engines=[],fixtures=[]},excluded=new Set()) {
   return rows.filter(e=>!closed.has(e.status) && !excluded.has(e.id) && !excluded.has(e.fixture_id) && (e.confirmed_date || e.scheduled_date)).map(e=>{
     const value=e.confirmed_date || e.scheduled_date;
     const time=scheduleTime(value instanceof Date?toMysqlDateTime(value):value,e.timezone);
-    return {id:e.id,fixture_id:e.fixture_id,home_club_id:e.home_club_id,away_club_id:e.away_club_id,instant:time.instant,minutes:['league','league_phase'].includes(e.type || e.phase)?policy.league_minutes:policy.knockout_minutes};
+    return {id:e.id,fixture_id:e.fixture_id,home_club_id:e.home_club_id,away_club_id:e.away_club_id,instant:time.instant,minutes:['league','league_phase','regional_league','group','group_stage','ucl_league'].includes(e.type || e.phase)?policy.league_minutes:policy.knockout_minutes};
   });
 }
 module.exports={busyEvents};

@@ -188,6 +188,12 @@ function makeRouter(entityType) {
       try { res.json(await handler(req)); }
       catch (err) { res.status(err.status || 500).json({ error: err.message, details: err.details }); }
     };
+    router.post('/:id/withdraw-club', action(req => require('../services/regionalWithdrawalService').action(req.params.id, req.body || {}, req.user)));
+    router.post('/regional-transfers/:id/review', action(req => require('../services/regionalTransferService').review(req.params.id, req.body || {}, req.user)));
+    router.post('/regional-transfers', action(req => require('../services/regionalTransferService').request(req.body || {}, req.user)));
+    router.post('/absence-decisions', action(req => require('../services/officialAbsenceService').action(req.body || {}, req.user)));
+    router.get('/player-sanctions', action(req => require('../services/officialPlayerSanctionService').list(req.user)));
+    router.post('/player-sanctions', action(req => require('../services/officialPlayerSanctionService').action(req.body || {}, req.user)));
     router.get('/edition-review', action(req => review.diagnostics(req.user)));
     router.get('/catalogue', action(req => editions.catalogue(req.user)));
     const cycles = require('../services/regionalCycleService');
@@ -325,7 +331,7 @@ function makeRouter(entityType) {
         if (!admin) return res.status(403).json({ error: 'Admin access required.' });
       }
       const { id } = req.params;
-      const existing = await EXECUTESQL(`SELECT * FROM \`${TABLE}\` WHERE id = ? LIMIT 1`, [id]);
+      const existing = await EXECUTESQL(`SELECT * FROM \`${TABLE}\` WHERE id = ? AND entity_type = ? LIMIT 1`, [id, entityType]);
       if (!existing.length) return res.status(404).json({ error: 'Not found' });
 
       const current = parseRow(existing[0]);

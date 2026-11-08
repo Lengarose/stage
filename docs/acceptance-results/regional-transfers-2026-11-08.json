@@ -1,0 +1,12 @@
+{
+  "database": "stage_acceptance_4f81c7714b4c",
+  "started_at": "2026-11-08T02:10:39.739Z",
+  "scenarios": [
+    "Admin review is authorized, audited and retry safe without forcing an affiliation; current president receives the review outcome",
+    "A relegated D1 club retains D2 eligibility; an empty D1 destination cannot bypass a full D2 destination; no confirmed club displaced",
+    "Vacant same-tier place admitted atomically after destination consent; source draft vacancy exposed for reserve review, historical roster and original sporting plan preserved, one active affiliation and stable retry"
+  ],
+  "complete": false,
+  "regional_transfer_route_complete": true,
+  "finished_at": "2026-11-08T02:10:44.523Z"
+}

@@ -75,6 +75,7 @@ async function seed(definitions, actor) {
   return { results };
 }
 async function update(id, patch, actor) {
+  if(['withdrawal_review_required','withdrawn_club_ids','regional_transfer_vacancy'].some(k=>Object.hasOwn(patch,k)))fail('Withdrawal consequences require the protected Admin decision action');
   const user = await admin(actor);
   return withTransaction(async query => {
     await model.lock(query);

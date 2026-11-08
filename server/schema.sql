@@ -374,6 +374,7 @@ CREATE TABLE IF NOT EXISTS matches (
 
 -- ── tournaments ───────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS tournaments (
+  schedule_policy_version VARCHAR(40) NULL,
   completed_at DATETIME NULL,
   archived_at DATETIME NULL,
   archive_review_required TINYINT DEFAULT 0,

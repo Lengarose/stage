@@ -5,7 +5,7 @@ const { VERSION } = require('./officialPlayerTransferService');
 
 function duration(match, engine = null) {
   const phase = engine?.phase || match.fixture_phase || match.type;
-  return ['league', 'league_phase', 'regional_league'].includes(phase) && !Number(match.allow_penalties) ? 40 : 60;
+  return ['league', 'league_phase', 'regional_league', 'group', 'group_stage', 'ucl_league'].includes(phase) && !Number(match.allow_penalties) ? 40 : 60;
 }
 async function assertSelection(ctx, selection, query) {
   if (ctx.root?.participation_window_snapshot?.player_transfer_policy_version !== VERSION || !selection.ids.length) return;

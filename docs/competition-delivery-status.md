@@ -1,6 +1,6 @@
 # Competition delivery status
 
-Updated 6 November 2026. This is the current delivery checklist for the user's
+Updated 8 November 2026. This is the current delivery checklist for the user's
 request to finish the approved competition programme. Read this before choosing
 the next implementation task or reporting overall completion.
 
@@ -9,6 +9,33 @@ Its B/N/O/L distinctions remain binding. Later confirmations and implementation
 appendices supersede earlier status descriptions; they do not erase provenance.
 Local implementation, successful tests, deployment, and live verification are
 separate milestones. No production repair or deployment is recorded here.
+
+## Current follow-up — 8 November 2026
+
+This section supersedes the older progress tables below. Earlier entries remain
+as dated implementation history, not instructions to rebuild completed features.
+See [exception implementation and evidence](competition-exceptions-phase6-8.md).
+
+| Approved work | Current local state |
+| --- | --- |
+| Evidence-backed forfeits | Explicit Admin score decision, canonical/source synchronization, original evidence, transactional audit and retry safety; no individual goals. |
+| Withdrawal result/stat consequences | Before/after nineteen definitive first-half games; includes played returns, retained raw appearances and corrected career totals. Withdrawn clubs excluded from honours/prize placements/promotion. Sporting vacancies and downstream dependencies remain review; full post-withdrawal season allocation is not claimed. |
+| Explicit suspensions | Admin impose/revoke with dates and competition scope; selection/readiness/kickoff enforcement follows player identity. No invented automatic penalties. |
+| Earned-tier regional moves | President request, destination conditions, available matching tier only, preserved historical rights/rosters and current affiliation; audited Admin review without forced places. Drawn/Cup/different-cycle conflicts remain review. |
+| Financial exceptions | Explicit club/player refunds and compensation in separate ledgers, retry protection and refund cap; paid obligations/history preserved. No unapproved automatic amounts. |
+| Organizer tournaments | New editions require published fixed times/windows, consent before fees, participant conflicts and real round-based draws. Per-match changes hold the original time until both participants agree, then recheck conflicts. Legacy editions keep captured conditions. |
+| English pages and instructions | Existing registration, GameDay, management and Rewards locations extended; published withdrawal terms included in new windows; useful tutorials retained. Actual desktop/mobile Chrome evidence recorded. |
+| Normal complete season | Real isolated MySQL/JWT route passes through placement, 760 league fixtures, Cup, promotion, rewards, next edition and process recovery. Additional exception scripts pass separately; they are not a full season with every exception combined. |
+
+Still not completed: the entire combined exception matrix and post-withdrawal
+sporting/vacancy finalization; interruption/resumption details still open in the
+masterplan; unsupported counts/shrinkage/180→240 calendar; premium payment-outage
+policy; North-American hours, absolute launch dates, GOST/D3. No production-ID
+inspection/repair, deployment or live verification has occurred. These are not
+new work packages. Do not mark all eight phases complete.
+
+Latest checks: lint, typecheck, backend syntax and frontend build pass; server **1,023/1,023** including enabled local MySQL, frontend **482/482**. Exact acceptance limits are in the handoff above.
+The old tables and dated entries below describe their original checkpoints.
 
 ## Original eight-phase position — 6 November follow-up
 

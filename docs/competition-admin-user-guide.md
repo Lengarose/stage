@@ -39,7 +39,7 @@ participation declarations; it does not claim automatic EA verification.
 | `/admin/gost` | Existing GOST configuration and trophy assignment. GOST activation remains closed. |
 | `/admin/trophies` | Maintain the reusable trophy artwork catalogue. No second trophy upload system was added. |
 | `/admin/rewards` | Captured reward configurations, payouts, awards and historical review. Paid history remains authoritative; sporting corrections do not silently erase payments. |
-| `/admin/disputes` and `/admin/forfeits` | Existing evidence and explicit decisions. The complete approved withdrawal/no-show/correction package is still an implementation gap; a timer is not an automatic forfeit. |
+| `/admin/disputes` and `/admin/forfeits` | Existing evidence and explicit decisions. Forfeits require reviewed evidence. Absence and withdrawal decisions now live in Regional Leagues management; a timer is not an automatic forfeit. |
 
 The loan removal needs no new Admin loan-management page. The next authorized
 backend startup archives live loan source rows and retires their temporary
@@ -74,3 +74,17 @@ reports/screenshots are under `docs/acceptance-results/browser-2026-11-07/`.
 The combined upload list is `competition-deployment-manifest-2026-11-07.md`.
 No push, deployment, production reset/repair, payout or subscription operation has
 been performed under this request.
+
+
+## 8 November additions
+
+See [exceptions and organizer scheduling](competition-exceptions-phase6-8.md) for
+all exact controls, effects and acceptance limits. Financial decisions are under
+`/admin/rewards`; suspensions, absence, withdrawal and region reviews are under
+`/admin/leagues` → permanent management → Official competition decisions.
+Presidents request regional transfers through `/register-league`. Tournament
+organizers publish playing conditions and request fixture-time changes inside the
+tournament page; both affected participants must accept a requested new kickoff.
+These controls create auditable decisions rather than silently replacing history.
+The earlier outstanding-work paragraphs are superseded by the current delivery
+status; the complete post-withdrawal allocation route is still explicitly open.

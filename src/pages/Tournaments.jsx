@@ -29,6 +29,7 @@ import {
   renderTournamentRules,
 } from "@/lib/tournamentRuleTemplates";
 import { useTranslation } from "@/hooks/useTranslation";
+import TournamentScheduleConditions from "@/components/competition/TournamentScheduleConditions";
 import TournamentArchive from '@/components/TournamentArchive';
 
 const TYPE_LABEL = {
@@ -55,6 +56,7 @@ function cleanCountryName(name) {
 
 export default function Tournaments() {
   const { t, language } = useTranslation();
+  const [createdTournament, setCreatedTournament] = useState(null);
   const [tournaments, setTournaments] = useState([]);
   const [archiveView,setArchiveView]=useState(false);
   const [trophyItems, setTrophyItems] = useState([]);
@@ -146,7 +148,7 @@ export default function Tournaments() {
       const prizes = calculateTournamentPrizeBreakdown(form.entry_fee_stc, maxTeams);
       const selectedTrophy = trophyItems.find(t => t.id === form.trophy_item_id);
       const rulesTemplateId = form.rules_template_id || "standard_cup";
-      await stageClient.entities.Tournament.create({
+      const created = await stageClient.entities.Tournament.create({
         ...form,
         rules_template_id: rulesTemplateId,
         custom_rules: encodeRulesTemplate(rulesTemplateId),
@@ -172,6 +174,7 @@ export default function Tournaments() {
       });
       setDialogOpen(false);
       resetForm();
+      setCreatedTournament(created);
       load();
     } catch (err) {
       console.error("createTournament error:", err);
@@ -695,6 +698,14 @@ export default function Tournaments() {
               </Button>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(createdTournament)} onOpenChange={open => { if (!open) setCreatedTournament(null); }}>
+        <DialogContent className="max-h-[85dvh] max-w-3xl overflow-y-auto rounded-none">
+          <DialogHeader><DialogTitle>Finish tournament setup: playing schedule</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">Your tournament has been created. Publish its playing times before participants can enter; they will accept these conditions before payment.</p>
+          {createdTournament && <><TournamentScheduleConditions tournament={createdTournament} canManage clubId={null} playerId={myPlayer?.id} /><Link to={`/tournaments/${createdTournament.id}`} className="inline-flex min-h-11 items-center font-bold">Open tournament and continue setup →</Link></>}
         </DialogContent>
       </Dialog>
 

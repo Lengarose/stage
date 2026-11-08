@@ -38,6 +38,7 @@ import TournamentStandingsTabs from "../components/TournamentStandingsTabs";
 import TournamentLeaderboard from "../components/TournamentLeaderboard";
 import MatchStatsModal from "../components/MatchStatsModal";
 import EditTournamentDialog from "../components/EditTournamentDialog";
+import TournamentScheduleConditions from '@/components/competition/TournamentScheduleConditions';
 import ParticipantDirectory from '@/components/competition/ParticipantDirectory';
 import CompetitionTextTabs from '@/components/competition/CompetitionTextTabs';
 import { TournamentBanner, TournamentPrizeSummary, TournamentChampion } from '@/components/competition/TournamentPresentation';
@@ -1073,6 +1074,7 @@ function TournamentDetailContent() {
         </div>
       )}
 
+      <TournamentScheduleConditions tournament={tournament} canManage={canManageTournament} clubId={effectiveClubId} playerId={myPlayer?.id} matches={matches} />
       <TournamentPrizeSummary data={presentation} error={presentationError} retry={()=>setLoadRevision(n=>n+1)}/>
       {/* ── INFO STRIP ────────────────────────────────── */}
       {((tournament.status === 'registration' && (effectiveClubId || (isPlayerTournament && myPlayer))) || canManageTournament) && (

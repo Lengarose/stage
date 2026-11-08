@@ -69,7 +69,7 @@ function summarizeClubCareer({ player, stats, matches, trophies }) {
 
   for (const stat of stats) {
     const match = matchById.get(String(stat.match_id));
-    if (!match || !isCompleted(match)) continue;
+    if (!match || !isCompleted(match) || Number(match.administrative_result) === 1 || Number(match.excluded_from_statistics) === 1) continue;
     if (String(match.type || '').toLowerCase() === 'friendly' && !isRankedArrangedGame(match)) continue;
 
     const clubId = stat.club_id || player?.club_id;
@@ -183,7 +183,7 @@ async function getPlayerCareerSummary(playerId) {
               COALESCE(away_club.name, m.away_club_name) AS away_club_name,
               away_club.tag AS away_club_tag,
               away_club.logo_url AS away_club_logo_url,
-              m.home_score, m.away_score, m.status, m.type, m.mode,
+              m.home_score, m.away_score, m.status, m.type, m.mode, m.administrative_result,
               m.tournament_id, m.source_fixture_type, m.competition_context,
               m.scheduled_date, m.updated_date, m.created_date,
               ci.product_type AS competition_product_type,

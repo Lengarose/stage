@@ -478,7 +478,7 @@ test('PATCH /:id preserves captain profile edit access for legacy club flows', a
   const executesql = async (sql, params = []) => {
     calls.push({ sql, params });
     if (/SELECT \* FROM clubs WHERE id = \?/.test(sql)) {
-      return [{ ...existingClub, logo_url: params[0] === 'club-1' ? 'new-logo.png' : null }];
+      return [{ ...existingClub, logo_url: params[0] === 'club-1' ? '/uploads/new-logo.png' : null }];
     }
     if (/UPDATE clubs SET/.test(sql)) return { affectedRows: 1 };
     if (/SELECT id FROM users WHERE id = \? LIMIT 1/.test(sql)) return [{ id: 'president-user' }];
@@ -502,7 +502,7 @@ test('PATCH /:id preserves captain profile edit access for legacy club flows', a
   await handle(
     {
       params: { id: 'club-1' },
-      body: { logo_url: 'new-logo.png' },
+      body: { logo_url: '/uploads/new-logo.png' },
       user: { id: 'captain-user' },
     },
     response,

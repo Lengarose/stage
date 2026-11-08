@@ -1,9 +1,13 @@
 export const regionalTabs = ['overview', 'clubs', 'stages', 'table', 'stats', 'rewards', 'history'].map(value => ({ value, label: value[0].toUpperCase() + value.slice(1) }));
 export const historicalRegional = edition => ['completed', 'archived'].includes(edition.status);
 export function orderRegionalStandings(edition, rows) {
+  const withdrawn=new Set(edition.withdrawn_club_ids || []);
+  const excluded=row=>row.is_excluded || withdrawn.has(row.club_id);
+  const eligible=rows.filter(row=>!excluded(row)), removed=rows.filter(excluded);
+  if(removed.length)rows=[...eligible,...removed];
   const ranking=edition.regional_final_ranked_club_ids;
   if(!historicalRegional(edition) || !Array.isArray(ranking) || ranking.length!==rows.length || new Set(ranking).size!==rows.length || rows.some(row=>!ranking.includes(row.club_id)))return rows;
-  return [...rows].sort((a,b)=>ranking.indexOf(a.club_id)-ranking.indexOf(b.club_id));
+  return [...rows].sort((a,b)=>Number(excluded(a))-Number(excluded(b)) || ranking.indexOf(a.club_id)-ranking.indexOf(b.club_id));
 }
 export const regionalHref = edition => `/leagues/${encodeURIComponent(edition.stable_slug || edition.slug || edition.id)}?season=${encodeURIComponent(edition.id)}`;
 export function selectRegionalEdition(editions, slug, requested) {

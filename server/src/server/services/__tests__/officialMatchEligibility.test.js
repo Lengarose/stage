@@ -25,6 +25,7 @@ function fixture({legacy=false,pathway=false,cup=false}={}) {
   const copy=structuredClone;
   const row=record=>({...record,data_json:JSON.stringify(record)});
   const q=async(sql,p=[])=>{
+    if(sql.includes("entity_type='official_player_sanction'"))return [];
     if(sql.startsWith('SELECT * FROM competition_fixtures'))return (p.includes('engine') || p.includes('fixture') || p.includes('match'))&&state.engine?[copy(state.engine)]:[];
     if(sql.startsWith('SELECT * FROM matches'))return (p.includes('match') || p.includes('engine'))&&state.match?[copy(state.match)]:[];
     if(sql.includes("entity_type='regional_league_fixture'"))return p[0]==='fixture'?[row({id:'fixture',league_id:'edition'})]:[];

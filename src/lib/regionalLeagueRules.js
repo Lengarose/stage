@@ -67,7 +67,7 @@ export async function getClubRegionalLeaguePlacement(clubId, regionalLeagues) {
     .filter({ club_id: clubId }, null, 200)
     .catch(() => []);
   const completedRows = (rows || [])
-    .filter(row => row.final_position || row.is_promoted || row.is_relegated)
+    .filter(row => !row.is_excluded && row.sporting_eligibility !== "withdrawn" && (row.final_position || row.is_promoted || row.is_relegated))
     .sort((a, b) => {
       const seasonDelta = (Number(b.season_number) || 0) - (Number(a.season_number) || 0);
       if (seasonDelta) return seasonDelta;

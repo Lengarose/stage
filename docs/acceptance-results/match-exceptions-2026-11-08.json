@@ -1,0 +1,17 @@
+{
+  "database": "stage_acceptance_1a441a660c30",
+  "started_at": "2026-11-08T01:21:39.047Z",
+  "scenarios": [
+    "Actual JWT Admin fixture decision records 0–3 in canonical match and legacy fixture, updates standings once, retains evidence and audit; unauthorized/missing-proof/foreign-club requests rejected",
+    "Actual HTTP claim approval stores 3–0 and original reviewed proof in the same transaction audit, without individual stats",
+    "18 definitive first-half matches: exclude_all, including an already played return; preserved raw stats, corrected standings/career totals and stable retry",
+    "19 definitive first-half matches: retain_first_half, including an already played return; preserved raw stats, corrected standings/career totals and stable retry",
+    "JWT-only explicit sanctions are idempotent, follow a transferred player and cease on audited revocation",
+    "Explicit financial Admin decisions preserve original debit, serialize concurrent retries, cap total refunds and keep a separate compensation ledger",
+    "Player refunds use the existing player ledger; compensation can reference the original other-recipient payout without rewriting it; paid competition dependencies block blind withdrawal",
+    "Both absent and the third recorded absence enter explicit review; no automatic score, goals or exclusion; review closure and replay are safe"
+  ],
+  "complete": false,
+  "match_exception_route_complete": true,
+  "finished_at": "2026-11-08T01:21:44.064Z"
+}

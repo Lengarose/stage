@@ -67,9 +67,10 @@ function createService({query=EXECUTESQL,transaction=withTransaction,context=eli
     const ctx=await context(ref,q,{allowMissingMatch:true});
     if(ctx.official)fail('This edition uses the official calendar; use the protected Admin schedule action');
   }
-  async function assertLegacyMatchWrite(ref,q=query) {
+  async function assertLegacyMatchWrite(ref,q=query,date=null) {
     const [match]=await q('SELECT * FROM matches WHERE id = ? LIMIT 1',[ref]);
     if(match && ['competition_engine','regional_league','regional_league_fixture','regional_pathway'].includes(match.source_fixture_type))await assertLegacyWrite(ref,q);
+    if(match?.tournament_id && date){const [t]=await q('SELECT * FROM tournaments WHERE id=?',[match.tournament_id]);if(t?.schedule_policy_version)await require('./tournamentScheduleService').assertMatch(t,match,date,q);}
   }
   return {force,reuse,assertLegacyWrite,assertLegacyMatchWrite};
 }

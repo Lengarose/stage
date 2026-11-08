@@ -254,3 +254,15 @@ The final player run also covers active foreign-region actual participation:
 offer/acceptance refuses automatic reassignment and requires the existing Admin
 review. Bench-only evidence does not trigger that participation restriction.
 The final combined server rerun remains 163/164 (the same legacy captain case).
+
+
+## 8 November follow-up
+
+Current evidence and precise limits: [competition exceptions](competition-exceptions-phase6-8.md).
+The full server suite passed **1,023/1,023**, including enabled local MySQL semantic
+result-snapshot coverage with no skipped tests. Actual MySQL/JWT exception,
+regional-transfer and organizer-schedule routes pass independently. Their results
+do not claim a combined season exercising every exceptional branch. Browser
+screenshots now include the actual forms, rather than only the page header.
+Latest frontend/build/check totals are recorded in the current delivery status.
+Production operations remain unexecuted.

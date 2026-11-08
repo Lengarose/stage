@@ -113,10 +113,11 @@ async function reconcileTournament(tournamentId, { dryRun = false } = {}) {
   return result;
 }
 
-async function assertTournamentMatchAction(match, { schedule, result = false, correction = false } = {}, query = EXECUTESQL) {
+async function assertTournamentMatchAction(match, { schedule, timezone, result = false, correction = false } = {}, query = EXECUTESQL) {
   if (!match?.tournament_id || match.tournament_id === 'ranked') return;
   const [t] = await query('SELECT * FROM tournaments WHERE id = ? LIMIT 1', [match.tournament_id]);
   if (!t) return;
+  if(schedule && t.schedule_policy_version)await require('./tournamentScheduleService').assertMatch(t,{...match,...(timezone?{timezone}:{})},schedule,query);
   if(t.status==='archived')throw conflict('Archived tournament results and schedules are read-only.');
   if (result && ['draft', 'setup', 'registration', 'open', 'cancelled', 'canceled'].includes(t.status)) throw conflict('Start the tournament before reporting an official result. Registration/draw previews cannot produce standings.');
   const rows = await query('SELECT * FROM matches WHERE tournament_id = ? ORDER BY round, created_date', [t.id]);
@@ -189,7 +190,7 @@ async function updateTournamentSchedule(match, patch, admin = null) {
       if (patch.scheduling_status === 'confirmed' && (!['home_proposed', 'away_proposed'].includes(fresh.scheduling_status) || new Date(current).getTime() !== new Date(patch.confirmed_date).getTime())) throw conflict('This schedule proposal is no longer current. Refresh the inbox before accepting.');
       patch = { ...patch, status: 'scheduled' };
     }
-    await assertTournamentMatchAction(fresh, { schedule: date }, query);
+    await assertTournamentMatchAction(fresh, { schedule: date, timezone: patch.timezone || fresh.timezone }, query);
     if (patch.scheduled_date) patch = { ...patch, status: 'scheduled' };
     const fields = ['scheduled_date', 'confirmed_date', 'home_proposed_date', 'away_proposed_date', 'scheduling_status', 'last_proposed_by', 'proposal_count', 'timezone', ...(patch.scheduled_date ? ['status'] : [])].filter(k => patch[k] !== undefined);
     if (fields.length) await query(`UPDATE matches SET ${fields.map(k => `\`${k}\`=?`).join(',')}, updated_date=NOW() WHERE id=?`, [...fields.map(k => patch[k]), fresh.id]);

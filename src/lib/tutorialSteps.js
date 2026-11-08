@@ -76,7 +76,7 @@ const PLAYER_STEPS = [
       "Open Schedule (Apps) for the calendar. Tap a row for opponent and kickoff.",
       "Official times are published in advance. A request or chat message alone does not change kickoff; check the edition's rescheduling rules.",
       "When the window is set, open GameDay (Matches tab).",
-      "Your president publishes starters and reserves. Follow the ready-check and selection-lock times shown for official matches.",
+      "Your president publishes starters and reserves. Personal Plus, transfer eligibility and applicable Admin suspensions are checked before official play. Follow the displayed preparation deadlines.",
       "Use match chat only for that fixture. Discord is not the official clock.",
       "The club submitting an official result supplies proof. The opponent reviews that proposal; report an incorrect result rather than confirming it.",
       "Disputes live under Apps → Disputes. Next fixture returns on Schedule.",
@@ -294,7 +294,7 @@ const PRESIDENT_STEPS = [
     points: [
       "Open Regional participation from Regional Leagues or your club's Competitions view and read the published dates and rules.",
       "Apply for the region before registration closes. Confirm during the shared confirmation week, even if you applied on the last day.",
-      "Tournaments is for brackets and one-off events. Open the event for Clubs / Players / Schedule.",
+      "Tournaments is for brackets and one-off events. Accept the published playing times and rules before entry. A requested match-time change keeps the old kickoff until both participants agree.",
       "Choose at least three eligible players when confirming. Each participating player and reserve needs personal STAGE Plus; paying as president does not cover the squad.",
       "After entry, fixtures land on Schedule. Play them on GameDay.",
       "If you also play, your own personal subscription covers that role too. Non-playing club members do not need Plus to remain in the club.",

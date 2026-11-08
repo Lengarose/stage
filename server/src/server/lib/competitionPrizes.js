@@ -54,7 +54,8 @@ function placements(scope, config) {
     const hasDecision=scope.source_type==='regional_league' && root.regional_final_ranking_cycle_id;
     const finalTable=hasDecision?require('./regionalStructure').finalLeagueTable(scope):null;
     if(hasDecision && !finalTable)return {map,blocked:'Captured final league ranking or source results changed; authorised review required'};
-    const table = finalTable || (officialLeague ? require('./competitionStandings').sortStandingRows(scope.standings) : calculated.rows);
+    const withdrawn = new Set(scope.source_type === 'regional_league' ? (root.withdrawn_club_ids || []).map(String) : []);
+    const table = (finalTable || (officialLeague ? require('./competitionStandings').sortStandingRows(scope.standings) : calculated.rows)).filter(row => !withdrawn.has(String(row.club_id)) && !row.is_excluded);
     const tied = (a,b) => officialLeague
       ? Number(a.points) === Number(b.points) && Number(a.goal_difference) === Number(b.goal_difference) && Number(a.goals_for) === Number(b.goals_for)
       : a.rank === b.rank;

@@ -1169,3 +1169,26 @@ geen verzonnen terugbetaling. De oude gegevens mogen als historische bron blijve
 Lokale implementatie en precieze beperkingen staan in
 [Official player transfers](official-player-transfers-phase3.md). Dit is geen
 bevestiging dat alle acht bouwfases of alle uitzonderingen gereed zijn.
+
+
+### Bevestigde uitzonderingen — 8 november 2026 [B]
+
+Deze expliciete antwoorden vervangen de eerdere open status van deze keuzes:
+
+- Alleen door Admin opgelegde spelersschorsingen, met begin/einde en competitiegebied.
+  De sanctie volgt de speler; geen nieuwe automatische kaart- of no-showstraffen.
+- Regiowissel na de lopende editie en definitief verdiend niveau, uitsluitend naar
+  een beschikbare plaats op datzelfde niveau in de doelregio. Geen bevestigde club
+  verdringen. Zonder passende plaats blijft de aanvraag in Admin-review.
+- Financiële uitzonderingen uitsluitend via expliciete Adminbeslissingen en
+  afzonderlijke compensatie-/terugbetalingsboekingen. Originele betalingen blijven
+  bestaan; bestaande normale vastgelegde prijzen blijven automatisch.
+- Teruggetrokken clubs zijn voor die editie uitgesloten van titel, prijzen en
+  promotie. De overige clubs volgen het gecorrigeerde klassement. Geen automatisch
+  recht op een volgende editie; nieuwe aanvraag volgens deelname-/vacatureregels.
+
+Lokaal aangesloten en getest: [uitzonderingen en organisatorkalenders](competition-exceptions-phase6-8.md).
+Open blijven de reeds als O bewaarde details van hervatting, afwijkende velden,
+krimp en sportieve vacature-afhandeling buiten de goedgekeurde normale route.
+De huidige terugtrekkingsafhandeling bewaart die gevallen in bestaande review;
+zij verklaart geen onbesliste promotie- of plaatsingsrechten automatisch definitief.
