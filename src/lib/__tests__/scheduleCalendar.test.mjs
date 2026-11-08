@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {calendarGrid,calendarRange,calendarDay,calendarTime,shiftCalendarMonth,groupCalendarEvents,identicalKickoffs,CALENDAR_CATEGORIES} from '../scheduleCalendar.js';
+import {calendarGrid,calendarRange,calendarDay,calendarTime,shiftCalendarMonth,groupCalendarEvents,identicalKickoffs,CALENDAR_CATEGORIES,CALENDAR_SCOPES} from '../scheduleCalendar.js';
 test('Monday-first grids include every five/six week month and year rollover',()=>{
   assert.equal(calendarGrid('2026-10').length,35);
   assert.equal(calendarGrid('2026-03').length,42);
@@ -23,7 +23,12 @@ test('busy days keep all games, stable tie order and only known identical kickof
   assert.equal(identicalKickoffs(list).size,8);
   assert.equal(identicalKickoffs([list[0],{id:'later',startsAt:'2026-10-27T20:01:00+01:00'}]).size,0);
 });
-test('legend has six distinct smoky backgrounds with Tournament last',()=>{
-  assert.equal(new Set(Object.values(CALENDAR_CATEGORIES).map(c=>c.background)).size,6);
+test('legend has seven distinct smoky backgrounds with Tournament last',()=>{
+  assert.equal(new Set(Object.values(CALENDAR_CATEGORIES).map(c=>c.background)).size,7);
   assert.equal(Object.keys(CALENDAR_CATEGORIES).at(-1),'tournament');
+});
+
+test('Regional Cups have their own scope and a distinct orange category',()=>{
+  assert.ok(CALENDAR_SCOPES.some(scope=>scope.id==='regional_cup' && scope.label==='Regional Cups'));
+  assert.notEqual(CALENDAR_CATEGORIES.regional_cup.color,CALENDAR_CATEGORIES.regional.color);
 });

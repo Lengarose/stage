@@ -1,0 +1,96 @@
+### Result
+1023. [GET] http://127.0.0.1:4174/api/stage/auth/me => [200] OK
+1024. [GET] http://127.0.0.1:4174/api/stage/auth/me => [200] OK
+1028. [GET] http://127.0.0.1:4174/api/stage/auth/me => [200] OK
+1032. [GET] http://127.0.0.1:4174/api/stage/auth/me => [200] OK
+1033. [GET] http://127.0.0.1:4174/api/stage/chat-reads/unread-counts => [200] OK
+1035. [GET] http://127.0.0.1:4174/api/stage/players?email=acceptance-admin%40example.test&limit=1 => [200] OK
+1036. [GET] http://127.0.0.1:4174/api/stage/clubs?owner_email=acceptance-admin%40example.test&limit=1 => [200] OK
+1037. [GET] http://127.0.0.1:4174/api/stage/presidents?user_id=d7703cc6-f7f2-4c2b-a644-c079f6717500&limit=1 => [200] OK
+1160. [GET] http://127.0.0.1:4174/api/stage/auth/me => [200] OK
+1161. [GET] http://127.0.0.1:4174/api/stage/auth/me => [200] OK
+1162. [GET] http://127.0.0.1:4174/api/stage/auth/me => [200] OK
+1163. [GET] http://127.0.0.1:4174/api/stage/auth/me => [200] OK
+1164. [GET] http://127.0.0.1:4174/api/stage/auth/me => [200] OK
+1165. [GET] http://127.0.0.1:4174/api/stage/auth/me => [200] OK
+1166. [GET] http://127.0.0.1:4174/api/stage/auth/me => [200] OK
+1169. [GET] http://127.0.0.1:4174/api/stage/auth/me => [200] OK
+1170. [GET] http://127.0.0.1:4174/api/stage/auth/me => [200] OK
+1171. [GET] http://127.0.0.1:4174/api/stage/matches/reviews/summary => [200] OK
+1172. [GET] http://127.0.0.1:4174/api/stage/matches/forfeit-reviews/summary => [200] OK
+1173. [GET] http://127.0.0.1:4174/api/stage/regional-league-fixtures?scheduling_status=expired&limit=200&offset=0 => [200] OK
+1174. [GET] http://127.0.0.1:4174/api/stage/competition-fixtures?scheduling_status=expired&limit=200&offset=0 => [200] OK
+1175. [GET] http://127.0.0.1:4174/api/stage/matches?status=scheduled => [200] OK
+1176. [GET] http://127.0.0.1:4174/api/stage/matches?status=in_progress => [200] OK
+1177. [GET] http://127.0.0.1:4174/api/stage/matches?status=awaiting_confirmation => [200] OK
+1178. [GET] http://127.0.0.1:4174/api/stage/matches?status=disputed => [200] OK
+1179. [GET] http://127.0.0.1:4174/api/stage/players?page=1&limit=25 => [200] OK
+1180. [GET] http://127.0.0.1:4174/api/stage/tournaments?limit=200 => [200] OK
+1181. [GET] http://127.0.0.1:4174/api/stage/clubs?order_by=-created_date&limit=100 => [200] OK
+1182. [GET] http://127.0.0.1:4174/api/stage/trophy-items?limit=100 => [200] OK
+1183. [GET] http://127.0.0.1:4174/api/stage/competitions?limit=10 => [200] OK
+1184. [GET] http://127.0.0.1:4174/api/stage/competition-seasons?limit=30 => [200] OK
+1185. [GET] http://127.0.0.1:4174/api/stage/competition-standings?limit=500 => [200] OK
+1186. [GET] http://127.0.0.1:4174/api/stage/qualification-entries?status=pending&limit=50 => [200] OK
+1187. [GET] http://127.0.0.1:4174/api/stage/regional-leagues/catalogue => [200] OK
+1188. [GET] http://127.0.0.1:4174/api/stage/season-registrations?limit=200 => [200] OK
+1189. [GET] http://127.0.0.1:4174/api/stage/lifestyle-items?limit=300 => [200] OK
+1190. [GET] http://127.0.0.1:4174/api/stage/player-identity-claims?status=pending&limit=100 => [403] Forbidden
+1191. [POST] http://127.0.0.1:4174/api/stage/functions/transferWindowActions => [200] OK
+1192. [GET] http://127.0.0.1:4174/api/stage/auth/me => [200] OK
+1193. [GET] http://127.0.0.1:4174/api/stage/auth/me => [200] OK
+1194. [GET] http://127.0.0.1:4174/api/stage/notifications?recipient_email=acceptance-admin%40example.test&limit=30 => [200] OK
+1196. [GET] http://127.0.0.1:4174/api/stage/notifications?recipient_email=acceptance-admin%40example.test&read=false&limit=100 => [200] OK
+1197. [GET] http://127.0.0.1:4174/api/stage/players?page=2&limit=25 => [200] OK
+1198. [GET] http://127.0.0.1:4174/api/stage/notifications?recipient_email=acceptance-admin%40example.test&read=false&limit=100 => [200] OK
+1199. [GET] http://127.0.0.1:4174/api/stage/players?page=3&limit=25 => [200] OK
+1200. [GET] http://127.0.0.1:4174/api/stage/auth/me => [200] OK
+1201. [POST] http://127.0.0.1:4174/api/stage/admin-mail/sync => [200] OK
+1202. [GET] http://127.0.0.1:4174/api/stage/players?page=4&limit=25 => [200] OK
+1203. [GET] http://127.0.0.1:4174/api/stage/players?email=acceptance-admin%40example.test&limit=1 => [200] OK
+1204. [GET] http://127.0.0.1:4174/api/stage/admin-mail/status => [200] OK
+1205. [GET] http://127.0.0.1:4174/api/stage/clubs?owner_email=acceptance-admin%40example.test&limit=1 => [200] OK
+1206. [GET] http://127.0.0.1:4174/api/stage/players?page=5&limit=25 => [200] OK
+1207. [GET] http://127.0.0.1:4174/api/stage/presidents?user_id=d7703cc6-f7f2-4c2b-a644-c079f6717500&limit=1 => [200] OK
+1208. [GET] http://127.0.0.1:4174/api/stage/auth/me => [200] OK
+1209. [GET] http://127.0.0.1:4174/api/stage/players?page=6&limit=25 => [200] OK
+1210. [GET] http://127.0.0.1:4174/api/stage/players?page=7&limit=25 => [200] OK
+1211. [GET] http://127.0.0.1:4174/api/stage/notifications?recipient_email=acceptance-admin%40example.test&read=false&limit=100 => [200] OK
+1212. [GET] http://127.0.0.1:4174/api/stage/regional-league-fixtures?league_id=03d72ef5-f813-4d92-8f72-d818b28d0d4c&limit=500&offset=0 => [200] OK
+1213. [GET] http://127.0.0.1:4174/api/stage/regional-league-fixtures?league_id=0e3cc626-4946-4c92-8976-62a32352a4c1&limit=500&offset=0 => [200] OK
+1214. [GET] http://127.0.0.1:4174/api/stage/regional-league-fixtures?league_id=1a56c5b8-18f1-4ef0-ac99-c8fecf736cc4&limit=500&offset=0 => [200] OK
+1215. [GET] http://127.0.0.1:4174/api/stage/regional-league-fixtures?league_id=ce2d61a1-c615-46fb-a5d8-8abf101b7952&limit=500&offset=0 => [200] OK
+1216. [GET] http://127.0.0.1:4174/api/stage/regional-league-standings?league_id=0e3cc626-4946-4c92-8976-62a32352a4c1&limit=200 => [200] OK
+1217. [GET] http://127.0.0.1:4174/api/stage/regional-league-standings?league_id=ce2d61a1-c615-46fb-a5d8-8abf101b7952&limit=200 => [200] OK
+1218. [GET] http://127.0.0.1:4174/api/stage/regional-league-standings?league_id=03d72ef5-f813-4d92-8f72-d818b28d0d4c&limit=200 => [200] OK
+1219. [GET] http://127.0.0.1:4174/api/stage/regional-league-standings?league_id=1a56c5b8-18f1-4ef0-ac99-c8fecf736cc4&limit=200 => [200] OK
+1220. [GET] http://127.0.0.1:4174/api/stage/reward-configs/source/regional_league/03d72ef5-f813-4d92-8f72-d818b28d0d4c => [200] OK
+1221. [GET] http://127.0.0.1:4174/api/stage/reward-configs/source/regional_league/1a56c5b8-18f1-4ef0-ac99-c8fecf736cc4 => [200] OK
+1222. [GET] http://127.0.0.1:4174/api/stage/international-tournaments?limit=100 => [200] OK
+1223. [POST] http://127.0.0.1:4174/api/stage/reward-configs/source/regional_league/03d72ef5-f813-4d92-8f72-d818b28d0d4c/replace => [200] OK
+1224. [GET] http://127.0.0.1:4174/api/stage/ranking-configs?limit=10 => [200] OK
+1225. [POST] http://127.0.0.1:4174/api/stage/reward-configs/source/regional_league/1a56c5b8-18f1-4ef0-ac99-c8fecf736cc4/replace => [200] OK
+1227. [GET] http://127.0.0.1:4174/api/stage/regional-leagues/operations => [200] OK
+1228. [GET] http://127.0.0.1:4174/api/stage/regional-leagues/cups => [200] OK
+1229. [GET] http://127.0.0.1:4174/api/stage/regional-leagues/cycles => [200] OK
+1230. [GET] http://127.0.0.1:4174/api/stage/regional-public/03d72ef5-f813-4d92-8f72-d818b28d0d4c/trophy => [200] OK
+1231. [GET] http://127.0.0.1:4174/api/stage/regional-public/1a56c5b8-18f1-4ef0-ac99-c8fecf736cc4/trophy => [200] OK
+1232. [GET] http://127.0.0.1:4174/uploads/acceptance-trophy.png => [404] Not Found
+1233. [PATCH] http://127.0.0.1:4174/api/stage/auth/timezone => [200] OK
+1234. [GET] http://127.0.0.1:4174/api/stage/auth/me => [200] OK
+1235. [GET] http://127.0.0.1:4174/api/stage/notifications?recipient_email=acceptance-admin%40example.test&read=false&limit=100 => [200] OK
+1236. [GET] http://127.0.0.1:4174/api/stage/notifications?recipient_email=acceptance-admin%40example.test&read=false&limit=100 => [200] OK
+1237. [GET] http://127.0.0.1:4174/src/components/admin/sections/LeaguesTab.jsx?t=1794166109753 => [500] Internal Server Error
+1239. [GET] http://127.0.0.1:4174/api/stage/admin-mail/status => [200] OK
+1240. [GET] http://127.0.0.1:4174/api/stage/notifications?recipient_email=acceptance-admin%40example.test&read=false&limit=100 => [200] OK
+1241. [GET] http://127.0.0.1:4174/api/stage/notifications?recipient_email=acceptance-admin%40example.test&read=false&limit=100 => [200] OK
+1244. [GET] http://127.0.0.1:4174/src/components/admin/sections/LeaguesTab.jsx?t=1794166128466 => [500] Internal Server Error
+1247. [GET] http://127.0.0.1:4174/src/components/admin/sections/LeaguesTab.jsx?t=1794166130070 => [500] Internal Server Error
+
+Note: 403 static requests not shown, run with --static option to see them.
+### Page
+- Page URL: http://127.0.0.1:4174/admin/leagues
+- Page Title: Stage League
+- Console: 8 errors, 2 warnings
+### Events
+- New console entries: .playwright-cli/console-2026-11-08T19-28-08-109Z.log#L11-L12

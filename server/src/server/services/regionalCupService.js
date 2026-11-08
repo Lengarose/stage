@@ -56,7 +56,7 @@ function createService({model=new RegionalCupModel(),transaction=withTransaction
         // slots conservatively; this does not invent future opponents or Matches.
         const events=await model.events(clubs,q),busy=busyEvents(events),reservations=clubs.flatMap(club=>dates.map(d=>({id:`cup:${id}:${d.round}:${club}`,home_club_id:club,instant:d.instant,minutes:d.minutes})));
         const from=dates[0].instant-7*86400000,to=dates.at(-1).instant+7*86400000;
-        blockers.push(...loadViolations([...busy.filter(e=>e.instant>=from && e.instant<=to),...reservations]));
+        blockers.push(...loadViolations([...busy.filter(e=>e.instant>=from && e.instant<=to),...reservations],dates[0].timezone));
         record={id,permanent_cup_id:definition.id,name:definition.name,region_slug:definition.region_slug,platform:definition.platform,season_number:scope.season_number,reset_series:Number(scope.reset_series || 0),status:'draft',policy_version:plan.policy.version,source_calendar_id:anchor.id,source_edition_ids:anchor.edition_ids,participant_ids:clubs,round_calendar:dates,trophy_snapshot:trophy.trophy,participation_window_snapshot:field?.window || null,rules:plan.rules,no_gost_ticket:true,play_enabled:false};
         revision=hash([record,sources,field,trophy.revision,events]);
       }

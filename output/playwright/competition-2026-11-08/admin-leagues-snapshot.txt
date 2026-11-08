@@ -1,0 +1,941 @@
+### Page
+- Page URL: http://127.0.0.1:4174/admin/leagues
+- Page Title: Stage League
+- Console: 6 errors, 2 warnings
+### Snapshot
+```yaml
+- generic [active] [ref=f2e7]:
+  - generic [ref=f2e9]:
+    - banner [ref=f2e10]:
+      - generic [ref=f2e13]:
+        - link [ref=f2e14] [cursor=pointer]:
+          - /url: /
+          - img "STAGE" [ref=f2e15]
+        - generic [ref=f2e16]:
+          - generic [ref=f2e245]: Stage Control Panel
+          - navigation [ref=f2e247]:
+            - button "Regional Leagues" [ref=f2e248] [cursor=pointer]
+            - button "Operations" [ref=f2e252] [cursor=pointer]
+            - button "Mail" [ref=f2e256] [cursor=pointer]
+            - button "Community" [ref=f2e260] [cursor=pointer]
+        - generic [ref=f2e35]:
+          - link [ref=f2e36] [cursor=pointer]:
+            - /url: /admin
+          - link "Notifications, 8 unread" [ref=f2e267] [cursor=pointer]:
+            - /url: /notifications
+            - generic [ref=f2e268]: "8"
+          - link [ref=f2e44] [cursor=pointer]:
+            - /url: /settings
+          - combobox [ref=f2e55] [cursor=pointer]:
+            - option "Dark" [selected]
+            - option "Day"
+            - option "Live Dark"
+            - option "Live White"
+            - option "Custom"
+          - link "Admin" [ref=f2e269] [cursor=pointer]:
+            - /url: /admin
+    - main [ref=f2e57]:
+      - generic [ref=f2e63]:
+        - generic [ref=f2e65]:
+          - generic [ref=f2e66]:
+            - generic [ref=f2e71]:
+              - generic [ref=f2e72]: "0"
+              - generic [ref=f2e73]: Open
+            - generic [ref=f2e74]:
+              - paragraph [ref=f2e75]: Control Center
+              - heading "Regional Leagues" [level=1] [ref=f2e76]
+              - generic [ref=f2e77]:
+                - generic [ref=f2e80]: acceptance-admin@example.test
+                - generic [ref=f2e81]: · STAGE Control Panel
+          - generic [ref=f2e82]:
+            - link [ref=f2e83] [cursor=pointer]:
+              - /url: /admin
+              - button "Dashboard" [ref=f2e84]
+            - button "Refresh" [ref=f2e273] [cursor=pointer]
+        - generic [ref=f2e85]:
+          - generic [ref=f2e89]:
+            - paragraph [ref=f2e90]: Disputes
+            - paragraph [ref=f2e91]: "0"
+            - paragraph [ref=f2e92]: All clear
+          - generic [ref=f2e96]:
+            - paragraph [ref=f2e97]: Forfeits
+            - paragraph [ref=f2e98]: "0"
+            - paragraph [ref=f2e99]: None pending
+          - generic [ref=f2e106]:
+            - paragraph [ref=f2e107]: Players
+            - paragraph [ref=f2e108]: "164"
+            - paragraph [ref=f2e109]: Registered profiles
+          - generic [ref=f2e117]:
+            - paragraph [ref=f2e118]: Tournaments
+            - paragraph [ref=f2e119]: "1"
+            - paragraph [ref=f2e120]: Active tournaments
+        - generic [ref=f2e274]:
+          - generic [ref=f2e276]:
+            - generic [ref=f2e277]:
+              - heading "Fresh-start reset" [level=3] [ref=f2e281]
+              - paragraph [ref=f2e282]: Clears generated league/GOST history only. Reward configs, trophy items, clubs, and players are kept.
+            - button "Reset Regional" [ref=f2e284] [cursor=pointer]
+          - generic [ref=f2e285]:
+            - generic [ref=f2e286]:
+              - heading "Registration Applications" [level=3] [ref=f2e287]
+              - generic [ref=f2e288]:
+                - button "Needs Action" [ref=f2e289] [cursor=pointer]
+                - button "All" [ref=f2e290] [cursor=pointer]
+            - paragraph [ref=f2e292]: No applications need action
+          - button [ref=f2e294] [cursor=pointer]:
+            - heading "Fixtures & Results" [level=3] [ref=f2e295]
+          - button [ref=f2e299] [cursor=pointer]:
+            - heading "Standings" [level=3] [ref=f2e300]
+          - generic [ref=f2e303]:
+            - generic [ref=f2e304]:
+              - generic [ref=f2e305]:
+                - heading "Regional Leagues" [level=3] [ref=f2e306]
+                - paragraph [ref=f2e307]: Normal regional divisions. Clubs enter the lowest eligible division; promotion and relegation decide next season.
+              - button "Seed All Leagues" [ref=f2e308] [cursor=pointer]
+            - region "Regional operations overview" [ref=f2e309]:
+              - generic [ref=f2e310]:
+                - heading "Regional action overview" [level=4] [ref=f2e311]
+                - button "Refresh overview" [ref=f2e312] [cursor=pointer]
+              - paragraph [ref=f2e313]: A snapshot of registration, sporting cycles, result reviews, Cup matches and rewards. This overview makes no changes. Existing actions recheck current evidence; this view does not extend deadlines, choose winners or issue payments.
+              - paragraph [ref=f2e314]: 0 reviews · 0 actions · 3 registration periods · 2 cycles · 2 Cup editions
+              - paragraph [ref=f2e315]: "Updated: 08/11/2026, 20:28:10"
+              - status [ref=f2e316]: No action items found in this stored snapshot. This is not a complete competition or automation integrity check.
+              - list
+            - generic [ref=f2e318]:
+              - heading "Permanent league management" [level=4] [ref=f2e319]
+              - group [ref=f2e320]:
+                - generic [ref=f2e321]:
+                  - text: Action
+                  - combobox "Action" [ref=f2e322]:
+                    - option "Create league and initial edition" [selected]
+                    - option "Review dependencies"
+                    - option "Retire league, preserve history"
+                    - option "Delete unused draft league"
+                - generic [ref=f2e323]:
+                  - generic [ref=f2e324]:
+                    - text: Name
+                    - textbox "Name" [ref=f2e325]
+                  - generic [ref=f2e326]:
+                    - text: Regional system slug
+                    - textbox "Regional system slug" [ref=f2e327]
+                  - generic [ref=f2e328]:
+                    - text: Platform
+                    - textbox "Platform" [ref=f2e329]: cross-platform
+                  - generic [ref=f2e330]:
+                    - text: Division
+                    - spinbutton "Division" [ref=f2e331]: "1"
+                  - generic [ref=f2e332]:
+                    - text: Capacity
+                    - spinbutton "Capacity" [ref=f2e333]: "20"
+                  - generic [ref=f2e334]:
+                    - text: Linked division slug
+                    - textbox "Linked division slug" [ref=f2e335]
+                  - generic [ref=f2e336]:
+                    - text: Default trophy
+                    - combobox "Default trophy" [ref=f2e337]:
+                      - option "Not assigned" [selected]
+                      - option "Acceptance D1 Trophy"
+                      - option "Acceptance D2 Trophy"
+                      - option "Acceptance Cup Trophy"
+                  - generic [ref=f2e338]:
+                    - text: Rules (JSON)
+                    - textbox "Rules (JSON)" [ref=f2e339]: "{}"
+                  - generic [ref=f2e340]:
+                    - text: Reward defaults (JSON)
+                    - textbox "Reward defaults (JSON)" [ref=f2e341]: "{}"
+                - generic [ref=f2e342]:
+                  - text: Reason
+                  - textbox "Reason" [ref=f2e343]
+                - button "Preview dependencies and consequences" [disabled] [ref=f2e344]
+                - generic [ref=f2e348]:
+                  - paragraph [ref=f2e349]: "Requested duplicate consolidation: retain the original identities and preserve valid editions. Preview only; production apply is pending review."
+                  - button "Preview Premier Division consolidation" [ref=f2e350] [cursor=pointer]
+                  - button "Preview North American Division 1 consolidation" [ref=f2e351] [cursor=pointer]
+              - generic [ref=f2e352]:
+                - heading "Official competition decisions" [level=4] [ref=f2e353]
+                - group "Regional transfer review" [ref=f2e354]:
+                  - paragraph [ref=f2e356]: A review cannot grant an unearned tier or displace a confirmed club. Resolve the vacancy/calendar issue, then ask the president to retry with current conditions, or reject the request.
+                  - generic [ref=f2e357]:
+                    - text: Transfer request ID
+                    - textbox "Transfer request ID" [ref=f2e358]
+                  - generic [ref=f2e359]:
+                    - text: Review outcome
+                    - combobox "Review outcome" [ref=f2e360]:
+                      - option "Return to club for a current request" [selected]
+                      - option "Reject this request"
+                  - generic [ref=f2e361]:
+                    - text: Decision reason
+                    - textbox "Decision reason" [ref=f2e362]
+                  - button "Record transfer review" [disabled] [ref=f2e363]
+                - group "Absence evidence and review" [ref=f2e364]:
+                  - paragraph [ref=f2e366]: Recording an absence does not award a score or exclude a club. Both clubs absent, or three confirmed absences in this edition, require Admin review.
+                  - generic [ref=f2e367]:
+                    - text: Official match ID
+                    - textbox "Official match ID" [ref=f2e368]
+                  - generic [ref=f2e369]:
+                    - text: Reviewed evidence link
+                    - textbox "Reviewed evidence link" [ref=f2e370]
+                  - generic [ref=f2e371]:
+                    - text: Decision reason
+                    - textbox "Decision reason" [ref=f2e372]
+                  - generic [ref=f2e373]:
+                    - text: Existing absence decision ID (to close its review)
+                    - textbox "Existing absence decision ID (to close its review)" [ref=f2e374]
+                  - generic [ref=f2e375]:
+                    - text: Recorded absent
+                    - combobox "Recorded absent" [ref=f2e376]:
+                      - option "Both clubs" [selected]
+                      - option "Home club"
+                      - option "Away club"
+                  - button "Record confirmed absence" [ref=f2e377] [cursor=pointer]
+                  - button "Close reviewed absence case" [disabled] [ref=f2e378]
+                - group "Club withdrawal" [ref=f2e379]:
+                  - paragraph [ref=f2e381]: Before nineteen definitive first-half matches, all league results of this club are excluded. Afterward, the first half stays and every return becomes an administrative 3–0. The withdrawn club cannot win the title, prizes or promotion in this edition and has no guaranteed next-season place. Evidence and paid history are preserved.
+                  - generic [ref=f2e382]:
+                    - text: League edition
+                    - combobox "League edition" [ref=f2e383]:
+                      - option "Select current edition" [selected]
+                      - option "Acceptance Division 1 · D1"
+                      - option "Acceptance Division 2 · D2"
+                  - generic [ref=f2e384]:
+                    - text: Participating club ID
+                    - textbox "Participating club ID" [ref=f2e385]
+                  - generic [ref=f2e386]:
+                    - text: Evidence link
+                    - textbox "Evidence link" [ref=f2e387]
+                  - generic [ref=f2e388]:
+                    - text: Decision reason
+                    - textbox "Decision reason" [ref=f2e389]
+                  - button "Preview withdrawal consequences" [disabled] [ref=f2e390]
+                - group "Player suspensions" [ref=f2e391]:
+                  - paragraph [ref=f2e393]: Only explicit Admin decisions apply. A suspension follows the player after a permanent transfer. No automatic card or no-show penalties are added.
+                  - generic [ref=f2e394]:
+                    - generic [ref=f2e395]:
+                      - text: Player ID
+                      - textbox "Player ID" [ref=f2e396]
+                    - generic [ref=f2e397]:
+                      - text: Competition scope
+                      - combobox "Competition scope" [ref=f2e398]:
+                        - option "All official competitions" [selected]
+                        - option "Regional system"
+                        - option "Exact competition edition"
+                    - generic [ref=f2e399]:
+                      - text: Starts at (ISO date with timezone)
+                      - textbox "Starts at (ISO date with timezone)" [ref=f2e400]:
+                        - /placeholder: 2026-11-10T20:00:00+01:00
+                    - generic [ref=f2e401]:
+                      - text: Ends at (ISO date with timezone)
+                      - textbox "Ends at (ISO date with timezone)" [ref=f2e402]:
+                        - /placeholder: 2026-11-10T20:00:00+01:00
+                    - generic [ref=f2e403]:
+                      - text: Decision reason
+                      - textbox "Decision reason" [ref=f2e404]:
+                        - /placeholder: ""
+                  - button "Save explicit suspension" [ref=f2e405] [cursor=pointer]
+                  - button "View suspension decisions" [ref=f2e406] [cursor=pointer]
+            - generic [ref=f2e408]:
+              - heading "Regional registration periods" [level=4] [ref=f2e409]
+              - paragraph [ref=f2e410]: "Publish one period per region, platform and edition: four weeks to register, followed by one shared confirmation week. Clubs choose a region; sporting placement determines the division. Started editions keep their current rules. No date opens automatically."
+              - group [ref=f2e411]:
+                - generic [ref=f2e412]:
+                  - text: Regional system
+                  - combobox "Regional system" [ref=f2e413]:
+                    - option "Choose a regional system" [selected]
+                    - option "uk-ireland · cross-platform"
+                - generic [ref=f2e414]:
+                  - text: Target season
+                  - spinbutton "Target season" [ref=f2e415]: "1"
+                - generic [ref=f2e416]:
+                  - text: Reset series
+                  - spinbutton "Reset series" [ref=f2e417]: "0"
+                - generic [ref=f2e418]:
+                  - text: Registration opens (your local time)
+                  - textbox "Registration opens (your local time)" [ref=f2e419]
+                - generic [ref=f2e420]:
+                  - text: First league playing Monday (optional)
+                  - textbox "First league playing Monday (optional) Choose the first league week after any required reserve and two-week initial placement period. Calendar publication needs at least 48 hours before kickoff; no date is inferred." [ref=f2e421]
+                  - text: Choose the first league week after any required reserve and two-week initial placement period. Calendar publication needs at least 48 hours before kickoff; no date is inferred.
+                - generic [ref=f2e422]:
+                  - checkbox "Include Regional Cup entry in these new participation conditions. The server appends the confirmed Cup rules; existing registration periods stay unchanged." [checked] [ref=f2e423]
+                  - text: Include Regional Cup entry in these new participation conditions. The server appends the confirmed Cup rules; existing registration periods stay unchanged.
+                - generic [ref=f2e424]:
+                  - text: Published edition rules
+                  - textbox "Published edition rules" [ref=f2e425]
+                - generic [ref=f2e426]:
+                  - text: Administrative reason
+                  - textbox "Administrative reason" [ref=f2e427]
+                - button "Preview registration dates and conditions →" [disabled] [ref=f2e428]
+            - generic [ref=f2e430]:
+              - heading "Regional Cups · preparation and progress" [level=4] [ref=f2e431]
+              - paragraph [ref=f2e432]: One permanent Cup per region and platform, with a new draft edition each season. Select an existing catalogue trophy. Participants come from all confirmed groups, provided Cup entry was included in their accepted registration conditions.
+              - paragraph [ref=f2e433]: A draft does not start matches. Review participants and the calendar below before activating the edition. Preparing a Cup does not issue prizes or GOST tickets.
+              - group [ref=f2e434]:
+                - generic [ref=f2e435]:
+                  - text: Regional system
+                  - combobox "Regional system" [ref=f2e436]:
+                    - option "Choose a system" [selected]
+                    - option "uk-ireland · cross-platform"
+                - button "Prepare permanent Cup →" [disabled] [ref=f2e437]
+                - generic [ref=f2e438]:
+                  - text: Cup
+                  - combobox "Cup" [ref=f2e439]:
+                    - option "Choose a Cup" [selected]
+                    - option "STAGE UK & Ireland Cup · cross-platform"
+                - button "View / change catalogue trophy →" [disabled] [ref=f2e440]
+                - generic [ref=f2e441]:
+                  - text: Published league calendar
+                  - combobox "Published league calendar" [ref=f2e442]:
+                    - option "Choose the source calendar" [selected]
+                    - option "2027-03-15 · 2 groups · 4f8a26f5-4c8c-9db4-56ec-6f4bb410a7e0"
+                    - option "2027-06-14 · 2 groups · b350fd64-8285-4d41-3eff-6b34ef68ab4b"
+                - generic [ref=f2e443]:
+                  - text: Reason
+                  - textbox "Reason" [ref=f2e444]
+                - button "Review participants and Cup calendar →" [disabled] [ref=f2e445]
+                - button "Reload Cups" [ref=f2e446] [cursor=pointer]
+              - generic [ref=f2e447]:
+                - heading "Cup activation and official progress" [level=5] [ref=f2e448]
+                - paragraph [ref=f2e449]: Activation adds real matches to GameDay and the regional calendar. Each next round is drawn automatically once all results are confirmed. Conflicts or changes to processed results require review. After the final, payment and trophy processing follows; any blockers appear in Cup rewards below.
+                - group [ref=f2e450]:
+                  - generic [ref=f2e451]:
+                    - text: Cup edition
+                    - combobox "Cup edition" [ref=f2e452]:
+                      - option "Choose an edition" [selected]
+                      - option "STAGE UK & Ireland Cup · season 1 · completed"
+                      - option "STAGE UK & Ireland Cup · season 2 · running"
+                  - button "Review official results and progress →" [disabled] [ref=f2e453]
+              - generic [ref=f2e454]:
+                - heading "Cup rewards and trophy awards" [level=5] [ref=f2e455]
+                - paragraph [ref=f2e456]: STAGE funds 7,000,000 STC for the winner and 3,000,000 STC for the runner-up. No third-place prize or additional Cup entry fee. New editions capture these terms in advance; existing editions without captured terms require explicit review.
+                - group [ref=f2e457]:
+                  - generic [ref=f2e458]:
+                    - text: Cup edition
+                    - combobox "Cup edition" [ref=f2e459]:
+                      - option "Choose an edition" [selected]
+                      - option "STAGE UK & Ireland Cup · season 1 · completed"
+                      - option "STAGE UK & Ireland Cup · season 2 · running"
+                  - generic [ref=f2e460]:
+                    - button "Review payments and trophy →" [disabled] [ref=f2e461]
+                    - button "Preview reward terms for an existing edition →" [disabled] [ref=f2e462]
+            - generic [ref=f2e464]:
+              - heading "Complete regional season calendar" [level=4] [ref=f2e465]
+              - paragraph [ref=f2e466]: Select every populated current group of one European regional system. Draw fixtures first. Preview 38 rounds across ten playing weeks, with overlap and club load checks. Existing schedules are preserved.
+              - group "Current official groups" [ref=f2e467]:
+                - generic [ref=f2e469]:
+                  - generic [ref=f2e470]:
+                    - checkbox "Acceptance Division 1 · D1 A · uk-ireland · 2" [ref=f2e471]
+                    - text: Acceptance Division 1 · D1 A · uk-ireland · 2
+                  - generic [ref=f2e472]:
+                    - checkbox "Acceptance Division 2 · D2 A · uk-ireland · 2" [ref=f2e473]
+                    - text: Acceptance Division 2 · D2 A · uk-ireland · 2
+                - generic [ref=f2e474]:
+                  - generic [ref=f2e475]:
+                    - text: Monday of the first playing week (Europe/Brussels)
+                    - textbox "Monday of the first playing week (Europe/Brussels)" [ref=f2e476]
+                  - generic [ref=f2e477]:
+                    - text: Reason
+                    - textbox "Reason" [ref=f2e478]
+                - button "Preview season calendar" [disabled] [ref=f2e479]
+            - generic [ref=f2e480]:
+              - heading "Official regional calendar" [level=4] [ref=f2e481]
+              - paragraph [ref=f2e482]: Schedule one new official regional or pathway match. The fixture, engine and GameDay time are saved together. A changed time requires fresh selection publication and readiness. This does not generate a complete season calendar.
+              - generic [ref=f2e483]:
+                - group [ref=f2e484]:
+                  - generic [ref=f2e485]:
+                    - text: Fixture or GameDay match ID
+                    - textbox "Fixture or GameDay match ID" [ref=f2e486]
+                  - generic [ref=f2e487]:
+                    - text: Kickoff in the selected timezone
+                    - textbox "Kickoff in the selected timezone" [ref=f2e488]
+                  - generic [ref=f2e489]:
+                    - text: Official IANA timezone
+                    - textbox "Official IANA timezone" [ref=f2e490]: Europe/Brussels
+                  - generic [ref=f2e491]:
+                    - text: Reason
+                    - textbox "Reason" [ref=f2e492]
+                - generic [ref=f2e493]:
+                  - checkbox "I confirm this kickoff and understand that a changed time clears existing readiness." [ref=f2e494]
+                  - text: I confirm this kickoff and understand that a changed time clears existing readiness.
+                - button "Publish official kickoff" [disabled] [ref=f2e495]
+            - generic [ref=f2e497]:
+              - heading "Regional cycles and sporting allocation" [level=4] [ref=f2e498]
+              - paragraph [ref=f2e499]: Prepare one recorded draw for the whole regional season. Official results decide places. For next-season transitions, finish all 380 league matches per source group first; tied finishing positions are settled before promotion play-offs. Allocation creates draft groups; the season calendar and matches must still be scheduled before play.
+              - group [ref=f2e500]:
+                - generic [ref=f2e501]:
+                  - generic [ref=f2e502]:
+                    - text: Route
+                    - combobox "Route" [ref=f2e503]:
+                      - option "First placement" [selected]
+                      - 'option "Next season: promotion and growth"'
+                  - generic [ref=f2e504]:
+                    - text: Confirmed target field
+                    - combobox "Confirmed target field" [ref=f2e505]:
+                      - option "20 clubs"
+                      - option "40 clubs" [selected]
+                      - option "60 clubs"
+                      - option "80 clubs"
+                      - option "100 clubs"
+                      - option "120 clubs"
+                      - option "180 clubs"
+                      - option "240 clubs"
+                - generic [ref=f2e506]:
+                  - group "Current source groups" [ref=f2e507]:
+                    - generic [ref=f2e509]:
+                      - generic [ref=f2e510]:
+                        - checkbox "Acceptance Division 1 · D1A uk-ireland · cross-platform · Season 2 · in_progress" [ref=f2e511]
+                        - generic [ref=f2e512]:
+                          - text: Acceptance Division 1 · D1A
+                          - generic [ref=f2e513]: uk-ireland · cross-platform · Season 2 · in_progress
+                      - generic [ref=f2e514]:
+                        - checkbox "Acceptance Division 2 · D2A uk-ireland · cross-platform · Season 2 · in_progress" [ref=f2e515]
+                        - generic [ref=f2e516]:
+                          - text: Acceptance Division 2 · D2A
+                          - generic [ref=f2e517]: uk-ireland · cross-platform · Season 2 · in_progress
+                  - group "Additional approved registrations" [ref=f2e518]:
+                    - paragraph [ref=f2e520]: Only registrations for the exact target season, region, platform and reset series qualify. Clubs already in a source group must not be selected again.
+                    - generic [ref=f2e521]:
+                      - generic [ref=f2e522]:
+                        - checkbox "Acceptance Club 19 · uk-ireland Season 2 · cross-platform" [ref=f2e523]
+                        - generic [ref=f2e524]:
+                          - text: Acceptance Club 19 · uk-ireland
+                          - generic [ref=f2e525]: Season 2 · cross-platform
+                      - generic [ref=f2e526]:
+                        - checkbox "Acceptance Club 15 · uk-ireland Season 2 · cross-platform" [ref=f2e527]
+                        - generic [ref=f2e528]:
+                          - text: Acceptance Club 15 · uk-ireland
+                          - generic [ref=f2e529]: Season 2 · cross-platform
+                      - generic [ref=f2e530]:
+                        - checkbox "Acceptance Club 5 · uk-ireland Season 2 · cross-platform" [ref=f2e531]
+                        - generic [ref=f2e532]:
+                          - text: Acceptance Club 5 · uk-ireland
+                          - generic [ref=f2e533]: Season 2 · cross-platform
+                      - generic [ref=f2e534]:
+                        - checkbox "Acceptance Club 31 · uk-ireland Season 2 · cross-platform" [ref=f2e535]
+                        - generic [ref=f2e536]:
+                          - text: Acceptance Club 31 · uk-ireland
+                          - generic [ref=f2e537]: Season 2 · cross-platform
+                      - generic [ref=f2e538]:
+                        - checkbox "Acceptance Club 3 · uk-ireland Season 2 · cross-platform" [ref=f2e539]
+                        - generic [ref=f2e540]:
+                          - text: Acceptance Club 3 · uk-ireland
+                          - generic [ref=f2e541]: Season 2 · cross-platform
+                      - generic [ref=f2e542]:
+                        - checkbox "Acceptance Club 27 · uk-ireland Season 2 · cross-platform" [ref=f2e543]
+                        - generic [ref=f2e544]:
+                          - text: Acceptance Club 27 · uk-ireland
+                          - generic [ref=f2e545]: Season 2 · cross-platform
+                      - generic [ref=f2e546]:
+                        - checkbox "Acceptance Club 38 · uk-ireland Season 2 · cross-platform" [ref=f2e547]
+                        - generic [ref=f2e548]:
+                          - text: Acceptance Club 38 · uk-ireland
+                          - generic [ref=f2e549]: Season 2 · cross-platform
+                      - generic [ref=f2e550]:
+                        - checkbox "Acceptance Club 29 · uk-ireland Season 2 · cross-platform" [ref=f2e551]
+                        - generic [ref=f2e552]:
+                          - text: Acceptance Club 29 · uk-ireland
+                          - generic [ref=f2e553]: Season 2 · cross-platform
+                      - generic [ref=f2e554]:
+                        - checkbox "Acceptance Club 12 · uk-ireland Season 2 · cross-platform" [ref=f2e555]
+                        - generic [ref=f2e556]:
+                          - text: Acceptance Club 12 · uk-ireland
+                          - generic [ref=f2e557]: Season 2 · cross-platform
+                      - generic [ref=f2e558]:
+                        - checkbox "Acceptance Club 28 · uk-ireland Season 2 · cross-platform" [ref=f2e559]
+                        - generic [ref=f2e560]:
+                          - text: Acceptance Club 28 · uk-ireland
+                          - generic [ref=f2e561]: Season 2 · cross-platform
+                      - generic [ref=f2e562]:
+                        - checkbox "Acceptance Club 18 · uk-ireland Season 2 · cross-platform" [ref=f2e563]
+                        - generic [ref=f2e564]:
+                          - text: Acceptance Club 18 · uk-ireland
+                          - generic [ref=f2e565]: Season 2 · cross-platform
+                      - generic [ref=f2e566]:
+                        - checkbox "Acceptance Club 25 · uk-ireland Season 2 · cross-platform" [ref=f2e567]
+                        - generic [ref=f2e568]:
+                          - text: Acceptance Club 25 · uk-ireland
+                          - generic [ref=f2e569]: Season 2 · cross-platform
+                      - generic [ref=f2e570]:
+                        - checkbox "Acceptance Club 40 · uk-ireland Season 2 · cross-platform" [ref=f2e571]
+                        - generic [ref=f2e572]:
+                          - text: Acceptance Club 40 · uk-ireland
+                          - generic [ref=f2e573]: Season 2 · cross-platform
+                      - generic [ref=f2e574]:
+                        - checkbox "Acceptance Club 8 · uk-ireland Season 2 · cross-platform" [ref=f2e575]
+                        - generic [ref=f2e576]:
+                          - text: Acceptance Club 8 · uk-ireland
+                          - generic [ref=f2e577]: Season 2 · cross-platform
+                      - generic [ref=f2e578]:
+                        - checkbox "Acceptance Club 32 · uk-ireland Season 2 · cross-platform" [ref=f2e579]
+                        - generic [ref=f2e580]:
+                          - text: Acceptance Club 32 · uk-ireland
+                          - generic [ref=f2e581]: Season 2 · cross-platform
+                      - generic [ref=f2e582]:
+                        - checkbox "Acceptance Club 2 · uk-ireland Season 2 · cross-platform" [ref=f2e583]
+                        - generic [ref=f2e584]:
+                          - text: Acceptance Club 2 · uk-ireland
+                          - generic [ref=f2e585]: Season 2 · cross-platform
+                      - generic [ref=f2e586]:
+                        - checkbox "Acceptance Club 21 · uk-ireland Season 2 · cross-platform" [ref=f2e587]
+                        - generic [ref=f2e588]:
+                          - text: Acceptance Club 21 · uk-ireland
+                          - generic [ref=f2e589]: Season 2 · cross-platform
+                      - generic [ref=f2e590]:
+                        - checkbox "Acceptance Club 10 · uk-ireland Season 2 · cross-platform" [ref=f2e591]
+                        - generic [ref=f2e592]:
+                          - text: Acceptance Club 10 · uk-ireland
+                          - generic [ref=f2e593]: Season 2 · cross-platform
+                      - generic [ref=f2e594]:
+                        - checkbox "Acceptance Club 16 · uk-ireland Season 2 · cross-platform" [ref=f2e595]
+                        - generic [ref=f2e596]:
+                          - text: Acceptance Club 16 · uk-ireland
+                          - generic [ref=f2e597]: Season 2 · cross-platform
+                      - generic [ref=f2e598]:
+                        - checkbox "Acceptance Club 37 · uk-ireland Season 2 · cross-platform" [ref=f2e599]
+                        - generic [ref=f2e600]:
+                          - text: Acceptance Club 37 · uk-ireland
+                          - generic [ref=f2e601]: Season 2 · cross-platform
+                      - generic [ref=f2e602]:
+                        - checkbox "Acceptance Club 13 · uk-ireland Season 2 · cross-platform" [ref=f2e603]
+                        - generic [ref=f2e604]:
+                          - text: Acceptance Club 13 · uk-ireland
+                          - generic [ref=f2e605]: Season 2 · cross-platform
+                      - generic [ref=f2e606]:
+                        - checkbox "Acceptance Club 11 · uk-ireland Season 2 · cross-platform" [ref=f2e607]
+                        - generic [ref=f2e608]:
+                          - text: Acceptance Club 11 · uk-ireland
+                          - generic [ref=f2e609]: Season 2 · cross-platform
+                      - generic [ref=f2e610]:
+                        - checkbox "Acceptance Club 33 · uk-ireland Season 2 · cross-platform" [ref=f2e611]
+                        - generic [ref=f2e612]:
+                          - text: Acceptance Club 33 · uk-ireland
+                          - generic [ref=f2e613]: Season 2 · cross-platform
+                      - generic [ref=f2e614]:
+                        - checkbox "Acceptance Club 24 · uk-ireland Season 2 · cross-platform" [ref=f2e615]
+                        - generic [ref=f2e616]:
+                          - text: Acceptance Club 24 · uk-ireland
+                          - generic [ref=f2e617]: Season 2 · cross-platform
+                      - generic [ref=f2e618]:
+                        - checkbox "Acceptance Club 26 · uk-ireland Season 2 · cross-platform" [ref=f2e619]
+                        - generic [ref=f2e620]:
+                          - text: Acceptance Club 26 · uk-ireland
+                          - generic [ref=f2e621]: Season 2 · cross-platform
+                      - generic [ref=f2e622]:
+                        - checkbox "Acceptance Club 17 · uk-ireland Season 2 · cross-platform" [ref=f2e623]
+                        - generic [ref=f2e624]:
+                          - text: Acceptance Club 17 · uk-ireland
+                          - generic [ref=f2e625]: Season 2 · cross-platform
+                      - generic [ref=f2e626]:
+                        - checkbox "Acceptance Club 34 · uk-ireland Season 2 · cross-platform" [ref=f2e627]
+                        - generic [ref=f2e628]:
+                          - text: Acceptance Club 34 · uk-ireland
+                          - generic [ref=f2e629]: Season 2 · cross-platform
+                      - generic [ref=f2e630]:
+                        - checkbox "Acceptance Club 1 · uk-ireland Season 2 · cross-platform" [ref=f2e631]
+                        - generic [ref=f2e632]:
+                          - text: Acceptance Club 1 · uk-ireland
+                          - generic [ref=f2e633]: Season 2 · cross-platform
+                      - generic [ref=f2e634]:
+                        - checkbox "Acceptance Club 22 · uk-ireland Season 2 · cross-platform" [ref=f2e635]
+                        - generic [ref=f2e636]:
+                          - text: Acceptance Club 22 · uk-ireland
+                          - generic [ref=f2e637]: Season 2 · cross-platform
+                      - generic [ref=f2e638]:
+                        - checkbox "Acceptance Club 4 · uk-ireland Season 2 · cross-platform" [ref=f2e639]
+                        - generic [ref=f2e640]:
+                          - text: Acceptance Club 4 · uk-ireland
+                          - generic [ref=f2e641]: Season 2 · cross-platform
+                      - generic [ref=f2e642]:
+                        - checkbox "Acceptance Club 20 · uk-ireland Season 2 · cross-platform" [ref=f2e643]
+                        - generic [ref=f2e644]:
+                          - text: Acceptance Club 20 · uk-ireland
+                          - generic [ref=f2e645]: Season 2 · cross-platform
+                      - generic [ref=f2e646]:
+                        - checkbox "Acceptance Club 36 · uk-ireland Season 2 · cross-platform" [ref=f2e647]
+                        - generic [ref=f2e648]:
+                          - text: Acceptance Club 36 · uk-ireland
+                          - generic [ref=f2e649]: Season 2 · cross-platform
+                      - generic [ref=f2e650]:
+                        - checkbox "Acceptance Club 39 · uk-ireland Season 2 · cross-platform" [ref=f2e651]
+                        - generic [ref=f2e652]:
+                          - text: Acceptance Club 39 · uk-ireland
+                          - generic [ref=f2e653]: Season 2 · cross-platform
+                      - generic [ref=f2e654]:
+                        - checkbox "Acceptance Club 7 · uk-ireland Season 2 · cross-platform" [ref=f2e655]
+                        - generic [ref=f2e656]:
+                          - text: Acceptance Club 7 · uk-ireland
+                          - generic [ref=f2e657]: Season 2 · cross-platform
+                      - generic [ref=f2e658]:
+                        - checkbox "Acceptance Club 23 · uk-ireland Season 2 · cross-platform" [ref=f2e659]
+                        - generic [ref=f2e660]:
+                          - text: Acceptance Club 23 · uk-ireland
+                          - generic [ref=f2e661]: Season 2 · cross-platform
+                      - generic [ref=f2e662]:
+                        - checkbox "Acceptance Club 14 · uk-ireland Season 2 · cross-platform" [ref=f2e663]
+                        - generic [ref=f2e664]:
+                          - text: Acceptance Club 14 · uk-ireland
+                          - generic [ref=f2e665]: Season 2 · cross-platform
+                      - generic [ref=f2e666]:
+                        - checkbox "Acceptance Club 35 · uk-ireland Season 2 · cross-platform" [ref=f2e667]
+                        - generic [ref=f2e668]:
+                          - text: Acceptance Club 35 · uk-ireland
+                          - generic [ref=f2e669]: Season 2 · cross-platform
+                      - generic [ref=f2e670]:
+                        - checkbox "Acceptance Club 6 · uk-ireland Season 2 · cross-platform" [ref=f2e671]
+                        - generic [ref=f2e672]:
+                          - text: Acceptance Club 6 · uk-ireland
+                          - generic [ref=f2e673]: Season 2 · cross-platform
+                      - generic [ref=f2e674]:
+                        - checkbox "Acceptance Club 9 · uk-ireland Season 2 · cross-platform" [ref=f2e675]
+                        - generic [ref=f2e676]:
+                          - text: Acceptance Club 9 · uk-ireland
+                          - generic [ref=f2e677]: Season 2 · cross-platform
+                      - generic [ref=f2e678]:
+                        - checkbox "Acceptance Club 30 · uk-ireland Season 2 · cross-platform" [ref=f2e679]
+                        - generic [ref=f2e680]:
+                          - text: Acceptance Club 30 · uk-ireland
+                          - generic [ref=f2e681]: Season 2 · cross-platform
+                      - generic [ref=f2e682]:
+                        - checkbox "Acceptance Club 1 · uk-ireland Season 1 · cross-platform" [ref=f2e683]
+                        - generic [ref=f2e684]:
+                          - text: Acceptance Club 1 · uk-ireland
+                          - generic [ref=f2e685]: Season 1 · cross-platform
+                      - generic [ref=f2e686]:
+                        - checkbox "Acceptance Club 6 · uk-ireland Season 1 · cross-platform" [ref=f2e687]
+                        - generic [ref=f2e688]:
+                          - text: Acceptance Club 6 · uk-ireland
+                          - generic [ref=f2e689]: Season 1 · cross-platform
+                      - generic [ref=f2e690]:
+                        - checkbox "Acceptance Club 18 · uk-ireland Season 1 · cross-platform" [ref=f2e691]
+                        - generic [ref=f2e692]:
+                          - text: Acceptance Club 18 · uk-ireland
+                          - generic [ref=f2e693]: Season 1 · cross-platform
+                      - generic [ref=f2e694]:
+                        - checkbox "Acceptance Club 21 · uk-ireland Season 1 · cross-platform" [ref=f2e695]
+                        - generic [ref=f2e696]:
+                          - text: Acceptance Club 21 · uk-ireland
+                          - generic [ref=f2e697]: Season 1 · cross-platform
+                      - generic [ref=f2e698]:
+                        - checkbox "Acceptance Club 4 · uk-ireland Season 1 · cross-platform" [ref=f2e699]
+                        - generic [ref=f2e700]:
+                          - text: Acceptance Club 4 · uk-ireland
+                          - generic [ref=f2e701]: Season 1 · cross-platform
+                      - generic [ref=f2e702]:
+                        - checkbox "Acceptance Club 3 · uk-ireland Season 1 · cross-platform" [ref=f2e703]
+                        - generic [ref=f2e704]:
+                          - text: Acceptance Club 3 · uk-ireland
+                          - generic [ref=f2e705]: Season 1 · cross-platform
+                      - generic [ref=f2e706]:
+                        - checkbox "Acceptance Club 25 · uk-ireland Season 1 · cross-platform" [ref=f2e707]
+                        - generic [ref=f2e708]:
+                          - text: Acceptance Club 25 · uk-ireland
+                          - generic [ref=f2e709]: Season 1 · cross-platform
+                      - generic [ref=f2e710]:
+                        - checkbox "Acceptance Club 8 · uk-ireland Season 1 · cross-platform" [ref=f2e711]
+                        - generic [ref=f2e712]:
+                          - text: Acceptance Club 8 · uk-ireland
+                          - generic [ref=f2e713]: Season 1 · cross-platform
+                      - generic [ref=f2e714]:
+                        - checkbox "Acceptance Club 7 · uk-ireland Season 1 · cross-platform" [ref=f2e715]
+                        - generic [ref=f2e716]:
+                          - text: Acceptance Club 7 · uk-ireland
+                          - generic [ref=f2e717]: Season 1 · cross-platform
+                      - generic [ref=f2e718]:
+                        - checkbox "Acceptance Club 37 · uk-ireland Season 1 · cross-platform" [ref=f2e719]
+                        - generic [ref=f2e720]:
+                          - text: Acceptance Club 37 · uk-ireland
+                          - generic [ref=f2e721]: Season 1 · cross-platform
+                      - generic [ref=f2e722]:
+                        - checkbox "Acceptance Club 38 · uk-ireland Season 1 · cross-platform" [ref=f2e723]
+                        - generic [ref=f2e724]:
+                          - text: Acceptance Club 38 · uk-ireland
+                          - generic [ref=f2e725]: Season 1 · cross-platform
+                      - generic [ref=f2e726]:
+                        - checkbox "Acceptance Club 24 · uk-ireland Season 1 · cross-platform" [ref=f2e727]
+                        - generic [ref=f2e728]:
+                          - text: Acceptance Club 24 · uk-ireland
+                          - generic [ref=f2e729]: Season 1 · cross-platform
+                      - generic [ref=f2e730]:
+                        - checkbox "Acceptance Club 30 · uk-ireland Season 1 · cross-platform" [ref=f2e731]
+                        - generic [ref=f2e732]:
+                          - text: Acceptance Club 30 · uk-ireland
+                          - generic [ref=f2e733]: Season 1 · cross-platform
+                      - generic [ref=f2e734]:
+                        - checkbox "Acceptance Club 26 · uk-ireland Season 1 · cross-platform" [ref=f2e735]
+                        - generic [ref=f2e736]:
+                          - text: Acceptance Club 26 · uk-ireland
+                          - generic [ref=f2e737]: Season 1 · cross-platform
+                      - generic [ref=f2e738]:
+                        - checkbox "Acceptance Club 20 · uk-ireland Season 1 · cross-platform" [ref=f2e739]
+                        - generic [ref=f2e740]:
+                          - text: Acceptance Club 20 · uk-ireland
+                          - generic [ref=f2e741]: Season 1 · cross-platform
+                      - generic [ref=f2e742]:
+                        - checkbox "Acceptance Club 17 · uk-ireland Season 1 · cross-platform" [ref=f2e743]
+                        - generic [ref=f2e744]:
+                          - text: Acceptance Club 17 · uk-ireland
+                          - generic [ref=f2e745]: Season 1 · cross-platform
+                      - generic [ref=f2e746]:
+                        - checkbox "Acceptance Club 39 · uk-ireland Season 1 · cross-platform" [ref=f2e747]
+                        - generic [ref=f2e748]:
+                          - text: Acceptance Club 39 · uk-ireland
+                          - generic [ref=f2e749]: Season 1 · cross-platform
+                      - generic [ref=f2e750]:
+                        - checkbox "Acceptance Club 13 · uk-ireland Season 1 · cross-platform" [ref=f2e751]
+                        - generic [ref=f2e752]:
+                          - text: Acceptance Club 13 · uk-ireland
+                          - generic [ref=f2e753]: Season 1 · cross-platform
+                      - generic [ref=f2e754]:
+                        - checkbox "Acceptance Club 34 · uk-ireland Season 1 · cross-platform" [ref=f2e755]
+                        - generic [ref=f2e756]:
+                          - text: Acceptance Club 34 · uk-ireland
+                          - generic [ref=f2e757]: Season 1 · cross-platform
+                      - generic [ref=f2e758]:
+                        - checkbox "Acceptance Club 16 · uk-ireland Season 1 · cross-platform" [ref=f2e759]
+                        - generic [ref=f2e760]:
+                          - text: Acceptance Club 16 · uk-ireland
+                          - generic [ref=f2e761]: Season 1 · cross-platform
+                      - generic [ref=f2e762]:
+                        - checkbox "Acceptance Club 35 · uk-ireland Season 1 · cross-platform" [ref=f2e763]
+                        - generic [ref=f2e764]:
+                          - text: Acceptance Club 35 · uk-ireland
+                          - generic [ref=f2e765]: Season 1 · cross-platform
+                      - generic [ref=f2e766]:
+                        - checkbox "Acceptance Club 31 · uk-ireland Season 1 · cross-platform" [ref=f2e767]
+                        - generic [ref=f2e768]:
+                          - text: Acceptance Club 31 · uk-ireland
+                          - generic [ref=f2e769]: Season 1 · cross-platform
+                      - generic [ref=f2e770]:
+                        - checkbox "Acceptance Club 2 · uk-ireland Season 1 · cross-platform" [ref=f2e771]
+                        - generic [ref=f2e772]:
+                          - text: Acceptance Club 2 · uk-ireland
+                          - generic [ref=f2e773]: Season 1 · cross-platform
+                      - generic [ref=f2e774]:
+                        - checkbox "Acceptance Club 15 · uk-ireland Season 1 · cross-platform" [ref=f2e775]
+                        - generic [ref=f2e776]:
+                          - text: Acceptance Club 15 · uk-ireland
+                          - generic [ref=f2e777]: Season 1 · cross-platform
+                      - generic [ref=f2e778]:
+                        - checkbox "Acceptance Club 27 · uk-ireland Season 1 · cross-platform" [ref=f2e779]
+                        - generic [ref=f2e780]:
+                          - text: Acceptance Club 27 · uk-ireland
+                          - generic [ref=f2e781]: Season 1 · cross-platform
+                      - generic [ref=f2e782]:
+                        - checkbox "Acceptance Club 9 · uk-ireland Season 1 · cross-platform" [ref=f2e783]
+                        - generic [ref=f2e784]:
+                          - text: Acceptance Club 9 · uk-ireland
+                          - generic [ref=f2e785]: Season 1 · cross-platform
+                      - generic [ref=f2e786]:
+                        - checkbox "Acceptance Club 28 · uk-ireland Season 1 · cross-platform" [ref=f2e787]
+                        - generic [ref=f2e788]:
+                          - text: Acceptance Club 28 · uk-ireland
+                          - generic [ref=f2e789]: Season 1 · cross-platform
+                      - generic [ref=f2e790]:
+                        - checkbox "Acceptance Club 33 · uk-ireland Season 1 · cross-platform" [ref=f2e791]
+                        - generic [ref=f2e792]:
+                          - text: Acceptance Club 33 · uk-ireland
+                          - generic [ref=f2e793]: Season 1 · cross-platform
+                      - generic [ref=f2e794]:
+                        - checkbox "Acceptance Club 14 · uk-ireland Season 1 · cross-platform" [ref=f2e795]
+                        - generic [ref=f2e796]:
+                          - text: Acceptance Club 14 · uk-ireland
+                          - generic [ref=f2e797]: Season 1 · cross-platform
+                      - generic [ref=f2e798]:
+                        - checkbox "Acceptance Club 12 · uk-ireland Season 1 · cross-platform" [ref=f2e799]
+                        - generic [ref=f2e800]:
+                          - text: Acceptance Club 12 · uk-ireland
+                          - generic [ref=f2e801]: Season 1 · cross-platform
+                      - generic [ref=f2e802]:
+                        - checkbox "Acceptance Club 22 · uk-ireland Season 1 · cross-platform" [ref=f2e803]
+                        - generic [ref=f2e804]:
+                          - text: Acceptance Club 22 · uk-ireland
+                          - generic [ref=f2e805]: Season 1 · cross-platform
+                      - generic [ref=f2e806]:
+                        - checkbox "Acceptance Club 5 · uk-ireland Season 1 · cross-platform" [ref=f2e807]
+                        - generic [ref=f2e808]:
+                          - text: Acceptance Club 5 · uk-ireland
+                          - generic [ref=f2e809]: Season 1 · cross-platform
+                      - generic [ref=f2e810]:
+                        - checkbox "Acceptance Club 29 · uk-ireland Season 1 · cross-platform" [ref=f2e811]
+                        - generic [ref=f2e812]:
+                          - text: Acceptance Club 29 · uk-ireland
+                          - generic [ref=f2e813]: Season 1 · cross-platform
+                      - generic [ref=f2e814]:
+                        - checkbox "Acceptance Club 32 · uk-ireland Season 1 · cross-platform" [ref=f2e815]
+                        - generic [ref=f2e816]:
+                          - text: Acceptance Club 32 · uk-ireland
+                          - generic [ref=f2e817]: Season 1 · cross-platform
+                      - generic [ref=f2e818]:
+                        - checkbox "Acceptance Club 19 · uk-ireland Season 1 · cross-platform" [ref=f2e819]
+                        - generic [ref=f2e820]:
+                          - text: Acceptance Club 19 · uk-ireland
+                          - generic [ref=f2e821]: Season 1 · cross-platform
+                      - generic [ref=f2e822]:
+                        - checkbox "Acceptance Club 23 · uk-ireland Season 1 · cross-platform" [ref=f2e823]
+                        - generic [ref=f2e824]:
+                          - text: Acceptance Club 23 · uk-ireland
+                          - generic [ref=f2e825]: Season 1 · cross-platform
+                      - generic [ref=f2e826]:
+                        - checkbox "Acceptance Club 36 · uk-ireland Season 1 · cross-platform" [ref=f2e827]
+                        - generic [ref=f2e828]:
+                          - text: Acceptance Club 36 · uk-ireland
+                          - generic [ref=f2e829]: Season 1 · cross-platform
+                      - generic [ref=f2e830]:
+                        - checkbox "Acceptance Club 11 · uk-ireland Season 1 · cross-platform" [ref=f2e831]
+                        - generic [ref=f2e832]:
+                          - text: Acceptance Club 11 · uk-ireland
+                          - generic [ref=f2e833]: Season 1 · cross-platform
+                      - generic [ref=f2e834]:
+                        - checkbox "Acceptance Club 10 · uk-ireland Season 1 · cross-platform" [ref=f2e835]
+                        - generic [ref=f2e836]:
+                          - text: Acceptance Club 10 · uk-ireland
+                          - generic [ref=f2e837]: Season 1 · cross-platform
+                      - generic [ref=f2e838]:
+                        - checkbox "Acceptance Club 0 · uk-ireland Season 1 · cross-platform" [ref=f2e839]
+                        - generic [ref=f2e840]:
+                          - text: Acceptance Club 0 · uk-ireland
+                          - generic [ref=f2e841]: Season 1 · cross-platform
+                - generic [ref=f2e842]:
+                  - text: Administrative reason
+                  - textbox "Administrative reason" [ref=f2e843]
+                - button "Preview structure and source checks →" [disabled] [ref=f2e844]
+                - generic [ref=f2e845]:
+                  - text: Saved regional cycle
+                  - combobox "Saved regional cycle" [ref=f2e846]:
+                    - option "Select a saved cycle" [disabled] [selected]
+                    - option "uk-ireland · cross-platform · Series 0 / Season 1 · allocated"
+                    - option "uk-ireland · cross-platform · Series 0 / Season 2 · allocated"
+            - generic [ref=f2e848]:
+              - paragraph [ref=f2e849]: UK & Ireland
+              - generic [ref=f2e850]:
+                - generic [ref=f2e851]:
+                  - generic [ref=f2e852]:
+                    - generic [ref=f2e853]: Competition trophy
+                    - generic [ref=f2e854]:
+                      - combobox "Competition trophy" [ref=f2e855]:
+                        - option "Not assigned"
+                        - option "Acceptance D1 Trophy" [selected]
+                        - option "Acceptance D2 Trophy"
+                        - option "Acceptance Cup Trophy"
+                      - button "Save trophy" [ref=f2e856] [cursor=pointer]
+                    - generic [ref=f2e857]: Acceptance D1 Trophy
+                    - paragraph [ref=f2e859]: Artwork comes from Admin > Trophies. Permanent assignments are managed in Admin > Regional Leagues. Captured editions and earned trophies keep their existing design.
+                  - generic [ref=f2e860]:
+                    - text: Season
+                    - combobox "Season" [ref=f2e861]:
+                      - option "Season 2 · in_progress · Current" [selected]
+                      - option "Season 1 · completed"
+                  - paragraph [ref=f2e862]: "Permanent ID: 03d72ef5-f813-4d92-8f72-d818b28d0d4c · Edition: 0e3cc626-4946-4c92-8976-62a32352a4c1 · cross-platform"
+                  - paragraph [ref=f2e863]: 380 fixtures in this edition.
+                  - paragraph [ref=f2e864]: This group uses Regional cycles above for sporting allocation and the next season. Its capacity and promotion route are managed together with the other groups.
+                  - generic [ref=f2e865]:
+                    - generic [ref=f2e866]:
+                      - generic [ref=f2e867]:
+                        - generic [ref=f2e868]: D1A
+                        - paragraph [ref=f2e869]: Acceptance Division 1
+                      - paragraph [ref=f2e870]: Season 2 · 20/20 clubs · 2 relegation places
+                    - generic [ref=f2e871]: In progress
+                    - button [disabled]
+                    - link [ref=f2e872] [cursor=pointer]:
+                      - /url: /leagues/uk-ireland-div-1?season=0e3cc626-4946-4c92-8976-62a32352a4c1
+                      - button "View" [ref=f2e873]
+                    - button "End Season" [ref=f2e874] [cursor=pointer]
+                    - button "Abandon season" [ref=f2e875] [cursor=pointer]
+                    - button "View Fixtures" [ref=f2e876] [cursor=pointer]
+                  - generic [ref=f2e877]:
+                    - generic [ref=f2e878]:
+                      - generic [ref=f2e879]:
+                        - generic [ref=f2e880]:
+                          - paragraph [ref=f2e881]: Fixtures already generated
+                          - paragraph [ref=f2e882]: 0 selected · 0 open spots · 21 available
+                        - generic [ref=f2e883]:
+                          - button "Choose clubs" [disabled]
+                          - button "Clear" [disabled]
+                      - button "Add clubs" [disabled]
+                    - button "Simulate fixtures" [ref=f2e884] [cursor=pointer]
+                  - generic [ref=f2e885]:
+                    - generic [ref=f2e886] [cursor=pointer]:
+                      - generic [ref=f2e891]:
+                        - generic [ref=f2e892]: Logo
+                        - generic [ref=f2e893]: Upload PNG/image for public league page
+                      - button "Logo Upload PNG/image for public league page" [ref=f2e894]
+                    - generic [ref=f2e895] [cursor=pointer]:
+                      - generic [ref=f2e900]:
+                        - generic [ref=f2e901]: Banner
+                        - generic [ref=f2e902]: Upload PNG/image for public league page
+                      - button "Banner Upload PNG/image for public league page" [ref=f2e903]
+                - generic [ref=f2e904]:
+                  - generic [ref=f2e905]:
+                    - generic [ref=f2e906]: Competition trophy
+                    - generic [ref=f2e907]:
+                      - combobox "Competition trophy" [ref=f2e908]:
+                        - option "Not assigned"
+                        - option "Acceptance D1 Trophy"
+                        - option "Acceptance D2 Trophy" [selected]
+                        - option "Acceptance Cup Trophy"
+                      - button "Save trophy" [ref=f2e909] [cursor=pointer]
+                    - generic [ref=f2e910]: Acceptance D2 Trophy
+                    - paragraph [ref=f2e912]: Artwork comes from Admin > Trophies. Permanent assignments are managed in Admin > Regional Leagues. Captured editions and earned trophies keep their existing design.
+                  - generic [ref=f2e913]:
+                    - text: Season
+                    - combobox "Season" [ref=f2e914]:
+                      - option "Season 2 · in_progress · Current" [selected]
+                      - option "Season 1 · completed"
+                  - paragraph [ref=f2e915]: "Permanent ID: 1a56c5b8-18f1-4ef0-ac99-c8fecf736cc4 · Edition: ce2d61a1-c615-46fb-a5d8-8abf101b7952 · cross-platform"
+                  - paragraph [ref=f2e916]: 380 fixtures in this edition.
+                  - paragraph [ref=f2e917]: This group uses Regional cycles above for sporting allocation and the next season. Its capacity and promotion route are managed together with the other groups.
+                  - generic [ref=f2e918]:
+                    - generic [ref=f2e919]:
+                      - generic [ref=f2e920]:
+                        - generic [ref=f2e921]: D2A
+                        - paragraph [ref=f2e922]: Acceptance Division 2
+                      - paragraph [ref=f2e923]: Season 2 · 20/20 clubs · champion + play-off winner promoted
+                    - generic [ref=f2e924]: In progress
+                    - button [disabled]
+                    - link [ref=f2e925] [cursor=pointer]:
+                      - /url: /leagues/uk-ireland-div-2?season=ce2d61a1-c615-46fb-a5d8-8abf101b7952
+                      - button "View" [ref=f2e926]
+                    - button "End Season" [ref=f2e927] [cursor=pointer]
+                    - button "Abandon season" [ref=f2e928] [cursor=pointer]
+                    - button "View Fixtures" [ref=f2e929] [cursor=pointer]
+                  - generic [ref=f2e930]:
+                    - generic [ref=f2e931]:
+                      - generic [ref=f2e932]:
+                        - generic [ref=f2e933]:
+                          - paragraph [ref=f2e934]: Fixtures already generated
+                          - paragraph [ref=f2e935]: 0 selected · 0 open spots · 21 available
+                        - generic [ref=f2e936]:
+                          - button "Choose clubs" [disabled]
+                          - button "Clear" [disabled]
+                      - button "Add clubs" [disabled]
+                    - button "Simulate fixtures" [ref=f2e937] [cursor=pointer]
+                  - generic [ref=f2e938]:
+                    - generic [ref=f2e939] [cursor=pointer]:
+                      - generic [ref=f2e944]:
+                        - generic [ref=f2e945]: Logo
+                        - generic [ref=f2e946]: Upload PNG/image for public league page
+                      - button "Logo Upload PNG/image for public league page" [ref=f2e947]
+                    - generic [ref=f2e948] [cursor=pointer]:
+                      - generic [ref=f2e953]:
+                        - generic [ref=f2e954]: Banner
+                        - generic [ref=f2e955]: Upload PNG/image for public league page
+                      - button "Banner Upload PNG/image for public league page" [ref=f2e956]
+            - generic [ref=f2e957]:
+              - paragraph [ref=f2e958]: Div 1 qualification
+              - paragraph [ref=f2e959]: Seed competitions first
+              - paragraph [ref=f2e960]: Edit qualification slots for this region.
+  - generic [ref=f2e963]:
+    - generic [ref=f2e964]: "[plugin:vite:import-analysis] Failed to resolve import \"@/components/admin/RegionalAdminWorkspace\" from \"src/components/admin/sections/LeaguesTab.jsx\". Does the file exist?"
+    - generic [ref=f2e965]: /Users/chriskalonji/Documents/stage/stage-new-main/src/components/admin/sections/LeaguesTab.jsx:2:35
+    - generic [ref=f2e966]: "17 | var _s = $RefreshSig$(); 18 | import { useMemo, useState } from \"react\"; 19 | import RegionalAdminWorkspace from \"@/components/admin/RegionalAdminWorkspace\"; | ^ 20 | import RegionalLeagueManagementPanel from \"@/components/admin/RegionalLeagueManagementPanel\"; 21 | import RegionalCupPanel from \"@/components/admin/RegionalCupPanel\";"
+    - generic [ref=f2e967]: at TransformPluginContext._formatLog (file:///Users/chriskalonji/Documents/stage/stage-new-main/node_modules/vite/dist/node/chunks/dep-D4NMHUTW.js:42528:41) at TransformPluginContext.error (file:///Users/chriskalonji/Documents/stage/stage-new-main/node_modules/vite/dist/node/chunks/dep-D4NMHUTW.js:42525:16) at normalizeUrl (file:///Users/chriskalonji/Documents/stage/stage-new-main/node_modules/vite/dist/node/chunks/dep-D4NMHUTW.js:40504:23) at process.processTicksAndRejections (node:internal/process/task_queues:104:5) at async file:///Users/chriskalonji/Documents/stage/stage-new-main/node_modules/vite/dist/node/chunks/dep-D4NMHUTW.js:40623:37 at async Promise.all (index 4) at async TransformPluginContext.transform (file:///Users/chriskalonji/Documents/stage/stage-new-main/node_modules/vite/dist/node/chunks/dep-D4NMHUTW.js:40550:7) at async EnvironmentPluginContainer.transform (file:///Users/chriskalonji/Documents/stage/stage-new-main/node_modules/vite/dist/node/chunks/dep-D4NMHUTW.js:42323:18) at async loadAndTransform (file:///Users/chriskalonji/Documents/stage/stage-new-main/node_modules/vite/dist/node/chunks/dep-D4NMHUTW.js:35739:27
+    - generic [ref=f2e968]:
+      - text: Click outside, press Esc key, or fix the code to dismiss.You can also disable this overlay by setting
+      - code [ref=f2e969]: server.hmr.overlay
+      - text: to
+      - code [ref=f2e970]: "false"
+      - text: in
+      - code [ref=f2e971]: vite.config.js
+      - text: .
+```
+### Events
+- New console entries: .playwright-cli/console-2026-11-08T19-28-08-109Z.log#L6-L10

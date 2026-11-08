@@ -1,0 +1,29 @@
+{
+  "database": "stage_acceptance_fbeffef67b83",
+  "checks": [
+    {
+      "definitive": 18,
+      "edition": "98eab694-75b0-4781-8e61-8425fc1469e6",
+      "mode": "exclude_all",
+      "closed": "completed",
+      "corrected_winner": "6c969b98-9320-4b6a-b907-01074ce5bbc3",
+      "paid_clubs": 19,
+      "unawarded_amount": "21700000.00",
+      "future_registration": "withdrawn",
+      "retry_stable": true
+    },
+    {
+      "definitive": 19,
+      "edition": "6c021f16-1a90-45ce-9a73-06cc35f38293",
+      "mode": "retain_first_half",
+      "closed": "completed",
+      "corrected_winner": "3eea03c5-1e91-4efe-a911-0bddda5ce4b3",
+      "paid_clubs": 19,
+      "unawarded_amount": "21700000.00",
+      "future_registration": "withdrawn",
+      "retry_stable": true
+    }
+  ],
+  "evidence": "Real isolated MySQL, actual JWT Admin withdrawal POST, automatic closure and settlement; synthetic scores",
+  "passed": true
+}

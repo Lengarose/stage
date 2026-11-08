@@ -69,7 +69,7 @@ function createService({model=new RegionalCupModel(),transaction=withTransaction
     const blockers=[];if(slot.instant<=clock().getTime()+5*60000)blockers.push('The Cup round kickoff is too close or has passed; calendar review is required');
     const clubs=[...new Set(entries.flatMap(e=>[e.home_club_id,e.away_club_id]))],events=clubs.length?await model.events(clubs,q):{matches:[],engines:[],fixtures:[]};
     const busy=busyEvents(events).filter(e=>Math.abs(e.instant-slot.instant)<8*86400000);
-    blockers.push(...loadViolations([...busy,...entries]));
+    blockers.push(...loadViolations([...busy,...entries],slot.timezone));
     return {entries,blockers,events};
   }
   async function materialize(edition,round,evidence,user,reason,q) {

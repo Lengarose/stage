@@ -3,6 +3,7 @@ export const CALENDAR_CATEGORIES = {
   elite: { label:'Elite', color:'#eab308', background:'rgba(234,179,8,0.12)' },
   challenger: { label:'Challenger', color:'#22c55e', background:'rgba(34,197,94,0.12)' },
   regional: { label:'Regional', color:'#f43f5e', background:'rgba(244,63,94,0.12)' },
+  regional_cup: { label:'Regional Cups', color:'#fb923c', background:'rgba(251,146,60,0.12)' },
   friendly: { label:'Friendly', color:'#94a3b8', background:'rgba(148,163,184,0.12)' },
   tournament: { label:'Tournament', color:'#c44df3', background:'rgba(196,77,243,0.12)' },
 };
@@ -10,6 +11,7 @@ export const CALENDAR_SCOPES = [
   { id:'general', label:'General', description:'All your confirmed games' },
   { id:'gost', label:'GOST', description:"Your club's GOST games" },
   { id:'regional', label:'Regional', description:"Your club's regional games" },
+  { id:'regional_cup', label:'Regional Cups', description:"Your club's regional Cup games" },
   { id:'tournament', label:'Tournament', description:'Your player and club tournaments' },
   { id:'friendly', label:'Friendly', description:'Confirmed friendly games' },
 ];

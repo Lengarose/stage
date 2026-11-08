@@ -17,14 +17,15 @@ function validateCalendarQuery(query) {
   const { from, to, scope = 'general', tournament_id: tournamentId } = query;
   const valid = value => /^\d{4}-\d{2}-\d{2}$/.test(value || '') && !Number.isNaN(Date.parse(value)) && new Date(value).toISOString().slice(0,10) === value;
   if (!valid(from) || !valid(to) || to <= from || (Date.parse(to)-Date.parse(from))/86400000 > 49) throw invalid('Use a valid calendar range of at most 49 days (exclusive end).');
-  if (!['general','gost','regional','tournament','friendly'].includes(scope)) throw invalid('Invalid calendar scope.');
+  if (!['general','gost','regional','regional_cup','tournament','friendly'].includes(scope)) throw invalid('Invalid calendar scope.');
   if (tournamentId && !/^[a-zA-Z0-9-]{1,36}$/.test(tournamentId)) throw invalid('Invalid tournament identifier.');
   return { from, to, scope, tournamentId };
 }
 function categoryFor(row, source, engine = {}, parent = {}) {
   const slug = String(row.competition_slug || engine.competition_slug || parent.competition_slug || parent.slug || '').toLowerCase();
+  if (engine.product_type === 'regional_cup' || engine.legacy_fixture_type === 'regional_cup' || parent.entity_type === 'regional_cup_edition') return 'regional_cup';
   if (source === 'competition_fixture' || engine.product_type === 'official_competition') return ['supreme','elite','challenger'].includes(slug) ? slug : 'gost';
-  if (source === 'regional_league_fixture' || ['regional_league','regional_cup'].includes(engine.product_type)) return 'regional';
+  if (source === 'regional_league_fixture' || engine.product_type === 'regional_league') return 'regional';
   if ((row.tournament_id && row.tournament_id !== 'ranked') || engine.product_type === 'community_tournament') return 'tournament';
   if (row.type === 'friendly' || row.type === 'friendly_match') return 'friendly';
   return 'match'; // Ranked invitations are not silently relabelled as friendlies.
@@ -89,16 +90,19 @@ function normalizeCalendarEvents({ matches = [], fixtures = [], engineFixtures =
     if (!startsAt || Number.isNaN(Date.parse(startsAt))) continue;
     const day = dateKey(startsAt, timezone);
     if (day < from || day >= to) continue;
-    const parent = parentMap.get(String(legacy.season_id || legacy.league_id || row.tournament_id || engine.legacy_source_id)) || {};
+    const parent = parentMap.get(String(legacy.season_id || legacy.league_id || row.tournament_id || row.competition_context || engine.legacy_source_id)) || {};
     if (hidden(parent) && !completed(row)) continue;
     const category = categoryFor({ ...legacy, ...row }, source, engine, { ...parentMap.get(String(parent.competition_id)), ...parent });
-    if (tournamentId && String(row.tournament_id || engine.legacy_source_id) !== tournamentId) continue;
+    if (tournamentId && String(row.tournament_id || row.competition_context || engine.legacy_source_id) !== tournamentId) continue;
     if (scope === 'gost' && (!['supreme','elite','challenger','gost'].includes(category) || ![row.home_club_id,row.away_club_id].map(String).includes(memberClubId))) continue;
     if (scope === 'regional' && (category !== 'regional' || ![row.home_club_id,row.away_club_id].map(String).includes(memberClubId))) continue;
+    if (scope === 'regional_cup' && (category !== 'regional_cup' || ![row.home_club_id,row.away_club_id].map(String).includes(memberClubId))) continue;
     if (scope === 'tournament' && category !== 'tournament') continue;
     if (scope === 'friendly' && category !== 'friendly') continue;
-    const href = byMatch.has(String(row.id)) ? `/game-day?match=${encodeURIComponent(row.id)}` : category === 'regional' && parent.slug ? `/leagues/${encodeURIComponent(parent.slug)}` : ['supreme','elite','challenger'].includes(category) ? `/competitions/${category}` : category === 'tournament' && (row.tournament_id || engine.legacy_source_id) ? `/tournaments/${encodeURIComponent(row.tournament_id || engine.legacy_source_id)}` : null;
-    events.push({ id, startsAt, day, category, competition:legacy.competition_name || legacy.league_name || engine.competition_name || parent.name || parent.competition_name || (category === 'match' ? 'Ranked match' : category === 'friendly' ? 'Friendly' : 'Tournament'), homeName:row.home_club_name || row.home_player_name || 'Unknown participant', awayName:row.away_club_name || row.away_player_name || 'Unknown participant', homeAvatarUrl:row.home_avatar_url, awayAvatarUrl:row.away_avatar_url, status:completed(row) ? 'completed' : row.status, score:completed(row) && row.home_score != null && row.away_score != null ? `${row.home_score} - ${row.away_score}` : null, round:legacy.round || row.round, stage:legacy.phase || engine.phase || row.type, matchday:legacy.matchday || engine.matchday, leg:legacy.leg || engine.leg, href,
+    const cupEditionId = category === 'regional_cup' ? row.competition_context || engine.legacy_source_id || (parent.entity_type === 'regional_cup_edition' ? parent.id : null) : null;
+    const competitionHref = cupEditionId ? `/leagues?view=cups&edition=${encodeURIComponent(cupEditionId)}` : null;
+    const href = byMatch.has(String(row.id)) ? `/game-day?match=${encodeURIComponent(row.id)}` : competitionHref ? competitionHref : category === 'regional' && parent.slug ? `/leagues/${encodeURIComponent(parent.slug)}` : ['supreme','elite','challenger'].includes(category) ? `/competitions/${category}` : category === 'tournament' && (row.tournament_id || row.competition_context || engine.legacy_source_id) ? `/tournaments/${encodeURIComponent(row.tournament_id || row.competition_context || engine.legacy_source_id)}` : null;
+    events.push({ id, startsAt, day, category, competition:legacy.competition_name || legacy.league_name || engine.competition_name || parent.name || parent.competition_name || (category === 'match' ? 'Ranked match' : category === 'friendly' ? 'Friendly' : 'Tournament'), homeName:row.home_club_name || row.home_player_name || 'Unknown participant', awayName:row.away_club_name || row.away_player_name || 'Unknown participant', homeAvatarUrl:row.home_avatar_url, awayAvatarUrl:row.away_avatar_url, status:completed(row) ? 'completed' : row.status, score:completed(row) && row.home_score != null && row.away_score != null ? `${row.home_score} - ${row.away_score}` : null, round:legacy.round || row.round, stage:legacy.phase || engine.phase || row.type, matchday:legacy.matchday || engine.matchday, leg:legacy.leg || engine.leg, href, competitionHref,
       result_state: row.result_state, stats_processed: row.stats_processed,
       decided_on_penalties: row.decided_on_penalties, penalty_winner_side: row.penalty_winner_side,
       aggregate_home_score: row.aggregate_home_score, aggregate_away_score: row.aggregate_away_score,
@@ -142,7 +146,7 @@ function createCalendarService({ query, resolveIdentity }) {
       const linked = await paged(`SELECT m.* FROM matches m WHERE ${ms.sql} AND (${[extraMatchIds.length && `m.id IN (${placeholders(extraMatchIds)})`,sourceIds.length && `m.source_fixture_id IN (${placeholders(sourceIds)})`].filter(Boolean).join(' OR ')}) ORDER BY m.id`,[...ms.values,...extraMatchIds,...sourceIds]);
       matches = [...new Map([...matches,...linked].map(m=>[m.id,m])).values()];
     }
-    const ids = unique([...fixtures.flatMap(f=>[f.season_id,f.league_id,f.competition_id]),...engineFixtures.map(e=>e.legacy_source_id),...matches.map(m=>m.tournament_id).filter(id=>id!=='ranked')]);
+    const ids = unique([...fixtures.flatMap(f=>[f.season_id,f.league_id,f.competition_id]),...engineFixtures.map(e=>e.legacy_source_id),...matches.flatMap(m=>[m.tournament_id,m.competition_context]).filter(id=>id!=='ranked')]);
     const parents = ids.length ? (await query(`SELECT * FROM league_entities WHERE id IN (${placeholders(ids)})`,ids)).map(unpack) : [];
     const competitionIds = unique(parents.map(p=>p.competition_id));
     if (competitionIds.length) parents.push(...(await query(`SELECT * FROM league_entities WHERE id IN (${placeholders(competitionIds)})`,competitionIds)).map(unpack));

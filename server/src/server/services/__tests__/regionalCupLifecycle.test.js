@@ -85,3 +85,15 @@ test('only a new captured automatic Cup may activate internally; retries retain 
  const active=await f.service.reconcileActivation('cup-edition');assert.equal(active.status,'running');assert.ok(f.state.matches.length);assert.equal(f.state.audits[0].user?.id ?? null,null);
  const before=structuredClone(f.state);assert.equal((await f.service.reconcileActivation('cup-edition')).already_applied,true);assert.deepEqual(f.state,before);
 });
+
+test('North American activation materializes the captured Sunday 20:00 Eastern kickoff',async()=>{
+ const f=fixture();
+ f.state.edition.region_slug='north-america';f.state.edition.name='STAGE North American Cup';
+ f.state.anchors[0].start_monday='2027-02-01';f.state.now='2027-02-01T12:00:00Z';
+ f.state.edition.round_calendar=plan.calendar(20,'2027-02-01','north-america');
+ const captured=structuredClone(f.state.edition.round_calendar);
+ await f.activate();
+ assert.ok(f.state.matches.every(match=>match.timezone==='America/New_York' && match.scheduled_date==='2027-02-28 20:00:00'));
+ assert.ok(f.state.fixtures.every(match=>match.scheduled_at==='2027-02-28 20:00:00'));
+ assert.deepEqual(f.state.edition.round_calendar,captured);
+});

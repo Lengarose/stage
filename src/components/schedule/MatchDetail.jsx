@@ -101,6 +101,7 @@ export default function MatchDetail({ event, myPlayer, myClub }) {
         )}
       </div>
 
+      {event.competitionHref && <div className="border-t border-border px-4 py-3"><Link className="inline-flex min-h-11 items-center text-sm font-semibold text-orange-600 dark:text-orange-300" to={event.competitionHref}>Open Regional Cup →</Link></div>}
       {/* Player rating & stats */}
       {stats && (
         <div className="border-t border-border px-4 py-3 space-y-2">

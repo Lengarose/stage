@@ -6,7 +6,8 @@ const dateAt=(date,days)=>new Date(Date.parse(`${date}T00:00:00Z`)+days*86400000
 const dateFormatter=new Intl.DateTimeFormat('en-CA',{timeZone:policy.timezone,year:'numeric',month:'2-digit',day:'2-digit'});
 function localDate(instant) {return dateFormatter.format(new Date(instant));}
 function weekOf(date) {const day=new Date(`${date}T00:00:00Z`).getUTCDay();return dateAt(date,-((day+6)%7));}
-function loadViolations(events) {
+function loadViolations(events,timezone=policy.timezone) {
+  const formatter=timezone===policy.timezone?dateFormatter:new Intl.DateTimeFormat('en-CA',{timeZone:timezone,year:'numeric',month:'2-digit',day:'2-digit'});
   const clubs=new Map(),errors=new Set();
   for(const e of events)for(const club of [e.home_club_id,e.away_club_id].filter(Boolean)) {
     if(!Number.isFinite(e.instant) || !Number.isFinite(e.minutes) || e.minutes<=0)fail('Invalid existing match block requires Admin review');
@@ -15,7 +16,7 @@ function loadViolations(events) {
   for(const [club,rows] of clubs) {
     const sorted=rows.slice().sort((a,b)=>a.instant-b.instant),days=new Map(),weeks=new Map();
     for(let i=0;i<sorted.length;i++) {
-      const e=sorted[i],day=localDate(e.instant),week=weekOf(day);
+      const e=sorted[i],day=formatter.format(new Date(e.instant)),week=weekOf(day);
       days.set(day,(days.get(day)||0)+1);
       if(!weeks.has(week))weeks.set(week,{count:0,days:new Set()});weeks.get(week).count++;weeks.get(week).days.add(day);
       for(let j=i-1;j>=0;j--)if(sorted[j].instant+sorted[j].minutes*60000>e.instant)errors.add(`Club ${club}: overlapping match blocks (${sorted[j].id}, ${e.id})`);

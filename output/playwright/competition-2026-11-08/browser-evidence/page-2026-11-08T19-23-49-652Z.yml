@@ -1,0 +1,596 @@
+- generic [ref=e9]:
+  - banner [ref=e584]:
+    - button [ref=e585] [cursor=pointer]:
+      - paragraph [ref=e592]: Player 0-0
+    - generic [ref=e593]:
+      - button "Theme" [ref=e594] [cursor=pointer]
+      - link "Notifications, 253 unread" [ref=e597] [cursor=pointer]:
+        - /url: /notifications
+        - generic [ref=e601]: 99+
+      - link "Settings" [ref=e602] [cursor=pointer]:
+        - /url: /settings
+  - main [ref=e70]:
+    - main [ref=e280]:
+      - generic [ref=e281]:
+        - link "Back to regional leagues" [ref=e282] [cursor=pointer]:
+          - /url: /leagues
+        - generic [ref=e285]:
+          - paragraph [ref=e295]: Artwork unavailable.
+          - generic [ref=e296]:
+            - paragraph [ref=e297]: UK & Ireland · Division 1 · Group A
+            - heading "Acceptance Division 1" [level=1] [ref=e298]
+            - paragraph [ref=e299]: Season 2 · 20 club capacity
+          - generic [ref=e300]:
+            - combobox "League season" [ref=e301]:
+              - option "Group A · Season 2 · in progress" [selected]
+              - option "Group A · Season 1 · completed"
+            - paragraph [ref=e302]: in progress
+            - link "Your club’s participation" [ref=e303] [cursor=pointer]:
+              - /url: /register-league?region=uk-ireland
+            - button "View league rules" [ref=e306] [cursor=pointer]
+        - navigation "Competition sections" [ref=e309]:
+          - button "Overview" [ref=e310] [cursor=pointer]
+          - button "Clubs" [ref=e311] [cursor=pointer]
+          - button "Stages" [active] [ref=e312] [cursor=pointer]
+          - button "Table" [ref=e313] [cursor=pointer]
+          - button "Stats" [ref=e314] [cursor=pointer]
+          - button "Rewards" [ref=e315] [cursor=pointer]
+          - button "History" [ref=e316] [cursor=pointer]
+        - generic [ref=e676]:
+          - heading "Season decisions and promotion draw" [level=2] [ref=e677]
+          - paragraph [ref=e678]: The club shown first plays at home. Official results determine the next round and sporting places; the draw remains recorded for this season.
+          - paragraph [ref=e679]: Equal final league places are settled before promotion play-offs. Two tied clubs play one deciding match; three or four play each other once. Larger ties or another decisive tie require Admin review. These extra matches do not change the original league points.
+          - paragraph [ref=e680]: Season 2 · Sporting allocation confirmed
+          - group [ref=e681]:
+            - generic "View 3 published fixtures" [ref=e682] [cursor=pointer]
+        - generic [ref=e683]:
+          - generic [ref=e684]:
+            - generic [ref=e685]:
+              - generic [ref=e692]: Stage
+              - combobox "Stage" [ref=e693]:
+                - option "League Phase" [selected]
+            - generic "Matchday navigation" [ref=e694]:
+              - button "Previous matchday" [disabled] [ref=e695]
+              - combobox "Matchday" [ref=e698]:
+                - option "Matchday 1" [selected]
+                - option "Matchday 2"
+                - option "Matchday 3"
+                - option "Matchday 4"
+                - option "Matchday 5"
+                - option "Matchday 6"
+                - option "Matchday 7"
+                - option "Matchday 8"
+                - option "Matchday 9"
+                - option "Matchday 10"
+                - option "Matchday 11"
+                - option "Matchday 12"
+                - option "Matchday 13"
+                - option "Matchday 14"
+                - option "Matchday 15"
+                - option "Matchday 16"
+                - option "Matchday 17"
+                - option "Matchday 18"
+                - option "Matchday 19"
+                - option "Matchday 20"
+                - option "Matchday 21"
+                - option "Matchday 22"
+                - option "Matchday 23"
+                - option "Matchday 24"
+                - option "Matchday 25"
+                - option "Matchday 26"
+                - option "Matchday 27"
+                - option "Matchday 28"
+                - option "Matchday 29"
+                - option "Matchday 30"
+                - option "Matchday 31"
+                - option "Matchday 32"
+                - option "Matchday 33"
+                - option "Matchday 34"
+                - option "Matchday 35"
+                - option "Matchday 36"
+                - option "Matchday 37"
+                - option "Matchday 38"
+              - button "Next matchday" [ref=e699] [cursor=pointer]
+            - region "League Phase matches and standings" [ref=e702]:
+              - generic [ref=e703]:
+                - heading "Matchday 1" [level=3] [ref=e704]
+                - generic [ref=e705]:
+                  - generic [ref=e706]:
+                    - generic [ref=e707]: Acceptance Club 17
+                    - generic [ref=e713]: vs
+                    - generic [ref=e714]: Acceptance Club 2
+                  - generic [ref=e720]:
+                    - button "Match details" [ref=e721] [cursor=pointer]
+                    - button "GameDay" [ref=e722] [cursor=pointer]
+                - generic [ref=e723]:
+                  - generic [ref=e724]:
+                    - generic [ref=e725]: Acceptance Club 12
+                    - generic [ref=e731]: vs
+                    - generic [ref=e732]: Acceptance Club 6
+                  - generic [ref=e738]:
+                    - button "Match details" [ref=e739] [cursor=pointer]
+                    - button "GameDay" [ref=e740] [cursor=pointer]
+                - generic [ref=e741]:
+                  - generic [ref=e742]:
+                    - generic [ref=e743]: Acceptance Club 11
+                    - generic [ref=e749]: vs
+                    - generic [ref=e750]: Acceptance Club 7
+                  - generic [ref=e756]:
+                    - button "Match details" [ref=e757] [cursor=pointer]
+                    - button "GameDay" [ref=e758] [cursor=pointer]
+                - generic [ref=e759]:
+                  - generic [ref=e760]:
+                    - generic [ref=e761]: Acceptance Club 16
+                    - generic [ref=e767]: 1 – 0
+                    - generic [ref=e768]: Acceptance Club 24
+                  - generic [ref=e774]:
+                    - button "Match details" [ref=e775] [cursor=pointer]
+                    - button "Stats" [ref=e776] [cursor=pointer]
+                - generic [ref=e777]:
+                  - generic [ref=e778]:
+                    - generic [ref=e779]: Acceptance Club 1
+                    - generic [ref=e785]: vs
+                    - generic [ref=e786]: Acceptance Club 9
+                  - generic [ref=e792]:
+                    - button "Match details" [ref=e793] [cursor=pointer]
+                    - button "GameDay" [ref=e794] [cursor=pointer]
+                - generic [ref=e795]:
+                  - generic [ref=e796]:
+                    - generic [ref=e797]: Acceptance Club 13
+                    - generic [ref=e803]: vs
+                    - generic [ref=e804]: Acceptance Club 5
+                  - generic [ref=e810]:
+                    - button "Match details" [ref=e811] [cursor=pointer]
+                    - button "GameDay" [ref=e812] [cursor=pointer]
+                - generic [ref=e813]:
+                  - generic [ref=e814]:
+                    - generic [ref=e815]: Acceptance Club 10
+                    - generic [ref=e821]: vs
+                    - generic [ref=e822]: Acceptance Club 8
+                  - generic [ref=e828]:
+                    - button "Match details" [ref=e829] [cursor=pointer]
+                    - button "GameDay" [ref=e830] [cursor=pointer]
+                - generic [ref=e831]:
+                  - generic [ref=e832]:
+                    - generic [ref=e833]: Acceptance Club 15
+                    - generic [ref=e839]: vs
+                    - generic [ref=e840]: Acceptance Club 3
+                  - generic [ref=e846]:
+                    - button "Match details" [ref=e847] [cursor=pointer]
+                    - button "GameDay" [ref=e848] [cursor=pointer]
+                - generic [ref=e849]:
+                  - generic [ref=e850]:
+                    - generic [ref=e851]: Acceptance Club 14
+                    - generic [ref=e857]: vs
+                    - generic [ref=e858]: Acceptance Club 4
+                  - generic [ref=e864]:
+                    - button "Match details" [ref=e865] [cursor=pointer]
+                    - button "GameDay" [ref=e866] [cursor=pointer]
+                - generic [ref=e867]:
+                  - generic [ref=e868]:
+                    - generic [ref=e869]: Acceptance Club 18
+                    - generic [ref=e875]: vs
+                    - generic [ref=e876]: Acceptance Club 19
+                  - generic [ref=e882]:
+                    - button "Match details" [ref=e883] [cursor=pointer]
+                    - button "GameDay" [ref=e884] [cursor=pointer]
+              - table [ref=e886]:
+                - rowgroup [ref=e887]:
+                  - row [ref=e888]:
+                    - columnheader "#" [ref=e889]
+                    - columnheader "Club" [ref=e890]
+                    - columnheader "P" [ref=e891]
+                    - columnheader "W" [ref=e892]
+                    - columnheader "D" [ref=e893]
+                    - columnheader "L" [ref=e894]
+                    - columnheader "GF" [ref=e895]
+                    - columnheader "GA" [ref=e896]
+                    - columnheader "GD" [ref=e897]
+                    - columnheader "PTS" [ref=e898]
+                    - columnheader "Route" [ref=e899]
+                - rowgroup [ref=e900]:
+                  - row [ref=e901]:
+                    - cell "1" [ref=e902]
+                    - cell [ref=e903]:
+                      - link "Acceptance Club 16" [ref=e904] [cursor=pointer]:
+                        - /url: /clubs/fa8558a3-064c-4618-8f59-64aaaaab720c
+                    - cell "1" [ref=e905]
+                    - cell "1" [ref=e906]
+                    - cell "0" [ref=e907]
+                    - cell "0" [ref=e908]
+                    - cell "1" [ref=e909]
+                    - cell "0" [ref=e910]
+                    - cell "1" [ref=e911]
+                    - cell "3" [ref=e912]
+                    - cell "—" [ref=e913]
+                  - row [ref=e914]:
+                    - cell "2" [ref=e915]
+                    - cell [ref=e916]:
+                      - link "Acceptance Club 1" [ref=e917] [cursor=pointer]:
+                        - /url: /clubs/b8b0f778-ff56-4ccf-b0fb-3b5bee012fe4
+                    - cell "0" [ref=e918]
+                    - cell "0" [ref=e919]
+                    - cell "0" [ref=e920]
+                    - cell "0" [ref=e921]
+                    - cell "0" [ref=e922]
+                    - cell "0" [ref=e923]
+                    - cell "0" [ref=e924]
+                    - cell "0" [ref=e925]
+                    - cell "—" [ref=e926]
+                  - row [ref=e927]:
+                    - cell "3" [ref=e928]
+                    - cell [ref=e929]:
+                      - link "Acceptance Club 10" [ref=e930] [cursor=pointer]:
+                        - /url: /clubs/69ba7a87-8d60-4efa-945e-775ede8f45ab
+                    - cell "0" [ref=e931]
+                    - cell "0" [ref=e932]
+                    - cell "0" [ref=e933]
+                    - cell "0" [ref=e934]
+                    - cell "0" [ref=e935]
+                    - cell "0" [ref=e936]
+                    - cell "0" [ref=e937]
+                    - cell "0" [ref=e938]
+                    - cell "—" [ref=e939]
+                  - row [ref=e940]:
+                    - cell "4" [ref=e941]
+                    - cell [ref=e942]:
+                      - link "Acceptance Club 11" [ref=e943] [cursor=pointer]:
+                        - /url: /clubs/ca67ae8d-a8ae-4823-b0c5-54672c3e92aa
+                    - cell "0" [ref=e944]
+                    - cell "0" [ref=e945]
+                    - cell "0" [ref=e946]
+                    - cell "0" [ref=e947]
+                    - cell "0" [ref=e948]
+                    - cell "0" [ref=e949]
+                    - cell "0" [ref=e950]
+                    - cell "0" [ref=e951]
+                    - cell "—" [ref=e952]
+                  - row [ref=e953]:
+                    - cell "5" [ref=e954]
+                    - cell [ref=e955]:
+                      - link "Acceptance Club 12" [ref=e956] [cursor=pointer]:
+                        - /url: /clubs/0cbae00d-acf7-49bb-a16e-399ca91e41b4
+                    - cell "0" [ref=e957]
+                    - cell "0" [ref=e958]
+                    - cell "0" [ref=e959]
+                    - cell "0" [ref=e960]
+                    - cell "0" [ref=e961]
+                    - cell "0" [ref=e962]
+                    - cell "0" [ref=e963]
+                    - cell "0" [ref=e964]
+                    - cell "—" [ref=e965]
+                  - row [ref=e966]:
+                    - cell "6" [ref=e967]
+                    - cell [ref=e968]:
+                      - link "Acceptance Club 13" [ref=e969] [cursor=pointer]:
+                        - /url: /clubs/a9703a1b-8667-4f60-b0e9-a474a2de6e86
+                    - cell "0" [ref=e970]
+                    - cell "0" [ref=e971]
+                    - cell "0" [ref=e972]
+                    - cell "0" [ref=e973]
+                    - cell "0" [ref=e974]
+                    - cell "0" [ref=e975]
+                    - cell "0" [ref=e976]
+                    - cell "0" [ref=e977]
+                    - cell "—" [ref=e978]
+                  - row [ref=e979]:
+                    - cell "7" [ref=e980]
+                    - cell [ref=e981]:
+                      - link "Acceptance Club 14" [ref=e982] [cursor=pointer]:
+                        - /url: /clubs/bc1238bb-c560-40d8-ace0-11c6184f8f93
+                    - cell "0" [ref=e983]
+                    - cell "0" [ref=e984]
+                    - cell "0" [ref=e985]
+                    - cell "0" [ref=e986]
+                    - cell "0" [ref=e987]
+                    - cell "0" [ref=e988]
+                    - cell "0" [ref=e989]
+                    - cell "0" [ref=e990]
+                    - cell "—" [ref=e991]
+                  - row [ref=e992]:
+                    - cell "8" [ref=e993]
+                    - cell [ref=e994]:
+                      - link "Acceptance Club 15" [ref=e995] [cursor=pointer]:
+                        - /url: /clubs/488410cc-a446-430c-a25e-bad3cbd58e56
+                    - cell "0" [ref=e996]
+                    - cell "0" [ref=e997]
+                    - cell "0" [ref=e998]
+                    - cell "0" [ref=e999]
+                    - cell "0" [ref=e1000]
+                    - cell "0" [ref=e1001]
+                    - cell "0" [ref=e1002]
+                    - cell "0" [ref=e1003]
+                    - cell "—" [ref=e1004]
+                  - row [ref=e1005]:
+                    - cell "9" [ref=e1006]
+                    - cell [ref=e1007]:
+                      - link "Acceptance Club 17" [ref=e1008] [cursor=pointer]:
+                        - /url: /clubs/54400267-de56-4ed4-8281-6502b8293315
+                    - cell "0" [ref=e1009]
+                    - cell "0" [ref=e1010]
+                    - cell "0" [ref=e1011]
+                    - cell "0" [ref=e1012]
+                    - cell "0" [ref=e1013]
+                    - cell "0" [ref=e1014]
+                    - cell "0" [ref=e1015]
+                    - cell "0" [ref=e1016]
+                    - cell "—" [ref=e1017]
+                  - row [ref=e1018]:
+                    - cell "10" [ref=e1019]
+                    - cell [ref=e1020]:
+                      - link "Acceptance Club 18" [ref=e1021] [cursor=pointer]:
+                        - /url: /clubs/794b4e78-0c26-4bb8-be3a-bb17a4d94bd4
+                    - cell "0" [ref=e1022]
+                    - cell "0" [ref=e1023]
+                    - cell "0" [ref=e1024]
+                    - cell "0" [ref=e1025]
+                    - cell "0" [ref=e1026]
+                    - cell "0" [ref=e1027]
+                    - cell "0" [ref=e1028]
+                    - cell "0" [ref=e1029]
+                    - cell "—" [ref=e1030]
+                  - row [ref=e1031]:
+                    - cell "11" [ref=e1032]
+                    - cell [ref=e1033]:
+                      - link "Acceptance Club 19" [ref=e1034] [cursor=pointer]:
+                        - /url: /clubs/9eb7d4ca-86ad-43b9-8953-295a52280c32
+                    - cell "0" [ref=e1035]
+                    - cell "0" [ref=e1036]
+                    - cell "0" [ref=e1037]
+                    - cell "0" [ref=e1038]
+                    - cell "0" [ref=e1039]
+                    - cell "0" [ref=e1040]
+                    - cell "0" [ref=e1041]
+                    - cell "0" [ref=e1042]
+                    - cell "—" [ref=e1043]
+                  - row [ref=e1044]:
+                    - cell "12" [ref=e1045]
+                    - cell [ref=e1046]:
+                      - link "Acceptance Club 2" [ref=e1047] [cursor=pointer]:
+                        - /url: /clubs/8a58936c-2df8-4df6-9c00-26078df1a50f
+                    - cell "0" [ref=e1048]
+                    - cell "0" [ref=e1049]
+                    - cell "0" [ref=e1050]
+                    - cell "0" [ref=e1051]
+                    - cell "0" [ref=e1052]
+                    - cell "0" [ref=e1053]
+                    - cell "0" [ref=e1054]
+                    - cell "0" [ref=e1055]
+                    - cell "—" [ref=e1056]
+                  - row [ref=e1057]:
+                    - cell "13" [ref=e1058]
+                    - cell [ref=e1059]:
+                      - link "Acceptance Club 3" [ref=e1060] [cursor=pointer]:
+                        - /url: /clubs/b7bc3882-95ec-4dd7-a371-f3b14ebac0b1
+                    - cell "0" [ref=e1061]
+                    - cell "0" [ref=e1062]
+                    - cell "0" [ref=e1063]
+                    - cell "0" [ref=e1064]
+                    - cell "0" [ref=e1065]
+                    - cell "0" [ref=e1066]
+                    - cell "0" [ref=e1067]
+                    - cell "0" [ref=e1068]
+                    - cell "—" [ref=e1069]
+                  - row [ref=e1070]:
+                    - cell "14" [ref=e1071]
+                    - cell [ref=e1072]:
+                      - link "Acceptance Club 4" [ref=e1073] [cursor=pointer]:
+                        - /url: /clubs/90412a54-67e0-4477-8023-2b9ff469ae09
+                    - cell "0" [ref=e1074]
+                    - cell "0" [ref=e1075]
+                    - cell "0" [ref=e1076]
+                    - cell "0" [ref=e1077]
+                    - cell "0" [ref=e1078]
+                    - cell "0" [ref=e1079]
+                    - cell "0" [ref=e1080]
+                    - cell "0" [ref=e1081]
+                    - cell "—" [ref=e1082]
+                  - row [ref=e1083]:
+                    - cell "15" [ref=e1084]
+                    - cell [ref=e1085]:
+                      - link "Acceptance Club 5" [ref=e1086] [cursor=pointer]:
+                        - /url: /clubs/40a0b61a-7d82-4017-a471-d82894f0e01a
+                    - cell "0" [ref=e1087]
+                    - cell "0" [ref=e1088]
+                    - cell "0" [ref=e1089]
+                    - cell "0" [ref=e1090]
+                    - cell "0" [ref=e1091]
+                    - cell "0" [ref=e1092]
+                    - cell "0" [ref=e1093]
+                    - cell "0" [ref=e1094]
+                    - cell "—" [ref=e1095]
+                  - row [ref=e1096]:
+                    - cell "16" [ref=e1097]
+                    - cell [ref=e1098]:
+                      - link "Acceptance Club 6" [ref=e1099] [cursor=pointer]:
+                        - /url: /clubs/ece46b27-28c7-4121-9ce0-bcd5393c5e31
+                    - cell "0" [ref=e1100]
+                    - cell "0" [ref=e1101]
+                    - cell "0" [ref=e1102]
+                    - cell "0" [ref=e1103]
+                    - cell "0" [ref=e1104]
+                    - cell "0" [ref=e1105]
+                    - cell "0" [ref=e1106]
+                    - cell "0" [ref=e1107]
+                    - cell "—" [ref=e1108]
+                  - row [ref=e1109]:
+                    - cell "17" [ref=e1110]
+                    - cell [ref=e1111]:
+                      - link "Acceptance Club 7" [ref=e1112] [cursor=pointer]:
+                        - /url: /clubs/918ac3e1-6556-4d13-a8c5-b1a5cf5ccbb5
+                    - cell "0" [ref=e1113]
+                    - cell "0" [ref=e1114]
+                    - cell "0" [ref=e1115]
+                    - cell "0" [ref=e1116]
+                    - cell "0" [ref=e1117]
+                    - cell "0" [ref=e1118]
+                    - cell "0" [ref=e1119]
+                    - cell "0" [ref=e1120]
+                    - cell "—" [ref=e1121]
+                  - row [ref=e1122]:
+                    - cell "18" [ref=e1123]
+                    - cell [ref=e1124]:
+                      - link "Acceptance Club 8" [ref=e1125] [cursor=pointer]:
+                        - /url: /clubs/a23b3158-85d3-4d1d-b992-da30af757a01
+                    - cell "0" [ref=e1126]
+                    - cell "0" [ref=e1127]
+                    - cell "0" [ref=e1128]
+                    - cell "0" [ref=e1129]
+                    - cell "0" [ref=e1130]
+                    - cell "0" [ref=e1131]
+                    - cell "0" [ref=e1132]
+                    - cell "0" [ref=e1133]
+                    - cell "—" [ref=e1134]
+                  - row [ref=e1135]:
+                    - cell "19" [ref=e1136]
+                    - cell [ref=e1137]:
+                      - link "Acceptance Club 9" [ref=e1138] [cursor=pointer]:
+                        - /url: /clubs/344ae597-e4e9-4852-9e96-8ae8292b6493
+                    - cell "0" [ref=e1139]
+                    - cell "0" [ref=e1140]
+                    - cell "0" [ref=e1141]
+                    - cell "0" [ref=e1142]
+                    - cell "0" [ref=e1143]
+                    - cell "0" [ref=e1144]
+                    - cell "0" [ref=e1145]
+                    - cell "0" [ref=e1146]
+                    - cell "Relegation" [ref=e1147]
+                  - row [ref=e1148]:
+                    - cell "20" [ref=e1149]
+                    - cell [ref=e1150]:
+                      - link "Acceptance Club 24" [ref=e1151] [cursor=pointer]:
+                        - /url: /clubs/5cadc9d1-17be-4ecd-bc3c-6c7e8f678ed9
+                    - cell "1" [ref=e1152]
+                    - cell "0" [ref=e1153]
+                    - cell "0" [ref=e1154]
+                    - cell "1" [ref=e1155]
+                    - cell "0" [ref=e1156]
+                    - cell "1" [ref=e1157]
+                    - cell "-1" [ref=e1158]
+                    - cell "0" [ref=e1159]
+                    - cell "Relegation" [ref=e1160]
+          - complementary [ref=e1161]:
+            - button "Open fixtures for League Phase" [ref=e1162] [cursor=pointer]:
+              - generic [ref=e1163]:
+                - generic [ref=e1164]: Fixtures
+                - generic [ref=e1165]: "9"
+              - generic [ref=e1166]: League Phase
+              - generic [ref=e1167]:
+                - generic [ref=e1168]:
+                  - generic [ref=e1169]: Acceptance Club 17
+                  - strong [ref=e1174]: vs
+                  - generic [ref=e1175]: Acceptance Club 2
+                - generic [ref=e1180]:
+                  - generic [ref=e1181]: Acceptance Club 12
+                  - strong [ref=e1186]: vs
+                  - generic [ref=e1187]: Acceptance Club 6
+                - generic [ref=e1192]:
+                  - generic [ref=e1193]: Acceptance Club 11
+                  - strong [ref=e1198]: vs
+                  - generic [ref=e1199]: Acceptance Club 7
+                - generic [ref=e1204]:
+                  - generic [ref=e1205]: Acceptance Club 1
+                  - strong [ref=e1210]: vs
+                  - generic [ref=e1211]: Acceptance Club 9
+            - button "Open results for League Phase" [ref=e1216] [cursor=pointer]:
+              - generic [ref=e1217]:
+                - generic [ref=e1218]: Results
+                - generic [ref=e1219]: "1"
+              - generic [ref=e1220]: League Phase
+              - generic [ref=e1222]:
+                - generic [ref=e1223]: Acceptance Club 16
+                - strong [ref=e1228]: 1 – 0
+                - generic [ref=e1229]: Acceptance Club 24
+  - button "Open Regional Leagues guide" [ref=e606] [cursor=pointer]:
+    - generic [ref=e610]: Guide
+  - generic [ref=e614]:
+    - generic [ref=e615]:
+      - generic [ref=e616]:
+        - paragraph [ref=e617]: Regional Leagues
+        - heading [level=2] [ref=e618]: Follow your regional season
+      - button [ref=e619] [cursor=pointer]
+    - generic [ref=e623]:
+      - paragraph [ref=e624]: Step 3 of 3
+      - list [ref=e625]:
+        - listitem [ref=e626]:
+          - generic [ref=e627]: "1"
+          - paragraph [ref=e628]: Find your region and open a league to see its selected season, clubs, fixtures, table and rules.
+        - listitem [ref=e629]:
+          - generic [ref=e630]: "2"
+          - paragraph [ref=e631]: Use Your club’s participation to apply during registration, then confirm in the shared confirmation week. Sporting placement determines your group.
+        - listitem [ref=e632]:
+          - generic [ref=e633]: "3"
+          - paragraph [ref=e634]: Check the published schedule in your local time. Regional Cups have their own page; GOST qualification is not open yet.
+    - button [ref=e636] [cursor=pointer]: Done
+  - link "STAGE" [ref=e637] [cursor=pointer]:
+    - /url: /
+    - img "STAGE" [ref=e638]
+  - generic [ref=e156]:
+    - generic [ref=e157]:
+      - paragraph [ref=e158]: Matchs
+      - generic [ref=e159]:
+        - link "Schedule" [ref=e160] [cursor=pointer]:
+          - /url: /schedule
+        - link "Inbox" [ref=e164] [cursor=pointer]:
+          - /url: /inbox
+        - link "Notifications" [ref=e169] [cursor=pointer]:
+          - /url: /notifications
+    - generic [ref=e174]:
+      - paragraph [ref=e175]: Compete
+      - generic [ref=e176]:
+        - link "Tournaments" [ref=e177] [cursor=pointer]:
+          - /url: /tournaments
+        - link "International" [ref=e185] [cursor=pointer]:
+          - /url: /international
+        - link "Rankings" [ref=e192] [cursor=pointer]:
+          - /url: /rankings
+    - generic [ref=e196]:
+      - paragraph [ref=e197]: Club
+      - generic [ref=e198]:
+        - link "Players" [ref=e199] [cursor=pointer]:
+          - /url: /players-list
+        - link "Presidents" [ref=e205] [cursor=pointer]:
+          - /url: /presidents-list
+        - link "Free Agents" [ref=e209] [cursor=pointer]:
+          - /url: /free-agents
+        - link "Scouting" [ref=e215] [cursor=pointer]:
+          - /url: /scouting
+        - link "Transfer Room" [ref=e222] [cursor=pointer]:
+          - /url: /transfer-market
+        - link "Wallet" [ref=e227] [cursor=pointer]:
+          - /url: /wallet
+    - generic [ref=e231]:
+      - paragraph [ref=e232]: Community
+      - generic [ref=e233]:
+        - link "Feed" [ref=e234] [cursor=pointer]:
+          - /url: /social
+        - link "Discord" [ref=e240] [cursor=pointer]:
+          - /url: /community
+    - generic [ref=e245]:
+      - paragraph [ref=e246]: Account
+      - generic [ref=e247]:
+        - link "Profile" [ref=e248] [cursor=pointer]:
+          - /url: /profile
+        - link "Search" [ref=e253] [cursor=pointer]:
+          - /url: /search
+        - link "Lifestyle" [ref=e258] [cursor=pointer]:
+          - /url: /lifestyle
+        - link "Store" [ref=e265] [cursor=pointer]:
+          - /url: /store
+        - link "News" [ref=e270] [cursor=pointer]:
+          - /url: /news
+        - link "Settings" [ref=e275] [cursor=pointer]:
+          - /url: /settings
+  - navigation [ref=e639]:
+    - generic [ref=e640]:
+      - link "Dashboard" [ref=e641] [cursor=pointer]:
+        - /url: /dashboard
+      - link "Matchs" [ref=e649] [cursor=pointer]:
+        - /url: /game-day
+      - link "Compete" [ref=e654] [cursor=pointer]:
+        - /url: /competitions
+      - link "Club" [ref=e663] [cursor=pointer]:
+        - /url: /clubs/cc763c99-edae-4562-8ee9-84fd3ad3f351
+      - button "9+ More" [ref=e668] [cursor=pointer]:
+        - generic [ref=e669]: 9+
+        - generic [ref=e675]: More

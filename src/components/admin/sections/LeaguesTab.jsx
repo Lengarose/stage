@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import RegionalAdminWorkspace from "@/components/admin/RegionalAdminWorkspace";
 import RegionalLeagueManagementPanel from '@/components/admin/RegionalLeagueManagementPanel';
 import RegionalCupPanel from '@/components/admin/RegionalCupPanel';
 import RegionalOperationsPanel from '@/components/admin/RegionalOperationsPanel';
@@ -160,6 +161,7 @@ export default function LeaguesTab({
   const [simulatingCompetitionFixtures, setSimulatingCompetitionFixtures] = useState(null);
   const [generatingCompetitionFixtures, setGeneratingCompetitionFixtures] = useState(null);
   const [editionSelection, setEditionSelection] = useState({});
+  const [regionalDetailId, setRegionalDetailId] = useState(null);
   const [lifecycleBusy, setLifecycleBusy] = useState(null);
   const activeStandingClubIds = useMemo(
     () => new Set((standingsList || []).filter(row => !row.is_excluded).map(row => String(row.club_id))),
@@ -684,10 +686,15 @@ export default function LeaguesTab({
     seedModalPage * SEED_CLUB_PAGE_SIZE
   );
 
-  return (
-    <div className="max-w-3xl space-y-6">
+  function selectedRegionalEdition(current) {
+    const selectedId = editionSelection[`${current.permanent_league_id || current.id}:${current.group_code || 'A'}`];
+    return regionalEditions.find(edition => edition.id === selectedId) || (current.editions || []).find(edition => edition.id === selectedId) || current;
+  }
+  const regionalDetailLeague = regionalLeagues.find(league => league.id === regionalDetailId);
+  const regionalPanelLeagues = mode === 'regional' && regionalDetailLeague ? [selectedRegionalEdition(regionalDetailLeague)] : regionalLeagues;
 
-      <div className="border border-destructive/30 bg-destructive/5 rounded p-4">
+  const regionalResetContent = (
+<div className="border border-destructive/30 bg-destructive/5 rounded p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-destructive">
@@ -738,186 +745,10 @@ export default function LeaguesTab({
           </div>
         </div>
       </div>
+  );
 
-      {/* Official STAGE Tournaments — qualification-only rules */}
-      <div className={cn("bg-card border border-border rounded p-5 space-y-3", !showGost && "hidden")}>
-    <div className="flex items-center justify-between gap-3">
-      <div>
-        <h3 className="font-heading text-base uppercase tracking-tight text-foreground">{t("admin.leagues.stageCompetitions")}</h3>
-        <p className="text-xs text-muted-foreground mt-0.5">{t("admin.leagues.stageCompetitionsDesc")}</p>
-      </div>
-      <Button onClick={seedCompetitions} disabled={seedingComps || competitions.length >= 3} className="bg-primary text-primary-foreground h-8 text-xs rounded gap-1.5">
-        {seedingComps ? t("admin.leagues.seeding") : competitions.length >= 3 ? t("admin.leagues.seeded") : t("admin.leagues.seedCompetitions")}
-      </Button>
-    </div>
-    <div className="space-y-3">
-      {[{slug:"supreme",color:"#FFD700"},{slug:"elite",color:"#00E5BD"},{slug:"challenger",color:"#A78BFA"}].map(tier => {
-        const comp = competitions.find(c => c.slug === tier.slug);
-        if (!comp) return (
-          <div key={tier.slug} className="border border-dashed border-border rounded p-3 opacity-40">
-            <p className="text-xs text-muted-foreground capitalize">{t("admin.leagues.notSeeded", { slug: tier.slug })}</p>
-          </div>
-        );
-        const seasons = compSeasons.filter(s => s.competition_id === comp.id);
-        const isEditing = editingComp === comp.id;
-        const qualificationRule = getQualificationRuleForCompetition(comp.slug);
-        const qualifyingRange = formatPositionRange(qualificationRule?.positions);
-        return (
-          <div key={tier.slug} className="border border-border rounded p-3 space-y-2" style={{ borderLeftColor: tier.color, borderLeftWidth: 2 }}>
-            <div className="flex items-center gap-2">
-              <div className="flex-1">
-                <p className="text-xs font-bold text-foreground">{comp.name}</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">
-                  Tier {comp.tier} · {seasons.length} season{seasons.length !== 1 ? "s" : ""} · {comp.max_clubs_per_season || OFFICIAL_STAGE_TOURNAMENT_MAX_CLUBS} clubs · Division 1 positions {qualifyingRange}
-                </p>
-                <p className="text-[10px] text-muted-foreground">
-                  Six qualifiers per top-flight regional league. No public entry, wildcards or manual invites.
-                </p>
-              </div>
-              <Button size="sm" variant="outline"
-                className={cn("h-7 text-xs rounded gap-1.5 shrink-0", isEditing ? "border-destructive/30 text-destructive" : "border-border text-muted-foreground hover:text-foreground")}
-                onClick={() => {
-                  if (isEditing) { setEditingComp(null); }
-                  else { setEditingComp(comp.id); setCompEditForm({ max_clubs_per_season: comp.max_clubs_per_season ?? OFFICIAL_STAGE_TOURNAMENT_MAX_CLUBS, playoff_spots: comp.playoff_spots ?? 16 }); }
-                }}>
-                {isEditing ? <X className="w-3 h-3" /> : <Pencil className="w-3 h-3" />}
-                {isEditing ? t("admin.actions.cancel") : t("admin.leagues.editRules")}
-              </Button>
-              <Link to={`/competitions/${comp.slug}`}>
-                <Button size="sm" variant="outline" className="h-7 text-xs rounded border-border text-muted-foreground hover:text-foreground shrink-0">{t("admin.actions.view")}</Button>
-              </Link>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {[
-                { field: "logo_url", label: "Logo" },
-                { field: "banner_url", label: "Banner" },
-              ].map(item => (
-                <label key={item.field} className="flex cursor-pointer items-center gap-2 rounded border border-border/60 bg-secondary/30 p-2 text-[10px] text-muted-foreground hover:border-primary/40 hover:text-foreground">
-                  {comp[item.field]
-                    ? <img src={comp[item.field]} alt="" className="h-8 w-10 shrink-0 object-cover" />
-                    : <ImagePlus className="h-4 w-4 shrink-0 text-primary" />}
-                  <span className="min-w-0 flex-1">
-                    <span className="block font-bold uppercase tracking-wider text-foreground">{item.label}</span>
-                    <span className="block truncate">Upload PNG/image for public tournament page</span>
-                  </span>
-                  <input
-                    type="file"
-                    accept="image/png,image/*"
-                    className="sr-only"
-                    onChange={e => uploadPublicMedia("Competition", comp, item.field, e.target.files?.[0])}
-                  />
-                </label>
-              ))}
-            </div>
-            <CompetitionTrophySelector competitionId={comp.id} />
-            {isEditing && (
-              <div className="pt-2 border-t border-border/50 space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { key: "max_clubs_per_season",           label: t("admin.leagues.maxClubsSeason") },
-                  ].map(({ key, label }) => (
-                    <div key={key}>
-                      <label className="text-[10px] text-muted-foreground mb-1 block">{label}</label>
-                      <Input type="number" min={0} value={compEditForm[key] ?? ""}
-                        onChange={e => setCompEditForm(f => ({ ...f, [key]: e.target.value }))}
-                        className="bg-secondary border-border text-xs h-8" />
-                    </div>
-                  ))}
-                </div>
-                <Button size="sm" onClick={saveCompRules} disabled={savingComp}
-                  className="bg-primary text-primary-foreground h-8 text-xs gap-1.5">
-                  {savingComp ? <span className="w-3 h-3 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin inline-block" /> : <Check className="w-3.5 h-3.5" />}
-                  {savingComp ? t("admin.actions.saving") : t("admin.leagues.saveRules")}
-                </Button>
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  </div>
-
-  {/* Start New Season */}
-  {showGost && competitions.length > 0 && (
-    <div className="bg-card border border-border rounded p-5 space-y-4">
-      <h3 className="font-heading text-base uppercase tracking-tight text-foreground">{t("admin.leagues.startNewSeason")}</h3>
-      <p className="text-xs text-muted-foreground">
-        {t("admin.leagues.startNewSeasonDesc")}
-      </p>
-      <div>
-        <label className="label-xs">{t("admin.leagues.competition")}</label>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          {competitions.map(c => (
-            <button key={c.id} type="button"
-              onClick={() => setNewSeasonForm(f => ({
-                ...f,
-                competition_id: c.id,
-                num_clubs: OFFICIAL_STAGE_TOURNAMENT_MAX_CLUBS,
-                prize_pool_stc: calculatePrizePool("competition", c, OFFICIAL_STAGE_TOURNAMENT_MAX_CLUBS),
-              }))}
-              className={cn("rounded border px-3 py-2 text-left text-xs font-bold transition-all",
-                newSeasonForm.competition_id === c.id ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40"
-              )}>
-              {c.name.replace("STAGE ", "")}
-              <span className="block text-[9px] font-normal mt-0.5 opacity-60">
-                Season {compSeasons.filter(s => s.competition_id === c.id).length > 0
-                  ? Math.max(...compSeasons.filter(s => s.competition_id === c.id).map(s => s.season_number)) + 1
-                  : 1} next
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="label-xs">{t("admin.leagues.platform")}</label>
-          <select value={newSeasonForm.platform} onChange={e => setNewSeasonForm(f => ({ ...f, platform: e.target.value }))}
-            className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50">
-            {["Cross-Platform","PlayStation","Xbox","PC"].map(p => <option key={p} value={p}>{p}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="label-xs">{t("admin.leagues.region")}</label>
-          <select value={newSeasonForm.region} onChange={e => setNewSeasonForm(f => ({ ...f, region: e.target.value }))}
-            className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50">
-            {["Global","Europe","North America"].map(r => <option key={r} value={r}>{r}</option>)}
-          </select>
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="label-xs">{t("admin.leagues.targetQualifiedClubs")}</label>
-          <div className="w-full bg-secondary/70 border border-border rounded px-3 py-2 text-sm text-foreground">
-            {OFFICIAL_STAGE_TOURNAMENT_MAX_CLUBS}
-          </div>
-          <p className="text-[10px] text-muted-foreground mt-1">Official STAGE tournaments are fixed 36-club events.</p>
-        </div>
-        <div>
-          <label className="label-xs">{t("admin.leagues.leagueMatchdays")}</label>
-          <input type="number" min="2" max="20" value={newSeasonForm.num_league_matchdays ?? 8}
-            onChange={e => setNewSeasonForm(f => ({ ...f, num_league_matchdays: e.target.value }))}
-            className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" />
-        </div>
-      </div>
-      <div>
-        <label className="label-xs">{t("admin.leagues.prizePool")}</label>
-        <input type="number" min="0" value={newSeasonForm.prize_pool_stc}
-          onChange={e => setNewSeasonForm(f => ({ ...f, prize_pool_stc: e.target.value }))}
-          className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50"
-          placeholder="e.g. 5000000" />
-        <p className="text-[10px] text-muted-foreground mt-1">
-          Defaults fill automatically from the selected tier. Current pool: {formatStcCompact(newSeasonForm.prize_pool_stc || 0)}.
-        </p>
-      </div>
-      <Button onClick={createCompetitionSeason} disabled={creatingLeagueSeason || !newSeasonForm.competition_id}
-        className="w-full bg-primary text-primary-foreground h-9 text-xs rounded font-bold gap-2">
-        {creatingLeagueSeason ? t("admin.leagues.creating") : t("admin.leagues.createSeason")}
-      </Button>
-    </div>
-  )}
-
-  {/* ── Registration Applications ── */}
-  <div className={cn(!showRegional && "hidden")}>
+  const regionalApplicationsContent = (
+<div className={cn(!showRegional && "hidden")}>
     {(() => {
       const actionable = regApplications.filter(r => !r.registration_policy_version && (r.status === "pending" || r.status === "waitlisted"));
       const displayApps = regAppFilter === "actionable" ? actionable : regApplications;
@@ -1031,153 +862,10 @@ export default function LeaguesTab({
       );
     })()}
   </div>
+  );
 
-  {/* Official tournament qualification entries */}
-  <div className={cn(!showGost && "hidden")}>
-    <h3 className="font-heading text-base uppercase tracking-tight text-foreground mb-3">
-      {t("admin.leagues.pendingQualificationEntries")}
-      {qualEntries.length > 0 && <span className="ml-2 text-[10px] text-primary border border-primary/30 bg-primary/5 px-1.5 py-0.5 rounded font-bold">{qualEntries.length}</span>}
-    </h3>
-    {qualEntries.length === 0 ? (
-      <div className="border border-dashed border-border rounded p-8 text-center">
-        <p className="text-xs text-muted-foreground uppercase tracking-widest">{t("admin.leagues.noPendingEntries")}</p>
-      </div>
-    ) : (
-      <div className="space-y-2">
-        {qualEntries.map(e => (
-          <div key={e.id} className="bg-card border border-border rounded p-3 flex items-center gap-3">
-            {e.club_logo_url
-              ? <img src={e.club_logo_url} alt={e.club_name} className="w-8 h-8 object-contain shrink-0" />
-              : <Shield className="w-6 h-6 text-muted-foreground/30 shrink-0" />}
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-foreground truncate">{e.club_name}</p>
-              <p className="text-[10px] text-muted-foreground">
-                {e.regional_league_name || e.source_type} · Pos. {e.regional_finish_position || "—"} → {e.target_competition_name}
-              </p>
-            </div>
-            <div className="flex gap-2 shrink-0">
-              <Button size="sm" onClick={() => confirmQualEntry(e)} className="bg-success/20 text-success hover:bg-success/30 border-0 h-7 text-xs rounded gap-1">
-                <Check className="w-3 h-3" /> {t("admin.actions.confirm")}
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => rejectQualEntry(e)} className="border-destructive/30 text-destructive hover:bg-destructive/10 h-7 text-xs rounded gap-1">
-                <X className="w-3 h-3" /> {t("admin.actions.reject")}
-              </Button>
-            </div>
-          </div>
-        ))}
-      </div>
-    )}
-  </div>
-
-  {/* All Seasons */}
-  {showGost && compSeasons.length > 0 && (
-    <div>
-      <h3 className="font-heading text-base uppercase tracking-tight text-foreground mb-3">{t("admin.leagues.allSeasons")}</h3>
-      <div className="space-y-2">
-        {compSeasons.map(s => {
-          const status = String(s.status || "").toLowerCase();
-          const fixturesGenerated = isTruthyEntityFlag(s.fixtures_generated);
-          const registeredIds = getSeasonRegisteredIds(s);
-          const selectedClubIds = getSelectedClubIdsForSeason(s.id);
-          const availableClubs = getAvailableClubsForCompetitionSeason(s);
-          const standingsCount = Number(competitionStandingCountsBySeason[s.id] || 0);
-          const qualificationCount = qualEntries.filter(entry => String(entry.target_season_id || "") === String(s.id)).length;
-          const targetClubs = getCompetitionSeasonTargetClubs(s);
-          const displayedClubCount = getCompetitionSeasonClubCount(s, standingsCount, qualificationCount);
-          const canAddTestClubs = ["draft", "qualification", "registration"].includes(status) && !fixturesGenerated;
-          const fixtureStatus = fixtureState(s);
-          const canGenerateFixtures = fixtureStatus.canDraw || (!fixturesGenerated && Number(s.actual_fixtures_count) === 0 && canAddTestClubs && displayedClubCount >= targetClubs);
-          const canSimulateFixtures = fixtureStatus.canSimulate;
-          return (
-            <div key={s.id} className="space-y-2">
-              <div className="flex flex-wrap items-center gap-3 border-b border-border py-3">
-                <p className="min-w-0 flex-1 text-sm font-bold">{s.competition_name} · {s.season_label || `Season ${s.season_number}`} · {getSeasonStatusLabel(t, s.status)}</p>
-                {!['completed', 'archived', 'abandoned', 'cancelled'].includes(status) && <>
-                  <button type="button" disabled={Boolean(lifecycleBusy)} onClick={() => editionAction('competition_season', s, 'complete')} className="min-h-10 text-xs text-warning disabled:opacity-50">Complete season</button>
-                  <button type="button" disabled={Boolean(lifecycleBusy)} onClick={() => editionAction('competition_season', s, 'abandon')} className="min-h-10 text-xs text-destructive disabled:opacity-50">Abandon season</button>
-                </>}
-                {status === 'completed' && <button type="button" disabled={Boolean(lifecycleBusy)} onClick={() => gostSeasonAction(s, 'archive')} className="min-h-10 text-xs text-primary">Archive</button>}
-                {(['completed', 'archived', 'abandoned'].includes(status) || (status==='cancelled' && s.abandoned_at)) && <button type="button" disabled={Boolean(lifecycleBusy)} onClick={() => gostSeasonAction(s, 'create_next')} className="min-h-10 text-xs text-primary">New Season</button>}
-              </div>
-              <div className="rounded border border-border bg-secondary/20 p-3">
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-foreground">GOST edition controls</p>
-                    <p className="text-xs text-muted-foreground">{fixtureStatus.explanation}</p>
-                    <p className="text-[10px] text-muted-foreground">
-                      {displayedClubCount}/{targetClubs} clubs · {registeredIds.size} registered · {standingsCount} standings · {fixturesGenerated ? "fixtures generated" : "fixtures not generated"} · {availableClubs.length} clubs available for testing
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    <Link to={`/competitions/${s.competition_slug}`}>
-                      <Button size="sm" variant="outline" className="h-8 rounded border-border px-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground">
-                        View
-                      </Button>
-                    </Link>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={!canAddTestClubs || registeringCompetitionClub === s.id || availableClubs.length === 0}
-                      onClick={() => setSeedCompetitionModalSeasonId(s.id)}
-                      className="h-8 rounded border-border px-3 text-[11px] font-bold uppercase tracking-wider text-foreground hover:border-primary/40 hover:bg-primary/10">
-                      Add test clubs
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={selectedClubIds.length === 0 || registeringCompetitionClub === s.id}
-                      onClick={() => setSelectedClubIdsForSeason(s.id, [])}
-                      className="h-8 rounded border-border px-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground">
-                      Clear
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={!canGenerateFixtures || generatingCompetitionFixtures === s.id}
-                      onClick={() => generateCompetitionFixturesForAdmin(s)}
-                      className="h-8 rounded border-primary/30 px-3 text-[11px] font-bold uppercase tracking-wider text-primary hover:bg-primary/10">
-                      {generatingCompetitionFixtures === s.id ? "Drawing..." : "Draw Fixtures"}
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={!canSimulateFixtures || simulatingCompetitionFixtures === s.id}
-                      onClick={() => simulateCompetitionFixtures(s)}
-                      className="h-8 rounded border-warning/40 px-3 text-[11px] font-bold uppercase tracking-wider text-warning hover:bg-warning/10 disabled:opacity-45">
-                      {simulatingCompetitionFixtures === s.id ? "Simulating..." : "Simulate"}
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => loadFixturesForPanel({ type: "competition", id: s.id, name: `${s.competition_name} ${s.season_label || ""}` })}
-                      className="h-8 rounded border-border px-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground">
-                      Load fixtures
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => loadStandingsForPanel({ type: "competition", id: s.id, name: `${s.competition_name} ${s.season_label || ""}` })}
-                      className="h-8 rounded border-border px-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground">
-                      Load standings
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  )}
-
-  {/* Fixtures & Results — accordion */}
-  <div className="bg-card border border-border rounded overflow-hidden">
+  const regionalFixturesContent = (
+<div className="bg-card border border-border rounded overflow-hidden">
     <button type="button" className="w-full flex items-center justify-between px-5 py-4 text-left"
       onClick={() => setFixturesOpen(v => !v)}>
       <h3 className="font-heading text-base uppercase tracking-tight text-foreground">{t("admin.leagues.fixturesResults")}</h3>
@@ -1209,12 +897,12 @@ export default function LeaguesTab({
             <select value={selectedFixtureLeague} onChange={e => setSelectedFixtureLeague(e.target.value)}
               className="w-full bg-secondary border border-border rounded px-3 py-2 text-xs text-foreground outline-none focus:border-primary/50">
               <option value="">{t("admin.leagues.selectLeague")}</option>
-              {regionalLeagues.map(l => (
+              {regionalPanelLeagues.map(l => (
                 <option key={l.id} value={l.id}>{l.name} (D{l.division || 1} · S{l.season_number})</option>
               ))}
             </select>
             <Button size="sm" disabled={!selectedFixtureLeague || loadingFixtures}
-              onClick={() => { const l = regionalLeagues.find(x => x.id === selectedFixtureLeague); if (l) loadFixturesForPanel({ type: "league", id: l.id, name: l.name }); }}
+              onClick={() => { const l = regionalPanelLeagues.find(x => x.id === selectedFixtureLeague); if (l) loadFixturesForPanel({ type: "league", id: l.id, name: l.name }); }}
               className="h-7 text-xs bg-primary text-primary-foreground rounded gap-1.5">
               {loadingFixtures && fixturesPanel?.type === "league" ? t("admin.actions.loading") : t("admin.leagues.loadFixtures")}
             </Button>
@@ -1261,9 +949,10 @@ export default function LeaguesTab({
       </div>
     )}
   </div>
+  );
 
-  {/* Standings — accordion */}
-  <div className="bg-card border border-border rounded overflow-hidden">
+  const regionalStandingsContent = (
+<div className="bg-card border border-border rounded overflow-hidden">
     <button type="button" className="w-full flex items-center justify-between px-5 py-4 text-left"
       onClick={() => setStandingsOpen(v => !v)}>
       <h3 className="font-heading text-base uppercase tracking-tight text-foreground">{t("admin.leagues.standings")}</h3>
@@ -1293,10 +982,10 @@ export default function LeaguesTab({
             <select value={selectedStandingsLeague} onChange={e => setSelectedStandingsLeague(e.target.value)}
               className="w-full bg-secondary border border-border rounded px-3 py-2 text-xs text-foreground outline-none focus:border-primary/50">
               <option value="">— Select league —</option>
-              {regionalLeagues.map(l => <option key={l.id} value={l.id}>{l.name} (D{l.division || 1} · S{l.season_number})</option>)}
+              {regionalPanelLeagues.map(l => <option key={l.id} value={l.id}>{l.name} (D{l.division || 1} · S{l.season_number})</option>)}
             </select>
             <Button size="sm" disabled={!selectedStandingsLeague || loadingStandings}
-              onClick={() => { const l = regionalLeagues.find(x => x.id === selectedStandingsLeague); if (l) loadStandingsForPanel({ type: "league", id: l.id, name: l.name }); }}
+              onClick={() => { const l = regionalPanelLeagues.find(x => x.id === selectedStandingsLeague); if (l) loadStandingsForPanel({ type: "league", id: l.id, name: l.name }); }}
               className="h-7 text-xs bg-primary text-primary-foreground rounded gap-1.5">
               {loadingStandings && standingsPanel?.type === "league" ? t("admin.actions.loading") : t("admin.leagues.loadStandings")}
             </Button>
@@ -1393,11 +1082,12 @@ export default function LeaguesTab({
       </div>
     )}
   </div>
+  );
 
-  {/* Regional Leagues — editable rules */}
-  <div className={cn("bg-card border border-border rounded p-5 space-y-4", !showRegional && "hidden")}>
+  const regionalLeagueContent = (
+<div className={cn("bg-card border border-border rounded p-5 space-y-4", !showRegional && "hidden")}>
     {regionalSourceError && <p role="alert" className="text-sm text-destructive">{regionalSourceError}</p>}
-    <div className="flex items-center justify-between gap-3">
+    {mode !== "regional" && <div className="flex items-center justify-between gap-3">
       <div>
         <h3 className="font-heading text-base uppercase tracking-tight text-foreground">{t("admin.leagues.regionalLeagues")}</h3>
         <p className="text-xs text-muted-foreground mt-0.5">{t("admin.leagues.regionalLeaguesDesc", { count: REGIONS.length })}</p>
@@ -1407,21 +1097,20 @@ export default function LeaguesTab({
         className="bg-primary text-primary-foreground h-8 text-xs rounded gap-1.5 shrink-0">
         {seedingRegionalLeagues ? t("admin.leagues.seeding") : t("admin.leagues.seedAllLeagues")}
       </Button>
-    </div>
-
-    {showRegional && <RegionalOperationsPanel />}
-    {showRegional && <div id="regional-management" className="scroll-mt-24"><RegionalLeagueManagementPanel definitions={regionalDefinitions} trophyItems={trophyItems} onRefresh={loadAll} /></div>}
-    {showRegional && <div id="regional-registration" className="scroll-mt-24"><RegionalRegistrationPanel definitions={regionalDefinitions} leagues={regionalLeagues} /></div>}
-    {showRegional && <div id="regional-cups" className="scroll-mt-24"><RegionalCupPanel definitions={regionalDefinitions} /></div>}
-    {showRegional && <div id="regional-calendar" className="scroll-mt-24"><RegionalCalendarPanel leagues={regionalLeagues} onRefresh={loadAll} /></div>}
-    {showRegional && <OfficialSchedulePanel />}
-    {showRegional && <div id="regional-cycles" className="scroll-mt-24"><RegionalCyclePanel leagues={regionalLeagues} registrations={regApplications || []} onRefresh={loadAll} /></div>}
+    </div>}
+    {mode !== "regional" && <RegionalOperationsPanel />}
+    {mode !== "regional" && <div id="regional-management" className="scroll-mt-24"><RegionalLeagueManagementPanel definitions={regionalDefinitions} trophyItems={trophyItems} onRefresh={loadAll} /></div>}
+    {mode !== "regional" && <div id="regional-registration" className="scroll-mt-24"><RegionalRegistrationPanel definitions={regionalDefinitions} leagues={regionalLeagues} /></div>}
+    {mode !== "regional" && <div id="regional-cups" className="scroll-mt-24"><RegionalCupPanel definitions={regionalDefinitions} /></div>}
+    {mode !== "regional" && <div id="regional-calendar" className="scroll-mt-24"><RegionalCalendarPanel leagues={regionalLeagues} onRefresh={loadAll} /></div>}
+    {mode !== "regional" && <OfficialSchedulePanel />}
+    {mode !== "regional" && <div id="regional-cycles" className="scroll-mt-24"><RegionalCyclePanel leagues={regionalLeagues} registrations={regApplications || []} onRefresh={loadAll} /></div>}
 
     {regionalLeagues.length > 0 && (
       <div className="space-y-4">
-        {[...new Set(regionalLeagues.map(league => league.region_slug || 'unspecified'))].map(regionSlug => {
+        {[...new Set(regionalLeagues.filter(league => mode !== "regional" || league.id === regionalDetailId).map(league => league.region_slug || 'unspecified'))].map(regionSlug => {
           const region = REGIONS.find(item => item.slug === regionSlug) || { slug: regionSlug, name: regionSlug };
-          const divisions = regionalLeagues.filter(league => (league.region_slug || 'unspecified') === regionSlug)
+          const divisions = regionalLeagues.filter(league => (mode !== "regional" || league.id === regionalDetailId) && (league.region_slug || 'unspecified') === regionSlug)
             .sort((a, b) => Number(a.division || 1) - Number(b.division || 1) || String(a.platform).localeCompare(String(b.platform)));
           return (
             <div key={region.slug}>
@@ -1455,7 +1144,7 @@ export default function LeaguesTab({
                       </select></label>
                       <p className="break-all text-xs text-muted-foreground">Permanent ID: {permanentId} · Edition: {league.id} · {league.platform}</p>
                       <p className="text-xs text-muted-foreground">{fixtureStatus.explanation}</p>
-                      {(league.regional_structure_version || league.pending_regional_cycle_id) && <p className="text-xs text-muted-foreground">This group uses Regional cycles above for sporting allocation and the next season. Its capacity and promotion route are managed together with the other groups.</p>}
+                      {(league.regional_structure_version || league.pending_regional_cycle_id) && <p className="text-xs text-muted-foreground">This group uses the Regional cycles task for sporting allocation and the next season. Its capacity and promotion route are managed together with the other groups.</p>}
                       <div className="flex flex-wrap items-center gap-2">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
@@ -1683,6 +1372,356 @@ export default function LeaguesTab({
       </p>
     </div>
   </div>
+  );
+
+  return (
+    <div className={cn("space-y-6", mode !== "regional" && "max-w-3xl")}>
+      {mode === "regional" ? <RegionalAdminWorkspace
+        leagues={regionalLeagues} definitions={regionalDefinitions} trophyItems={trophyItems}
+        registrations={regApplications || []} onRefresh={loadAll} sourceError={regionalSourceError}
+        applicationsContent={regionalApplicationsContent} resetContent={regionalResetContent}
+        leagueContent={regionalLeagueContent} fixturesContent={regionalFixturesContent} standingsContent={regionalStandingsContent}
+        seedRegionalLeagues={seedRegionalLeagues} seedingRegionalLeagues={seedingRegionalLeagues}
+        onSelectLeague={league => { setRegionalDetailId(league.id); setSelectedFixtureLeague(league.id); setSelectedStandingsLeague(league.id); }}
+        onLeagueView={(currentLeague, view) => {
+          const league = selectedRegionalEdition(currentLeague);
+          if (view === "fixtures") { setSelectedFixtureLeague(league.id); setFixturesOpen(true); loadFixturesForPanel({ type: "league", id: league.id, name: league.name }); }
+          if (view === "standings") { setSelectedStandingsLeague(league.id); setStandingsOpen(true); loadStandingsForPanel({ type: "league", id: league.id, name: league.name }); }
+        }}
+      /> : <>
+
+      {regionalResetContent}
+
+      {/* Official STAGE Tournaments — qualification-only rules */}
+      <div className={cn("bg-card border border-border rounded p-5 space-y-3", !showGost && "hidden")}>
+    <div className="flex items-center justify-between gap-3">
+      <div>
+        <h3 className="font-heading text-base uppercase tracking-tight text-foreground">{t("admin.leagues.stageCompetitions")}</h3>
+        <p className="text-xs text-muted-foreground mt-0.5">{t("admin.leagues.stageCompetitionsDesc")}</p>
+      </div>
+      <Button onClick={seedCompetitions} disabled={seedingComps || competitions.length >= 3} className="bg-primary text-primary-foreground h-8 text-xs rounded gap-1.5">
+        {seedingComps ? t("admin.leagues.seeding") : competitions.length >= 3 ? t("admin.leagues.seeded") : t("admin.leagues.seedCompetitions")}
+      </Button>
+    </div>
+    <div className="space-y-3">
+      {[{slug:"supreme",color:"#FFD700"},{slug:"elite",color:"#00E5BD"},{slug:"challenger",color:"#A78BFA"}].map(tier => {
+        const comp = competitions.find(c => c.slug === tier.slug);
+        if (!comp) return (
+          <div key={tier.slug} className="border border-dashed border-border rounded p-3 opacity-40">
+            <p className="text-xs text-muted-foreground capitalize">{t("admin.leagues.notSeeded", { slug: tier.slug })}</p>
+          </div>
+        );
+        const seasons = compSeasons.filter(s => s.competition_id === comp.id);
+        const isEditing = editingComp === comp.id;
+        const qualificationRule = getQualificationRuleForCompetition(comp.slug);
+        const qualifyingRange = formatPositionRange(qualificationRule?.positions);
+        return (
+          <div key={tier.slug} className="border border-border rounded p-3 space-y-2" style={{ borderLeftColor: tier.color, borderLeftWidth: 2 }}>
+            <div className="flex items-center gap-2">
+              <div className="flex-1">
+                <p className="text-xs font-bold text-foreground">{comp.name}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  Tier {comp.tier} · {seasons.length} season{seasons.length !== 1 ? "s" : ""} · {comp.max_clubs_per_season || OFFICIAL_STAGE_TOURNAMENT_MAX_CLUBS} clubs · Division 1 positions {qualifyingRange}
+                </p>
+                <p className="text-[10px] text-muted-foreground">
+                  Six qualifiers per top-flight regional league. No public entry, wildcards or manual invites.
+                </p>
+              </div>
+              <Button size="sm" variant="outline"
+                className={cn("h-7 text-xs rounded gap-1.5 shrink-0", isEditing ? "border-destructive/30 text-destructive" : "border-border text-muted-foreground hover:text-foreground")}
+                onClick={() => {
+                  if (isEditing) { setEditingComp(null); }
+                  else { setEditingComp(comp.id); setCompEditForm({ max_clubs_per_season: comp.max_clubs_per_season ?? OFFICIAL_STAGE_TOURNAMENT_MAX_CLUBS, playoff_spots: comp.playoff_spots ?? 16 }); }
+                }}>
+                {isEditing ? <X className="w-3 h-3" /> : <Pencil className="w-3 h-3" />}
+                {isEditing ? t("admin.actions.cancel") : t("admin.leagues.editRules")}
+              </Button>
+              <Link to={`/competitions/${comp.slug}`}>
+                <Button size="sm" variant="outline" className="h-7 text-xs rounded border-border text-muted-foreground hover:text-foreground shrink-0">{t("admin.actions.view")}</Button>
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {[
+                { field: "logo_url", label: "Logo" },
+                { field: "banner_url", label: "Banner" },
+              ].map(item => (
+                <label key={item.field} className="flex cursor-pointer items-center gap-2 rounded border border-border/60 bg-secondary/30 p-2 text-[10px] text-muted-foreground hover:border-primary/40 hover:text-foreground">
+                  {comp[item.field]
+                    ? <img src={comp[item.field]} alt="" className="h-8 w-10 shrink-0 object-cover" />
+                    : <ImagePlus className="h-4 w-4 shrink-0 text-primary" />}
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-bold uppercase tracking-wider text-foreground">{item.label}</span>
+                    <span className="block truncate">Upload PNG/image for public tournament page</span>
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/png,image/*"
+                    className="sr-only"
+                    onChange={e => uploadPublicMedia("Competition", comp, item.field, e.target.files?.[0])}
+                  />
+                </label>
+              ))}
+            </div>
+            <CompetitionTrophySelector competitionId={comp.id} />
+            {isEditing && (
+              <div className="pt-2 border-t border-border/50 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { key: "max_clubs_per_season",           label: t("admin.leagues.maxClubsSeason") },
+                  ].map(({ key, label }) => (
+                    <div key={key}>
+                      <label className="text-[10px] text-muted-foreground mb-1 block">{label}</label>
+                      <Input type="number" min={0} value={compEditForm[key] ?? ""}
+                        onChange={e => setCompEditForm(f => ({ ...f, [key]: e.target.value }))}
+                        className="bg-secondary border-border text-xs h-8" />
+                    </div>
+                  ))}
+                </div>
+                <Button size="sm" onClick={saveCompRules} disabled={savingComp}
+                  className="bg-primary text-primary-foreground h-8 text-xs gap-1.5">
+                  {savingComp ? <span className="w-3 h-3 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin inline-block" /> : <Check className="w-3.5 h-3.5" />}
+                  {savingComp ? t("admin.actions.saving") : t("admin.leagues.saveRules")}
+                </Button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  </div>
+
+  {/* Start New Season */}
+  {showGost && competitions.length > 0 && (
+    <div className="bg-card border border-border rounded p-5 space-y-4">
+      <h3 className="font-heading text-base uppercase tracking-tight text-foreground">{t("admin.leagues.startNewSeason")}</h3>
+      <p className="text-xs text-muted-foreground">
+        {t("admin.leagues.startNewSeasonDesc")}
+      </p>
+      <div>
+        <label className="label-xs">{t("admin.leagues.competition")}</label>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {competitions.map(c => (
+            <button key={c.id} type="button"
+              onClick={() => setNewSeasonForm(f => ({
+                ...f,
+                competition_id: c.id,
+                num_clubs: OFFICIAL_STAGE_TOURNAMENT_MAX_CLUBS,
+                prize_pool_stc: calculatePrizePool("competition", c, OFFICIAL_STAGE_TOURNAMENT_MAX_CLUBS),
+              }))}
+              className={cn("rounded border px-3 py-2 text-left text-xs font-bold transition-all",
+                newSeasonForm.competition_id === c.id ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40"
+              )}>
+              {c.name.replace("STAGE ", "")}
+              <span className="block text-[9px] font-normal mt-0.5 opacity-60">
+                Season {compSeasons.filter(s => s.competition_id === c.id).length > 0
+                  ? Math.max(...compSeasons.filter(s => s.competition_id === c.id).map(s => s.season_number)) + 1
+                  : 1} next
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="label-xs">{t("admin.leagues.platform")}</label>
+          <select value={newSeasonForm.platform} onChange={e => setNewSeasonForm(f => ({ ...f, platform: e.target.value }))}
+            className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50">
+            {["Cross-Platform","PlayStation","Xbox","PC"].map(p => <option key={p} value={p}>{p}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="label-xs">{t("admin.leagues.region")}</label>
+          <select value={newSeasonForm.region} onChange={e => setNewSeasonForm(f => ({ ...f, region: e.target.value }))}
+            className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50">
+            {["Global","Europe","North America"].map(r => <option key={r} value={r}>{r}</option>)}
+          </select>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="label-xs">{t("admin.leagues.targetQualifiedClubs")}</label>
+          <div className="w-full bg-secondary/70 border border-border rounded px-3 py-2 text-sm text-foreground">
+            {OFFICIAL_STAGE_TOURNAMENT_MAX_CLUBS}
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-1">Official STAGE tournaments are fixed 36-club events.</p>
+        </div>
+        <div>
+          <label className="label-xs">{t("admin.leagues.leagueMatchdays")}</label>
+          <input type="number" min="2" max="20" value={newSeasonForm.num_league_matchdays ?? 8}
+            onChange={e => setNewSeasonForm(f => ({ ...f, num_league_matchdays: e.target.value }))}
+            className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50" />
+        </div>
+      </div>
+      <div>
+        <label className="label-xs">{t("admin.leagues.prizePool")}</label>
+        <input type="number" min="0" value={newSeasonForm.prize_pool_stc}
+          onChange={e => setNewSeasonForm(f => ({ ...f, prize_pool_stc: e.target.value }))}
+          className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50"
+          placeholder="e.g. 5000000" />
+        <p className="text-[10px] text-muted-foreground mt-1">
+          Defaults fill automatically from the selected tier. Current pool: {formatStcCompact(newSeasonForm.prize_pool_stc || 0)}.
+        </p>
+      </div>
+      <Button onClick={createCompetitionSeason} disabled={creatingLeagueSeason || !newSeasonForm.competition_id}
+        className="w-full bg-primary text-primary-foreground h-9 text-xs rounded font-bold gap-2">
+        {creatingLeagueSeason ? t("admin.leagues.creating") : t("admin.leagues.createSeason")}
+      </Button>
+    </div>
+  )}
+
+  {regionalApplicationsContent}
+
+  {/* Official tournament qualification entries */}
+  <div className={cn(!showGost && "hidden")}>
+    <h3 className="font-heading text-base uppercase tracking-tight text-foreground mb-3">
+      {t("admin.leagues.pendingQualificationEntries")}
+      {qualEntries.length > 0 && <span className="ml-2 text-[10px] text-primary border border-primary/30 bg-primary/5 px-1.5 py-0.5 rounded font-bold">{qualEntries.length}</span>}
+    </h3>
+    {qualEntries.length === 0 ? (
+      <div className="border border-dashed border-border rounded p-8 text-center">
+        <p className="text-xs text-muted-foreground uppercase tracking-widest">{t("admin.leagues.noPendingEntries")}</p>
+      </div>
+    ) : (
+      <div className="space-y-2">
+        {qualEntries.map(e => (
+          <div key={e.id} className="bg-card border border-border rounded p-3 flex items-center gap-3">
+            {e.club_logo_url
+              ? <img src={e.club_logo_url} alt={e.club_name} className="w-8 h-8 object-contain shrink-0" />
+              : <Shield className="w-6 h-6 text-muted-foreground/30 shrink-0" />}
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-foreground truncate">{e.club_name}</p>
+              <p className="text-[10px] text-muted-foreground">
+                {e.regional_league_name || e.source_type} · Pos. {e.regional_finish_position || "—"} → {e.target_competition_name}
+              </p>
+            </div>
+            <div className="flex gap-2 shrink-0">
+              <Button size="sm" onClick={() => confirmQualEntry(e)} className="bg-success/20 text-success hover:bg-success/30 border-0 h-7 text-xs rounded gap-1">
+                <Check className="w-3 h-3" /> {t("admin.actions.confirm")}
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => rejectQualEntry(e)} className="border-destructive/30 text-destructive hover:bg-destructive/10 h-7 text-xs rounded gap-1">
+                <X className="w-3 h-3" /> {t("admin.actions.reject")}
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+
+  {/* All Seasons */}
+  {showGost && compSeasons.length > 0 && (
+    <div>
+      <h3 className="font-heading text-base uppercase tracking-tight text-foreground mb-3">{t("admin.leagues.allSeasons")}</h3>
+      <div className="space-y-2">
+        {compSeasons.map(s => {
+          const status = String(s.status || "").toLowerCase();
+          const fixturesGenerated = isTruthyEntityFlag(s.fixtures_generated);
+          const registeredIds = getSeasonRegisteredIds(s);
+          const selectedClubIds = getSelectedClubIdsForSeason(s.id);
+          const availableClubs = getAvailableClubsForCompetitionSeason(s);
+          const standingsCount = Number(competitionStandingCountsBySeason[s.id] || 0);
+          const qualificationCount = qualEntries.filter(entry => String(entry.target_season_id || "") === String(s.id)).length;
+          const targetClubs = getCompetitionSeasonTargetClubs(s);
+          const displayedClubCount = getCompetitionSeasonClubCount(s, standingsCount, qualificationCount);
+          const canAddTestClubs = ["draft", "qualification", "registration"].includes(status) && !fixturesGenerated;
+          const fixtureStatus = fixtureState(s);
+          const canGenerateFixtures = fixtureStatus.canDraw || (!fixturesGenerated && Number(s.actual_fixtures_count) === 0 && canAddTestClubs && displayedClubCount >= targetClubs);
+          const canSimulateFixtures = fixtureStatus.canSimulate;
+          return (
+            <div key={s.id} className="space-y-2">
+              <div className="flex flex-wrap items-center gap-3 border-b border-border py-3">
+                <p className="min-w-0 flex-1 text-sm font-bold">{s.competition_name} · {s.season_label || `Season ${s.season_number}`} · {getSeasonStatusLabel(t, s.status)}</p>
+                {!['completed', 'archived', 'abandoned', 'cancelled'].includes(status) && <>
+                  <button type="button" disabled={Boolean(lifecycleBusy)} onClick={() => editionAction('competition_season', s, 'complete')} className="min-h-10 text-xs text-warning disabled:opacity-50">Complete season</button>
+                  <button type="button" disabled={Boolean(lifecycleBusy)} onClick={() => editionAction('competition_season', s, 'abandon')} className="min-h-10 text-xs text-destructive disabled:opacity-50">Abandon season</button>
+                </>}
+                {status === 'completed' && <button type="button" disabled={Boolean(lifecycleBusy)} onClick={() => gostSeasonAction(s, 'archive')} className="min-h-10 text-xs text-primary">Archive</button>}
+                {(['completed', 'archived', 'abandoned'].includes(status) || (status==='cancelled' && s.abandoned_at)) && <button type="button" disabled={Boolean(lifecycleBusy)} onClick={() => gostSeasonAction(s, 'create_next')} className="min-h-10 text-xs text-primary">New Season</button>}
+              </div>
+              <div className="rounded border border-border bg-secondary/20 p-3">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-foreground">GOST edition controls</p>
+                    <p className="text-xs text-muted-foreground">{fixtureStatus.explanation}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {displayedClubCount}/{targetClubs} clubs · {registeredIds.size} registered · {standingsCount} standings · {fixturesGenerated ? "fixtures generated" : "fixtures not generated"} · {availableClubs.length} clubs available for testing
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    <Link to={`/competitions/${s.competition_slug}`}>
+                      <Button size="sm" variant="outline" className="h-8 rounded border-border px-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground">
+                        View
+                      </Button>
+                    </Link>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={!canAddTestClubs || registeringCompetitionClub === s.id || availableClubs.length === 0}
+                      onClick={() => setSeedCompetitionModalSeasonId(s.id)}
+                      className="h-8 rounded border-border px-3 text-[11px] font-bold uppercase tracking-wider text-foreground hover:border-primary/40 hover:bg-primary/10">
+                      Add test clubs
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={selectedClubIds.length === 0 || registeringCompetitionClub === s.id}
+                      onClick={() => setSelectedClubIdsForSeason(s.id, [])}
+                      className="h-8 rounded border-border px-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground">
+                      Clear
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={!canGenerateFixtures || generatingCompetitionFixtures === s.id}
+                      onClick={() => generateCompetitionFixturesForAdmin(s)}
+                      className="h-8 rounded border-primary/30 px-3 text-[11px] font-bold uppercase tracking-wider text-primary hover:bg-primary/10">
+                      {generatingCompetitionFixtures === s.id ? "Drawing..." : "Draw Fixtures"}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={!canSimulateFixtures || simulatingCompetitionFixtures === s.id}
+                      onClick={() => simulateCompetitionFixtures(s)}
+                      className="h-8 rounded border-warning/40 px-3 text-[11px] font-bold uppercase tracking-wider text-warning hover:bg-warning/10 disabled:opacity-45">
+                      {simulatingCompetitionFixtures === s.id ? "Simulating..." : "Simulate"}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => loadFixturesForPanel({ type: "competition", id: s.id, name: `${s.competition_name} ${s.season_label || ""}` })}
+                      className="h-8 rounded border-border px-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground">
+                      Load fixtures
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => loadStandingsForPanel({ type: "competition", id: s.id, name: `${s.competition_name} ${s.season_label || ""}` })}
+                      className="h-8 rounded border-border px-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground">
+                      Load standings
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  )}
+
+  {regionalFixturesContent}
+
+  {regionalStandingsContent}
+
+  {regionalLeagueContent}
+
+  </>}
 
   <Dialog open={Boolean(competitionSeedModalSeason)} onOpenChange={(open) => { if (!open) setSeedCompetitionModalSeasonId(null); }}>
     <DialogContent className="max-h-[86vh] max-w-3xl overflow-hidden border-border bg-card p-0 text-foreground">

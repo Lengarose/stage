@@ -126,6 +126,7 @@ export default function ScheduleCalendar({ tournamentId }) {
             {event.score?<p className="mt-1 font-bold">{event.score} · Completed</p>:<p className="mt-1 text-xs text-muted-foreground">{event.status==='in_progress'?'In progress':event.status==='disputed'?'Result disputed':event.status==='awaiting_confirmation'?'Result awaiting confirmation':'Confirmed schedule'}</p>}
             {penaltyOutcome(event)&&<p className="mt-1 break-words text-xs text-primary">{penaltyOutcome(event)}</p>}
             {conflicts.has(event.id)?<p className="mt-1 text-xs text-amber-600 dark:text-amber-300">Same-time kickoff</p>:null}
+            {event.competitionHref && <Link to={event.competitionHref} className="mt-2 flex min-h-11 items-center gap-2 text-sm font-semibold text-orange-600 dark:text-orange-300">Open Regional Cup<ArrowRight size={16}/></Link>}
             {event.href?<Link to={event.href} className="mt-2 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:text-cyan-300" aria-label={`View match: ${event.homeName} vs ${event.awayName}`}>View match<ArrowRight size={16}/></Link>:<p className="mt-2 text-xs text-muted-foreground">Match details are not linked yet.</p>}
           </article>;})}</div>
         </section>

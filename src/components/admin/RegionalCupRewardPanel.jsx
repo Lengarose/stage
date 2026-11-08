@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { stageClient } from '@/api/stageClient';
 
-export default function RegionalCupRewardPanel({ editions = null, onChanged }) {
+export default function RegionalCupRewardPanel({ editions = null, onChanged, initialEditionId = '' }) {
   const [loaded, setLoaded] = useState([]);
   const [refresh, setRefresh] = useState(0);
-  const [id, setId] = useState('');
+  const [id, setId] = useState(initialEditionId);
   const [report, setReport] = useState(null);
   const [reason, setReason] = useState('');
   const [checked, setChecked] = useState(false);

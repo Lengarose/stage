@@ -23,5 +23,15 @@
     "120": [1,2,4,6,8,10,12],
     "180": [1,2,3,4,6,8,10,12],
     "240": [1,2,3,4,6,8,10,12]
+  },
+  "regional_time_profiles": {
+    "north-america": {
+      "version": "regional_cup_na_time_v1",
+      "confirmed_on": "2026-11-08",
+      "timezone": "America/New_York",
+      "time": "20:00",
+      "day": 6,
+      "minutes": 60
+    }
   }
 }

@@ -1,0 +1,46 @@
+### Result
+1272. [GET] http://127.0.0.1:4175/api/stage/auth/me => [200] OK
+1273. [GET] http://127.0.0.1:4175/api/stage/auth/me => [200] OK
+1278. [PATCH] http://127.0.0.1:4175/api/stage/players/e276984a-2dfe-492e-b2b6-72de8efc30cd => [200] OK
+1279. [GET] http://127.0.0.1:4175/api/stage/auth/me => [200] OK
+1280. [GET] http://127.0.0.1:4175/api/stage/auth/me => [200] OK
+1281. [GET] http://127.0.0.1:4175/api/stage/chat-reads/unread-counts => [200] OK
+1285. [GET] http://127.0.0.1:4175/api/stage/players/e276984a-2dfe-492e-b2b6-72de8efc30cd => [200] OK
+1286. [GET] http://127.0.0.1:4175/api/stage/players/e276984a-2dfe-492e-b2b6-72de8efc30cd => [200] OK
+1287. [GET] http://127.0.0.1:4175/api/stage/clubs/cc763c99-edae-4562-8ee9-84fd3ad3f351 => [200] OK
+1288. [GET] http://127.0.0.1:4175/api/stage/clubs/cc763c99-edae-4562-8ee9-84fd3ad3f351 => [200] OK
+1289. [GET] http://127.0.0.1:4175/api/stage/clubs/cc763c99-edae-4562-8ee9-84fd3ad3f351 => [200] OK
+1290. [GET] http://127.0.0.1:4175/api/stage/clubs/cc763c99-edae-4562-8ee9-84fd3ad3f351 => [200] OK
+1291. [GET] http://127.0.0.1:4175/api/stage/presidents/420d1c4e-dd89-4578-b37f-ad2692570246 => [200] OK
+1292. [GET] http://127.0.0.1:4175/api/stage/presidents/420d1c4e-dd89-4578-b37f-ad2692570246 => [200] OK
+1294. [GET] http://127.0.0.1:4175/api/stage/auth/me => [200] OK
+1320. [GET] http://127.0.0.1:4175/api/stage/auth/me => [200] OK
+1321. [GET] http://127.0.0.1:4175/api/stage/auth/me => [200] OK
+1322. [GET] http://127.0.0.1:4175/api/stage/regional-public/overview => [200] OK
+1323. [GET] http://127.0.0.1:4175/api/stage/auth/me => [200] OK
+1324. [GET] http://127.0.0.1:4175/api/stage/auth/me => [200] OK
+1325. [GET] http://127.0.0.1:4175/api/stage/auth/me => [200] OK
+1326. [GET] http://127.0.0.1:4175/api/stage/auth/me => [200] OK
+1327. [GET] http://127.0.0.1:4175/api/stage/auth/me => [200] OK
+1329. [GET] http://127.0.0.1:4175/api/stage/auth/me => [200] OK
+1330. [GET] http://127.0.0.1:4175/api/stage/auth/me => [200] OK
+1331. [GET] http://127.0.0.1:4175/api/stage/players/e276984a-2dfe-492e-b2b6-72de8efc30cd => [200] OK
+1332. [POST] http://127.0.0.1:4175/api/stage/functions/transferWindowActions => [200] OK
+1333. [GET] http://127.0.0.1:4175/api/stage/clubs/cc763c99-edae-4562-8ee9-84fd3ad3f351 => [200] OK
+1334. [GET] http://127.0.0.1:4175/api/stage/regional-public/03d72ef5-f813-4d92-8f72-d818b28d0d4c/clubs => [200] OK
+1335. [GET] http://127.0.0.1:4175/api/stage/competition-views/regional_league/03d72ef5-f813-4d92-8f72-d818b28d0d4c => [200] OK
+1337. [GET] http://127.0.0.1:4175/uploads/acceptance-trophy.png => [404] Not Found
+1338. [GET] http://127.0.0.1:4175/api/stage/clubs/cc763c99-edae-4562-8ee9-84fd3ad3f351 => [200] OK
+1339. [GET] http://127.0.0.1:4175/api/stage/auth/me => [200] OK
+1340. [GET] http://127.0.0.1:4175/api/stage/presidents/420d1c4e-dd89-4578-b37f-ad2692570246 => [200] OK
+1341. [GET] http://127.0.0.1:4175/api/stage/auth/me => [200] OK
+1342. [GET] http://127.0.0.1:4175/api/stage/notifications?recipient_email=acceptance-owner-0%40example.test&limit=30 => [200] OK
+1343. [GET] http://127.0.0.1:4175/api/stage/notifications?recipient_email=acceptance-owner-0%40example.test&read=false&limit=100 => [200] OK
+1344. [GET] http://127.0.0.1:4175/api/stage/notifications?recipient_email=acceptance-owner-0%40example.test&read=false&limit=100 => [200] OK
+1345. [GET] http://127.0.0.1:4175/api/stage/players/e276984a-2dfe-492e-b2b6-72de8efc30cd => [200] OK
+1346. [GET] http://127.0.0.1:4175/api/stage/clubs/cc763c99-edae-4562-8ee9-84fd3ad3f351 => [200] OK
+1347. [GET] http://127.0.0.1:4175/api/stage/clubs/cc763c99-edae-4562-8ee9-84fd3ad3f351 => [200] OK
+1348. [GET] http://127.0.0.1:4175/api/stage/presidents/420d1c4e-dd89-4578-b37f-ad2692570246 => [200] OK
+1349. [POST] http://127.0.0.1:4175/api/stage/functions/playerWallet => [500] Internal Server Error
+
+Note: 302 static requests not shown, run with --static option to see them.

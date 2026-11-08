@@ -48,7 +48,7 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
     if (club) setMyClub(club);
     else setMyClub(null);
 
-    const [tournaments, contracts, gostFixtures, regionalFixtures] = await Promise.all([
+    const [tournaments, contracts, gostFixtures, regionalFixtures, cupCatalogue] = await Promise.all([
       stageClient.entities.Tournament.list("-created_date", 100).catch(() => []),
       u ? stageClient.entities.PlayerContract.list("-created_date", 50).catch(() => []) : Promise.resolve([]),
       stageClient.entities.CompetitionFixture
@@ -57,6 +57,7 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
       stageClient.entities.RegionalLeagueFixture
         ? stageClient.entities.RegionalLeagueFixture.list("-created_date", 300).catch(() => [])
         : Promise.resolve([]),
+      stageClient.http.get('/regional-leagues/cups/public').catch(() => ({ cups: [] })),
     ]);
 
     // Gather all matches relevant to user (club or player)
@@ -125,9 +126,11 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
     const clubLogoMap = new Map(clubsData.map(c => [c.id, c.logo_url]));
 
     // Build schedule events from matches
+    const cupByMatch = new Map((cupCatalogue.cups || []).flatMap(cup => cup.rounds.flatMap(round => round.matches.map(match => [match.id, cup]))));
     const matchEvents = matches.map(m => {
+      const cup = cupByMatch.get(m.id);
       const tournament = tournamentMap.get(m.tournament_id);
-      const competition = deriveCompetition(m, tournament, t);
+      const competition = cup?.name || deriveCompetition(m, tournament, t);
       // Determine home/away and opposition — handle both club matches and solo (PvP) matches
       const isSoloMatch = m.mode === "solo" || (!m.home_club_id && !m.away_club_id);
       const isHome = isSoloMatch
@@ -162,7 +165,8 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
         venueKey: isHome ? "home" : "away",
         result,
         competition,
-        competitionSlug: resolveCompetitionSlug(m, tournament, competition),
+        competitionSlug: cup ? 'regional_cup' : resolveCompetitionSlug(m, tournament, competition),
+        competitionHref: cup ? `/leagues?view=cups&edition=${encodeURIComponent(cup.id)}` : null,
         homeName: m.home_club_name || m.home_player_name || "TBD",
         awayName: m.away_club_name || m.away_player_name || "TBD",
         status: m.status,

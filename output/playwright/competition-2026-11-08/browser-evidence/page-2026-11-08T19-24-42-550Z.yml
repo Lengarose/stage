@@ -1,0 +1,138 @@
+- generic [ref=e9]:
+  - banner [ref=e584]:
+    - button [ref=e585] [cursor=pointer]:
+      - paragraph [ref=e592]: Player 0-0
+    - generic [ref=e593]:
+      - button "Theme" [ref=e594] [cursor=pointer]
+      - link "Notifications, 253 unread" [ref=e597] [cursor=pointer]:
+        - /url: /notifications
+        - generic [ref=e601]: 99+
+      - link "Settings" [ref=e602] [cursor=pointer]:
+        - /url: /settings
+  - main [ref=e70]:
+    - main [ref=e280]:
+      - generic [ref=e281]:
+        - link "Back to regional leagues" [ref=e282] [cursor=pointer]:
+          - /url: /leagues
+        - generic [ref=e285]:
+          - paragraph [ref=e295]: Artwork unavailable.
+          - generic [ref=e296]:
+            - paragraph [ref=e297]: UK & Ireland · Division 1 · Group A
+            - heading "Acceptance Division 1" [level=1] [ref=e298]
+            - paragraph [ref=e299]: Season 2 · 20 club capacity
+          - generic [ref=e300]:
+            - combobox "League season" [ref=e301]:
+              - option "Group A · Season 2 · in progress" [selected]
+              - option "Group A · Season 1 · completed"
+            - paragraph [ref=e302]: in progress
+            - link "Your club’s participation" [ref=e303] [cursor=pointer]:
+              - /url: /register-league?region=uk-ireland
+            - button "View league rules" [ref=e306] [cursor=pointer]
+        - navigation "Competition sections" [ref=e309]:
+          - button "Overview" [ref=e310] [cursor=pointer]
+          - button "Clubs" [ref=e311] [cursor=pointer]
+          - button "Stages" [ref=e312] [cursor=pointer]
+          - button "Table" [ref=e313] [cursor=pointer]
+          - button "Stats" [ref=e314] [cursor=pointer]
+          - button "Rewards" [ref=e315] [cursor=pointer]
+          - button "History" [active] [ref=e316] [cursor=pointer]
+        - generic [ref=e1464]:
+          - heading "Season history" [level=2] [ref=e1465]
+          - 'button "Group A · Season 1 completed · 18/05/2027, 21:00:00 Champion: Not recorded · Acceptance D1 Trophy" [ref=e1466] [cursor=pointer]':
+            - generic [ref=e1467]:
+              - strong [ref=e1468]: Group A · Season 1
+              - paragraph [ref=e1469]: completed · 18/05/2027, 21:00:00
+            - generic [ref=e1470]: "Champion: Not recorded · Acceptance D1 Trophy"
+  - button "Open Regional Leagues guide" [ref=e606] [cursor=pointer]:
+    - generic [ref=e610]: Guide
+  - generic [ref=e614]:
+    - generic [ref=e615]:
+      - generic [ref=e616]:
+        - paragraph [ref=e617]: Regional Leagues
+        - heading [level=2] [ref=e618]: Follow your regional season
+      - button [ref=e619] [cursor=pointer]
+    - generic [ref=e623]:
+      - paragraph [ref=e624]: Step 3 of 3
+      - list [ref=e625]:
+        - listitem [ref=e626]:
+          - generic [ref=e627]: "1"
+          - paragraph [ref=e628]: Find your region and open a league to see its selected season, clubs, fixtures, table and rules.
+        - listitem [ref=e629]:
+          - generic [ref=e630]: "2"
+          - paragraph [ref=e631]: Use Your club’s participation to apply during registration, then confirm in the shared confirmation week. Sporting placement determines your group.
+        - listitem [ref=e632]:
+          - generic [ref=e633]: "3"
+          - paragraph [ref=e634]: Check the published schedule in your local time. Regional Cups have their own page; GOST qualification is not open yet.
+    - button [ref=e636] [cursor=pointer]: Done
+  - link "STAGE" [ref=e637] [cursor=pointer]:
+    - /url: /
+    - img "STAGE" [ref=e638]
+  - generic [ref=e156]:
+    - generic [ref=e157]:
+      - paragraph [ref=e158]: Matchs
+      - generic [ref=e159]:
+        - link "Schedule" [ref=e160] [cursor=pointer]:
+          - /url: /schedule
+        - link "Inbox" [ref=e164] [cursor=pointer]:
+          - /url: /inbox
+        - link "Notifications" [ref=e169] [cursor=pointer]:
+          - /url: /notifications
+    - generic [ref=e174]:
+      - paragraph [ref=e175]: Compete
+      - generic [ref=e176]:
+        - link "Tournaments" [ref=e177] [cursor=pointer]:
+          - /url: /tournaments
+        - link "International" [ref=e185] [cursor=pointer]:
+          - /url: /international
+        - link "Rankings" [ref=e192] [cursor=pointer]:
+          - /url: /rankings
+    - generic [ref=e196]:
+      - paragraph [ref=e197]: Club
+      - generic [ref=e198]:
+        - link "Players" [ref=e199] [cursor=pointer]:
+          - /url: /players-list
+        - link "Presidents" [ref=e205] [cursor=pointer]:
+          - /url: /presidents-list
+        - link "Free Agents" [ref=e209] [cursor=pointer]:
+          - /url: /free-agents
+        - link "Scouting" [ref=e215] [cursor=pointer]:
+          - /url: /scouting
+        - link "Transfer Room" [ref=e222] [cursor=pointer]:
+          - /url: /transfer-market
+        - link "Wallet" [ref=e227] [cursor=pointer]:
+          - /url: /wallet
+    - generic [ref=e231]:
+      - paragraph [ref=e232]: Community
+      - generic [ref=e233]:
+        - link "Feed" [ref=e234] [cursor=pointer]:
+          - /url: /social
+        - link "Discord" [ref=e240] [cursor=pointer]:
+          - /url: /community
+    - generic [ref=e245]:
+      - paragraph [ref=e246]: Account
+      - generic [ref=e247]:
+        - link "Profile" [ref=e248] [cursor=pointer]:
+          - /url: /profile
+        - link "Search" [ref=e253] [cursor=pointer]:
+          - /url: /search
+        - link "Lifestyle" [ref=e258] [cursor=pointer]:
+          - /url: /lifestyle
+        - link "Store" [ref=e265] [cursor=pointer]:
+          - /url: /store
+        - link "News" [ref=e270] [cursor=pointer]:
+          - /url: /news
+        - link "Settings" [ref=e275] [cursor=pointer]:
+          - /url: /settings
+  - navigation [ref=e639]:
+    - generic [ref=e640]:
+      - link "Dashboard" [ref=e641] [cursor=pointer]:
+        - /url: /dashboard
+      - link "Matchs" [ref=e649] [cursor=pointer]:
+        - /url: /game-day
+      - link "Compete" [ref=e654] [cursor=pointer]:
+        - /url: /competitions
+      - link "Club" [ref=e663] [cursor=pointer]:
+        - /url: /clubs/cc763c99-edae-4562-8ee9-84fd3ad3f351
+      - button "9+ More" [ref=e668] [cursor=pointer]:
+        - generic [ref=e669]: 9+
+        - generic [ref=e675]: More

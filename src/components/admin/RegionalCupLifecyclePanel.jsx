@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { stageClient } from '@/api/stageClient';
 
-export default function RegionalCupLifecyclePanel({ editions = [], onChanged }) {
-  const [id, setId] = useState('');
+export default function RegionalCupLifecyclePanel({ editions = [], onChanged, initialEditionId = '' }) {
+  const [id, setId] = useState(initialEditionId);
   const [preview, setPreview] = useState(null);
   const [confirmed, setConfirmed] = useState(false);
   const [reason, setReason] = useState('');
@@ -22,7 +22,7 @@ export default function RegionalCupLifecyclePanel({ editions = [], onChanged }) 
   }
   return <section className="space-y-3 border-t border-border pt-5 text-sm">
     <h5 className="font-semibold">Cup activation and official progress</h5>
-    <p>Activation adds real matches to GameDay and the regional calendar. Each next round is drawn automatically once all results are confirmed. Conflicts or changes to processed results require review. After the final, payment and trophy processing follows; any blockers appear in Cup rewards below.</p>
+    <p>Activation adds real matches to GameDay and the regional calendar. Each next round is drawn automatically once all results are confirmed. Conflicts or changes to processed results require review. After the final, payment and trophy processing follows; any blockers appear in the Rewards step.</p>
     <fieldset disabled={busy} className="space-y-3">
       <label className="block">Cup edition<select value={id} onChange={e => { setId(e.target.value); setPreview(null); setConfirmed(false); setResult(null); setError(''); }} className="min-h-11 w-full border border-border bg-background px-3"><option value="">Choose an edition</option>{editions.filter(e => ['draft', 'running', 'completed'].includes(e.status)).map(e => <option key={e.id} value={e.id}>{e.name} · season {e.season_number} · {e.status}</option>)}</select></label>
       <button type="button" disabled={!id} onClick={() => run()} className="min-h-11 font-semibold disabled:opacity-40">{edition?.status === 'draft' ? 'Review activation' : 'Review official results and progress'} →</button>

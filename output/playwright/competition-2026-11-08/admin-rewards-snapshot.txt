@@ -1,0 +1,147 @@
+### Page
+- Page URL: http://127.0.0.1:4175/admin/rewards
+- Page Title: Stage League
+- Console: 1 errors, 2 warnings
+### Snapshot
+```yaml
+- generic [ref=f1e9]:
+  - banner [ref=f1e10]:
+    - generic [ref=f1e13]:
+      - link [ref=f1e14] [cursor=pointer]:
+        - /url: /
+        - img "STAGE" [ref=f1e15]
+      - generic [ref=f1e16]:
+        - generic [ref=f1e17]: Stage Control Panel
+        - navigation [ref=f1e19]:
+          - button "Admin" [ref=f1e20] [cursor=pointer]
+          - button "Rewards" [ref=f1e24] [cursor=pointer]
+          - button "Mail" [ref=f1e28] [cursor=pointer]
+          - button "Community" [ref=f1e32] [cursor=pointer]
+      - generic [ref=f1e37]:
+        - link [ref=f1e38] [cursor=pointer]:
+          - /url: /admin
+        - link "Notifications, 8 unread" [ref=f1e42] [cursor=pointer]:
+          - /url: /notifications
+          - generic [ref=f1e46]: "8"
+        - link [ref=f1e47] [cursor=pointer]:
+          - /url: /settings
+        - combobox [ref=f1e58] [cursor=pointer]:
+          - option "Dark" [selected]
+          - option "Day"
+          - option "Live Dark"
+          - option "Live White"
+          - option "Custom"
+        - link "Admin" [ref=f1e59] [cursor=pointer]:
+          - /url: /admin
+  - main [ref=f1e64]:
+    - generic [ref=f1e70]:
+      - generic [ref=f1e72]:
+        - generic [ref=f1e73]:
+          - generic [ref=f1e78]:
+            - generic [ref=f1e79]: "0"
+            - generic [ref=f1e80]: Open
+          - generic [ref=f1e81]:
+            - paragraph [ref=f1e82]: Control Center
+            - heading "Rewards" [level=1] [ref=f1e83]
+            - generic [ref=f1e84]:
+              - generic [ref=f1e87]: acceptance-admin@example.test
+              - generic [ref=f1e88]: · STAGE Control Panel
+        - generic [ref=f1e89]:
+          - link [ref=f1e90] [cursor=pointer]:
+            - /url: /admin
+            - button "Dashboard" [ref=f1e91]
+          - button "Refresh" [ref=f1e92] [cursor=pointer]
+      - generic [ref=f1e93]:
+        - generic [ref=f1e97]:
+          - paragraph [ref=f1e98]: Disputes
+          - paragraph [ref=f1e99]: "0"
+          - paragraph [ref=f1e100]: All clear
+        - generic [ref=f1e104]:
+          - paragraph [ref=f1e105]: Forfeits
+          - paragraph [ref=f1e106]: "0"
+          - paragraph [ref=f1e107]: None pending
+        - generic [ref=f1e114]:
+          - paragraph [ref=f1e115]: Players
+          - paragraph [ref=f1e116]: "164"
+          - paragraph [ref=f1e117]: Registered profiles
+        - generic [ref=f1e125]:
+          - paragraph [ref=f1e126]: Tournaments
+          - paragraph [ref=f1e127]: "1"
+          - paragraph [ref=f1e128]: Active tournaments
+      - generic [ref=f1e130]:
+        - generic [ref=f1e131]:
+          - heading "Competition financial exceptions" [level=3] [ref=f1e132]
+          - paragraph [ref=f1e133]: Normal configured prizes remain automatic. Refunds and compensation require your explicit decision and a transaction reference. This creates a separate ledger entry; original payments and prize history stay unchanged.
+          - group [ref=f1e134]:
+            - generic [ref=f1e135]:
+              - text: Recipient type
+              - combobox "Recipient type" [ref=f1e136]:
+                - option "Club" [selected]
+                - option "Player"
+            - generic [ref=f1e137]:
+              - text: Decision type
+              - combobox "Decision type" [ref=f1e138]:
+                - option "Refund of an existing debit" [selected]
+                - option "Explicit compensation or correction"
+            - generic [ref=f1e139]:
+              - text: Recipient ID
+              - textbox "Recipient ID" [ref=f1e140]
+            - generic [ref=f1e141]:
+              - text: Original ledger transaction ID (same account for refunds)
+              - textbox "Original ledger transaction ID (same account for refunds)" [ref=f1e142]
+            - generic [ref=f1e143]:
+              - text: STC amount (negative only for an explicit correction)
+              - textbox "STC amount (negative only for an explicit correction)" [ref=f1e144]
+            - generic [ref=f1e145]:
+              - text: Decision reason
+              - textbox "Decision reason" [ref=f1e146]
+            - button "Load this account’s latest ledger entries" [disabled] [ref=f1e147]
+            - generic [ref=f1e148]:
+              - checkbox "I confirm the recipient, original transaction, explicit amount and reason." [ref=f1e149]
+              - text: I confirm the recipient, original transaction, explicit amount and reason.
+            - button "Record this separate financial decision" [disabled] [ref=f1e150]
+        - heading "Season Rewards" [level=3] [ref=f1e151]
+        - paragraph [ref=f1e157]: Configure STC rewards per finishing position for each competition or regional league.
+        - paragraph [ref=f1e158]: "Shared regional schedules: Division 1 starts at 54,000,000 STC (757,000,000 total); Division 2 starts at 33,000,000 STC (337,000,000 total). Both decrease by 1,700,000 per position, for up to 20 clubs. GOST is configured separately."
+        - generic [ref=f1e159]:
+          - heading "Division 2 Source Configuration Review" [level=4] [ref=f1e160]
+          - paragraph [ref=f1e161]: Updates source settings only. Captured editions, paid history and trophies remain unchanged; no payouts run here.
+          - button "Review Division 2 Sources" [ref=f1e163] [cursor=pointer]
+        - generic [ref=f1e169]:
+          - heading "Cup rewards and trophy awards" [level=5] [ref=f1e170]
+          - paragraph [ref=f1e171]: STAGE funds 7,000,000 STC for the winner and 3,000,000 STC for the runner-up. No third-place prize or additional Cup entry fee. New editions capture these terms in advance; existing editions without captured terms require explicit review.
+          - group [ref=f1e172]:
+            - generic [ref=f1e173]:
+              - text: Cup edition
+              - combobox "Cup edition" [ref=f1e174]:
+                - option "Choose an edition" [selected]
+                - option "STAGE UK & Ireland Cup · season 1 · completed"
+                - option "STAGE UK & Ireland Cup · season 2 · running"
+            - button "Reload Cup editions" [ref=f1e175] [cursor=pointer]
+            - generic [ref=f1e176]:
+              - button "Review payments and trophy →" [disabled] [ref=f1e177]
+              - button "Preview reward terms for an existing edition →" [disabled] [ref=f1e178]
+        - generic [ref=f1e179]:
+          - heading "Regional Edition Identity Review" [level=4] [ref=f1e180]
+          - button "Review identities (read only)" [ref=f1e181] [cursor=pointer]
+        - generic [ref=f1e182]:
+          - paragraph [ref=f1e183]: Select reward source
+          - generic [ref=f1e184]:
+            - paragraph [ref=f1e186]: GOST
+            - generic [ref=f1e187]:
+              - paragraph [ref=f1e188]: Regional Leagues
+              - 'button "Acceptance Division 1 Division 1 · Season 2 · in_progress · uk-ireland · cross-platform ID: 03d72ef5-f813-4d92-8f72-d818b28d0d4c" [ref=f1e189] [cursor=pointer]':
+                - text: Acceptance Division 1
+                - generic [ref=f1e190]: Division 1 · Season 2 · in_progress · uk-ireland · cross-platform
+                - generic [ref=f1e191]: "ID: 03d72ef5-f813-4d92-8f72-d818b28d0d4c"
+              - 'button "Acceptance Division 2 Division 2 · Season 2 · in_progress · uk-ireland · cross-platform ID: 1a56c5b8-18f1-4ef0-ac99-c8fecf736cc4" [ref=f1e192] [cursor=pointer]':
+                - text: Acceptance Division 2
+                - generic [ref=f1e193]: Division 2 · Season 2 · in_progress · uk-ireland · cross-platform
+                - generic [ref=f1e194]: "ID: 1a56c5b8-18f1-4ef0-ac99-c8fecf736cc4"
+              - 'button "Withdrawal completion 18 Division 1 · Season 1 · completed · withdrawal-qa-18 · cross-platform ID: bab9b07f-7fd1-486b-8224-9c8372010b87" [ref=f1e195] [cursor=pointer]':
+                - text: Withdrawal completion 18
+                - generic [ref=f1e196]: Division 1 · Season 1 · completed · withdrawal-qa-18 · cross-platform
+                - generic [ref=f1e197]: "ID: bab9b07f-7fd1-486b-8224-9c8372010b87"
+```
+### Events
+- New console entries: .playwright-cli/console-2026-11-08T19-35-06-872Z.log#L8-L9

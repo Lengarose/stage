@@ -17,7 +17,7 @@ test('all approved Cup fields fit the exact knockout depth; byes and real oppone
   assert.equal(draw.byes.length+draw.fixtures.length*2,count);assert.equal(new Set([...draw.byes,...draw.fixtures.flatMap(f=>[f.home_club_id,f.away_club_id])]).size,count);
   assert.equal(draw.next_field_count,draw.byes.length+draw.fixtures.length);assert.deepEqual(cup.drawRound(ids,'recorded-server-seed-1234567890'),draw);
  }
- assert.throws(()=>cup.calendar(20,'2026-11-09','north-america'),/profile/);assert.throws(()=>cup.calendar(13,'2026-11-09','france'),/approved/);
+ assert.ok(cup.calendar(20,'2026-11-09','north-america').every(slot=>slot.timezone==='America/New_York')); assert.throws(()=>cup.calendar(13,'2026-11-09','france'),/approved/);
  assert.throws(()=>cup.drawRound(['same','same'],'seed'),/unique/);
 });
 test('one stable Cup identity, one immutable draft edition and first draw; no Matches, awards or payouts',async()=>{
@@ -68,3 +68,18 @@ test('automatic Cup preparation derives its configured identity and approved fie
  const before=structuredClone(f.state);assert.equal((await f.service.reconcileForCalendar('calendar')).already_applied,true);assert.deepEqual(f.state,before);
  const legacy=fixture();await assert.rejects(legacy.service.reconcileForCalendar('calendar'),/captured regional calendar/);
 });
+
+test('North American Cup keeps Sunday 20:00 Eastern across DST and leaves European times unchanged',()=>{
+ const dates=cup.calendar(20,'2027-02-01','north-america');
+ assert.ok(dates.every(slot=>slot.timezone==='America/New_York' && slot.minutes===60 && slot.scheduled_date.endsWith('20:00:00')));
+ assert.equal(new Date(dates[0].instant).toISOString(),'2027-03-01T01:00:00.000Z');
+ assert.equal(new Date(dates[1].instant).toISOString(),'2027-03-15T00:00:00.000Z');
+ const europe=cup.calendar(20,'2027-02-01','france');assert.ok(europe.every(slot=>slot.timezone==='Europe/Brussels' && slot.scheduled_date.endsWith('20:00:00')));
+ assert.throws(()=>cup.calendar(20,'2027-02-01','unapproved-region'),/profile/);
+});
+
+ test('North American Cup load checks group playing evenings in Eastern time',()=>{
+  const {loadViolations}=require('../../lib/regionalCalendarPlan');
+  const events=['2026-11-08T23:00:00Z','2026-11-09T00:00:00Z','2026-11-09T01:00:00Z'].map((time,i)=>({id:String(i),home_club_id:'club',instant:Date.parse(time),minutes:60}));
+  assert.ok(loadViolations(events,'America/New_York').some(message=>message.includes('more than 2 matches on 2026-11-08')));
+ });

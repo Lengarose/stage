@@ -97,8 +97,19 @@ test('service sends trusted scopes, padded date bounds and pagination to SQL, wi
   assert.ok(calls.find(c=>/FROM league_entities le/.test(c.sql)).args.includes('club'));
 });
 
-test('Regional Cup engine Matches appear once in the regional calendar with their GameDay link',()=>{
+test('Regional Cup engine Matches have their own scope, Cup edition link and one GameDay event',()=>{
  const match={...base,id:'cup-match',home_player_id:null,away_player_id:null,home_club_id:'club',away_club_id:'rival',source_fixture_type:'competition_engine',source_fixture_id:'cup-fixture',competition_context:'cup-edition'};
  const engine={id:'cup-fixture',match_id:match.id,legacy_fixture_id:'cup-fixture',legacy_fixture_type:'regional_cup',product_type:'regional_cup',competition_name:'STAGE Regional Cup',legacy_source_id:'cup-edition',home_club_id:'club',away_club_id:'rival',status:'scheduled',scheduling_status:'confirmed'};
- const events=normalize({scope:'regional',matches:[match],engineFixtures:[engine]});assert.equal(events.length,1);assert.equal(events[0].category,'regional');assert.equal(events[0].competition,'STAGE Regional Cup');assert.equal(events[0].href,'/game-day?match=cup-match');
+ const events=normalize({scope:'regional_cup',matches:[match],engineFixtures:[engine]});assert.equal(events.length,1);assert.equal(events[0].category,'regional_cup');assert.equal(events[0].competitionHref,'/leagues?view=cups&edition=cup-edition');assert.equal(normalize({scope:'regional',matches:[match],engineFixtures:[engine]}).length,0);assert.equal(normalize({matches:[match],engineFixtures:[engine]}).length,1);assert.equal(events[0].competition,'STAGE Regional Cup');assert.equal(events[0].href,'/game-day?match=cup-match');
+});
+
+test('Cup context classifies a canonical match without an engine backfill; unrelated and unconfirmed matches stay excluded',()=>{
+ const match={...base,id:'na-cup',home_player_id:null,away_player_id:null,home_club_id:'club',away_club_id:'rival',competition_context:'na-edition',timezone:'America/New_York',scheduled_date:'2026-10-25 20:00:00'};
+ const parents=[{id:'na-edition',entity_type:'regional_cup_edition',name:'STAGE North American Cup'}];
+ const events=normalize({matches:[match],parents,scope:'regional_cup',timezone:'Europe/Brussels'});
+ assert.equal(events.length,1);assert.equal(events[0].competition,'STAGE North American Cup');assert.equal(events[0].day,'2026-10-26');assert.equal(events[0].competitionHref,'/leagues?view=cups&edition=na-edition');
+ assert.equal(normalize({matches:[{...match,scheduling_status:'home_proposed'}],parents,scope:'regional_cup'}).length,0);
+ assert.equal(normalize({matches:[{...match,home_club_id:'outsider'}],parents,scope:'regional_cup'}).length,0);
+ assert.equal(normalize({matches:[{...match,competition_context:null,type:'knockout'}],scope:'regional_cup'}).length,0);
+ assert.equal(validateCalendarQuery({from:'2026-10-01',to:'2026-11-01',scope:'regional_cup'}).scope,'regional_cup');
 });

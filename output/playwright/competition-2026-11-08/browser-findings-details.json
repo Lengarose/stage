@@ -1,0 +1,257 @@
+{
+  "wallet": {
+    "status": 500,
+    "body": {
+      "error": "Unknown playerWallet action: undefined"
+    }
+  },
+  "records": [
+    {
+      "entity_type": "regional_league",
+      "id": "03d72ef5-f813-4d92-8f72-d818b28d0d4c",
+      "data_json": {
+        "name": "Acceptance Division 1",
+        "region": "uk-ireland",
+        "region_slug": "uk-ireland",
+        "division": 1,
+        "season_number": 1,
+        "platform": "cross-platform",
+        "status": "completed",
+        "registered_club_ids": [
+          "560007ec-c6ec-44b6-a5cb-07b7f79b3e5b",
+          "69ba7a87-8d60-4efa-945e-775ede8f45ab",
+          "918ac3e1-6556-4d13-a8c5-b1a5cf5ccbb5",
+          "88bbec9b-6731-4d8b-a457-129c8f4d8a42",
+          "a9703a1b-8667-4f60-b0e9-a474a2de6e86",
+          "488410cc-a446-430c-a25e-bad3cbd58e56",
+          "fa8558a3-064c-4618-8f59-64aaaaab720c",
+          "b8b0f778-ff56-4ccf-b0fb-3b5bee012fe4",
+          "b7bc3882-95ec-4dd7-a371-f3b14ebac0b1",
+          "5cadc9d1-17be-4ecd-bc3c-6c7e8f678ed9",
+          "ece46b27-28c7-4121-9ce0-bcd5393c5e31",
+          "cc763c99-edae-4562-8ee9-84fd3ad3f351",
+          "344ae597-e4e9-4852-9e96-8ae8292b6493",
+          "a23b3158-85d3-4d1d-b992-da30af757a01",
+          "90412a54-67e0-4477-8023-2b9ff469ae09",
+          "40a0b61a-7d82-4017-a471-d82894f0e01a",
+          "ca67ae8d-a8ae-4823-b0c5-54672c3e92aa",
+          "9eb7d4ca-86ad-43b9-8953-295a52280c32",
+          "0cbae00d-acf7-49bb-a16e-399ca91e41b4",
+          "8a58936c-2df8-4df6-9c00-26078df1a50f"
+        ],
+        "trophy_item_id": "23093257-6ab1-4a23-bd8c-b0d4e1ca17b7",
+        "max_clubs": 20,
+        "reason": "Isolated season acceptance",
+        "group_code": "A",
+        "slug": "uk-ireland-div-1",
+        "id": "03d72ef5-f813-4d92-8f72-d818b28d0d4c",
+        "reset_series": 0,
+        "permanent_league_id": "03d72ef5-f813-4d92-8f72-d818b28d0d4c",
+        "entity_type": "regional_league",
+        "regional_edition_key": "50aa22685adbcfc4e82ac26e07d5664532ba5144d95c5d89a3c3a936f3fd88b9",
+        "regional_league_key": "50aa22685adbcfc4e82ac26e07d5664532ba5144d95c5d89a3c3a936f3fd88b9",
+        "created_date": "2026-11-08 18:57:08",
+        "updated_date": "2026-11-08 19:00:23",
+        "participant_type": "club",
+        "pending_regional_cycle_id": null,
+        "registered_clubs": [
+          "560007ec-c6ec-44b6-a5cb-07b7f79b3e5b",
+          "69ba7a87-8d60-4efa-945e-775ede8f45ab",
+          "918ac3e1-6556-4d13-a8c5-b1a5cf5ccbb5",
+          "88bbec9b-6731-4d8b-a457-129c8f4d8a42",
+          "a9703a1b-8667-4f60-b0e9-a474a2de6e86",
+          "488410cc-a446-430c-a25e-bad3cbd58e56",
+          "fa8558a3-064c-4618-8f59-64aaaaab720c",
+          "b8b0f778-ff56-4ccf-b0fb-3b5bee012fe4",
+          "b7bc3882-95ec-4dd7-a371-f3b14ebac0b1",
+          "5cadc9d1-17be-4ecd-bc3c-6c7e8f678ed9",
+          "ece46b27-28c7-4121-9ce0-bcd5393c5e31",
+          "cc763c99-edae-4562-8ee9-84fd3ad3f351",
+          "344ae597-e4e9-4852-9e96-8ae8292b6493",
+          "a23b3158-85d3-4d1d-b992-da30af757a01",
+          "90412a54-67e0-4477-8023-2b9ff469ae09",
+          "40a0b61a-7d82-4017-a471-d82894f0e01a",
+          "ca67ae8d-a8ae-4823-b0c5-54672c3e92aa",
+          "9eb7d4ca-86ad-43b9-8953-295a52280c32",
+          "0cbae00d-acf7-49bb-a16e-399ca91e41b4",
+          "8a58936c-2df8-4df6-9c00-26078df1a50f"
+        ],
+        "num_clubs": 20,
+        "regional_cycle_id": "03a7947c-42df-5835-9da4-24158ee0e6e2",
+        "regional_structure_version": "regional_structure_v1",
+        "regional_registration_window_id": "a2d25925-0f9f-b58e-cee0-79e9fd55b0fc",
+        "regional_participation_policy_version": "regional_registration_v1",
+        "rules": "Isolated approved regional competition acceptance.\n\nRegional Cup: all confirmed regional clubs enter automatically, across divisions and groups. Single-match knockout; a recorded open draw follows each finalised round, with transparent byes. European rounds are Sunday 20:00 Europe/Brussels in 60-minute blocks. No automatic GOST qualification.\n\nOfficial regional results: the home club normally submits after full time, but the away club may submit immediately if no result proposal exists. The first valid proposal opens confirmation for the opponent. The opponent has 24 hours to respond to a result proposal or correction. No response sends the result to Admin review; silence does not confirm a result.\n\nOfficial European rescheduling: at most two approved requests per club per edition, charged only to the requesting club after approval. Request at least 48 hours before the original kickoff. The opponent has at most 24 hours to reply, and agreement must be at least 24 hours before the new kickoff. The new kickoff stays in the same Monday–Sunday week: Monday–Friday 20:00 or 20:40, or Saturday 18:00–21:00, Europe/Brussels. Silence keeps the existing kickoff. Final-round and platform-outage exceptions require Admin review.\n\nAfter the shared confirmation week, existing applicants may respond to reserve invitations until one common deadline, at most 48 hours later. No individual extension and no new late application. Reserve willingness does not guarantee a place or Division 1. Final Division 1 vacancies follow the confirmed promotion results: losing Division 2 promotion finalists first, then remaining nonpromoted positions; equivalent candidates across groups use a stored draw, never raw points or goal difference.\n\nOne official club per player. Only permanent transfers are supported; loans are unavailable. Ordinary transfers close after the common participation confirmation deadline, including placement, and reopen in playing week 6 (Monday 00:00 to the following Monday 00:00, Europe/Brussels) and between seasons. Outside those windows, a free player may join only if they have not actually played for another official club in this cycle. Bench nomination alone is not actual participation. Cup-tied and player sanctions remain applicable.\n\nCup-tied: a player who actually participated for another club in this Regional Cup edition cannot play for a second club in the same edition. A bench nomination alone does not count as actual participation. Participation is recorded from the official result declarations, not automatically verified by EA.\n\nClub absence and withdrawal require an explicit Admin decision supported by evidence. Before all nineteen first-half league matches are definitive, all league results of a withdrawing club are excluded from standings and derived player statistics. Afterward the first half is retained and every return is an administrative 3–0 for the opponent, without individual goals. The withdrawing club is ineligible for the title, prizes and promotion in that edition, with no guaranteed next-season place; a new application follows normal admission and vacancy rules. Original evidence and paid history are preserved; financial corrections require a separate Admin decision.",
+        "rules_file_url": null,
+        "promoted_slots": 0,
+        "relegated_slots": 2,
+        "current_edition_id": "0e3cc626-4946-4c92-8976-62a32352a4c1",
+        "group_current_edition_ids": {
+          "A": "0e3cc626-4946-4c92-8976-62a32352a4c1"
+        },
+        "prize_pool_stc": "757000000.00",
+        "effective_prize_budget_stc": "757000000.00",
+        "reward_funding": "system",
+        "reward_configuration_version": "regional-division-1-v1",
+        "fixtures_generated": true,
+        "league_matchday_total": 38,
+        "num_league_matchdays": 38,
+        "current_matchday": 1,
+        "seeding_mode": false,
+        "placement_locked": true,
+        "launch_seeding_closed_at": "2027-03-07T20:00:00.000Z",
+        "completed_at": "2027-05-18T19:00:00.000Z",
+        "winner_club_id": "cc763c99-edae-4562-8ee9-84fd3ad3f351",
+        "runner_up_club_id": "b8b0f778-ff56-4ccf-b0fb-3b5bee012fe4",
+        "next_season_id": "0e3cc626-4946-4c92-8976-62a32352a4c1",
+        "regional_final_ranked_club_ids": [
+          "cc763c99-edae-4562-8ee9-84fd3ad3f351",
+          "b8b0f778-ff56-4ccf-b0fb-3b5bee012fe4",
+          "8a58936c-2df8-4df6-9c00-26078df1a50f",
+          "b7bc3882-95ec-4dd7-a371-f3b14ebac0b1",
+          "90412a54-67e0-4477-8023-2b9ff469ae09",
+          "40a0b61a-7d82-4017-a471-d82894f0e01a",
+          "ece46b27-28c7-4121-9ce0-bcd5393c5e31",
+          "918ac3e1-6556-4d13-a8c5-b1a5cf5ccbb5",
+          "a23b3158-85d3-4d1d-b992-da30af757a01",
+          "344ae597-e4e9-4852-9e96-8ae8292b6493",
+          "69ba7a87-8d60-4efa-945e-775ede8f45ab",
+          "ca67ae8d-a8ae-4823-b0c5-54672c3e92aa",
+          "0cbae00d-acf7-49bb-a16e-399ca91e41b4",
+          "a9703a1b-8667-4f60-b0e9-a474a2de6e86",
+          "488410cc-a446-430c-a25e-bad3cbd58e56",
+          "fa8558a3-064c-4618-8f59-64aaaaab720c",
+          "9eb7d4ca-86ad-43b9-8953-295a52280c32",
+          "5cadc9d1-17be-4ecd-bc3c-6c7e8f678ed9",
+          "88bbec9b-6731-4d8b-a457-129c8f4d8a42",
+          "560007ec-c6ec-44b6-a5cb-07b7f79b3e5b"
+        ],
+        "regional_final_ranking_cycle_id": "ad7a7ba4-7681-a677-831e-8e5b3e211746",
+        "regional_final_results_revision": "192eaf8ef5a010bc3ae8681abf5018f0254f8f3546584ad3a668a6903f9acb91",
+        "withdrawal_review_required": false
+      }
+    }
+  ],
+  "payouts": [
+    {
+      "source_id": "03d72ef5-f813-4d92-8f72-d818b28d0d4c",
+      "position_no": 3,
+      "club_id": "8a58936c-2df8-4df6-9c00-26078df1a50f",
+      "status": "paid"
+    },
+    {
+      "source_id": "03d72ef5-f813-4d92-8f72-d818b28d0d4c",
+      "position_no": 1,
+      "club_id": "cc763c99-edae-4562-8ee9-84fd3ad3f351",
+      "status": "paid"
+    },
+    {
+      "source_id": "03d72ef5-f813-4d92-8f72-d818b28d0d4c",
+      "position_no": 7,
+      "club_id": "ece46b27-28c7-4121-9ce0-bcd5393c5e31",
+      "status": "paid"
+    },
+    {
+      "source_id": "03d72ef5-f813-4d92-8f72-d818b28d0d4c",
+      "position_no": 14,
+      "club_id": "a9703a1b-8667-4f60-b0e9-a474a2de6e86",
+      "status": "paid"
+    },
+    {
+      "source_id": "03d72ef5-f813-4d92-8f72-d818b28d0d4c",
+      "position_no": 9,
+      "club_id": "a23b3158-85d3-4d1d-b992-da30af757a01",
+      "status": "paid"
+    },
+    {
+      "source_id": "03d72ef5-f813-4d92-8f72-d818b28d0d4c",
+      "position_no": 10,
+      "club_id": "344ae597-e4e9-4852-9e96-8ae8292b6493",
+      "status": "paid"
+    },
+    {
+      "source_id": "03d72ef5-f813-4d92-8f72-d818b28d0d4c",
+      "position_no": 2,
+      "club_id": "b8b0f778-ff56-4ccf-b0fb-3b5bee012fe4",
+      "status": "paid"
+    },
+    {
+      "source_id": "03d72ef5-f813-4d92-8f72-d818b28d0d4c",
+      "position_no": 18,
+      "club_id": "5cadc9d1-17be-4ecd-bc3c-6c7e8f678ed9",
+      "status": "paid"
+    },
+    {
+      "source_id": "03d72ef5-f813-4d92-8f72-d818b28d0d4c",
+      "position_no": 17,
+      "club_id": "9eb7d4ca-86ad-43b9-8953-295a52280c32",
+      "status": "paid"
+    },
+    {
+      "source_id": "03d72ef5-f813-4d92-8f72-d818b28d0d4c",
+      "position_no": 13,
+      "club_id": "0cbae00d-acf7-49bb-a16e-399ca91e41b4",
+      "status": "paid"
+    },
+    {
+      "source_id": "03d72ef5-f813-4d92-8f72-d818b28d0d4c",
+      "position_no": 11,
+      "club_id": "69ba7a87-8d60-4efa-945e-775ede8f45ab",
+      "status": "paid"
+    },
+    {
+      "source_id": "03d72ef5-f813-4d92-8f72-d818b28d0d4c",
+      "position_no": 8,
+      "club_id": "918ac3e1-6556-4d13-a8c5-b1a5cf5ccbb5",
+      "status": "paid"
+    },
+    {
+      "source_id": "03d72ef5-f813-4d92-8f72-d818b28d0d4c",
+      "position_no": 5,
+      "club_id": "90412a54-67e0-4477-8023-2b9ff469ae09",
+      "status": "paid"
+    },
+    {
+      "source_id": "03d72ef5-f813-4d92-8f72-d818b28d0d4c",
+      "position_no": 16,
+      "club_id": "fa8558a3-064c-4618-8f59-64aaaaab720c",
+      "status": "paid"
+    },
+    {
+      "source_id": "03d72ef5-f813-4d92-8f72-d818b28d0d4c",
+      "position_no": 4,
+      "club_id": "b7bc3882-95ec-4dd7-a371-f3b14ebac0b1",
+      "status": "paid"
+    },
+    {
+      "source_id": "03d72ef5-f813-4d92-8f72-d818b28d0d4c",
+      "position_no": 12,
+      "club_id": "ca67ae8d-a8ae-4823-b0c5-54672c3e92aa",
+      "status": "paid"
+    },
+    {
+      "source_id": "03d72ef5-f813-4d92-8f72-d818b28d0d4c",
+      "position_no": 15,
+      "club_id": "488410cc-a446-430c-a25e-bad3cbd58e56",
+      "status": "paid"
+    },
+    {
+      "source_id": "03d72ef5-f813-4d92-8f72-d818b28d0d4c",
+      "position_no": 20,
+      "club_id": "560007ec-c6ec-44b6-a5cb-07b7f79b3e5b",
+      "status": "paid"
+    },
+    {
+      "source_id": "03d72ef5-f813-4d92-8f72-d818b28d0d4c",
+      "position_no": 6,
+      "club_id": "40a0b61a-7d82-4017-a471-d82894f0e01a",
+      "status": "paid"
+    },
+    {
+      "source_id": "03d72ef5-f813-4d92-8f72-d818b28d0d4c",
+      "position_no": 19,
+      "club_id": "88bbec9b-6731-4d8b-a457-129c8f4d8a42",
+      "status": "paid"
+    }
+  ]
+}

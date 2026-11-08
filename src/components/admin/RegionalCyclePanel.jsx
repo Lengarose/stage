@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import RegionalWizardSteps from './RegionalWizardSteps';
 import { Link, useSearchParams } from 'react-router-dom';
 import { stageClient } from '@/api/stageClient';
 import RegionalDecisionCalendarPanel from './RegionalDecisionCalendarPanel';
@@ -6,6 +7,7 @@ import RegionalPromotionCalendarPanel from './RegionalPromotionCalendarPanel';
 import { adminEndpointError } from '@/lib/adminLeagueLifecycle';
 
 export default function RegionalCyclePanel({ leagues = [], registrations = [], onRefresh }) {
+  const [step, setStep] = useState(0);
   const [params,setParams]=useSearchParams();
   const fieldWindowId=params.get('regional_field') || '';
   const [fieldRefresh,setFieldRefresh]=useState(0);
@@ -30,7 +32,7 @@ export default function RegionalCyclePanel({ leagues = [], registrations = [], o
     stageClient.http.post('/regional-leagues/cycles',{registration_window_id:fieldWindowId}).then(report=>{
       if(!active)return;
       setMode(report.input.mode);setSourceIds(report.input.source_edition_ids);setRegistrationIds(report.input.registration_ids);setCount(report.input.target_count);
-      setPreview({request:report.input,report});
+      setPreview({request:report.input,report}); setStep(1);
     }).catch(err=>{if(active)setError(adminEndpointError(err));}).finally(()=>{if(active)setBusy(false);});
     return ()=>{active=false;};
   },[fieldWindowId,fieldRefresh]);
@@ -46,20 +48,24 @@ export default function RegionalCyclePanel({ leagues = [], registrations = [], o
   function toggle(id, values, setter) { invalidate(); setter(values.includes(id) ? values.filter(v => v !== id) : [...values, id]); }
   async function run(task) {
     setBusy(true); setError('');
-    try { await task(); } catch (err) { setError(adminEndpointError(err)); invalidate(); }
+    try { await task(); } catch (err) { setError(adminEndpointError(err)); invalidate(); if (!cycle) setStep(0); }
     finally { setBusy(false); }
   }
   async function showCycle(record) {
-    setCycle(record); setDraw(null); setAllocation(null); setPreview(null); setConfirmed(false);
+    setCycle(record); setStep(2); setDraw(null); setAllocation(null); setPreview(null); setConfirmed(false);
     const published = await stageClient.http.get(`/regional-leagues/cycles/${encodeURIComponent(record.id)}/draw`);
     setDraw(published);
     const catalogue = await stageClient.http.get('/regional-leagues/cycles'); setCycles(catalogue.cycles);
   }
   return <section className="space-y-4 border-y border-border py-5">
+    <RegionalWizardSteps steps={['Field & route', 'Review & save draw', 'Sporting progress']} current={step} completed={[]} />
     <h4 className="font-heading text-lg">Regional cycles and sporting allocation</h4>
     <p className="max-w-3xl text-sm text-muted-foreground">Prepare one recorded draw for the whole regional season. Official results decide places. For next-season transitions, finish all 380 league matches per source group first; tied finishing positions are settled before promotion play-offs. Allocation creates draft groups; the season calendar and matches must still be scheduled before play.</p>
     {fieldWindowId && <div className="space-y-2 text-sm"><p>Confirmed-field preview: the server derives the route, sources and complete participant field from the selected registration window. This does not save a draw or publish kickoff times.</p><button type="button" disabled={busy} className="min-h-11 font-semibold disabled:opacity-40" onClick={()=>setFieldRefresh(v=>v+1)}>Refresh confirmed-field preview →</button></div>}
     <fieldset disabled={busy} className="space-y-4 disabled:opacity-60">
+      <label className="block text-sm">Saved regional cycle<select className={input} value={cycle?.id || ''} onChange={e => run(async () => { setDraw(null); const result = await stageClient.http.get(`/regional-leagues/cycles/${encodeURIComponent(e.target.value)}`); await showCycle(result.cycle); })}><option value="" disabled>Select a saved cycle</option>{cycles.map(c => <option key={c.id} value={c.id}>{c.region_slug} · {c.platform} · Series {c.reset_series} / Season {c.season_number} · {c.status}</option>)}</select></label>
+      <label className="block text-sm">Administrative reason<input className={input} value={reason} onChange={e => { setConfirmed(false); setReason(e.target.value); }} /></label>
+      {step === 0 && <>
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="text-sm">Route<select className={input} value={mode} onChange={e => { invalidate(); setMode(e.target.value); }}><option value="placement">First placement</option><option value="transition">Next season: promotion and growth</option></select></label>
         <label className="text-sm">Confirmed target field<select className={input} value={count} onChange={e => { invalidate(); setCount(Number(e.target.value)); }}>{[20,40,60,80,100,120,180,240].map(n => <option key={n} value={n}>{n} clubs</option>)}</select></label>
@@ -68,13 +74,14 @@ export default function RegionalCyclePanel({ leagues = [], registrations = [], o
         <fieldset className="min-w-0"><legend className="mb-2 text-sm font-semibold">Current source groups</legend><div className="max-h-64 overflow-y-auto">{leagues.map(league => <label key={league.id} className="flex min-h-11 items-start gap-3 py-2 text-sm"><input type="checkbox" checked={sourceIds.includes(league.id)} onChange={() => toggle(league.id, sourceIds, setSourceIds)} /><span>{league.name} · D{league.division}{league.group_code || 'A'}<span className="block text-xs text-muted-foreground">{league.region_slug} · {league.platform} · Season {league.season_number} · {league.status}</span></span></label>)}</div></fieldset>
         <fieldset className="min-w-0"><legend className="mb-2 text-sm font-semibold">Additional approved registrations</legend><p className="text-xs text-muted-foreground">Only registrations for the exact target season, region, platform and reset series qualify. Clubs already in a source group must not be selected again.</p><div className="max-h-64 overflow-y-auto">{registrations.filter(r => r.status === 'approved').map(registration => <label key={registration.id} className="flex min-h-11 items-start gap-3 py-2 text-sm"><input type="checkbox" checked={registrationIds.includes(registration.id)} onChange={() => toggle(registration.id, registrationIds, setRegistrationIds)} /><span>{registration.club_name || registration.club_id} · {registration.region_slug || registration.region}<span className="block text-xs text-muted-foreground">Season {registration.season_number || 'not set'} · {registration.platform}</span></span></label>)}</div></fieldset>
       </div>
-      <label className="block text-sm">Administrative reason<input className={input} value={reason} onChange={e => { invalidate(); setReason(e.target.value); }} /></label>
       <button type="button" className={button} disabled={!sourceIds.length || !reason.trim()} onClick={() => run(async () => {
         const request = { mode, target_count: count, source_edition_ids: sourceIds, registration_ids: registrationIds, reason };
         const report = await stageClient.http.post('/regional-leagues/cycles', request);
-        setPreview({ request, report }); setConfirmed(false);
+        setPreview({ request, report }); setConfirmed(false); setStep(1);
       })}>Preview structure and source checks →</button>
-      {preview && <div className="space-y-3 border-l border-border pl-4 text-sm">
+      </>}
+      {step === 1 && preview && <div className="space-y-3 border-l border-border pl-4 text-sm">
+        <button type="button" className={button} onClick={() => { invalidate(); setStep(0); }}>← Back to field and route</button>
         <p>{preview.report.confirmed_participants} confirmed clubs · {preview.report.initial_fixtures} initial pathway fixtures · Season {preview.report.season_number}</p>
         <p>{preview.report.structure.groups.map(g => g.ref).join(' · ')} · 20 clubs per final group</p>
         {preview.report.automatic_allocation && <p>Once all required sporting results are definitive, the system will allocate the earned places into draft groups automatically. Unresolved or changed evidence requires review. Kickoff times are not published by allocation.</p>}
@@ -85,8 +92,8 @@ export default function RegionalCyclePanel({ leagues = [], registrations = [], o
           if(fieldWindowId)setParams(previous=>{const next=new URLSearchParams(previous);next.delete('regional_field');return next;},{replace:true});
         })}>Save draw and create pathway fixtures →</button></>}
       </div>}
-      <label className="block text-sm">Saved regional cycle<select className={input} value={cycle?.id || ''} onChange={e => run(async () => { setDraw(null); const result = await stageClient.http.get(`/regional-leagues/cycles/${encodeURIComponent(e.target.value)}`); await showCycle(result.cycle); })}><option value="" disabled>Select a saved cycle</option>{cycles.map(c => <option key={c.id} value={c.id}>{c.region_slug} · {c.platform} · Series {c.reset_series} / Season {c.season_number} · {c.status}</option>)}</select></label>
-      {cycle && <div className="space-y-3 border-t border-border pt-4 text-sm">
+
+      {step === 2 && cycle && <div className="space-y-3 border-t border-border pt-4 text-sm">
         <p><strong>{cycle.region_slug}</strong> · {cycle.status} · {cycle.policy_version}{cycle.tie_policy_version && ` · ${cycle.tie_policy_version}`}</p>
         {cycle.allocation_notifications && <p>Group-assignment notifications stored: {cycle.allocation_notifications.stored}. Muted by existing in-app club notification preferences: {cycle.allocation_notifications.muted}. These counts do not indicate email or push delivery.</p>}
         {cycle.status==='allocated'?<p>Group allocation is saved. Draw the league fixtures, then prepare and publish the season calendar before play. <Link to={calendarHref(cycle.id)} className="inline-flex min-h-11 items-center font-semibold">Prepare this season calendar →</Link></p>:<p>Remaining pathway fixtures: {cycle.plan?.pending?.length || 0}. Groups and sporting rights remain provisional until allocation is confirmed.</p>}
@@ -111,6 +118,7 @@ export default function RegionalCyclePanel({ leagues = [], registrations = [], o
         {cycle.input?.mode === 'transition' && <RegionalPromotionCalendarPanel key={cycle.id} cycleId={cycle.id} />}
         {draw && <details><summary className="min-h-11 cursor-pointer py-3">Published draw · {draw.fixtures.length} fixtures</summary><div className="max-h-80 overflow-y-auto">{draw.fixtures.map(f => <div key={f.id} className="flex min-h-16 flex-wrap items-center justify-between gap-3 border-b border-border py-3"><span>{f.home_club_name} – {f.away_club_name}<span className="block text-xs text-muted-foreground">{f.ref} · {f.status}</span></span><Link className="min-h-11 py-3 font-semibold" to={`/game-day?match=${encodeURIComponent(f.match_id)}`}>Open GAMEDAY →</Link></div>)}</div></details>}
       </div>}
+      {step === 2 && <button type="button" className={button} onClick={() => { setCycle(null); setDraw(null); invalidate(); setStep(0); }}>Prepare another field →</button>}
     </fieldset>
     {busy && <p role="status" className="text-sm">Checking the regional cycle…</p>}
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}

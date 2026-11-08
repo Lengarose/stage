@@ -1,0 +1,229 @@
+- generic [ref=e9]:
+  - banner [ref=e10]:
+    - generic [ref=e13]:
+      - link [ref=e14] [cursor=pointer]:
+        - /url: /
+        - img "STAGE" [ref=e15]
+      - generic [ref=e16]:
+        - button "Player 0-0 stage_plus stage plus 0 ✧" [ref=e18] [cursor=pointer]:
+          - generic [ref=e20]:
+            - paragraph [ref=e21]: Player 0-0
+            - generic [ref=e22]:
+              - img "stage_plus" [ref=e23]
+              - generic [ref=e24]: stage plus
+              - generic [ref=e25]: 0 ✧
+        - navigation [ref=e28]:
+          - button "Home" [ref=e29] [cursor=pointer]
+          - button "Regional Leagues" [ref=e33] [cursor=pointer]
+          - button "Market" [ref=e37] [cursor=pointer]
+          - button "Discover" [ref=e41] [cursor=pointer]
+        - generic [ref=e45]: Transfer window open
+      - generic [ref=e47]:
+        - link [ref=e48] [cursor=pointer]:
+          - /url: /search
+        - link "Notifications, 253 unread" [ref=e52] [cursor=pointer]:
+          - /url: /notifications
+          - generic [ref=e56]: 99+
+        - link [ref=e57] [cursor=pointer]:
+          - /url: /settings
+        - combobox [ref=e68] [cursor=pointer]:
+          - option "Dark" [selected]
+          - option "Day"
+          - option "Live Dark"
+          - option "Live White"
+          - option "Custom"
+  - main [ref=e70]:
+    - main [ref=e280]:
+      - generic [ref=e281]:
+        - link "Back to regional leagues" [ref=e282] [cursor=pointer]:
+          - /url: /leagues
+        - generic [ref=e285]:
+          - paragraph [ref=e295]: Artwork unavailable.
+          - generic [ref=e296]:
+            - paragraph [ref=e297]: UK & Ireland · Division 1 · Group A
+            - heading "Acceptance Division 1" [level=1] [ref=e298]
+            - paragraph [ref=e299]: Season 2 · 20 club capacity
+          - generic [ref=e300]:
+            - combobox "League season" [ref=e301]:
+              - option "Group A · Season 2 · in progress" [selected]
+              - option "Group A · Season 1 · completed"
+            - paragraph [ref=e302]: in progress
+            - link "Your club’s participation" [ref=e303] [cursor=pointer]:
+              - /url: /register-league?region=uk-ireland
+            - button "View league rules" [ref=e306] [cursor=pointer]
+        - navigation "Competition sections" [ref=e309]:
+          - button "Overview" [ref=e310] [cursor=pointer]
+          - button "Clubs" [active] [ref=e311] [cursor=pointer]
+          - button "Stages" [ref=e312] [cursor=pointer]
+          - button "Table" [ref=e313] [cursor=pointer]
+          - button "Stats" [ref=e314] [cursor=pointer]
+          - button "Rewards" [ref=e315] [cursor=pointer]
+          - button "History" [ref=e316] [cursor=pointer]
+        - generic [ref=e391]:
+          - generic [ref=e392]:
+            - heading "Clubs" [level=2] [ref=e393]
+            - generic [ref=e394]:
+              - generic [ref=e395]:
+                - generic [ref=e396]: Search participants
+                - searchbox "Search participants" [ref=e400]
+              - combobox "Participant sort order" [ref=e401]:
+                - option "Name A–Z" [selected]
+                - option "Name Z–A"
+          - status [ref=e402]: Showing 20 of 20 clubs
+          - generic [ref=e403]:
+            - link [ref=e404] [cursor=pointer]:
+              - /url: /clubs/b8b0f778-ff56-4ccf-b0fb-3b5bee012fe4
+              - generic [ref=e407]:
+                - strong [ref=e409]: Acceptance Club 1
+                - paragraph [ref=e410]: Cross-Platform · Country unavailable
+            - link [ref=e413] [cursor=pointer]:
+              - /url: /clubs/69ba7a87-8d60-4efa-945e-775ede8f45ab
+              - generic [ref=e416]:
+                - strong [ref=e418]: Acceptance Club 10
+                - paragraph [ref=e419]: Cross-Platform · Country unavailable
+            - link [ref=e422] [cursor=pointer]:
+              - /url: /clubs/ca67ae8d-a8ae-4823-b0c5-54672c3e92aa
+              - generic [ref=e425]:
+                - strong [ref=e427]: Acceptance Club 11
+                - paragraph [ref=e428]: Cross-Platform · Country unavailable
+            - link [ref=e431] [cursor=pointer]:
+              - /url: /clubs/0cbae00d-acf7-49bb-a16e-399ca91e41b4
+              - generic [ref=e434]:
+                - strong [ref=e436]: Acceptance Club 12
+                - paragraph [ref=e437]: Cross-Platform · Country unavailable
+            - link [ref=e440] [cursor=pointer]:
+              - /url: /clubs/a9703a1b-8667-4f60-b0e9-a474a2de6e86
+              - generic [ref=e443]:
+                - strong [ref=e445]: Acceptance Club 13
+                - paragraph [ref=e446]: Cross-Platform · Country unavailable
+            - link [ref=e449] [cursor=pointer]:
+              - /url: /clubs/bc1238bb-c560-40d8-ace0-11c6184f8f93
+              - generic [ref=e452]:
+                - strong [ref=e454]: Acceptance Club 14
+                - paragraph [ref=e455]: Cross-Platform · Country unavailable
+            - link [ref=e458] [cursor=pointer]:
+              - /url: /clubs/488410cc-a446-430c-a25e-bad3cbd58e56
+              - generic [ref=e461]:
+                - strong [ref=e463]: Acceptance Club 15
+                - paragraph [ref=e464]: Cross-Platform · Country unavailable
+            - link [ref=e467] [cursor=pointer]:
+              - /url: /clubs/fa8558a3-064c-4618-8f59-64aaaaab720c
+              - generic [ref=e470]:
+                - strong [ref=e472]: Acceptance Club 16
+                - paragraph [ref=e473]: Cross-Platform · Country unavailable
+            - link [ref=e476] [cursor=pointer]:
+              - /url: /clubs/54400267-de56-4ed4-8281-6502b8293315
+              - generic [ref=e479]:
+                - strong [ref=e481]: Acceptance Club 17
+                - paragraph [ref=e482]: Cross-Platform · Country unavailable
+            - link [ref=e485] [cursor=pointer]:
+              - /url: /clubs/794b4e78-0c26-4bb8-be3a-bb17a4d94bd4
+              - generic [ref=e488]:
+                - strong [ref=e490]: Acceptance Club 18
+                - paragraph [ref=e491]: Cross-Platform · Country unavailable
+            - link [ref=e494] [cursor=pointer]:
+              - /url: /clubs/9eb7d4ca-86ad-43b9-8953-295a52280c32
+              - generic [ref=e497]:
+                - strong [ref=e499]: Acceptance Club 19
+                - paragraph [ref=e500]: Cross-Platform · Country unavailable
+            - link [ref=e503] [cursor=pointer]:
+              - /url: /clubs/8a58936c-2df8-4df6-9c00-26078df1a50f
+              - generic [ref=e506]:
+                - strong [ref=e508]: Acceptance Club 2
+                - paragraph [ref=e509]: Cross-Platform · Country unavailable
+            - link [ref=e512] [cursor=pointer]:
+              - /url: /clubs/5cadc9d1-17be-4ecd-bc3c-6c7e8f678ed9
+              - generic [ref=e515]:
+                - strong [ref=e517]: Acceptance Club 24
+                - paragraph [ref=e518]: Cross-Platform · Country unavailable
+            - link [ref=e521] [cursor=pointer]:
+              - /url: /clubs/b7bc3882-95ec-4dd7-a371-f3b14ebac0b1
+              - generic [ref=e524]:
+                - strong [ref=e526]: Acceptance Club 3
+                - paragraph [ref=e527]: Cross-Platform · Country unavailable
+            - link [ref=e530] [cursor=pointer]:
+              - /url: /clubs/90412a54-67e0-4477-8023-2b9ff469ae09
+              - generic [ref=e533]:
+                - strong [ref=e535]: Acceptance Club 4
+                - paragraph [ref=e536]: Cross-Platform · Country unavailable
+            - link [ref=e539] [cursor=pointer]:
+              - /url: /clubs/40a0b61a-7d82-4017-a471-d82894f0e01a
+              - generic [ref=e542]:
+                - strong [ref=e544]: Acceptance Club 5
+                - paragraph [ref=e545]: Cross-Platform · Country unavailable
+            - link [ref=e548] [cursor=pointer]:
+              - /url: /clubs/ece46b27-28c7-4121-9ce0-bcd5393c5e31
+              - generic [ref=e551]:
+                - strong [ref=e553]: Acceptance Club 6
+                - paragraph [ref=e554]: Cross-Platform · Country unavailable
+            - link [ref=e557] [cursor=pointer]:
+              - /url: /clubs/918ac3e1-6556-4d13-a8c5-b1a5cf5ccbb5
+              - generic [ref=e560]:
+                - strong [ref=e562]: Acceptance Club 7
+                - paragraph [ref=e563]: Cross-Platform · Country unavailable
+            - link [ref=e566] [cursor=pointer]:
+              - /url: /clubs/a23b3158-85d3-4d1d-b992-da30af757a01
+              - generic [ref=e569]:
+                - strong [ref=e571]: Acceptance Club 8
+                - paragraph [ref=e572]: Cross-Platform · Country unavailable
+            - link [ref=e575] [cursor=pointer]:
+              - /url: /clubs/344ae597-e4e9-4852-9e96-8ae8292b6493
+              - generic [ref=e578]:
+                - strong [ref=e580]: Acceptance Club 9
+                - paragraph [ref=e581]: Cross-Platform · Country unavailable
+  - generic [ref=e156]:
+    - generic [ref=e157]:
+      - paragraph [ref=e158]: Matchs
+      - generic [ref=e159]:
+        - link "Schedule" [ref=e160] [cursor=pointer]:
+          - /url: /schedule
+        - link "Inbox" [ref=e164] [cursor=pointer]:
+          - /url: /inbox
+        - link "Notifications" [ref=e169] [cursor=pointer]:
+          - /url: /notifications
+    - generic [ref=e174]:
+      - paragraph [ref=e175]: Compete
+      - generic [ref=e176]:
+        - link "Tournaments" [ref=e177] [cursor=pointer]:
+          - /url: /tournaments
+        - link "International" [ref=e185] [cursor=pointer]:
+          - /url: /international
+        - link "Rankings" [ref=e192] [cursor=pointer]:
+          - /url: /rankings
+    - generic [ref=e196]:
+      - paragraph [ref=e197]: Club
+      - generic [ref=e198]:
+        - link "Players" [ref=e199] [cursor=pointer]:
+          - /url: /players-list
+        - link "Presidents" [ref=e205] [cursor=pointer]:
+          - /url: /presidents-list
+        - link "Free Agents" [ref=e209] [cursor=pointer]:
+          - /url: /free-agents
+        - link "Scouting" [ref=e215] [cursor=pointer]:
+          - /url: /scouting
+        - link "Transfer Room" [ref=e222] [cursor=pointer]:
+          - /url: /transfer-market
+        - link "Wallet" [ref=e227] [cursor=pointer]:
+          - /url: /wallet
+    - generic [ref=e231]:
+      - paragraph [ref=e232]: Community
+      - generic [ref=e233]:
+        - link "Feed" [ref=e234] [cursor=pointer]:
+          - /url: /social
+        - link "Discord" [ref=e240] [cursor=pointer]:
+          - /url: /community
+    - generic [ref=e245]:
+      - paragraph [ref=e246]: Account
+      - generic [ref=e247]:
+        - link "Profile" [ref=e248] [cursor=pointer]:
+          - /url: /profile
+        - link "Search" [ref=e253] [cursor=pointer]:
+          - /url: /search
+        - link "Lifestyle" [ref=e258] [cursor=pointer]:
+          - /url: /lifestyle
+        - link "Store" [ref=e265] [cursor=pointer]:
+          - /url: /store
+        - link "News" [ref=e270] [cursor=pointer]:
+          - /url: /news
+        - link "Settings" [ref=e275] [cursor=pointer]:
+          - /url: /settings
