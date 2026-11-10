@@ -5,7 +5,7 @@ import {
   Palette, ChevronDown, Newspaper, ShieldAlert, Settings,
   Inbox, CalendarDays, Zap, Coins, Sun, Moon, LogOut, Star, Bell,
   MessagesSquare, Globe2, Activity, HelpCircle,
-  X, LayoutDashboard, UserCog, Binoculars, Archive, Mail,
+  X, LayoutDashboard, UserCog, Binoculars, Archive, Mail, Menu, Compass,
 } from "lucide-react";
 import "./navigation/arenaNavigation.css";
 import LogoImg from '@/assets/Stadium Logo.png';
@@ -19,6 +19,7 @@ import { normalizeSubscriptionTier } from "@/lib/subscriptionUtils";
 import { useTranslation } from "@/hooks/useTranslation";
 import ProfileCompletionModal from "./ProfileCompletionModal";
 import ClubOnboardingModal from "./ClubOnboardingModal";
+import TutorialPopup from "./onboarding/TutorialPopup";
 import NotificationBell from "./NotificationBell";
 import { useChatNotifications } from "@/lib/ChatNotificationsContext";
 import {
@@ -209,7 +210,7 @@ function getPresidentGroups(t, clubPath, hasPlayer) {
       ],
     },
     {
-      label: t("nav.competitions"),
+      label: t("nav.compete"),
       items: [
         { path: "/game-day",        icon: Zap,       label: t("nav.gameDay") },
         { path: "/competitions",    icon: Star,      label: t("nav.gost") },
@@ -356,7 +357,7 @@ const MOBILE_WALKTHROUGHS = [
   },
   {
     path: "/game-day",
-    label: "Matchs",
+    label: "GameDay",
     title: "Match day",
     steps: [
       "Start here when you have a fixture to play, confirm, or follow live.",
@@ -952,14 +953,14 @@ function getMobilePrimary(accountMode, clubPath, isTournamentLimited, tournament
   if (accountMode === "club") {
     return [
       { path: "/dashboard",                 icon: LayoutDashboard, label: "Dashboard" },
-      { path: "/game-day",                  icon: Zap,             label: "Matchs"   },
+      { path: "/game-day",                  icon: Zap,             label: "GameDay"   },
       { path: "/competitions",              icon: Trophy,          label: "Compete"  },
       { path: clubPath || "/clubs",         icon: Shield,          label: "Club"     },
     ];
   }
   return [
     { path: "/dashboard",                 icon: LayoutDashboard, label: "Dashboard" },
-    { path: "/game-day",                  icon: Zap,             label: "Matchs"  },
+    { path: "/game-day",                  icon: Zap,             label: "GameDay"  },
     { path: "/competitions",              icon: Trophy,          label: "Compete" },
     { path: clubPath || "/clubs",         icon: Shield,          label: "Club"    },
   ];
@@ -967,7 +968,7 @@ function getMobilePrimary(accountMode, clubPath, isTournamentLimited, tournament
 
 const MOBILE_MORE_GROUPS_PLAYER = [
   {
-    label: "Matchs",
+    label: "Matches",
     items: [
       { path: "/schedule",        icon: CalendarDays,  label: "Schedule"      },
       { path: "/inbox",           icon: Inbox,         label: "Inbox"         },
@@ -1016,7 +1017,7 @@ const MOBILE_MORE_GROUPS_PLAYER = [
 function getMobileMoreGroupsPresident(clubPath) {
   return [
     {
-      label: "Matchs",
+      label: "GameDay",
       items: [
         { path: "/schedule",        icon: CalendarDays,  label: "Schedule"     },
         { path: "/inbox",           icon: Inbox,         label: "Inbox"        },
@@ -1166,7 +1167,7 @@ function MobileMoreSheet({ open, onClose, pathname, accountMode, clubPath, isTou
   );
 }
 
-function MobileWalkthrough({ pathname }) {
+function MobileWalkthrough({ pathname, showTrigger = true }) {
   const { t } = useTranslation();
   const guide = getMobileWalkthrough(pathname);
   const [open, setOpen] = useState(false);
@@ -1180,11 +1181,17 @@ function MobileWalkthrough({ pathname }) {
     setOpen(false);
   }, [pathname]);
 
+  useEffect(() => {
+    const openGuide = () => { if (guide) setOpen(true); };
+    window.addEventListener("stage:open-mobile-guide", openGuide);
+    return () => window.removeEventListener("stage:open-mobile-guide", openGuide);
+  }, [guide?.path]);
+
   if (!guide) return null;
 
   return (
     <>
-      {!open && (
+      {!open && showTrigger && (
         <button
           type="button"
           className="mobile-guide-chip md:hidden fixed right-4 z-[79] inline-flex items-center gap-2 rounded-full px-3.5 py-2 active:scale-95"
@@ -1263,7 +1270,86 @@ function MobileWalkthrough({ pathname }) {
   );
 }
 
-function MobileBottomBar({ pathname, myPlayer: _myPlayer, myClub, accountMode, notifCount, isTournamentLimited, tournamentId, participantType, transferWindowOpen }) {
+function MobileBottomBar(props) {
+  return props.isTournamentLimited ? <TournamentMobileBottomBar {...props} /> : <MobileArenaBottomBar {...props} />;
+}
+
+function MobileArenaBottomBar({ pathname, myPlayer, myClub, accountMode, notifCount, transferWindowOpen }) {
+  const { t } = useTranslation();
+  const [openGroup, setOpenGroup] = useState(null);
+  const [tutorialOpen, setTutorialOpen] = useState(false);
+  const { totalUnread: chatUnreadTotal, markAllRead: markAllChatsRead } = useChatNotifications();
+  const clubPath = myClub?.id ? `/clubs/${myClub.id}` : null;
+  const source = accountMode === "club" ? getPresidentGroups(t, clubPath, Boolean(myPlayer)) : getPlayerGroups(t, clubPath);
+  const itemsFor = path => source.find(group => group.items.some(item => item.path === path))?.items || [];
+  const market = itemsFor("/transfer-market").filter(item => item.path !== "/lifestyle");
+  if (myPlayer && !market.some(item => item.path === "/free-agents")) market.push({ path: "/free-agents", icon: UsersRound, label: t("nav.freeAgents") });
+  if (!market.some(item => item.path === "/wallet")) market.push({ path: "/wallet", icon: Coins, label: t("nav.wallet") });
+  if (accountMode === "club") market.push({ path: "/contracts/create", icon: Handshake, label: "Contracts" });
+  const discover = [...itemsFor("/store"), { path: "/lifestyle", icon: Coins, label: t("nav.lifestyle") }];
+  const groups = filterTransferWindowNavGroups([
+    { id: "home", label: t("nav.home"), icon: Home, items: itemsFor("/dashboard") },
+    { id: "compete", label: t("nav.compete"), icon: Trophy, items: itemsFor("/game-day") },
+    { id: "market", label: t("nav.market"), icon: ArrowLeftRight, items: market },
+    { id: "discover", label: t("nav.discover"), icon: Compass, items: discover },
+    { id: "more", label: t("nav.more"), icon: Menu, items: [
+      { path: "/search", icon: Search, label: t("nav.search") },
+      { path: "/notifications", icon: Bell, label: t("nav.notifications") },
+      { path: "/settings", icon: Settings, label: t("nav.settings") },
+    ] },
+  ], transferWindowOpen);
+  const activeGroup = findActiveInGroups(groups, pathname)?.group.id;
+
+  useEffect(() => { setOpenGroup(null); }, [pathname]);
+  useEffect(() => {
+    if ((pathname === "/game-day" || pathname.startsWith("/game-day/")) && chatUnreadTotal > 0) markAllChatsRead();
+  }, [pathname, chatUnreadTotal, markAllChatsRead]);
+
+  function showGuide() {
+    setOpenGroup(null);
+    if (getMobileWalkthrough(pathname)) window.dispatchEvent(new Event("stage:open-mobile-guide"));
+    else setTutorialOpen(true);
+  }
+
+  return (
+    <>
+      <TutorialPopup open={tutorialOpen} onClose={() => setTutorialOpen(false)} intent={readAccountIntent()} />
+      <nav className="mobile-arena-nav md:hidden" aria-label="Main navigation">
+        {groups.map(group => {
+          const Icon = group.icon;
+          const badge = group.id === "more" ? notifCount : group.id === "compete" ? chatUnreadTotal : 0;
+          const selected = openGroup ? openGroup === group.id : activeGroup === group.id;
+          return (
+            <DropdownMenu key={group.id} modal={false} open={openGroup === group.id} onOpenChange={open => setOpenGroup(current => open ? group.id : current === group.id ? null : current)}>
+              <DropdownMenuTrigger asChild>
+                <button type="button" className={cn("mobile-arena-tab", selected && "is-active")} aria-label={group.label} aria-current={activeGroup === group.id ? "true" : undefined}>
+                  <span className="mobile-arena-icon"><Icon aria-hidden="true" />{badge > 0 && <span className="mobile-arena-badge" aria-label={`${badge} unread`}>{badge > 9 ? "9+" : badge}</span>}</span>
+                  <span>{group.label}</span>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="top" align="center" sideOffset={12} collisionPadding={12} className="mobile-arena-menu" aria-label={group.label}>
+                <DropdownMenuLabel className="mobile-arena-menu-title">{group.label}</DropdownMenuLabel>
+                {group.items.map(item => {
+                  const ItemIcon = item.icon;
+                  return (
+                    <DropdownMenuItem key={item.path} asChild className="mobile-arena-menu-item">
+                      <Link to={item.path} onClick={() => setOpenGroup(null)} aria-current={isNavItemActive(item.path, pathname) ? "page" : undefined}>
+                        <ItemIcon aria-hidden="true" /><span>{item.label}</span>
+                      </Link>
+                    </DropdownMenuItem>
+                  );
+                })}
+                {group.id === "more" && <DropdownMenuItem className="mobile-arena-menu-item" onSelect={showGuide}><HelpCircle aria-hidden="true" /><span>Help / {t("mobile.guide")}</span></DropdownMenuItem>}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          );
+        })}
+      </nav>
+    </>
+  );
+}
+
+function TournamentMobileBottomBar({ pathname, myPlayer: _myPlayer, myClub, accountMode, notifCount, isTournamentLimited, tournamentId, participantType, transferWindowOpen }) {
   const { t } = useTranslation();
   const [moreOpen, setMoreOpen] = useState(false);
   const { totalUnread: chatUnreadTotal, markAllRead: markAllChatsRead } = useChatNotifications();
@@ -1283,7 +1369,7 @@ function MobileBottomBar({ pathname, myPlayer: _myPlayer, myClub, accountMode, n
   const primaryActive = primaryTabs.find((t) => isNavItemActive(t.path, pathname));
   const moreActive = findActiveInGroups(moreGroups, pathname);
   const inMore = !primaryActive && Boolean(moreActive);
-  const moreLabel = moreActive?.item.label ?? "More";
+  const moreLabel = "More";
   return (
     <>
       <MobileMoreSheet
@@ -1821,23 +1907,6 @@ function MobileHeaderIdentity({ myPlayer, myClub, presidentClub, accountMode }) 
         <IdentityLogoutItem />
       </DropdownMenuContent>
     </DropdownMenu>
-  );
-}
-
-function MobileAppFooter() {
-  return (
-    <div
-      className="md:hidden fixed left-0 right-0 z-[75] flex items-center justify-center pointer-events-none px-4"
-      style={{ bottom: "calc(var(--mobile-tab-h) + var(--safe-bottom) + 6px)" }}
-    >
-      <Link
-        to="/"
-        className="pointer-events-auto flex items-center justify-center rounded-full border border-white/15 bg-[#0b1024]/92 backdrop-blur-md px-3 py-1.5 shadow-[0_4px_24px_rgba(0,0,0,0.45)]"
-        aria-label="STAGE"
-      >
-        <img src={LogoImg} alt="STAGE" className="h-8 w-auto object-contain" />
-      </Link>
-    </div>
   );
 }
 
@@ -2543,9 +2612,8 @@ export default function Layout() {
         </main>
       </div>
 
-      <MobileWalkthrough pathname={location.pathname} />
+      <MobileWalkthrough pathname={location.pathname} showTrigger={isTournamentLimited || showAdminHeader} />
 
-      <MobileAppFooter />
 
       {/* ── MOBILE BOTTOM NAV ─────────────────────────────────── */}
       {showAdminHeader ? (
