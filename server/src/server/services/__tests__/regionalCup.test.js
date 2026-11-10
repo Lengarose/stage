@@ -83,3 +83,32 @@ test('North American Cup keeps Sunday 20:00 Eastern across DST and leaves Europe
   const events=['2026-11-08T23:00:00Z','2026-11-09T00:00:00Z','2026-11-09T01:00:00Z'].map((time,i)=>({id:String(i),home_club_id:'club',instant:Date.parse(time),minutes:60}));
   assert.ok(loadViolations(events,'America/New_York').some(message=>message.includes('more than 2 matches on 2026-11-08')));
  });
+
+test('trophy targets include an approved regional Cup before configuration without creating it',async()=>{
+ const f=fixture();Object.assign(f.state.editions[0],{region_slug:'benelux',slug:'benelux-div-1'});
+ const before=structuredClone(f.state),result=await f.service.catalogue({id:'admin'});
+ assert.equal(result.trophy_sources?.length,1);
+ assert.equal(result.trophy_sources[0].name,'STAGE Benelux Cup');
+ assert.deepEqual(result.definitions,[]);assert.deepEqual(f.state,before);
+});
+
+test('linking materializes the same permanent Cup once, without an edition, and rejects unknown targets',async()=>{
+ const {ensureTrophySource,trophySources}=require('../regionalCupSources'),f=fixture();
+ const model={records:async()=>structuredClone(f.state.records),editions:async()=>structuredClone(f.state.editions),create:async(type,row,user,reason)=>{f.state.records.push({...row,entity_type:type});f.state.audits.push({type,user,reason});}};
+ const target=trophySources(f.state.editions,f.state.records)[0];
+ await assert.rejects(ensureTrophySource('unknown',model,null,{id:'admin'}),/not found/);
+ assert.equal((await ensureTrophySource(target.id,model,null,{id:'admin'})).id,target.id);
+ await ensureTrophySource(target.id,model,null,{id:'admin'});
+ assert.equal(f.state.audits.length,1);assert.equal(f.state.audits[0].type,'regional_cup');
+ assert.equal((await f.configure()).already_applied,true);
+ assert.deepEqual((await f.service.catalogue({id:'admin'})).editions,[]);
+});
+
+test('Cup trophy targets normalize platforms, deduplicate seasons and exclude ambiguous regional systems',()=>{
+ const {trophySources}=require('../regionalCupSources'),f=fixture(),root=f.state.editions[0];
+ const next={...root,id:'next-season',permanent_league_id:root.id,season_number:2,status:'draft',slug:'uk-ireland-div-1-s2'};
+ assert.equal(trophySources([{...root,status:'completed'},next],[]).length,1);
+ assert.equal(trophySources([root,{...root,id:'duplicate'}],[]).length,0);
+ assert.equal(trophySources([{...root,retired:true}],[]).length,0);
+ assert.equal(trophySources([{...root,platform:'Cross-Platform'}],[])[0].id,trophySources([root],[])[0].id);
+});

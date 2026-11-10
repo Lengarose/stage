@@ -1,8 +1,26 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCollectionEntries, findOpenSpot } from '../trophyCollection.js';
+import { buildCollectionEntries, filterTrophyEntries, trophyCategory, findOpenSpot } from '../trophyCollection.js';
 
 const design = { id: 'cup', name: 'Cup Design', image_url: '/cup.png', rarity: 'rare' };
+
+test('official linked and Admin-only designs remain visible, but only earned copies unlock', () => {
+  const designs = ['competition', 'regional_league', 'regional_cup'].map((source, i) => ({ ...design, id: `official-${i}`, admin_only: 1, linked_source_type: source }));
+  const rows = buildCollectionEntries(designs, [{ id: 'award', trophy_item_id: 'official-2', status: 'earned', persisted: true, competition_name: 'UK Cup', edition_label: 'Season 2' }]);
+  assert.equal(rows.length, 3);
+  assert.equal(rows.find(r => r.id === 'official-0').state, 'locked');
+  assert.equal(rows.find(r => r.id === 'official-1').state, 'locked');
+  assert.equal(rows.find(r => r.id === 'official-2').state, 'available');
+  assert.deepEqual(filterTrophyEntries(rows, { status: 'available' }).map(r => r.id), ['official-2']);
+  assert.deepEqual(filterTrophyEntries(rows, { source: 'gost' }).map(r => r.id), ['official-0']);
+  assert.deepEqual(filterTrophyEntries(rows, { search: 'season 2', source: 'regional_cup' }).map(r => r.id), ['official-2']);
+  assert.equal(filterTrophyEntries(rows, { search: 'missing' }).length, 0);
+});
+
+test('earned official copies keep their category when the catalogue page is unavailable', () => {
+  const [row] = buildCollectionEntries([], [{ id: 'award', trophy_item_id: 'historical', persisted: true, source_type: 'regional_cup_edition' }]);
+  assert.equal(trophyCategory(row), 'regional_cup');
+});
 
 test('collection shows locked catalogue designs with no earned awards', () => {
   const rows = buildCollectionEntries([design], [], []);

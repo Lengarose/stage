@@ -1,5 +1,6 @@
 import { useTranslation } from "@/hooks/useTranslation";
-import { useState, useRef, useId } from "react";
+import { useState, useRef, useId, useEffect } from "react";
+import { stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Trophy, Upload, X, Trash2, Pencil, Check, Link2, Unlink } from "lucide-react";
@@ -7,7 +8,7 @@ import { cn } from "@/lib/utils";
 
 const COMP_SLUGS = ["supreme", "elite", "challenger"];
 
-function SourcePicker({ value, onChange, competitions, regionalLeagues }) {
+function SourcePicker({ value, onChange, competitions, regionalLeagues, regionalCups, cupError, reloadCups }) {
   const { t } = useTranslation();
   const type = value?.type || "";
   const id   = value?.id   || "";
@@ -21,6 +22,9 @@ function SourcePicker({ value, onChange, competitions, regionalLeagues }) {
     if (type === "competition") {
       const c = competitions.find(c => c.id === sourceId);
       onChange({ type, id: sourceId, name: c?.name || "" });
+    } else if (type === "regional_cup") {
+      const cup = regionalCups.find(c => c.id === sourceId);
+      onChange({ type, id: sourceId, name: cup?.name || "" });
     } else {
       const l = regionalLeagues.find(l => l.id === sourceId);
       onChange({ type, id: sourceId, name: l?.name || "" });
@@ -31,13 +35,15 @@ function SourcePicker({ value, onChange, competitions, regionalLeagues }) {
 
   return (
     <div className="space-y-2">
-      <div className="flex gap-2">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {[
           { v: "", label: t("admin.trophies.noLink") },
           { v: "competition", label: t("admin.trophies.stageCompetition") },
           { v: "regional_league", label: t("admin.trophies.regionalLeague") },
+          { v: "regional_cup", label: t("admin.trophies.regionalCups", "Regional Cups") },
         ].map(opt => (
           <button key={opt.v} type="button"
+            aria-pressed={type === opt.v}
             onClick={() => setType(opt.v)}
             className={cn(
               "flex-1 text-[10px] font-bold uppercase tracking-wider px-2 py-1.5 rounded border transition-colors",
@@ -68,6 +74,15 @@ function SourcePicker({ value, onChange, competitions, regionalLeagues }) {
             .map(l => <option key={l.id} value={l.id}>{l.name}{l.division ? ` (Div ${l.division})` : ""}</option>)}
         </select>
       )}
+      {type === "regional_cup" && <>
+        <select aria-label="Regional Cup" value={id} onChange={e => setSource(e.target.value)}
+          className="w-full bg-secondary border border-border rounded px-3 py-2 text-xs text-foreground outline-none focus:border-primary/50">
+          <option value="">— select Regional Cup —</option>
+          {regionalCups.map(cup => <option key={cup.id} value={cup.id}>{cup.name} · {cup.platform}</option>)}
+        </select>
+        {cupError ? <p role="alert" className="text-xs text-destructive">{cupError} <button type="button" onClick={reloadCups} className="underline">Retry</button></p>
+          : !regionalCups.length && <p className="text-xs text-muted-foreground">No eligible regional systems were found. Add an active regional Division 1 in Admin → Regional Leagues.</p>}
+      </>}
     </div>
   );
 }
@@ -96,11 +111,24 @@ export default function TrophiesTab({
   const [editForm, setEditForm] = useState({});
   const [replaceFile, setReplaceFile] = useState(null);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState("");
   const [previewTrophy, setPreviewTrophy] = useState(null);
+  const [regionalCups, setRegionalCups] = useState([]);
+  const [cupError, setCupError] = useState("");
+  const [cupRevision, setCupRevision] = useState(0);
+  useEffect(() => {
+    let active = true;
+    stageClient.http.get('/regional-leagues/cups').then(data => {
+      if (active) { setRegionalCups(data.trophy_sources || data.definitions); setCupError(""); }
+    }).catch(error => { if (active) { setRegionalCups([]); setCupError(error.message); } });
+    return () => { active = false; };
+  }, [cupRevision]);
+  const cupPicker = { regionalCups, cupError, reloadCups: () => setCupRevision(value => value + 1) };
   const replaceFileRef = useRef(null);
   const trophyInputId = useId();
 
   function openEdit(trophy) {
+    setEditError("");
     setEditingId(trophy.id);
     setReplaceFile(null);
     setEditForm({
@@ -115,10 +143,13 @@ export default function TrophiesTab({
 
   async function saveEdit(trophy) {
     setSavingEdit(true);
+    setEditError("");
     try {
       await updateTrophyItem(trophy.id, editForm, replaceFile);
       setEditingId(null);
       setReplaceFile(null);
+    } catch (error) {
+      setEditError(error.message || 'Could not save the trophy.');
     } finally {
       setSavingEdit(false);
     }
@@ -171,12 +202,13 @@ export default function TrophiesTab({
         </div>
 
         <div>
-          <label className="label-xs">Link to Competition or League</label>
+          <label className="label-xs">Link to Competition, League or Cup</label>
           <SourcePicker
             value={newTrophyLinkedSource}
             onChange={setNewTrophyLinkedSource}
             competitions={competitions}
             regionalLeagues={regionalLeagues}
+            {...cupPicker}
           />
           {newTrophyLinkedSource?.id && (
             <p className="text-[10px] text-primary mt-1">
@@ -200,7 +232,7 @@ export default function TrophiesTab({
 
         <Button
           onClick={createTrophyItem}
-          disabled={uploadingTrophy || !newTrophyName.trim() || !newTrophyFile}
+          disabled={uploadingTrophy || !newTrophyName.trim() || !newTrophyFile || (newTrophyLinkedSource?.type === 'regional_cup' && !newTrophyLinkedSource.id)}
           className="w-full bg-warning text-black font-bold gap-2"
         >
           <Trophy className="w-4 h-4" />
@@ -227,7 +259,7 @@ export default function TrophiesTab({
           {linked.length > 0 && (
             <div className="space-y-2">
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
-                <Link2 className="w-3 h-3" /> Linked to Competition / League
+                <Link2 className="w-3 h-3" /> Linked to Competition / League / Cup
               </p>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {linked.map(trophy => (
@@ -248,6 +280,8 @@ export default function TrophiesTab({
                     onPreview={() => setPreviewTrophy(trophy)}
                     competitions={competitions}
                     regionalLeagues={regionalLeagues}
+                    cupPicker={cupPicker}
+                    editError={editError}
                   />
                 ))}
               </div>
@@ -279,6 +313,8 @@ export default function TrophiesTab({
                     onPreview={() => setPreviewTrophy(trophy)}
                     competitions={competitions}
                     regionalLeagues={regionalLeagues}
+                    cupPicker={cupPicker}
+                    editError={editError}
                   />
                 ))}
               </div>
@@ -316,7 +352,7 @@ function TrophyCard({
   trophy, isEditing, editForm, setEditForm,
   replaceFile, setReplaceFile, replaceFileRef,
   savingEdit, onEdit, onCancelEdit, onSaveEdit, onDelete, onPreview,
-  competitions, regionalLeagues,
+  competitions, regionalLeagues, cupPicker, editError,
 }) {
   const imagePreview = replaceFile ? URL.createObjectURL(replaceFile) : trophy.image_url;
   const replaceInputId = useId();
@@ -407,6 +443,7 @@ function TrophyCard({
               onChange={src => setEditForm(f => ({ ...f, source: src }))}
               competitions={competitions}
               regionalLeagues={regionalLeagues}
+              {...cupPicker}
             />
           </div>
           <div className="flex items-center gap-2 px-0.5">
@@ -417,7 +454,7 @@ function TrophyCard({
             <label htmlFor={`ao-${trophy.id}`} className="text-[10px] text-muted-foreground cursor-pointer">Admin Only</label>
           </div>
           <div className="flex gap-1 pt-1">
-            <Button size="sm" onClick={onSaveEdit} disabled={savingEdit}
+            <Button size="sm" onClick={onSaveEdit} disabled={savingEdit || (editForm.source?.type === 'regional_cup' && !editForm.source.id)}
               className="flex-1 h-7 text-[10px] bg-primary text-primary-foreground rounded gap-1">
               {savingEdit ? <span className="w-3 h-3 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin inline-block" /> : <Check className="w-3 h-3" />}
               {savingEdit ? "Saving…" : "Save"}
@@ -427,6 +464,7 @@ function TrophyCard({
               <X className="w-3 h-3" />
             </button>
           </div>
+          {editError && <p role="alert" className="text-xs text-destructive">{editError}</p>}
         </div>
       )}
     </div>

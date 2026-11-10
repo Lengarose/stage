@@ -40,7 +40,7 @@ async function createInside(body, query, actor) {
   const existing = assertConsistent(rows, body);
   if (body.id && rows.some(row => row.id === body.id && identity(unpack(row)).key !== normalized.key)) fail('Requested ID belongs to another edition');
   if (existing) return { outcome: 'existing', record: unpack(existing) };
-  const record = { ...body, ...normalized, slug: normalized.canonical_slug, id: body.id || uuid(), reset_series: Number(body.reset_series || 0) };
+  const record = { registered_club_ids: [], registered_clubs: [], num_clubs: 0, ...body, ...normalized, slug: normalized.canonical_slug, id: body.id || uuid(), reset_series: Number(body.reset_series || 0) };
   record.permanent_league_id = body.permanent_league_id || record.id;
   delete record.key; delete record.canonical_slug; delete record.regional_edition_key;
   await model.create(record, normalized.key, query);

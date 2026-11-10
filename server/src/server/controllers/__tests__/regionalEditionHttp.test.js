@@ -70,6 +70,9 @@ test('generic regional creation retries reuse the same logical league edition', 
   assert.ok(retry.code < 300, JSON.stringify(retry.body));
   assert.equal(env.rows.size, 1, 'retry must not create a second edition');
   assert.equal(first.body.id, retry.body.id);
+  assert.deepEqual(first.body.registered_club_ids, [], 'new empty editions need an explicit roster for automatic preparation');
+  assert.deepEqual(first.body.registered_clubs, []);
+  assert.equal(first.body.num_clubs, 0);
 });
 
 module.exports = { fixture };

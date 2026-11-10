@@ -10,10 +10,10 @@ const {busyEvents}=require('../lib/officialCalendarLoad');
 const art=require('./gostOverviewService');
 const registration=require('./regionalRegistrationService');
 const hash=v=>crypto.createHash('sha256').update(JSON.stringify(v)).digest('hex');
-const stableId=v=>{const h=hash(v);return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20,32)}`;};
+const {trophySources,stableId}=require('./regionalCupSources');
 function createService({model=new RegionalCupModel(),transaction=withTransaction,assignment=art.assignment,assign=art.assign,confirmedField=registration.capturedField,clock=()=>new Date()}={}) {
   async function admin(actor,q) {const user=await model.actor(actor?.id,q);if(!user || user.role_id==null || ![0,2].includes(Number(user.role_id)))fail('Admin Cup access required',403);return user;}
-  async function catalogue(actor) {return transaction(async q=>{await admin(actor,q);const rows=await model.records(q);return {definitions:rows.filter(r=>r.entity_type==='regional_cup'),editions:rows.filter(r=>r.entity_type==='regional_cup_edition'),calendars:rows.filter(r=>r.entity_type==='regional_calendar' && r.status==='published').map(c=>({id:c.id,edition_ids:c.edition_ids,start_monday:c.start_monday}))};});}
+  async function catalogue(actor) {return transaction(async q=>{await admin(actor,q);const rows=await model.records(q);return {definitions:rows.filter(r=>r.entity_type==='regional_cup'),trophy_sources:trophySources(await model.editions(q),rows),editions:rows.filter(r=>r.entity_type==='regional_cup_edition'),calendars:rows.filter(r=>r.entity_type==='regional_calendar' && r.status==='published').map(c=>({id:c.id,edition_ids:c.edition_ids,start_monday:c.start_monday}))};});}
   async function trophy(id,body,actor) {return transaction(async q=>{const user=await admin(actor,q);await model.lock(q);return body?assign(id,body,user,fn=>fn(q),'regional_cup'):assignment(id,q,true,'regional_cup');});}
   async function runAction(body,actor,automatic=false) {
     return transaction(async q=>{

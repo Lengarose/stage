@@ -1,0 +1,11 @@
+{
+  "scope": "isolated local real HTTP",
+  "cup": "STAGE Benelux Cup",
+  "passed": [
+    "unprepared Cup selectable",
+    "GET does not configure Cup",
+    "save creates permanent identity",
+    "correct Cup default preselected",
+    "existing editions unchanged"
+  ]
+}

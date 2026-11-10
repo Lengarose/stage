@@ -12,6 +12,7 @@ export default function RegionalCupPanel({ definitions = [], initialCupId = '', 
   const [calendarId, setCalendarId] = useState('');
   const [preview, setPreview] = useState(null);
   const [assignment, setAssignment] = useState(null);
+  const [assignmentLoading, setAssignmentLoading] = useState(false);
   const [trophyId, setTrophyId] = useState('');
   const [reason, setReason] = useState('');
   const [confirmed, setConfirmed] = useState(false);
@@ -20,12 +21,22 @@ export default function RegionalCupPanel({ definitions = [], initialCupId = '', 
   const [record, setRecord] = useState(null);
   const input = 'min-h-11 w-full border border-border bg-background px-3 text-sm';
   useEffect(() => { let active = true; stageClient.http.get('/regional-leagues/cups').then(r => { if (active) setData(r); }).catch(err => { if (active) setError(err.message); }); return () => { active = false; }; }, []);
+  useEffect(() => {
+    let active = true;
+    setAssignment(null); setTrophyId('');
+    if (!cupId) { setAssignmentLoading(false); return () => { active = false; }; }
+    setAssignmentLoading(true);
+    stageClient.http.get(`/regional-leagues/cups/${encodeURIComponent(cupId)}/trophy`).then(result => {
+      if (active) { setAssignment(result); setTrophyId(result.trophy?.id || ''); }
+    }).catch(err => { if (active) setError(err.message); }).finally(() => { if (active) setAssignmentLoading(false); });
+    return () => { active = false; };
+  }, [cupId]);
   function reset() { setPreview(null); setRecord(null); setConfirmed(false); setError(''); }
   async function run(task) { setBusy(true); setError(''); try { await task(); } catch (err) { setError(err.message); setPreview(null); setConfirmed(false); } finally { setBusy(false); } }
   async function review(action) { reset(); const request = { action, permanent_league_id: source, cup_id: cupId, source_calendar_id: calendarId, reason }; const result = await stageClient.http.post('/regional-leagues/cups', request); setPreview({ request, report: result }); }
   return <section className="space-y-4 border-y border-border py-5">
     <RegionalWizardSteps steps={['Permanent Cup & trophy', 'Edition & calendar', 'Activation & progress', 'Rewards']} current={step} completed={[]} />
-    <div className="flex flex-wrap gap-3 text-sm">{[[0, 'Prepare Cup'], [2, 'Manage existing edition'], [3, 'Review rewards']].map(([index, title]) => <button type="button" key={index} disabled={busy} className="min-h-11 rounded border border-border px-3 disabled:opacity-40" onClick={() => { reset(); setAssignment(null); setStep(index); }}>{title}</button>)}</div>
+    <div className="flex flex-wrap gap-3 text-sm">{[[0, 'Prepare Cup'], [2, 'Manage existing edition'], [3, 'Review rewards']].map(([index, title]) => <button type="button" key={index} disabled={busy} className="min-h-11 rounded border border-border px-3 disabled:opacity-40" onClick={() => { reset(); setStep(index); }}>{title}</button>)}</div>
     <h4 className="font-heading text-lg">Regional Cups · preparation and progress</h4>
     <p className="max-w-3xl text-sm text-muted-foreground">One permanent Cup per region and platform, with a new draft edition each season. Select an existing catalogue trophy. Participants come from all confirmed groups, provided Cup entry was included in their accepted registration conditions.</p>
     <p className="text-sm text-warning">A draft does not start matches. Review participants and the calendar during preparation before activating the edition. Preparing a Cup does not issue prizes or GOST tickets.</p>
@@ -37,10 +48,12 @@ export default function RegionalCupPanel({ definitions = [], initialCupId = '', 
       <label className="block text-sm">Cup<select className={input} value={cupId} onChange={e => { reset(); setCupId(e.target.value); setAssignment(null); }}><option value="">Choose a Cup</option>{data.definitions.map(d => <option key={d.id} value={d.id}>{d.name} · {d.platform}</option>)}</select></label>
       {step === 0 && <>
       <button type="button" disabled={!cupId} className="min-h-11 font-semibold disabled:opacity-40" onClick={() => run(async () => { const result = await stageClient.http.get(`/regional-leagues/cups/${encodeURIComponent(cupId)}/trophy`); setAssignment(result); setTrophyId(result.trophy?.id || ''); })}>View / change catalogue trophy →</button>
+      {assignmentLoading && <p role="status" className="text-sm">Loading the Cup's linked trophy…</p>}
       {assignment && <div className="space-y-2 border-l border-border pl-3">
+        <p className="text-xs text-muted-foreground">The trophy linked in Trophy Library is selected automatically for new Cup editions. Existing edition snapshots are preserved.</p>
         <label className="block text-sm">Trophy from Trophies<select className={input} value={trophyId} onChange={e => setTrophyId(e.target.value)}><option value="">Not assigned</option>{assignment.items.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
         {assignment.trophy?.image_url && <img src={assignment.trophy.image_url} alt={assignment.trophy.name} className="h-32 object-contain" />}
-        <button type="button" disabled={!reason.trim()} className="min-h-11 font-semibold disabled:opacity-40" onClick={() => run(async () => { setAssignment(await stageClient.http.post(`/regional-leagues/cups/${encodeURIComponent(cupId)}/trophy`, { trophy_item_id: trophyId || null, revision: assignment.revision, reason })); reset(); })}>Save trophy assignment</button>
+        <button type="button" disabled={assignmentLoading || !reason.trim()} className="min-h-11 font-semibold disabled:opacity-40" onClick={() => run(async () => { setAssignment(await stageClient.http.post(`/regional-leagues/cups/${encodeURIComponent(cupId)}/trophy`, { trophy_item_id: trophyId || null, revision: assignment.revision, reason })); reset(); })}>Save trophy assignment</button>
       </div>}
       </>}
       {step === 1 && <label className="block text-sm">Published league calendar<select className={input} value={calendarId} onChange={e => { reset(); setCalendarId(e.target.value); }}><option value="">Choose the source calendar</option>{data.calendars.map(c => <option key={c.id} value={c.id}>{c.start_monday} · {c.edition_ids.length} groups · {c.id}</option>)}</select></label>}

@@ -43,12 +43,11 @@ export default function TrophyCabinetSystem({ ownerId, ownerType, canEdit }) {
   const loadCataloguePage = useCallback(async (offset = 0, append = false) => {
     const rows = await stageClient.entities.TrophyItem.filter({ offset }, 'sort_order', CATALOGUE_PAGE);
     const page = Array.isArray(rows) ? rows : [];
-    const visible = page.filter((item) => !item.admin_only);
     if (active.current !== identity) return page;
     setCatalogue((prev) => {
-      if (!append) return visible;
+      if (!append) return page;
       const seen = new Set(prev.map((item) => item.id));
-      return [...prev, ...visible.filter((item) => !seen.has(item.id))];
+      return [...prev, ...page.filter((item) => !seen.has(item.id))];
     });
     setCatalogueOffset(offset + page.length);
     setHasMoreCatalogue(page.length >= CATALOGUE_PAGE);

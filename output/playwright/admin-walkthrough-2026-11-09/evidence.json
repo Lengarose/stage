@@ -1,0 +1,75 @@
+{
+  "recorded_on": "2026-11-10",
+  "scope": "isolated local synthetic demonstration",
+  "promoted": [
+    "Demo Club 16",
+    "Demo Club 12",
+    "Demo Club 17",
+    "Demo Club 22"
+  ],
+  "relegated": [
+    "Demo Club 23",
+    "Demo Club 20",
+    "Demo Club 37",
+    "Demo Club 34"
+  ],
+  "leagues": [
+    {
+      "id": "2e59a149-52da-4ab4-aa3d-effbac7b5b60",
+      "permanent_league_id": "49b28e69-f82b-4cd2-a4fd-0feafe8ee17b",
+      "season": 2,
+      "division": 2,
+      "group": "A",
+      "trophy": "b6743458-0441-4051-9ec9-16875866d181",
+      "clubs": 20
+    },
+    {
+      "id": "49b28e69-f82b-4cd2-a4fd-0feafe8ee17b",
+      "permanent_league_id": "49b28e69-f82b-4cd2-a4fd-0feafe8ee17b",
+      "season": 1,
+      "division": 2,
+      "group": "A",
+      "trophy": "b6743458-0441-4051-9ec9-16875866d181",
+      "clubs": 20
+    },
+    {
+      "id": "6cfb00f8-f8de-4b06-8328-306d02ebd785",
+      "permanent_league_id": "e560d6ab-1d6c-4ea5-a092-581e0a96af00",
+      "season": 2,
+      "division": 1,
+      "group": "A",
+      "trophy": "78df7aa5-1d8a-4205-91aa-371cfb0f1a2d",
+      "clubs": 20
+    },
+    {
+      "id": "e1466333-804c-4a1e-be1b-de8b2d4b2825",
+      "permanent_league_id": "49b28e69-f82b-4cd2-a4fd-0feafe8ee17b",
+      "season": 2,
+      "division": 2,
+      "group": "B",
+      "trophy": "b6743458-0441-4051-9ec9-16875866d181",
+      "clubs": 20
+    },
+    {
+      "id": "e560d6ab-1d6c-4ea5-a092-581e0a96af00",
+      "permanent_league_id": "e560d6ab-1d6c-4ea5-a092-581e0a96af00",
+      "season": 1,
+      "division": 1,
+      "group": "A",
+      "trophy": "78df7aa5-1d8a-4205-91aa-371cfb0f1a2d",
+      "clubs": 20
+    },
+    {
+      "id": "f1993d7d-c5be-4482-b317-a6c9a1a923c1",
+      "permanent_league_id": "49b28e69-f82b-4cd2-a4fd-0feafe8ee17b",
+      "season": 1,
+      "division": 2,
+      "group": "B",
+      "trophy": "b6743458-0441-4051-9ec9-16875866d181",
+      "clubs": 20
+    }
+  ],
+  "promotion_calendars": [],
+  "statistics_metadata_omission": 6996,
+  "trophy_awards": 20
+}

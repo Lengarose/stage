@@ -12,6 +12,25 @@ export function awardEditionLabel(award) {
   return parts.length ? parts.join(' · ') : awardLabel(award);
 }
 
+export function trophyCategory(entry) {
+  const source = entry.design?.linked_source_type || entry.awards?.[0]?.source_type;
+  if (['competition', 'competition_season'].includes(source)) return 'gost';
+  if (source === 'regional_league') return 'regional_league';
+  if (['regional_cup', 'regional_cup_edition'].includes(source)) return 'regional_cup';
+  return 'other';
+}
+
+export function filterTrophyEntries(entries, { search = '', status = 'all', source = 'all' } = {}) {
+  const needle = search.trim().toLocaleLowerCase();
+  return entries.filter(entry => {
+    if (status === 'available' && !entry.availableCount) return false;
+    if (status === 'earned' && !entry.awards.length) return false;
+    if (source !== 'all' && trophyCategory(entry) !== source) return false;
+    const text = [entry.name, entry.design?.linked_source_name, ...entry.awards.flatMap(award => [awardLabel(award), award.competition_name, award.edition_label])].filter(Boolean).join(' ').toLocaleLowerCase();
+    return !needle || text.includes(needle);
+  });
+}
+
 /**
  * @param {object[]} catalogue TrophyItem rows (designs)
  * @param {object[]} awards Entitlement awards (earned copies)

@@ -1,0 +1,785 @@
+{
+  "provenance": "LOCAL TRAINING: synthetic clubs, simulated time and results via real application actions; no EA matches or real payments",
+  "events": [
+    {
+      "action": "clock",
+      "value": "2027-05-10T12:00:00Z",
+      "at": "2027-05-10T12:00:00.000Z",
+      "result": {
+        "clock": "2027-05-10T12:00:00.000Z"
+      }
+    },
+    {
+      "action": "confirm-all",
+      "value": 2,
+      "at": "2027-05-10T12:00:00.000Z",
+      "result": {
+        "confirmed": 60
+      }
+    },
+    {
+      "action": "tick",
+      "at": "2027-05-10T12:00:00.000Z",
+      "result": {
+        "results": []
+      }
+    },
+    {
+      "action": "play-until",
+      "value": "2027-05-21T00:00:00Z",
+      "at": "2027-05-18T19:00:00.000Z",
+      "result": {
+        "played": 180
+      }
+    },
+    {
+      "action": "clock",
+      "value": "2027-05-21T12:00:00Z",
+      "at": "2027-05-21T12:00:00.000Z",
+      "result": {
+        "clock": "2027-05-21T12:00:00.000Z"
+      }
+    },
+    {
+      "action": "tick",
+      "at": "2027-05-21T12:00:00.000Z",
+      "result": {
+        "results": [
+          {
+            "source_id": "9f21f891-313c-0f1c-75b0-71f095666b42",
+            "status": "waiting_results"
+          }
+        ]
+      }
+    },
+    {
+      "action": "report",
+      "at": "2027-05-21T12:00:00.000Z",
+      "result": {
+        "clock": "2027-05-21T12:00:00.000Z",
+        "database": "stage_acceptance_9be5c03b573c",
+        "clubs": 60,
+        "players": 240,
+        "leagues": [
+          {
+            "id": "49b28e69-f82b-4cd2-a4fd-0feafe8ee17b",
+            "name": "Demo Championship",
+            "slug": "uk-ireland-div-2",
+            "status": "completed",
+            "season": 1,
+            "division": 2,
+            "group": "A",
+            "clubs": 20
+          },
+          {
+            "id": "e560d6ab-1d6c-4ea5-a092-581e0a96af00",
+            "name": "Demo Premier Division",
+            "slug": "uk-ireland-div-1",
+            "status": "completed",
+            "season": 1,
+            "division": 1,
+            "group": "A",
+            "clubs": 20
+          },
+          {
+            "id": "f1993d7d-c5be-4482-b317-a6c9a1a923c1",
+            "name": "Demo Championship",
+            "slug": "uk-ireland-div-2-group-b",
+            "status": "completed",
+            "season": 1,
+            "division": 2,
+            "group": "B",
+            "clubs": 20
+          }
+        ],
+        "windows": [
+          {
+            "id": "9f21f891-313c-0f1c-75b0-71f095666b42",
+            "season": 2,
+            "opens_at": "2027-04-11T22:00:00.000Z",
+            "registration_closes_at": "2027-05-09T22:00:00.000Z",
+            "confirmation_closes_at": "2027-05-16T22:00:00.000Z"
+          },
+          {
+            "id": "a2d25925-0f9f-b58e-cee0-79e9fd55b0fc",
+            "season": 1,
+            "opens_at": "2027-01-18T00:00:00.000Z",
+            "registration_closes_at": "2027-02-15T00:00:00.000Z",
+            "confirmation_closes_at": "2027-02-22T00:00:00.000Z"
+          }
+        ],
+        "cycles": [
+          {
+            "id": "03a7947c-42df-5835-9da4-24158ee0e6e2",
+            "status": "allocated",
+            "mode": "placement",
+            "pending": 0,
+            "groups": [
+              {
+                "id": "e560d6ab-1d6c-4ea5-a092-581e0a96af00",
+                "permanent_league_id": "e560d6ab-1d6c-4ea5-a092-581e0a96af00",
+                "group_code": "A",
+                "division": 1
+              },
+              {
+                "id": "49b28e69-f82b-4cd2-a4fd-0feafe8ee17b",
+                "permanent_league_id": "49b28e69-f82b-4cd2-a4fd-0feafe8ee17b",
+                "group_code": "A",
+                "division": 2
+              },
+              {
+                "id": "f1993d7d-c5be-4482-b317-a6c9a1a923c1",
+                "permanent_league_id": "49b28e69-f82b-4cd2-a4fd-0feafe8ee17b",
+                "group_code": "B",
+                "division": 2
+              }
+            ]
+          },
+          {
+            "id": "ad7a7ba4-7681-a677-831e-8e5b3e211746",
+            "status": "running",
+            "mode": "transition",
+            "pending": 4
+          }
+        ],
+        "cups": [
+          {
+            "id": "8d041800-10b0-2f31-c5ac-2b917c3bff50",
+            "name": "STAGE UK & Ireland Cup",
+            "status": "running",
+            "season": 1
+          }
+        ],
+        "matches": [
+          {
+            "source_fixture_type": "regional_league",
+            "status": "completed",
+            "n": 1140
+          },
+          {
+            "source_fixture_type": "competition_engine",
+            "status": "completed",
+            "n": 206
+          },
+          {
+            "source_fixture_type": "competition_engine",
+            "status": "scheduled",
+            "n": 6
+          }
+        ],
+        "statistics": [
+          {
+            "appearances": 8076,
+            "goals": "2692",
+            "assists": "2692"
+          }
+        ],
+        "payouts": [
+          {
+            "source_type": "regional_league",
+            "entries": 60,
+            "total": "1431000000.00"
+          }
+        ]
+      }
+    },
+    {
+      "action": "play-until",
+      "value": "2027-05-26T00:00:00Z",
+      "at": "2027-05-25T18:20:00.000Z",
+      "result": {
+        "played": 6
+      }
+    },
+    {
+      "action": "report",
+      "at": "2027-05-25T18:20:00.000Z",
+      "result": {
+        "clock": "2027-05-25T18:20:00.000Z",
+        "database": "stage_acceptance_9be5c03b573c",
+        "clubs": 60,
+        "players": 240,
+        "leagues": [
+          {
+            "id": "49b28e69-f82b-4cd2-a4fd-0feafe8ee17b",
+            "name": "Demo Championship",
+            "slug": "uk-ireland-div-2",
+            "status": "completed",
+            "season": 1,
+            "division": 2,
+            "group": "A",
+            "clubs": 20
+          },
+          {
+            "id": "e560d6ab-1d6c-4ea5-a092-581e0a96af00",
+            "name": "Demo Premier Division",
+            "slug": "uk-ireland-div-1",
+            "status": "completed",
+            "season": 1,
+            "division": 1,
+            "group": "A",
+            "clubs": 20
+          },
+          {
+            "id": "f1993d7d-c5be-4482-b317-a6c9a1a923c1",
+            "name": "Demo Championship",
+            "slug": "uk-ireland-div-2-group-b",
+            "status": "completed",
+            "season": 1,
+            "division": 2,
+            "group": "B",
+            "clubs": 20
+          }
+        ],
+        "windows": [
+          {
+            "id": "9f21f891-313c-0f1c-75b0-71f095666b42",
+            "season": 2,
+            "opens_at": "2027-04-11T22:00:00.000Z",
+            "registration_closes_at": "2027-05-09T22:00:00.000Z",
+            "confirmation_closes_at": "2027-05-16T22:00:00.000Z"
+          },
+          {
+            "id": "a2d25925-0f9f-b58e-cee0-79e9fd55b0fc",
+            "season": 1,
+            "opens_at": "2027-01-18T00:00:00.000Z",
+            "registration_closes_at": "2027-02-15T00:00:00.000Z",
+            "confirmation_closes_at": "2027-02-22T00:00:00.000Z"
+          }
+        ],
+        "cycles": [
+          {
+            "id": "03a7947c-42df-5835-9da4-24158ee0e6e2",
+            "status": "allocated",
+            "mode": "placement",
+            "pending": 0,
+            "groups": [
+              {
+                "id": "e560d6ab-1d6c-4ea5-a092-581e0a96af00",
+                "permanent_league_id": "e560d6ab-1d6c-4ea5-a092-581e0a96af00",
+                "group_code": "A",
+                "division": 1
+              },
+              {
+                "id": "49b28e69-f82b-4cd2-a4fd-0feafe8ee17b",
+                "permanent_league_id": "49b28e69-f82b-4cd2-a4fd-0feafe8ee17b",
+                "group_code": "A",
+                "division": 2
+              },
+              {
+                "id": "f1993d7d-c5be-4482-b317-a6c9a1a923c1",
+                "permanent_league_id": "49b28e69-f82b-4cd2-a4fd-0feafe8ee17b",
+                "group_code": "B",
+                "division": 2
+              }
+            ]
+          },
+          {
+            "id": "ad7a7ba4-7681-a677-831e-8e5b3e211746",
+            "status": "running",
+            "mode": "transition",
+            "pending": 2
+          }
+        ],
+        "cups": [
+          {
+            "id": "8d041800-10b0-2f31-c5ac-2b917c3bff50",
+            "name": "STAGE UK & Ireland Cup",
+            "status": "running",
+            "season": 1
+          }
+        ],
+        "matches": [
+          {
+            "source_fixture_type": "regional_league",
+            "status": "completed",
+            "n": 1140
+          },
+          {
+            "source_fixture_type": "competition_engine",
+            "status": "completed",
+            "n": 212
+          },
+          {
+            "source_fixture_type": "competition_engine",
+            "status": "pending_schedule",
+            "n": 2
+          },
+          {
+            "source_fixture_type": "competition_engine",
+            "status": "scheduled",
+            "n": 1
+          }
+        ],
+        "statistics": [
+          {
+            "appearances": 8112,
+            "goals": "2704",
+            "assists": "2704"
+          }
+        ],
+        "payouts": [
+          {
+            "source_type": "regional_league",
+            "entries": 60,
+            "total": "1431000000.00"
+          }
+        ]
+      }
+    },
+    {
+      "action": "clock",
+      "value": "2027-05-26T10:00:00Z",
+      "at": "2027-05-26T10:00:00.000Z",
+      "result": {
+        "clock": "2027-05-26T10:00:00.000Z"
+      }
+    },
+    {
+      "action": "tick",
+      "at": "2027-05-26T10:00:00.000Z",
+      "result": {
+        "results": [
+          {
+            "source_id": "9f21f891-313c-0f1c-75b0-71f095666b42",
+            "status": "waiting_results"
+          }
+        ]
+      }
+    },
+    {
+      "action": "play-until",
+      "value": "2027-06-07T00:00:00Z",
+      "at": "2027-06-06T18:20:00.000Z",
+      "result": {
+        "played": 3
+      }
+    },
+    {
+      "action": "tick",
+      "at": "2027-06-06T18:20:00.000Z",
+      "result": {
+        "results": [
+          {
+            "source_id": "9f21f891-313c-0f1c-75b0-71f095666b42",
+            "status": "completed"
+          }
+        ]
+      }
+    },
+    {
+      "action": "report",
+      "at": "2027-06-06T18:20:00.000Z",
+      "result": {
+        "clock": "2027-06-06T18:20:00.000Z",
+        "database": "stage_acceptance_9be5c03b573c",
+        "clubs": 60,
+        "players": 240,
+        "leagues": [
+          {
+            "id": "2e59a149-52da-4ab4-aa3d-effbac7b5b60",
+            "name": "Demo Championship",
+            "slug": "uk-ireland-div-2-s2",
+            "status": "in_progress",
+            "season": 2,
+            "division": 2,
+            "group": "A",
+            "clubs": 20
+          },
+          {
+            "id": "49b28e69-f82b-4cd2-a4fd-0feafe8ee17b",
+            "name": "Demo Championship",
+            "slug": "uk-ireland-div-2",
+            "status": "completed",
+            "season": 1,
+            "division": 2,
+            "group": "A",
+            "clubs": 20
+          },
+          {
+            "id": "6cfb00f8-f8de-4b06-8328-306d02ebd785",
+            "name": "Demo Premier Division",
+            "slug": "uk-ireland-div-1-s2",
+            "status": "in_progress",
+            "season": 2,
+            "division": 1,
+            "group": "A",
+            "clubs": 20
+          },
+          {
+            "id": "e1466333-804c-4a1e-be1b-de8b2d4b2825",
+            "name": "Demo Championship",
+            "slug": "uk-ireland-div-2-group-b-s2",
+            "status": "in_progress",
+            "season": 2,
+            "division": 2,
+            "group": "B",
+            "clubs": 20
+          },
+          {
+            "id": "e560d6ab-1d6c-4ea5-a092-581e0a96af00",
+            "name": "Demo Premier Division",
+            "slug": "uk-ireland-div-1",
+            "status": "completed",
+            "season": 1,
+            "division": 1,
+            "group": "A",
+            "clubs": 20
+          },
+          {
+            "id": "f1993d7d-c5be-4482-b317-a6c9a1a923c1",
+            "name": "Demo Championship",
+            "slug": "uk-ireland-div-2-group-b",
+            "status": "completed",
+            "season": 1,
+            "division": 2,
+            "group": "B",
+            "clubs": 20
+          }
+        ],
+        "windows": [
+          {
+            "id": "9f21f891-313c-0f1c-75b0-71f095666b42",
+            "season": 2,
+            "opens_at": "2027-04-11T22:00:00.000Z",
+            "registration_closes_at": "2027-05-09T22:00:00.000Z",
+            "confirmation_closes_at": "2027-05-16T22:00:00.000Z"
+          },
+          {
+            "id": "a2d25925-0f9f-b58e-cee0-79e9fd55b0fc",
+            "season": 1,
+            "opens_at": "2027-01-18T00:00:00.000Z",
+            "registration_closes_at": "2027-02-15T00:00:00.000Z",
+            "confirmation_closes_at": "2027-02-22T00:00:00.000Z"
+          },
+          {
+            "id": "fbdf34a4-86b2-731f-cb3b-46d58e867d25",
+            "season": 3,
+            "opens_at": "2027-07-11T22:00:00.000Z",
+            "registration_closes_at": "2027-08-08T22:00:00.000Z",
+            "confirmation_closes_at": "2027-08-15T22:00:00.000Z"
+          }
+        ],
+        "cycles": [
+          {
+            "id": "03a7947c-42df-5835-9da4-24158ee0e6e2",
+            "status": "allocated",
+            "mode": "placement",
+            "pending": 0,
+            "groups": [
+              {
+                "id": "e560d6ab-1d6c-4ea5-a092-581e0a96af00",
+                "permanent_league_id": "e560d6ab-1d6c-4ea5-a092-581e0a96af00",
+                "group_code": "A",
+                "division": 1
+              },
+              {
+                "id": "49b28e69-f82b-4cd2-a4fd-0feafe8ee17b",
+                "permanent_league_id": "49b28e69-f82b-4cd2-a4fd-0feafe8ee17b",
+                "group_code": "A",
+                "division": 2
+              },
+              {
+                "id": "f1993d7d-c5be-4482-b317-a6c9a1a923c1",
+                "permanent_league_id": "49b28e69-f82b-4cd2-a4fd-0feafe8ee17b",
+                "group_code": "B",
+                "division": 2
+              }
+            ]
+          },
+          {
+            "id": "ad7a7ba4-7681-a677-831e-8e5b3e211746",
+            "status": "allocated",
+            "mode": "transition",
+            "pending": 0,
+            "groups": [
+              {
+                "id": "6cfb00f8-f8de-4b06-8328-306d02ebd785",
+                "permanent_league_id": "e560d6ab-1d6c-4ea5-a092-581e0a96af00",
+                "group_code": "A",
+                "division": 1
+              },
+              {
+                "id": "2e59a149-52da-4ab4-aa3d-effbac7b5b60",
+                "permanent_league_id": "49b28e69-f82b-4cd2-a4fd-0feafe8ee17b",
+                "group_code": "A",
+                "division": 2
+              },
+              {
+                "id": "e1466333-804c-4a1e-be1b-de8b2d4b2825",
+                "permanent_league_id": "49b28e69-f82b-4cd2-a4fd-0feafe8ee17b",
+                "group_code": "B",
+                "division": 2
+              }
+            ]
+          }
+        ],
+        "cups": [
+          {
+            "id": "8d041800-10b0-2f31-c5ac-2b917c3bff50",
+            "name": "STAGE UK & Ireland Cup",
+            "status": "completed",
+            "season": 1,
+            "winner": "a61c2f0b-1c53-4377-a8c7-23d0e477217a"
+          },
+          {
+            "id": "f067a19d-08fd-2f28-e844-73c9370ad1d6",
+            "name": "STAGE UK & Ireland Cup",
+            "status": "running",
+            "season": 2
+          }
+        ],
+        "matches": [
+          {
+            "source_fixture_type": "regional_league",
+            "status": "completed",
+            "n": 1140
+          },
+          {
+            "source_fixture_type": "regional_league",
+            "status": "scheduled",
+            "n": 1140
+          },
+          {
+            "source_fixture_type": "competition_engine",
+            "status": "completed",
+            "n": 215
+          },
+          {
+            "source_fixture_type": "competition_engine",
+            "status": "scheduled",
+            "n": 28
+          }
+        ],
+        "statistics": [
+          {
+            "appearances": 8130,
+            "goals": "2710",
+            "assists": "2710"
+          }
+        ],
+        "payouts": [
+          {
+            "source_type": "regional_cup_edition",
+            "entries": 2,
+            "total": "10000000.00"
+          },
+          {
+            "source_type": "regional_league",
+            "entries": 60,
+            "total": "1431000000.00"
+          }
+        ]
+      }
+    },
+    {
+      "action": "play",
+      "value": 1,
+      "at": "2027-06-15T18:20:00.000Z",
+      "result": {
+        "played": 1
+      }
+    }
+  ],
+  "result": {
+    "clock": "2027-06-15T18:20:00.000Z",
+    "database": "stage_acceptance_9be5c03b573c",
+    "clubs": 60,
+    "players": 240,
+    "leagues": [
+      {
+        "id": "2e59a149-52da-4ab4-aa3d-effbac7b5b60",
+        "name": "Demo Championship",
+        "slug": "uk-ireland-div-2-s2",
+        "status": "in_progress",
+        "season": 2,
+        "division": 2,
+        "group": "A",
+        "clubs": 20
+      },
+      {
+        "id": "49b28e69-f82b-4cd2-a4fd-0feafe8ee17b",
+        "name": "Demo Championship",
+        "slug": "uk-ireland-div-2",
+        "status": "completed",
+        "season": 1,
+        "division": 2,
+        "group": "A",
+        "clubs": 20
+      },
+      {
+        "id": "6cfb00f8-f8de-4b06-8328-306d02ebd785",
+        "name": "Demo Premier Division",
+        "slug": "uk-ireland-div-1-s2",
+        "status": "in_progress",
+        "season": 2,
+        "division": 1,
+        "group": "A",
+        "clubs": 20
+      },
+      {
+        "id": "e1466333-804c-4a1e-be1b-de8b2d4b2825",
+        "name": "Demo Championship",
+        "slug": "uk-ireland-div-2-group-b-s2",
+        "status": "in_progress",
+        "season": 2,
+        "division": 2,
+        "group": "B",
+        "clubs": 20
+      },
+      {
+        "id": "e560d6ab-1d6c-4ea5-a092-581e0a96af00",
+        "name": "Demo Premier Division",
+        "slug": "uk-ireland-div-1",
+        "status": "completed",
+        "season": 1,
+        "division": 1,
+        "group": "A",
+        "clubs": 20
+      },
+      {
+        "id": "f1993d7d-c5be-4482-b317-a6c9a1a923c1",
+        "name": "Demo Championship",
+        "slug": "uk-ireland-div-2-group-b",
+        "status": "completed",
+        "season": 1,
+        "division": 2,
+        "group": "B",
+        "clubs": 20
+      }
+    ],
+    "windows": [
+      {
+        "id": "9f21f891-313c-0f1c-75b0-71f095666b42",
+        "season": 2,
+        "opens_at": "2027-04-11T22:00:00.000Z",
+        "registration_closes_at": "2027-05-09T22:00:00.000Z",
+        "confirmation_closes_at": "2027-05-16T22:00:00.000Z"
+      },
+      {
+        "id": "a2d25925-0f9f-b58e-cee0-79e9fd55b0fc",
+        "season": 1,
+        "opens_at": "2027-01-18T00:00:00.000Z",
+        "registration_closes_at": "2027-02-15T00:00:00.000Z",
+        "confirmation_closes_at": "2027-02-22T00:00:00.000Z"
+      },
+      {
+        "id": "fbdf34a4-86b2-731f-cb3b-46d58e867d25",
+        "season": 3,
+        "opens_at": "2027-07-11T22:00:00.000Z",
+        "registration_closes_at": "2027-08-08T22:00:00.000Z",
+        "confirmation_closes_at": "2027-08-15T22:00:00.000Z"
+      }
+    ],
+    "cycles": [
+      {
+        "id": "03a7947c-42df-5835-9da4-24158ee0e6e2",
+        "status": "allocated",
+        "mode": "placement",
+        "pending": 0,
+        "groups": [
+          {
+            "id": "e560d6ab-1d6c-4ea5-a092-581e0a96af00",
+            "permanent_league_id": "e560d6ab-1d6c-4ea5-a092-581e0a96af00",
+            "group_code": "A",
+            "division": 1
+          },
+          {
+            "id": "49b28e69-f82b-4cd2-a4fd-0feafe8ee17b",
+            "permanent_league_id": "49b28e69-f82b-4cd2-a4fd-0feafe8ee17b",
+            "group_code": "A",
+            "division": 2
+          },
+          {
+            "id": "f1993d7d-c5be-4482-b317-a6c9a1a923c1",
+            "permanent_league_id": "49b28e69-f82b-4cd2-a4fd-0feafe8ee17b",
+            "group_code": "B",
+            "division": 2
+          }
+        ]
+      },
+      {
+        "id": "ad7a7ba4-7681-a677-831e-8e5b3e211746",
+        "status": "allocated",
+        "mode": "transition",
+        "pending": 0,
+        "groups": [
+          {
+            "id": "6cfb00f8-f8de-4b06-8328-306d02ebd785",
+            "permanent_league_id": "e560d6ab-1d6c-4ea5-a092-581e0a96af00",
+            "group_code": "A",
+            "division": 1
+          },
+          {
+            "id": "2e59a149-52da-4ab4-aa3d-effbac7b5b60",
+            "permanent_league_id": "49b28e69-f82b-4cd2-a4fd-0feafe8ee17b",
+            "group_code": "A",
+            "division": 2
+          },
+          {
+            "id": "e1466333-804c-4a1e-be1b-de8b2d4b2825",
+            "permanent_league_id": "49b28e69-f82b-4cd2-a4fd-0feafe8ee17b",
+            "group_code": "B",
+            "division": 2
+          }
+        ]
+      }
+    ],
+    "cups": [
+      {
+        "id": "8d041800-10b0-2f31-c5ac-2b917c3bff50",
+        "name": "STAGE UK & Ireland Cup",
+        "status": "completed",
+        "season": 1,
+        "winner": "a61c2f0b-1c53-4377-a8c7-23d0e477217a"
+      },
+      {
+        "id": "f067a19d-08fd-2f28-e844-73c9370ad1d6",
+        "name": "STAGE UK & Ireland Cup",
+        "status": "running",
+        "season": 2
+      }
+    ],
+    "matches": [
+      {
+        "source_fixture_type": "regional_league",
+        "status": "completed",
+        "n": 1141
+      },
+      {
+        "source_fixture_type": "regional_league",
+        "status": "scheduled",
+        "n": 1139
+      },
+      {
+        "source_fixture_type": "competition_engine",
+        "status": "completed",
+        "n": 215
+      },
+      {
+        "source_fixture_type": "competition_engine",
+        "status": "scheduled",
+        "n": 28
+      }
+    ],
+    "statistics": [
+      {
+        "appearances": 8136,
+        "goals": "2712",
+        "assists": "2712"
+      }
+    ],
+    "payouts": [
+      {
+        "source_type": "regional_cup_edition",
+        "entries": 2,
+        "total": "10000000.00"
+      },
+      {
+        "source_type": "regional_league",
+        "entries": 60,
+        "total": "1431000000.00"
+      }
+    ]
+  }
+}

@@ -20,14 +20,14 @@ class TrophyItemModel {
     return EXECUTESQL(sql, params);
   }
 
-  static async getById(id) {
-    const rows = await EXECUTESQL('SELECT * FROM trophy_items WHERE id = ?', [id]);
+  static async getById(id, query = EXECUTESQL, lock = false) {
+    const rows = await query(`SELECT * FROM trophy_items WHERE id = ?${lock ? ' FOR UPDATE' : ''}`, [id]);
     return rows[0] || null;
   }
 
-  static async create(data) {
+  static async create(data, query = EXECUTESQL) {
     const id = uuidv4();
-    await EXECUTESQL(
+    await query(
       `INSERT INTO trophy_items
         (id, name, description, image_url,
          competition_name, tournament_id, tournament_type,
@@ -53,10 +53,10 @@ class TrophyItemModel {
         clipStr(data.linked_source_name, 255) || null,
       ]
     );
-    return this.getById(id);
+    return this.getById(id, query);
   }
 
-  static async update(id, data) {
+  static async update(id, data, query = EXECUTESQL) {
     const fields = [];
     const params = [];
     const updatable = [
@@ -84,10 +84,10 @@ class TrophyItemModel {
         params.push(val);
       }
     }
-    if (!fields.length) return this.getById(id);
+    if (!fields.length) return this.getById(id, query);
     params.push(id);
-    await EXECUTESQL(`UPDATE trophy_items SET ${fields.join(', ')} WHERE id = ?`, params);
-    return this.getById(id);
+    await query(`UPDATE trophy_items SET ${fields.join(', ')} WHERE id = ?`, params);
+    return this.getById(id, query);
   }
 
   static async delete(id) {

@@ -337,7 +337,7 @@ router.post('/', async (req, res) => {
     const record  = created[0];
     if (record?.user_id) {
       await EXECUTESQL(
-        'UPDATE users SET player_id = ?, role_id = 1, updated_date = NOW() WHERE id = ?',
+        'UPDATE users SET player_id = ?, role_id = CASE WHEN role_id IN (0,2) THEN role_id ELSE 1 END, updated_date = NOW() WHERE id = ?',
         [record.id, record.user_id]
       );
     }
@@ -415,7 +415,7 @@ router.patch('/:id', async (req, res) => {
     const record  = updated[0];
     if (record?.user_id) {
       await EXECUTESQL(
-        'UPDATE users SET player_id = COALESCE(player_id, ?), role_id = 1, updated_date = NOW() WHERE id = ?',
+        'UPDATE users SET player_id = COALESCE(player_id, ?), role_id = CASE WHEN role_id IN (0,2) THEN role_id ELSE 1 END, updated_date = NOW() WHERE id = ?',
         [record.id, record.user_id]
       );
     }

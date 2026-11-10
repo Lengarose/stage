@@ -1,0 +1,14 @@
+{
+  "scope": "isolated local HTTP",
+  "passed": [
+    "invalid target rolls back",
+    "non-Admin denied",
+    "create selects Cup default",
+    "replace image updates default artwork",
+    "replacement clears conflicting library link",
+    "unlink clears default",
+    "existing edition snapshots unchanged",
+    "original default restored"
+  ],
+  "cup": "STAGE UK & Ireland Cup"
+}

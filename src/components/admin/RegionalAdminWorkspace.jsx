@@ -87,7 +87,7 @@ export default function RegionalAdminWorkspace({ leagues, definitions, trophyIte
   return <div className="space-y-6">
     <div className="flex flex-wrap items-center justify-between gap-4">
       <div><p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Regional workspace</p><h2 className="mt-1 font-heading text-2xl uppercase">What would you like to do?</h2><p className="mt-1 text-sm text-muted-foreground">Choose a task. We will guide you through preparation, review and confirmation.</p></div>
-      <button type="button" className={`${button} border-primary bg-primary text-primary-foreground hover:bg-primary/90`} onClick={() => openTask('choose')}><Plus className="h-4 w-4" />Start guided task</button>
+      <div className="flex flex-wrap gap-2"><a className={button} href="/guides/regional-leagues/index.html" target="_blank" rel="noopener noreferrer">Admin handbook · EN / FR / NL</a><button type="button" className={`${button} border-primary bg-primary text-primary-foreground hover:bg-primary/90`} onClick={() => openTask('choose')}><Plus className="h-4 w-4" />Start guided task</button></div>
     </div>
     <nav aria-label="Regional workspace" className="flex gap-1 overflow-x-auto border-b border-border">
       {[['overview', 'Overview'], ['competitions', 'Leagues & Cups'], ['management', 'Management']].map(([id, label]) => <button key={id} type="button" aria-current={tab === id ? 'page' : undefined} onClick={() => setTab(id)} className={`min-h-12 whitespace-nowrap border-b-2 px-4 text-sm font-semibold ${tab === id ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>{label}</button>)}

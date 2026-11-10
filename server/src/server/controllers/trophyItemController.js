@@ -23,19 +23,24 @@ router.get('/:id', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const row = await TrophyItemModel.create(req.body);
+    const row = req.body.linked_source_type === 'regional_cup'
+      ? await require('../services/regionalCupLibraryService').save(null, req.body, req.user)
+      : await TrophyItemModel.create(req.body);
     res.status(201).json(row);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(err.status || 500).json({ error: err.message });
   }
 });
 
 router.patch('/:id', async (req, res) => {
   try {
-    const row = await TrophyItemModel.update(req.params.id, req.body);
+    const existing = await TrophyItemModel.getById(req.params.id);
+    const row = req.body.linked_source_type === 'regional_cup' || existing?.linked_source_type === 'regional_cup'
+      ? await require('../services/regionalCupLibraryService').save(req.params.id, req.body, req.user)
+      : await TrophyItemModel.update(req.params.id, req.body);
     res.json(row);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(err.status || 500).json({ error: err.message });
   }
 });
 
