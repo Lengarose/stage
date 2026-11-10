@@ -7,6 +7,7 @@ import {
   MessagesSquare, Globe2, Activity, HelpCircle,
   X, LayoutDashboard, UserCog, Binoculars, Archive, Mail,
 } from "lucide-react";
+import "./navigation/arenaNavigation.css";
 import LogoImg from '@/assets/Stadium Logo.png';
 import { useState, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
@@ -93,10 +94,6 @@ function findActiveInGroups(groups, pathname) {
 }
 
 /* ── constants ─────────────────────────────────────────────── */
-const BADGE_IMAGES = {
-  stage_plus: "https://media.base44.com/images/public/69c51f9745b037f35a61ba4a/e95c37867_generated_image.png",
-};
-
 const SUBSCRIPTION_LABELS = {
   free: "free",
   stage_plus: "stage plus",
@@ -188,7 +185,7 @@ function getTournamentLimitedGroups(t, tournamentId, participantType) {
   ];
 }
 
-function getPresidentGroups(t, clubPath) {
+function getPresidentGroups(t, clubPath, hasPlayer) {
   const homeItems = [
     { path: "/",            icon: Home,            label: t("nav.welcome") },
     { path: "/dashboard", icon: LayoutDashboard, label: t("nav.dashboard") },
@@ -196,6 +193,7 @@ function getPresidentGroups(t, clubPath) {
     { path: "/schedule",    icon: CalendarDays,    label: t("nav.schedule") },
     { path: clubPath || "/clubs", icon: Shield,    label: t("nav.myClub") },
   ];
+  if (hasPlayer) homeItems.splice(2, 0, { path: "/profile", icon: User, label: t("nav.myProfile") });
   return [
     { label: t("nav.home"), items: homeItems },
     {
@@ -678,7 +676,13 @@ function getMobileWalkthrough(pathname) {
   return { ...guide, i18nKey: MOBILE_WALKTHROUGH_KEYS_BY_PATH[guide.path] };
 }
 
-const getEafcDropdownStyle = (isWhiteTheme = false) => ({
+const getEafcDropdownStyle = (isWhiteTheme = false, arena = false) => arena ? {
+  background: isWhiteTheme ? "linear-gradient(145deg, #ffffff, #eef5fc)" : "linear-gradient(145deg, #101c31, #090f1d)",
+  border: isWhiteTheme ? "1px solid #b7cce0" : "1px solid #2d4665",
+  borderTop: isWhiteTheme ? "2px solid #4885b4" : "2px solid #96d6ff",
+  borderRadius: 0,
+  boxShadow: isWhiteTheme ? "0 15px 28px rgba(15,23,42,0.14)" : "0 15px 28px rgba(0,0,0,0.45)",
+} : ({
   background: isWhiteTheme
     ? "linear-gradient(160deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.98) 100%)"
     : "linear-gradient(160deg, #0c1426 0%, #080f1d 100%)",
@@ -690,7 +694,7 @@ const getEafcDropdownStyle = (isWhiteTheme = false) => ({
     : "0 20px 50px rgba(0,0,0,0.8), 0 0 30px rgba(0,229,189,0.05)",
 });
 
-function EafcNavLink({ to, onClick, isActive, icon: Icon, children, isWhiteTheme = false }) {
+function EafcNavLink({ to, onClick, isActive, icon: Icon, children, isWhiteTheme = false, arena = false }) {
   return (
     <DropdownMenuItem asChild className="p-0 focus:bg-transparent">
       <Link
@@ -698,7 +702,7 @@ function EafcNavLink({ to, onClick, isActive, icon: Icon, children, isWhiteTheme
         onClick={onClick}
         className={cn(
           "relative flex cursor-pointer select-none items-center gap-2.5 px-3 py-2.5 outline-none transition-colors",
-          isActive ? "text-[#00E5BD]" : (isWhiteTheme ? "text-slate-900/75 hover:text-slate-900" : "text-white/55 hover:text-white")
+          arena ? (isWhiteTheme ? "text-slate-900/80 hover:text-slate-900" : "text-white/80 hover:text-white") : (isActive ? "text-[#00E5BD]" : (isWhiteTheme ? "text-slate-900/75 hover:text-slate-900" : "text-white/55 hover:text-white"))
         )}
         style={{
           ...headingFont,
@@ -706,18 +710,18 @@ function EafcNavLink({ to, onClick, isActive, icon: Icon, children, isWhiteTheme
           fontWeight: 600,
           letterSpacing: "0.1em",
           textTransform: "uppercase",
-          background: isActive ? "rgba(0,229,189,0.08)" : "transparent",
+          background: isActive ? (arena ? "linear-gradient(90deg, rgba(56,116,164,0.18), transparent)" : "rgba(0,229,189,0.08)") : "transparent",
         }}
       >
-        {isActive && <span className="absolute left-0 top-0 bottom-0 w-[2px]" style={{ background: TEAL }} />}
-        <Icon className={cn("h-4 w-4 shrink-0", isActive ? "text-[#00E5BD]" : (isWhiteTheme ? "text-slate-900/45" : "text-white/30"))} />
+        {isActive && <span className="absolute left-0 top-0 bottom-0 w-[2px]" style={{ background: arena ? (isWhiteTheme ? "#4885b4" : "#96d6ff") : TEAL }} />}
+        <Icon className={cn("h-4 w-4 shrink-0", arena ? (isWhiteTheme ? "text-sky-700" : "text-sky-200") : (isActive ? "text-[#00E5BD]" : (isWhiteTheme ? "text-slate-900/45" : "text-white/30")))} />
         {children}
       </Link>
     </DropdownMenuItem>
   );
 }
 
-function SidebarNavSectionDropdowns({ groups, pathname, onItemClick, variant = "sidebar", isWhiteTheme = false }) {
+function SidebarNavSectionDropdowns({ groups, pathname, onItemClick, variant = "sidebar", isWhiteTheme = false, stableLabels = false, arena = false }) {
   const isHeader = variant === "header";
 
   if (!isHeader) {
@@ -762,31 +766,32 @@ function SidebarNavSectionDropdowns({ groups, pathname, onItemClick, variant = "
     );
   }
 
+  const activeHeaderGroup = arena ? findActiveInGroups(groups, pathname)?.group : null;
   return (
     <nav className="flex flex-row items-stretch gap-px shrink-0 self-stretch">
       {groups.map((group) => {
         const activeItem = findActiveNavItem(group.items, pathname);
-        const anyActive = Boolean(activeItem);
-        const triggerLabel = activeItem?.label ?? group.label;
+        const anyActive = arena ? activeHeaderGroup === group : Boolean(activeItem);
+        const triggerLabel = stableLabels ? group.label : (activeItem?.label ?? group.label);
         return (
           <DropdownMenu key={group.label}>
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                className="shrink-0 flex items-center gap-1 px-3 sm:px-4 outline-none self-stretch"
+                className={cn("shrink-0 flex items-center gap-1 px-3 sm:px-4 outline-none self-stretch", arena && "stage-arena-tab", arena && anyActive && "stage-arena-tab-active")}
                 style={{
                   ...headingFont,
-                  clipPath: "polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%)",
+                  clipPath: arena ? "polygon(10px 0%, 100% 0%, calc(100% - 10px) 100%, 0% 100%)" : "polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%)",
                   transition: "all 0.12s ease",
-                  background: anyActive
+                  background: arena ? undefined : anyActive
                     ? "linear-gradient(135deg, rgba(0,229,189,0.18) 0%, rgba(0,229,189,0.08) 100%)"
                     : "rgba(255,255,255,0.025)",
-                  borderBottom: anyActive ? "2px solid #00E5BD" : "2px solid rgba(255,255,255,0.07)",
-                  boxShadow: anyActive ? "0 0 16px rgba(0,229,189,0.15), inset 0 1px 0 rgba(0,229,189,0.12)" : "none",
+                  borderBottom: arena ? "none" : anyActive ? "2px solid #00E5BD" : "2px solid rgba(255,255,255,0.07)",
+                  boxShadow: arena ? undefined : anyActive ? "0 0 16px rgba(0,229,189,0.15), inset 0 1px 0 rgba(0,229,189,0.12)" : "none",
                 }}
               >
                 <span
-                  className={cn("select-none text-[12px] sm:text-[14px] uppercase", anyActive ? "text-[#00E5BD]" : (isWhiteTheme ? "text-slate-900/65" : "text-white/40"))}
+                  className={cn("select-none text-[12px] sm:text-[14px] uppercase", arena ? (isWhiteTheme ? "text-slate-900/80" : "text-white/80") : (anyActive ? "text-[#00E5BD]" : (isWhiteTheme ? "text-slate-900/65" : "text-white/40")))}
                   style={{ ...headingFont, fontWeight: 600, letterSpacing: "0.14em", transition: "color 0.12s" }}
                 >
                   {triggerLabel}
@@ -799,12 +804,12 @@ function SidebarNavSectionDropdowns({ groups, pathname, onItemClick, variant = "
                     {Number(group.badge) > 99 ? "99+" : group.badge}
                   </span>
                 ) : null}
-                <ChevronDown className={cn("shrink-0 h-3 w-3", anyActive ? "text-[#00E5BD]" : (isWhiteTheme ? "text-slate-900/45" : "text-white/25"))} />
+                <ChevronDown className={cn("shrink-0 h-3 w-3", arena ? (isWhiteTheme ? "text-slate-900/45" : "text-white/45") : (anyActive ? "text-[#00E5BD]" : (isWhiteTheme ? "text-slate-900/45" : "text-white/25")))} />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent side="bottom" align="start" sideOffset={0} className={cn("z-[70] min-w-[12.5rem] p-1 shadow-2xl", isWhiteTheme ? "text-slate-900" : "text-white")} style={getEafcDropdownStyle(isWhiteTheme)}>
+            <DropdownMenuContent side="bottom" align="start" sideOffset={0} className={cn("z-[70] min-w-[12.5rem] p-1 shadow-2xl", arena && "stage-arena-menu", arena && isWhiteTheme && "stage-arena-menu-light", isWhiteTheme ? "text-slate-900" : "text-white")} style={getEafcDropdownStyle(isWhiteTheme, arena)}>
               {group.items.map((item) => (
-                <EafcNavLink key={item.path} to={item.path} onClick={onItemClick} isActive={isNavItemActive(item.path, pathname)} icon={item.icon} isWhiteTheme={isWhiteTheme}>
+                <EafcNavLink key={item.path} to={item.path} onClick={onItemClick} isActive={isNavItemActive(item.path, pathname)} icon={item.icon} isWhiteTheme={isWhiteTheme} arena={arena}>
                   <span className="flex w-full items-center justify-between gap-2">
                     <span>{item.label}</span>
                     {Number(item.badge ?? group.badge) > 0 ? (
@@ -823,24 +828,36 @@ function SidebarNavSectionDropdowns({ groups, pathname, onItemClick, variant = "
   );
 }
 
-/* Header: identity (player gamertag or club name) opens menu with Player/President + settings + logout */
+// Both desktop and mobile identity menus deliberately contain only logout.
+// Profile/club navigation belongs in Home, regardless of account role.
+function StagePlusMark({ isWhiteTheme = false }) {
+  return <img src="/stage-plus-mark.png" alt="STAGE Plus" className="h-[18px] w-[46px] shrink-0 object-contain" style={isWhiteTheme ? { filter: "invert(1)" } : undefined} />;
+}
+
+function IdentityLogoutItem() {
+  return (
+    <DropdownMenuItem
+      className="cursor-pointer gap-2 px-2 py-2.5 text-red-400 focus:bg-red-500/15 focus:text-red-300"
+      style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
+      onClick={() => stageClient.auth.logout()}
+    >
+      <LogOut className="h-4 w-4 shrink-0" />
+      Logout
+    </DropdownMenuItem>
+  );
+}
+
 function HeaderIdentityMenu({
   myPlayer,
   myClub,
   myClubId,
-  playerClubId,
-  accountIntent,
   accountMode,
-  switchMode,
   subscriptionTier,
   userCredits = null,
   isWhiteTheme = false,
 }) {
-  const { t } = useTranslation();
   const canUseClubIdentity = Boolean(myClubId && myClub);
   const showAsPresident = accountMode === "club" && canUseClubIdentity;
-  const canSwitchRole = accountIntent === "both" && Boolean(myPlayer && myClubId);
-  const clubMenuId = showAsPresident ? myClubId : (playerClubId || myClubId);
 
   if (!myPlayer && !canUseClubIdentity) return null;
 
@@ -848,7 +865,7 @@ function HeaderIdentityMenu({
   const avatarRing = {
     width: avatarPx,
     height: avatarPx,
-    outline: "1.5px solid rgba(0,229,189,0.4)",
+    outline: "1.5px solid rgba(150,214,255,0.45)",
     outlineOffset: 1,
     borderRadius: "9999px",
   };
@@ -899,12 +916,11 @@ function HeaderIdentityMenu({
               {showAsPresident && myClub ? (
                 <span style={subLabelStyle}>{myClub.tag ? `[${myClub.tag}]` : "President"}</span>
               ) : (
-                <>
-                  {BADGE_IMAGES[subscriptionTier] && myPlayer && (
-                    <img src={BADGE_IMAGES[subscriptionTier]} alt={subscriptionTier} className="h-3.5 w-3.5 shrink-0 rounded-full object-cover" />
-                  )}
+                subscriptionTier === "stage_plus" && myPlayer ? (
+                  <StagePlusMark isWhiteTheme={isWhiteTheme} />
+                ) : (
                   <span style={subLabelStyle}>{myPlayer ? (SUBSCRIPTION_LABELS[subscriptionTier] || subscriptionTier) : "Club"}</span>
-                </>
+                )
               )}
               {userCredits != null ? (
                 <span style={{ ...subLabelStyle, color: "rgba(255,184,0,0.95)" }}>
@@ -916,74 +932,8 @@ function HeaderIdentityMenu({
           <ChevronDown className={cn("h-3.5 w-3.5 shrink-0", isWhiteTheme ? "text-slate-900/55" : "text-white/40")} />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" sideOffset={6} className={cn("z-[80] w-56 p-1", isWhiteTheme ? "text-slate-900" : "text-white")} style={getEafcDropdownStyle(isWhiteTheme)}>
-        {canSwitchRole && (
-          <>
-            <DropdownMenuLabel className="px-2 py-1.5 text-[11px] uppercase tracking-[0.22em]" style={{ ...headingFont, fontWeight: 600, color: "rgba(0,229,189,0.5)" }}>
-              {t("commonPages.accountProfilesLabel")}
-            </DropdownMenuLabel>
-            <DropdownMenuRadioGroup value={accountMode} onValueChange={switchMode}>
-              <DropdownMenuRadioItem
-                value="player"
-                className={cn("cursor-pointer gap-2 py-2.5 focus:bg-blue-600/20", isWhiteTheme ? "text-slate-900/80 focus:text-slate-900" : "text-white/80 focus:text-white")}
-                style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
-              >
-                <User className="h-4 w-4 shrink-0 text-blue-400" /> {t("commonPages.playerProfileMenu")}
-              </DropdownMenuRadioItem>
-              <DropdownMenuRadioItem
-                value="club"
-                className={cn("cursor-pointer gap-2 py-2.5 focus:bg-amber-500/20", isWhiteTheme ? "text-slate-900/80 focus:text-slate-900" : "text-white/80 focus:text-white")}
-                style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
-              >
-                <Crown className="h-4 w-4 shrink-0 text-amber-400" /> {t("commonPages.presMyClubMenu")}
-              </DropdownMenuRadioItem>
-            </DropdownMenuRadioGroup>
-            <DropdownMenuSeparator className="my-0.5" style={{ background: "rgba(0,229,189,0.1)" }} />
-          </>
-        )}
-        {myPlayer ? (
-          <DropdownMenuItem asChild className={cn("cursor-pointer", isWhiteTheme ? "focus:bg-slate-900/10" : "focus:bg-white/10")}>
-            <Link
-              to="/profile"
-              className={cn("flex items-center gap-2 px-2 py-2.5", isWhiteTheme ? "text-slate-900/80" : "text-white/80")}
-              style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
-            >
-              <User className="h-4 w-4 shrink-0 text-blue-400" />
-              {t("commonPages.playerProfileMenu")}
-            </Link>
-          </DropdownMenuItem>
-        ) : null}
-        {clubMenuId ? (
-          <DropdownMenuItem asChild className={cn("cursor-pointer", isWhiteTheme ? "focus:bg-slate-900/10" : "focus:bg-white/10")}>
-            <Link
-              to={`/clubs/${clubMenuId}`}
-              className={cn("flex items-center gap-2 px-2 py-2.5", isWhiteTheme ? "text-slate-900/80" : "text-white/80")}
-              style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
-            >
-              <Shield className="h-4 w-4 shrink-0 text-amber-400" />
-              {t("commonPages.presMyClubMenu")}
-            </Link>
-          </DropdownMenuItem>
-        ) : null}
-        <DropdownMenuItem asChild className={cn("cursor-pointer", isWhiteTheme ? "focus:bg-slate-900/10" : "focus:bg-white/10")}>
-          <Link
-            to="/settings"
-            className={cn("flex items-center gap-2 px-2 py-2.5", isWhiteTheme ? "text-slate-900/80" : "text-white/80")}
-            style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
-          >
-            <Settings className="h-4 w-4 shrink-0 text-[#00E5BD]" />
-            Settings
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator className="my-0.5" style={{ background: "rgba(0,229,189,0.1)" }} />
-        <DropdownMenuItem
-          className="cursor-pointer gap-2 px-2 py-2.5 text-red-400 focus:bg-red-500/15 focus:text-red-300"
-          style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
-          onClick={() => stageClient.auth.logout()}
-        >
-          <LogOut className="h-4 w-4 shrink-0" />
-          Logout
-        </DropdownMenuItem>
+      <DropdownMenuContent align="start" sideOffset={6} className={cn("stage-arena-menu z-[80] w-56 p-1", isWhiteTheme && "stage-arena-menu-light", isWhiteTheme ? "text-slate-900" : "text-white")} style={getEafcDropdownStyle(isWhiteTheme, true)}>
+        <IdentityLogoutItem />
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -1688,7 +1638,7 @@ function AdminMobileBottomBar({ pathname }) {
   );
 }
 
-function MobileTopBar({ myPlayer, myClub, presidentClub, accountIntent, accountMode, switchMode, theme, setTheme, pathname, isAdmin }) {
+function MobileTopBar({ myPlayer, myClub, presidentClub, accountMode, theme, setTheme, pathname, isAdmin }) {
   const navigate = useNavigate();
   const takeoverId = typeof window !== "undefined" ? localStorage.getItem("admin_takeover_club_id") : null;
   const showAdminTakeoverExit = isAdmin && takeoverId && pathname && !pathname.startsWith("/admin");
@@ -1706,9 +1656,7 @@ function MobileTopBar({ myPlayer, myClub, presidentClub, accountIntent, accountM
         myPlayer={myPlayer}
         myClub={myClub}
         presidentClub={presidentClub}
-        accountIntent={accountIntent}
         accountMode={accountMode}
-        switchMode={switchMode}
       />
 
       <div className="flex items-center gap-1 shrink-0">
@@ -1803,9 +1751,7 @@ function MobileThemeButton({ theme, setTheme }) {
   );
 }
 
-function MobileHeaderIdentity({ myPlayer, myClub, presidentClub, accountIntent, accountMode, switchMode }) {
-  const { t } = useTranslation();
-  const canSwitchRole = accountIntent === "both" && Boolean(myPlayer && presidentClub?.id);
+function MobileHeaderIdentity({ myPlayer, myClub, presidentClub, accountMode }) {
   const showAsPresident = accountMode === "club" && Boolean(presidentClub?.id);
   const displayClub = showAsPresident ? presidentClub : myClub;
   const clubLogoFallback =
@@ -1859,17 +1805,6 @@ function MobileHeaderIdentity({ myPlayer, myClub, presidentClub, accountIntent, 
     </div>
   );
 
-  if (!canSwitchRole) {
-    const identityHref = showAsPresident
-      ? (presidentClub?.id ? `/clubs/${presidentClub.id}` : "/profile")
-      : "/profile";
-    return (
-      <Link to={identityHref} className="min-w-0 flex-1 outline-none">
-        {identityButton}
-      </Link>
-    );
-  }
-
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -1883,72 +1818,7 @@ function MobileHeaderIdentity({ myPlayer, myClub, presidentClub, accountIntent, 
         className="z-[90] w-52 p-1 text-white"
         style={getEafcDropdownStyle(false)}
       >
-        <DropdownMenuLabel
-          className="px-2 py-1.5 text-[11px] uppercase tracking-[0.22em]"
-          style={{ ...headingFont, fontWeight: 600, color: "rgba(0,229,189,0.5)" }}
-        >
-          {t("commonPages.accountProfilesLabel")}
-        </DropdownMenuLabel>
-        <DropdownMenuRadioGroup value={accountMode} onValueChange={switchMode}>
-          <DropdownMenuRadioItem
-            value="player"
-            className="cursor-pointer gap-2 py-2.5 text-white/80 focus:bg-blue-600/20 focus:text-white"
-            style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
-          >
-            <User className="h-4 w-4 shrink-0 text-blue-400" /> {t("commonPages.playerProfileMenu")}
-          </DropdownMenuRadioItem>
-          <DropdownMenuRadioItem
-            value="club"
-            className="cursor-pointer gap-2 py-2.5 text-white/80 focus:bg-amber-500/20 focus:text-white"
-            style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
-          >
-            <Crown className="h-4 w-4 shrink-0 text-amber-400" /> {t("commonPages.presMyClubMenu")}
-          </DropdownMenuRadioItem>
-        </DropdownMenuRadioGroup>
-        <DropdownMenuSeparator className="my-0.5" style={{ background: "rgba(0,229,189,0.1)" }} />
-        {myPlayer ? (
-          <DropdownMenuItem asChild className="cursor-pointer focus:bg-white/10">
-            <Link
-              to="/profile"
-              className="flex items-center gap-2 px-2 py-2.5 text-white/80"
-              style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
-            >
-              <User className="h-4 w-4 shrink-0 text-blue-400" />
-              {t("commonPages.playerProfileMenu")}
-            </Link>
-          </DropdownMenuItem>
-        ) : null}
-        {presidentClub?.id ? (
-          <DropdownMenuItem asChild className="cursor-pointer focus:bg-white/10">
-            <Link
-              to={`/clubs/${presidentClub.id}`}
-              className="flex items-center gap-2 px-2 py-2.5 text-white/80"
-              style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
-            >
-              <Shield className="h-4 w-4 shrink-0 text-amber-400" />
-              {t("commonPages.presMyClubMenu")}
-            </Link>
-          </DropdownMenuItem>
-        ) : null}
-        <DropdownMenuItem asChild className="cursor-pointer focus:bg-white/10">
-          <Link
-            to="/settings"
-            className="flex items-center gap-2 px-2 py-2.5 text-white/80"
-            style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
-          >
-            <Settings className="h-4 w-4 shrink-0 text-[#00E5BD]" />
-            Settings
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator className="my-0.5" style={{ background: "rgba(0,229,189,0.1)" }} />
-        <DropdownMenuItem
-          className="cursor-pointer gap-2 px-2 py-2.5 text-red-400 focus:bg-red-500/15 focus:text-red-300"
-          style={{ ...headingFont, fontSize: 13, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
-          onClick={() => stageClient.auth.logout()}
-        >
-          <LogOut className="h-4 w-4 shrink-0" />
-          Logout
-        </DropdownMenuItem>
+        <IdentityLogoutItem />
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -2259,7 +2129,7 @@ export default function Layout() {
   const tournamentLimitedGroups = getTournamentLimitedGroups(t, limitedTournamentId, tournamentParticipantType);
   const playerGroups = filterTransferWindowNavGroups(getPlayerGroups(t, clubPath), transferWindowOpen);
   const presidentGroups = filterTransferWindowNavGroups(
-    getPresidentGroups(t, clubPath),
+    getPresidentGroups(t, clubPath, Boolean(myPlayer)),
     transferWindowOpen
   );
   const adminGroups = getAdminGroups(t);
@@ -2464,9 +2334,7 @@ export default function Layout() {
           myPlayer={myPlayer}
           myClub={mobileClubIdentity}
           presidentClub={myClub}
-          accountIntent={accountIntent}
           accountMode={effectiveAccountMode}
-          switchMode={switchMode}
           theme={theme}
           setTheme={setTheme}
           pathname={location.pathname}
@@ -2476,7 +2344,7 @@ export default function Layout() {
 
       {/* ── EAFC26 HEADER (desktop only) ──────────────────────── */}
       <header
-        className="relative z-50 shrink-0 overflow-visible hidden md:block"
+        className={cn("relative z-50 shrink-0 overflow-visible hidden md:block", !showAdminHeader && "stage-arena-header", !showAdminHeader && isWhiteTheme && "stage-arena-header-light")}
         style={{
           background: isWhiteTheme
             ? "linear-gradient(180deg, rgba(255,255,255,0.88) 0%, rgba(255,255,255,0.74) 100%)"
@@ -2484,8 +2352,8 @@ export default function Layout() {
           boxShadow: isWhiteTheme ? "0 4px 24px rgba(15,23,42,0.15)" : "0 4px 24px rgba(0,0,0,0.55)",
         }}
       >
-        <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ background: "linear-gradient(90deg, transparent 0%, #00E5BD 15%, #00E5BD 85%, transparent 100%)", opacity: isWhiteTheme ? 0.45 : 0.65 }} />
-        <div className="absolute bottom-0 left-0 right-0 h-[2px]" style={{ background: "linear-gradient(90deg, transparent 0%, #00E5BD 15%, #00E5BD 85%, transparent 100%)", opacity: isWhiteTheme ? 0.45 : 0.65 }} />
+        <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ background: showAdminHeader ? "linear-gradient(90deg, transparent 0%, #00E5BD 15%, #00E5BD 85%, transparent 100%)" : "linear-gradient(90deg, transparent, #96d6ff, #ffffff, #96d6ff, transparent)", opacity: isWhiteTheme ? 0.45 : 0.65 }} />
+        <div className="absolute bottom-0 left-0 right-0 h-[2px]" style={{ background: showAdminHeader ? "linear-gradient(90deg, transparent 0%, #00E5BD 15%, #00E5BD 85%, transparent 100%)" : "linear-gradient(90deg, transparent, #96d6ff, #ffffff, #96d6ff, transparent)", opacity: isWhiteTheme ? 0.45 : 0.65 }} />
 
         <div className="flex min-h-[3.75rem] h-16 items-stretch">
 
@@ -2501,10 +2369,7 @@ export default function Layout() {
                   myPlayer={myPlayer}
                   myClub={myClub}
                   myClubId={myPresidentClubId}
-                  playerClubId={myPlayerClub?.id || null}
-                  accountIntent={accountIntent}
                   accountMode={effectiveAccountMode}
-                  switchMode={switchMode}
                   subscriptionTier={subscriptionTier}
                   userCredits={authUser?.credits ?? authContextUser?.credits ?? null}
                   isWhiteTheme={isWhiteTheme}
@@ -2530,6 +2395,8 @@ export default function Layout() {
               <SidebarNavSectionDropdowns
                 variant="header"
                 groups={headerNavGroups}
+                stableLabels
+                arena
                 pathname={location.pathname}
                 isWhiteTheme={isWhiteTheme}
               />

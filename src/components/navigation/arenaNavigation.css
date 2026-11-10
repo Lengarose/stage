@@ -1,0 +1,55 @@
+/* Arena affects the public desktop header and its portalled dropdowns only. */
+.stage-arena-tab {
+  margin-block: 6px;
+  background: rgba(255, 255, 255, 0.025);
+  transition: background 120ms ease, box-shadow 120ms ease;
+}
+.stage-arena-tab-active,
+.stage-arena-tab:hover,
+.stage-arena-tab[data-state="open"] {
+  background: linear-gradient(130deg, rgba(53, 104, 154, 0.34), rgba(24, 49, 78, 0.2));
+  box-shadow: inset 2px 0 #b0defb;
+}
+.stage-arena-tab-active > span,
+.stage-arena-tab:hover > span,
+.stage-arena-tab[data-state="open"] > span {
+  color: #fff;
+  text-shadow: 0 0 16px rgba(150, 214, 255, 0.55);
+}
+.stage-arena-tab:focus-visible {
+  box-shadow: inset 0 0 0 2px #b0defb;
+}
+.stage-arena-menu {
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%);
+}
+.stage-arena-menu [role="menuitem"] {
+  border-radius: 0;
+}
+.stage-arena-menu a:hover,
+.stage-arena-menu a:focus {
+  background: rgba(150, 214, 255, 0.08) !important;
+  color: #fff;
+}
+.stage-arena-header-light .stage-arena-tab-active,
+.stage-arena-header-light .stage-arena-tab:hover,
+.stage-arena-header-light .stage-arena-tab[data-state="open"] {
+  background: linear-gradient(130deg, rgba(72, 133, 180, 0.17), rgba(72, 133, 180, 0.04));
+  box-shadow: inset 2px 0 #4885b4;
+}
+.stage-arena-header-light .stage-arena-tab-active > span,
+.stage-arena-header-light .stage-arena-tab:hover > span,
+.stage-arena-header-light .stage-arena-tab[data-state="open"] > span,
+.stage-arena-menu-light a:hover,
+.stage-arena-menu-light a:focus {
+  color: #0f172a;
+  text-shadow: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .stage-arena-tab { transition: none; }
+}
+/* Portalled menu labels need the same game font as the header, including spans. */
+.stage-arena-menu [role="menuitem"],
+.stage-arena-menu [role="menuitem"] span {
+  font-family: var(--font-heading) !important;
+}
+.stage-arena-menu [role="menuitem"] { min-height: 44px; }
