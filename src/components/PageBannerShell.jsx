@@ -22,7 +22,7 @@ export default function PageBannerShell({
   return (
     <div
       className={cn(
-        "flex h-full min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain",
+        "flex h-full min-h-0 flex-1 flex-col overflow-x-clip overflow-y-auto",
         className
       )}
     >

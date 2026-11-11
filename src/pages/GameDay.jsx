@@ -454,7 +454,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
   );
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain bg-[#07070b] text-white">
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-x-clip overflow-y-auto bg-[#07070b] text-white">
       {/* Banner scrolls away first */}
       <section className="relative h-[180px] w-full shrink-0 overflow-hidden border-b border-[#d8dee8]/30 bg-[#07070b] sm:h-[230px] xl:h-[260px]">
         <div

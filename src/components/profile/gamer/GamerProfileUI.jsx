@@ -52,7 +52,9 @@ export function GamerProfileShell({ children, className, scrollMode = "shell" })
         "relative flex flex-col bg-[#060912] text-white",
         scrollMode === "page"
           ? "min-h-full"
-          : cn("h-full min-h-0 flex-1 overflow-x-hidden", hasStickyBanner ? "overflow-hidden" : "overflow-y-auto overscroll-y-contain"),
+          : hasStickyBanner
+            ? "h-full min-h-0 flex-1 overflow-x-clip overflow-y-clip"
+            : "h-full min-h-0 flex-1 overflow-x-clip overflow-y-auto",
         className
       )}
     >

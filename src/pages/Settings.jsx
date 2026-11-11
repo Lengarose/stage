@@ -201,7 +201,10 @@ export default function Settings() {
   const [backgroundImage, setBackgroundImage] = useState(null);
   const [loading, setLoading] = useState(false);
   const [user, setUser] = useState(null);
-  const [theme, setTheme] = useState(() => localStorage.getItem("stage-theme") || "theme-dark");
+  const [theme, setTheme] = useState(() => {
+    const stored = localStorage.getItem("stage-theme");
+    return ["theme-dark", "theme-video", "theme-custom"].includes(stored) ? stored : "theme-dark";
+  });
   const [customPrimaryColor, setCustomPrimaryColor] = useState("#00d4ff");
   const [customGradientColor, setCustomGradientColor] = useState("#0099ff");
   const [customBackgroundColor, setCustomBackgroundColor] = useState("#220e0e");
@@ -230,8 +233,11 @@ export default function Settings() {
     async function loadUser() {
       const u = await stageClient.auth.me();
       setUser(u);
-      const currentTheme = localStorage.getItem("stage-theme");
-      setTheme(currentTheme || "theme-dark");
+      const storedTheme = localStorage.getItem("stage-theme");
+      const currentTheme = ["theme-dark", "theme-video", "theme-custom"].includes(storedTheme)
+        ? storedTheme
+        : "theme-dark";
+      setTheme(currentTheme);
       if (u.language) setLocalLanguage(u.language);
       setTimezone(u.timezone || DEFAULT_TIMEZONE);
       if (u.primaryColor) setPrimaryColor(u.primaryColor);
@@ -513,7 +519,7 @@ export default function Settings() {
   }
 
   return (
-    <GamerProfileShell>
+    <GamerProfileShell scrollMode="page">
       <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
         <header className="space-y-1">
           <p className="text-[10px] font-black uppercase tracking-[0.32em] text-cyan-400">STAGE</p>
@@ -735,9 +741,7 @@ export default function Settings() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="theme-dark">{t("settingsPage.stgThemeDark")}</SelectItem>
-              <SelectItem value="theme-light">{t("settingsPage.stgThemeDay")}</SelectItem>
               <SelectItem value="theme-video">{t("settingsPage.stgThemeLiveDark")}</SelectItem>
-              <SelectItem value="theme-white">{t("settingsPage.stgThemeLiveWhite")}</SelectItem>
               <SelectItem value="theme-custom">{t("settingsPage.stgThemeCustom")}</SelectItem>
             </SelectContent>
           </Select>

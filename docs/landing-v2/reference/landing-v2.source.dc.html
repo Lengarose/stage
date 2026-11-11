@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<script src="./image-slot.js"></script>
+<style>body{margin:0;background:#06091a;color:#fff;font-family:'Chakra Petch',system-ui,sans-serif}a{color:#5cc8ff;text-decoration:none}a:hover{color:#fff}</style>
+</helmet>
+<div style="background:#06091a;color:#fff;overflow:hidden">
+
+<header data-screen-label="Nav" style="display:flex;align-items:center;justify-content:space-between;gap:24px;padding:20px clamp(20px,5vw,72px);border-bottom:1px solid rgba(255,255,255,.07)">
+  <a href="#top" style="flex-shrink:0;display:flex;align-items:center;gap:12px;color:#fff">
+    <img src="assets/logo-white.png" alt="Stage" style="height:30px">
+    <span style="font:400 22px Anton,sans-serif;letter-spacing:.08em;font-style:italic">STAGE</span>
+  </a>
+  <nav style="display:flex;flex-wrap:wrap;justify-content:center;white-space:nowrap;gap:8px clamp(12px,1.8vw,32px);font:600 13px 'Chakra Petch',sans-serif;letter-spacing:.1em;text-transform:uppercase">
+    <a href="#gost" style="color:#aab3c8" style-hover="color:#fff">GOST</a>
+    <a href="#compete" style="color:#aab3c8" style-hover="color:#fff">Compete</a>
+    <a href="#manage" style="color:#aab3c8" style-hover="color:#fff">Manage</a>
+    <a href="#grow" style="color:#aab3c8" style-hover="color:#fff">Grow</a>
+    <a href="#features" style="color:#aab3c8" style-hover="color:#fff">Features</a>
+    <a href="#how" style="color:#aab3c8" style-hover="color:#fff">How it works</a>
+  </nav>
+  <a href="#join" style="flex-shrink:0;white-space:nowrap;background:#2563eb;color:#fff;font:700 13px 'Chakra Petch',sans-serif;letter-spacing:.12em;padding:12px 22px;clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px)" style-hover="background:#3b76f6">SIGN IN</a>
+</header>
+
+<section id="top" data-screen-label="Hero" onMouseEnter="{{ pause }}" onMouseLeave="{{ resume }}" style="position:relative;display:flex;flex-direction:column;justify-content:center;box-sizing:border-box;aspect-ratio:16/9;overflow:hidden;padding:clamp(16px,4vw,72px) clamp(20px,5vw,72px) clamp(56px,6vw,96px);background:#06091a">
+  <div data-screen-label="Hero carousel" style="position:absolute;inset:0;display:flex;transition:transform .7s cubic-bezier(.2,.7,.2,1);transform:translateX({{ shift }})">
+    <img src="assets/gamers.png" alt="Two gamers reacting to a Supreme League final" style="flex:0 0 100%;width:100%;height:100%;object-fit:cover">
+    <img src="assets/dribble.png" alt="Player dribbling past three defenders" style="flex:0 0 100%;width:100%;height:100%;object-fit:cover">
+    <img src="assets/penalty.png" alt="Penalty kick in a dark stadium" style="flex:0 0 100%;width:100%;height:100%;object-fit:cover">
+    <img src="assets/team.png" alt="Team lined up arm in arm before kick-off" style="flex:0 0 100%;width:100%;height:100%;object-fit:cover">
+    <img src="assets/moments-1.png" alt="Matchday moments on Stage" style="flex:0 0 100%;width:100%;height:100%;object-fit:cover">
+    <img src="assets/moments-2.png" alt="More matchday moments on Stage" style="flex:0 0 100%;width:100%;height:100%;object-fit:cover">
+  </div>
+  <div style="position:absolute;inset:0;background:linear-gradient(90deg,#06091a 0%,rgba(6,9,26,.92) 28%,rgba(6,9,26,.55) 52%,rgba(6,9,26,0) 78%);pointer-events:none"></div>
+  <div style="position:relative;max-width:640px">
+
+    <div style="font:700 12px 'JetBrains Mono',monospace;letter-spacing:.32em;color:#4d8dff;margin-bottom:clamp(8px,1.6vw,24px)">THE COMPETITIVE VIRTUAL FOOTBALL PLATFORM</div>
+    <h1 style="margin:0;font:400 clamp(36px,9vw,160px)/.88 Anton,sans-serif;letter-spacing:-.01em;text-transform:uppercase">Your<br><span style="font-style:italic;color:#00d4ff;text-shadow:0 0 48px rgba(0,212,255,.45)">Stage</span><br>Awaits</h1>
+    <p style="margin:clamp(12px,2vw,32px) 0 clamp(14px,2.2vw,36px);max-width:520px;font:400 clamp(13px,1.35vw,19px)/1.55 'Chakra Petch',sans-serif;color:#aab3c8;text-wrap:pretty">Leagues, competitions, clubs, contracts, and a community — everything the serious player needs, all in one place.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:14px">
+      <a href="#join" style="background:#2563eb;color:#fff;font:700 14px 'Chakra Petch',sans-serif;letter-spacing:.14em;padding:clamp(10px,1.25vw,18px) clamp(16px,2vw,30px);clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px);box-shadow:0 10px 40px rgba(37,99,235,.45)" style-hover="background:#3b76f6">GET STARTED — IT'S FREE</a>
+      <a href="#join" style="color:#fff;font:700 14px 'Chakra Petch',sans-serif;letter-spacing:.14em;padding:clamp(10px,1.25vw,18px) clamp(16px,2vw,30px);clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px);background:rgba(255,255,255,.1)" style-hover="background:rgba(255,255,255,.2)">SIGN IN</a>
+    </div>
+  
+  </div>
+  <div style="position:absolute;left:clamp(20px,5vw,72px);right:clamp(20px,5vw,72px);bottom:clamp(12px,1.8vw,28px);display:flex;align-items:center;gap:8px">
+    <sc-for list="{{ dots }}" as="d" hint-placeholder-count="6"><button aria-label="{{ d.label }}" onClick="{{ d.go }}" style="flex:1;max-width:56px;height:16px;border:0;padding:6px 0;cursor:pointer;background-color:{{ d.bg }};background-clip:content-box"></button></sc-for>
+    <span style="margin-left:16px;font:500 11px 'JetBrains Mono',monospace;letter-spacing:.2em;color:#fff">{{ counter }}</span>
+    <div style="margin-left:auto;display:flex;gap:8px"><button aria-label="Previous image" onClick="{{ prev }}" style="width:44px;height:44px;border:0;padding:0;cursor:pointer;background:rgba(6,9,26,.7);color:#fff;font:400 22px Anton,sans-serif" style-hover="background:#2563eb">&#8249;</button><button aria-label="Next image" onClick="{{ next }}" style="width:44px;height:44px;border:0;padding:0;cursor:pointer;background:rgba(6,9,26,.7);color:#fff;font:400 22px Anton,sans-serif" style-hover="background:#2563eb">&#8250;</button></div>
+  </div>
+</section>
+
+<sc-if value="{{ showStats }}" hint-placeholder-val="{{ true }}">
+<section data-screen-label="Stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));border-top:1px solid rgba(255,255,255,.08);border-bottom:1px solid rgba(255,255,255,.08);background:#080d22">
+  <div style="padding:36px clamp(20px,5vw,72px);border-right:1px solid rgba(255,255,255,.08)"><div style="font:400 clamp(34px,4.6vw,56px)/1 Anton,sans-serif;white-space:nowrap">2 000+</div><div style="margin-top:10px;font:500 11px 'JetBrains Mono',monospace;letter-spacing:.2em;color:#7f8aa3">ACTIVE PLAYERS</div></div>
+  <div style="padding:36px clamp(20px,3vw,48px);border-right:1px solid rgba(255,255,255,.08)"><div style="font:400 clamp(34px,4.6vw,56px)/1 Anton,sans-serif;white-space:nowrap">200+</div><div style="margin-top:10px;font:500 11px 'JetBrains Mono',monospace;letter-spacing:.2em;color:#7f8aa3">CLUBS</div></div>
+  <div style="padding:36px clamp(20px,3vw,48px);border-right:1px solid rgba(255,255,255,.08)"><div style="font:400 clamp(34px,4.6vw,56px)/1 Anton,sans-serif;white-space:nowrap">500+</div><div style="margin-top:10px;font:500 11px 'JetBrains Mono',monospace;letter-spacing:.2em;color:#7f8aa3">COMPETITIONS PLAYED</div></div>
+  <div style="padding:36px clamp(20px,3vw,48px)"><div style="font:400 clamp(34px,4.6vw,56px)/1 Anton,sans-serif;white-space:nowrap;color:#00d4ff">10 000+</div><div style="margin-top:10px;font:500 11px 'JetBrains Mono',monospace;letter-spacing:.2em;color:#7f8aa3">MATCHES RECORDED</div></div>
+</section>
+</sc-if>
+
+<section id="gost" data-screen-label="GOST" style="padding:clamp(64px,8vw,120px) clamp(20px,5vw,72px) 0">
+  <div style="display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:24px 64px;margin-bottom:40px">
+    <div style="flex:1 1 380px;min-width:0">
+      <div style="font:700 12px 'JetBrains Mono',monospace;letter-spacing:.32em;color:#00d4ff;margin-bottom:18px">GLOBAL OFFICIAL STAGE TOURNAMENTS</div>
+      <h2 style="margin:0;font:400 clamp(64px,10vw,160px)/.88 Anton,sans-serif;font-style:italic;text-transform:uppercase">GOST</h2>
+    </div>
+    <p style="flex:0 1 480px;min-width:0;margin:0;font:400 18px/1.6 'Chakra Petch',sans-serif;color:#aab3c8;text-wrap:pretty">GOST is the official STAGE competition. Clubs play across three tiers: Supreme League, Elite League and Challenger League.</p>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px">
+    <div style="padding:1px;background:#00d4ff;clip-path:polygon(16px 0,100% 0,100% calc(100% - 16px),calc(100% - 16px) 100%,0 100%,0 16px)"><div style="height:100%;box-sizing:border-box;padding:28px 28px 32px;background:#0a1130;clip-path:polygon(16px 0,100% 0,100% calc(100% - 16px),calc(100% - 16px) 100%,0 100%,0 16px)">
+      <div style="display:flex;align-items:center;gap:10px;font:700 12px 'JetBrains Mono',monospace;letter-spacing:.3em;color:#00d4ff"><span style="width:8px;height:8px;border-radius:50%;background:#00d4ff;box-shadow:0 0 12px #00d4ff"></span>TIER I</div>
+      <div style="margin-top:14px;font:400 clamp(30px,3.2vw,44px)/1 Anton,sans-serif;text-transform:uppercase">Supreme League</div>
+    </div></div>
+    <div style="padding:1px;background:#facc15;clip-path:polygon(16px 0,100% 0,100% calc(100% - 16px),calc(100% - 16px) 100%,0 100%,0 16px)"><div style="height:100%;box-sizing:border-box;padding:28px 28px 32px;background:#0a1130;clip-path:polygon(16px 0,100% 0,100% calc(100% - 16px),calc(100% - 16px) 100%,0 100%,0 16px)">
+      <div style="display:flex;align-items:center;gap:10px;font:700 12px 'JetBrains Mono',monospace;letter-spacing:.3em;color:#facc15"><span style="width:8px;height:8px;border-radius:50%;background:#facc15;box-shadow:0 0 12px #facc15"></span>TIER II</div>
+      <div style="margin-top:14px;font:400 clamp(30px,3.2vw,44px)/1 Anton,sans-serif;text-transform:uppercase">Elite League</div>
+    </div></div>
+    <div style="padding:1px;background:#22c55e;clip-path:polygon(16px 0,100% 0,100% calc(100% - 16px),calc(100% - 16px) 100%,0 100%,0 16px)"><div style="height:100%;box-sizing:border-box;padding:28px 28px 32px;background:#0a1130;clip-path:polygon(16px 0,100% 0,100% calc(100% - 16px),calc(100% - 16px) 100%,0 100%,0 16px)">
+      <div style="display:flex;align-items:center;gap:10px;font:700 12px 'JetBrains Mono',monospace;letter-spacing:.3em;color:#22c55e"><span style="width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 12px #22c55e"></span>TIER III</div>
+      <div style="margin-top:14px;font:400 clamp(30px,3.2vw,44px)/1 Anton,sans-serif;text-transform:uppercase">Challenger League</div>
+    </div></div>
+  </div>
+</section>
+
+<section id="leagues" data-screen-label="Regional leagues" style="padding:clamp(40px,5vw,72px) clamp(20px,5vw,72px) 0">
+  <div style="padding:1px;background:rgba(77,141,255,.55);clip-path:polygon(28px 0,100% 0,100% calc(100% - 28px),calc(100% - 28px) 100%,0 100%,0 28px)"><div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:28px 64px;padding:clamp(28px,4vw,56px);background:#080d22;clip-path:polygon(28px 0,100% 0,100% calc(100% - 28px),calc(100% - 28px) 100%,0 100%,0 28px)">
+    <div style="flex:1 1 340px;min-width:0">
+      <div style="font:700 12px 'JetBrains Mono',monospace;letter-spacing:.32em;color:#4d8dff;margin-bottom:18px">PLAY IN YOUR REGION</div>
+      <h2 style="margin:0;font:400 clamp(44px,6vw,88px)/.92 Anton,sans-serif;text-transform:uppercase">Regional leagues</h2>
+    </div>
+    <div style="flex:0 1 460px;min-width:0">
+      <p style="margin:0 0 24px;font:400 18px/1.6 'Chakra Petch',sans-serif;color:#aab3c8;text-wrap:pretty">Enter a regional league, schedule your matches on GameDay, and chase the title every season.</p>
+      <a href="https://stageleagues.com/leagues" style="display:inline-block;white-space:nowrap;background:#2563eb;color:#fff;font:700 14px 'Chakra Petch',sans-serif;letter-spacing:.14em;padding:16px 28px;clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px)" style-hover="background:#3b76f6;color:#fff">VIEW REGIONAL LEAGUES</a>
+    </div>
+  </div></div>
+</section>
+
+<section id="compete" data-screen-label="Compete" style="display:flex;flex-wrap:wrap;align-items:center;gap:clamp(32px,5vw,80px);padding:clamp(64px,8vw,120px) clamp(20px,5vw,72px) 0">
+  <sc-if value="{{ showTrophies }}" hint-placeholder-val="{{ true }}"><img src="assets/triumph.png" alt="FC Longue Vie lifting the Supreme League trophy" style="flex:1.2 1 420px;min-width:0;width:100%;aspect-ratio:16/9;object-fit:cover;clip-path:polygon(28px 0,100% 0,100% calc(100% - 28px),calc(100% - 28px) 100%,0 100%,0 28px)"></sc-if>
+  <div style="flex:1 1 380px;min-width:0">
+    <div style="display:flex;align-items:center;gap:14px;font:700 12px 'JetBrains Mono',monospace;letter-spacing:.3em;color:#f59e0b"><span style="font:400 15px Anton,sans-serif;letter-spacing:.08em">01</span><span style="width:36px;height:1px;background:#f59e0b"></span>COMPETE</div>
+    <h2 style="margin:20px 0 22px;font:400 clamp(40px,5vw,72px)/.95 Anton,sans-serif;text-transform:uppercase">Structured leagues &amp; competitions</h2>
+    <p style="margin:0;max-width:560px;font:400 18px/1.6 'Chakra Petch',sans-serif;color:#aab3c8;text-wrap:pretty">STAGE runs official regional leagues and knockout competitions throughout the year. Register your club, play your fixtures on GameDay, and climb the table. Seasons end with trophies, prize pools, and promotion — building a history your club can be proud of.</p>
+  </div>
+</section>
+
+<section id="manage" data-screen-label="Manage" style="display:flex;flex-wrap:wrap-reverse;align-items:center;gap:clamp(32px,5vw,80px);padding:clamp(64px,8vw,120px) clamp(20px,5vw,72px) 0">
+  <div style="flex:1 1 380px;min-width:0">
+    <div style="display:flex;align-items:center;gap:14px;font:700 12px 'JetBrains Mono',monospace;letter-spacing:.3em;color:#4d8dff"><span style="font:400 15px Anton,sans-serif;letter-spacing:.08em">02</span><span style="width:36px;height:1px;background:#4d8dff"></span>MANAGE</div>
+    <h2 style="margin:20px 0 22px;font:400 clamp(40px,5vw,72px)/.95 Anton,sans-serif;text-transform:uppercase">Your club, your rules</h2>
+    <p style="margin:0;max-width:560px;font:400 18px/1.6 'Chakra Petch',sans-serif;color:#aab3c8;text-wrap:pretty">Every great club starts with a vision. Set your formation, manage your transfer and wage budget in STC, sign players to proper contracts, and watch your squad grow. Upgrade your stadium capacity, fill your trophy cabinet, and lead your club to the top of the rankings.</p>
+  </div>
+  <sc-if value="{{ showCoach }}" hint-placeholder-val="{{ true }}"><img src="assets/coach.png" alt="Club manager planning a match" style="flex:1.2 1 420px;min-width:0;width:100%;aspect-ratio:16/10;object-fit:cover;clip-path:polygon(28px 0,100% 0,100% calc(100% - 28px),calc(100% - 28px) 100%,0 100%,0 28px)"></sc-if>
+</section>
+
+<section id="grow" data-screen-label="Grow" style="display:flex;flex-wrap:wrap;align-items:center;gap:clamp(32px,5vw,80px);padding:clamp(64px,8vw,120px) clamp(20px,5vw,72px)">
+  <sc-if value="{{ showSigning }}" hint-placeholder-val="{{ true }}"><img src="assets/player.png" alt="Player looking up in a floodlit stadium" style="flex:1.2 1 420px;min-width:0;width:100%;aspect-ratio:16/9;object-fit:cover;clip-path:polygon(28px 0,100% 0,100% calc(100% - 28px),calc(100% - 28px) 100%,0 100%,0 28px)"></sc-if>
+  <div style="flex:1 1 380px;min-width:0">
+    <div style="display:flex;align-items:center;gap:14px;font:700 12px 'JetBrains Mono',monospace;letter-spacing:.3em;color:#10b981"><span style="font:400 15px Anton,sans-serif;letter-spacing:.08em">03</span><span style="width:36px;height:1px;background:#10b981"></span>GROW</div>
+    <h2 style="margin:20px 0 22px;font:400 clamp(40px,5vw,72px)/.95 Anton,sans-serif;text-transform:uppercase">Build a career worth watching</h2>
+    <p style="margin:0;max-width:560px;font:400 18px/1.6 'Chakra Petch',sans-serif;color:#aab3c8;text-wrap:pretty">Create a player profile, get scouted, and sign for a club that fits your ambitions.</p>
+    <div style="margin-top:32px;max-width:440px;padding:1px;background:rgba(16,185,129,.6);clip-path:polygon(16px 0,100% 0,100% calc(100% - 16px),calc(100% - 16px) 100%,0 100%,0 16px)"><div style="padding:22px 24px;background:#0a1130;clip-path:polygon(16px 0,100% 0,100% calc(100% - 16px),calc(100% - 16px) 100%,0 100%,0 16px);font:500 12px 'JetBrains Mono',monospace;letter-spacing:.12em">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;color:#10b981"><span>CONTRACT OFFER</span><span style="color:#f59e0b">NEW</span></div>
+      <div style="margin:14px 0 16px;font:400 30px/1 Anton,sans-serif;letter-spacing:.01em;text-transform:uppercase;color:#fff">F.C. Longue Vie</div>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:14px 0;border-top:1px solid rgba(255,255,255,.12);border-bottom:1px solid rgba(255,255,255,.12)">
+        <div><div style="color:#7f8aa3">WAGE</div><div style="margin-top:6px;font-size:15px;color:#fff">12K STC</div></div>
+        <div><div style="color:#7f8aa3">LENGTH</div><div style="margin-top:6px;font-size:15px;color:#fff">2 SEASONS</div></div>
+        <div><div style="color:#7f8aa3">ROLE</div><div style="margin-top:6px;font-size:15px;color:#fff">STRIKER</div></div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:16px">
+        <a href="#join" style="background:#10b981;color:#04130d;font:700 12px 'JetBrains Mono',monospace;letter-spacing:.14em;padding:11px 18px" style-hover="background:#34d399;color:#04130d">ACCEPT</a>
+        <a href="#join" style="background:rgba(255,255,255,.1);color:#fff;font:700 12px 'JetBrains Mono',monospace;letter-spacing:.14em;padding:11px 18px" style-hover="background:rgba(255,255,255,.2)">NEGOTIATE</a>
+      </div>
+    </div></div>
+  </div>
+</section>
+
+<section id="features" data-screen-label="Features" style="padding:clamp(64px,8vw,112px) clamp(20px,5vw,72px);background:#080d22;border-top:1px solid rgba(255,255,255,.08)">
+  <div style="display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:24px;margin-bottom:48px">
+    <h2 style="margin:0;font:400 clamp(48px,7vw,104px)/.9 Anton,sans-serif;text-transform:uppercase">One platform.<br><span style="color:#00d4ff">Every feature.</span></h2>
+    <div style="font:700 12px 'JetBrains Mono',monospace;letter-spacing:.32em;color:#4d8dff">EVERYTHING YOU NEED</div>
+  </div>
+  <img src="assets/platform.png" alt="The Stage platform on desktop and mobile" style="display:block;width:100%;aspect-ratio:16/9;object-fit:cover;margin-bottom:32px;clip-path:polygon(28px 0,100% 0,100% calc(100% - 28px),calc(100% - 28px) 100%,0 100%,0 28px)">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:1px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.1)">
+    <div style="background:#080d22;padding:36px 32px 40px" style-hover="background:#0c1330"><div style="width:28px;height:4px;background:#f59e0b;margin-bottom:24px"></div><h3 style="margin:0 0 12px;font:400 26px Anton,sans-serif;letter-spacing:.02em;text-transform:uppercase">Competitions &amp; leagues</h3><p style="margin:0;font:400 16px/1.6 'Chakra Petch',sans-serif;color:#aab3c8">Enter structured regional leagues and knockout competitions. Every season has standings, match days, and a champion crowned at the final whistle.</p></div>
+    <div style="background:#080d22;padding:36px 32px 40px" style-hover="background:#0c1330"><div style="width:28px;height:4px;background:#2563eb;margin-bottom:24px"></div><h3 style="margin:0 0 12px;font:400 26px Anton,sans-serif;letter-spacing:.02em;text-transform:uppercase">Club management</h3><p style="margin:0;font:400 16px/1.6 'Chakra Petch',sans-serif;color:#aab3c8">Found your club, set your formation, manage your wage budget, upgrade your stadium, and build a legacy across multiple seasons.</p></div>
+    <div style="background:#080d22;padding:36px 32px 40px" style-hover="background:#0c1330"><div style="width:28px;height:4px;background:#10b981;margin-bottom:24px"></div><h3 style="margin:0 0 12px;font:400 26px Anton,sans-serif;letter-spacing:.02em;text-transform:uppercase">GameDay</h3><p style="margin:0;font:400 16px/1.6 'Chakra Petch',sans-serif;color:#aab3c8">Schedule matches, submit scores, and track every result in real time. Your club's form, streaks, and standings update instantly.</p></div>
+    <div style="background:#080d22;padding:36px 32px 40px" style-hover="background:#0c1330"><div style="width:28px;height:4px;background:#8b5cf6;margin-bottom:24px"></div><h3 style="margin:0 0 12px;font:400 26px Anton,sans-serif;letter-spacing:.02em;text-transform:uppercase">Player contracts</h3><p style="margin:0;font:400 16px/1.6 'Chakra Petch',sans-serif;color:#aab3c8">Sign to a club on a formal contract with wages, bonuses, and release clauses — just like the real game.</p></div>
+    <div style="background:#080d22;padding:36px 32px 40px" style-hover="background:#0c1330"><div style="width:28px;height:4px;background:#ef4444;margin-bottom:24px"></div><h3 style="margin:0 0 12px;font:400 26px Anton,sans-serif;letter-spacing:.02em;text-transform:uppercase">Transfer market</h3><p style="margin:0;font:400 16px/1.6 'Chakra Petch',sans-serif;color:#aab3c8">Buy and sell players during transfer windows. Negotiate fees, wages, and bonuses with clubs across the platform.</p></div>
+    <div style="background:#080d22;padding:36px 32px 40px" style-hover="background:#0c1330"><div style="width:28px;height:4px;background:#ec4899;margin-bottom:24px"></div><h3 style="margin:0 0 12px;font:400 26px Anton,sans-serif;letter-spacing:.02em;text-transform:uppercase">Rankings &amp; live stats</h3><p style="margin:0;font:400 16px/1.6 'Chakra Petch',sans-serif;color:#aab3c8">Goals, assists, ratings, clean sheets — every stat tracked. See where you rank against every player on the platform.</p></div>
+  </div>
+</section>
+
+<section id="how" data-screen-label="How it works" style="padding:clamp(64px,8vw,112px) clamp(20px,5vw,72px)">
+  <div style="font:700 12px 'JetBrains Mono',monospace;letter-spacing:.32em;color:#4d8dff;margin-bottom:18px">GET STARTED IN MINUTES</div>
+  <h2 style="margin:0 0 56px;font:400 clamp(48px,7vw,104px)/.9 Anton,sans-serif;text-transform:uppercase">How it works</h2>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:40px">
+    <div style="border-top:2px solid #2563eb;padding-top:24px"><div style="font:400 96px/1 Anton,sans-serif;font-style:italic;color:transparent;-webkit-text-stroke:1.5px #4d8dff;text-shadow:0 0 24px rgba(77,141,255,.5)">01</div><h3 style="margin:20px 0 12px;font:400 28px/1.1 Anton,sans-serif;text-transform:uppercase"><span style="display:block;margin-bottom:8px;font:500 11px 'JetBrains Mono',monospace;letter-spacing:.14em;color:#4d8dff">LEVEL 01</span>Create your profile</h3><p style="margin:0;font:400 16px/1.6 'Chakra Petch',sans-serif;color:#aab3c8">Sign up, pick your position and platform, upload your photo, and build your player identity in minutes.</p></div>
+    <div style="border-top:2px solid #2563eb;padding-top:24px"><div style="font:400 96px/1 Anton,sans-serif;font-style:italic;color:transparent;-webkit-text-stroke:1.5px #4d8dff;text-shadow:0 0 24px rgba(77,141,255,.5)">02</div><h3 style="margin:20px 0 12px;font:400 28px/1.1 Anton,sans-serif;text-transform:uppercase"><span style="display:block;margin-bottom:8px;font:500 11px 'JetBrains Mono',monospace;letter-spacing:.14em;color:#4d8dff">LEVEL 02</span>Found a club or wait for a contract</h3><p style="margin:0;font:400 16px/1.6 'Chakra Petch',sans-serif;color:#aab3c8">Create your own club and recruit, or stay a free agent until a club offers you a contract.</p></div>
+    <div style="border-top:2px solid #00d4ff;padding-top:24px"><div style="font:400 96px/1 Anton,sans-serif;font-style:italic;color:#00d4ff;text-shadow:0 0 28px rgba(0,212,255,.6)">03</div><h3 style="margin:20px 0 12px;font:400 28px/1.1 Anton,sans-serif;text-transform:uppercase"><span style="display:block;margin-bottom:8px;font:500 11px 'JetBrains Mono',monospace;letter-spacing:.14em;color:#4d8dff">LEVEL 03</span>Register &amp; compete</h3><p style="margin:0;font:400 16px/1.6 'Chakra Petch',sans-serif;color:#aab3c8">Enter a regional league or competition, schedule your matches on GameDay, and chase the title every season.</p></div>
+  </div>
+</section>
+
+<section id="join" data-screen-label="CTA" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:40px;padding:clamp(64px,8vw,120px) clamp(20px,5vw,72px);background:radial-gradient(ellipse 80% 120% at 80% 50%,#0f3a8a 0%,#0a1a44 55%,#06091a 100%);border-top:1px solid rgba(255,255,255,.08)">
+  <div style="flex:1 1 440px;min-width:0">
+    <div style="font:700 12px 'JetBrains Mono',monospace;letter-spacing:.32em;color:#5cc8ff;margin-bottom:18px">JOIN THE COMMUNITY</div>
+    <h2 style="margin:0;font:400 clamp(64px,10vw,160px)/.88 Anton,sans-serif;text-transform:uppercase">Ready to <span style="font-style:italic;color:#00d4ff">compete</span></h2>
+  </div>
+  <div style="flex:0 1 420px;min-width:0">
+    <p style="margin:0 0 28px;font:400 19px/1.55 'Chakra Petch',sans-serif;color:#c5cde0;text-wrap:pretty">Thousands of players and clubs are already active. Sign up free and find your competition.</p>
+    <a href="#top" style="display:inline-block;background:#2563eb;color:#fff;font:700 15px 'Chakra Petch',sans-serif;letter-spacing:.14em;padding:20px 36px;clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px);box-shadow:0 10px 40px rgba(37,99,235,.5)" style-hover="background:#3b76f6">START PLAYING NOW</a>
+  </div>
+</section>
+
+<footer style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;padding:28px clamp(20px,5vw,72px);border-top:1px solid rgba(255,255,255,.08);font:500 13px 'Chakra Petch',sans-serif;color:#7f8aa3">
+  <div style="display:flex;align-items:center;gap:10px"><img src="assets/logo-white.png" alt="" style="height:22px"><span>Stage League</span></div>
+  <span>The competitive virtual football platform</span>
+</footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showStats&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;},&quot;autoplay&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  state = { i: 0 };
+  n = 6;
+  componentDidMount() { this.timer = setInterval(() => { if (!this.paused && (this.props.autoplay ?? true)) this.go(this.state.i + 1); }, 4500); }
+  componentWillUnmount() { clearInterval(this.timer); }
+  go(i) { this.setState({ i: (i + this.n) % this.n }); }
+  renderVals() {
+    const i = this.state.i;
+    return {
+      showStats: this.props.showStats ?? true, showTrophies: true, showCoach: true, showSigning: true,
+      shift: (-i * 100) + '%',
+      counter: String(i + 1).padStart(2, '0') + ' / ' + String(this.n).padStart(2, '0'),
+      dots: Array.from({ length: this.n }, (_, k) => ({ bg: k === i ? '#00d4ff' : 'rgba(255,255,255,.2)', label: 'Image ' + (k + 1), go: () => this.go(k) })),
+      prev: () => this.go(i - 1), next: () => this.go(i + 1),
+      pause: () => { this.paused = true; }, resume: () => { this.paused = false; }
+    };
+  }
+}
+</script>
+</body>
+</html>

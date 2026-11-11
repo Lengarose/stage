@@ -82,7 +82,7 @@
   border-radius: 0;
   background: transparent;
   color: #a8b9d1;
-  clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
+  clip-path: none;
 }
 .mobile-arena-tab > span:last-child {
   font-family: var(--font-heading) !important;

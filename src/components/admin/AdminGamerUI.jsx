@@ -144,7 +144,7 @@ export default function AdminGamerLayout({
   const backTo = sectionKey ? "/admin" : "/";
 
   return (
-    <GamerProfileShell>
+    <GamerProfileShell scrollMode="page">
       <div className="admin-gamer-theme px-4 py-6 lg:px-8 lg:py-8">
         <div className={cn("mx-auto space-y-6", minimalChrome ? "max-w-[1400px]" : "max-w-6xl")}>
           {!minimalChrome && (

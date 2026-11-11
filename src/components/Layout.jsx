@@ -3,7 +3,7 @@ import {
   Home, Shield, Trophy, BarChart3, User, ArrowLeftRight,
   Search, Rss, ShoppingBag, Video, UsersRound, Handshake, Crown,
   Palette, ChevronDown, Newspaper, ShieldAlert, Settings,
-  Inbox, CalendarDays, Zap, Coins, Sun, Moon, LogOut, Star, Bell,
+  Inbox, CalendarDays, Zap, Coins, Moon, LogOut, Star, Bell,
   MessagesSquare, Globe2, Activity, HelpCircle,
   X, LayoutDashboard, UserCog, Binoculars, Archive, Mail, Menu, Compass,
 } from "lucide-react";
@@ -101,12 +101,15 @@ const SUBSCRIPTION_LABELS = {
 };
 
 const THEMES = [
-  { id: "theme-dark",   label: "Dark",       icon: Moon },
-  { id: "theme-light",  label: "Day",        icon: Sun  },
-  { id: "theme-video",  label: "Live Dark",  icon: Video },
-  { id: "theme-white",  label: "Live White", icon: Sun  },
-  { id: "theme-custom", label: "Custom",     icon: Palette },
+  { id: "theme-dark",   label: "Dark",      icon: Moon },
+  { id: "theme-video",  label: "Live Dark", icon: Video },
+  { id: "theme-custom", label: "Custom",    icon: Palette },
 ];
+
+function readStoredTheme() {
+  const saved = localStorage.getItem("stage-theme");
+  return THEMES.some((item) => item.id === saved) ? saved : "theme-dark";
+}
 
 function getPlayerGroups(t, clubPath) {
   const homeItems = [
@@ -782,7 +785,6 @@ function SidebarNavSectionDropdowns({ groups, pathname, onItemClick, variant = "
                 className={cn("shrink-0 flex items-center gap-1 px-3 sm:px-4 outline-none self-stretch", arena && "stage-arena-tab", arena && anyActive && "stage-arena-tab-active")}
                 style={{
                   ...headingFont,
-                  clipPath: arena ? "polygon(10px 0%, 100% 0%, calc(100% - 10px) 100%, 0% 100%)" : "polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%)",
                   transition: "all 0.12s ease",
                   background: arena ? undefined : anyActive
                     ? "linear-gradient(135deg, rgba(0,229,189,0.18) 0%, rgba(0,229,189,0.08) 100%)"
@@ -2029,7 +2031,7 @@ export default function Layout() {
   const [subscriptionTier, setSubscriptionTier] = useState("free");
   const [accountMode,      setAccountMode]      = useState(() => localStorage.getItem("stage-account-mode") || "player");
   const [accountIntent,    setAccountIntent]    = useState("player");
-  const [theme,            setTheme]            = useState(() => localStorage.getItem("stage-theme") || "theme-dark");
+  const [theme,            setTheme]            = useState(readStoredTheme);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showClubModal,    setShowClubModal]    = useState(false);
   const [notifCount,       setNotifCount]       = useState(0);
@@ -2282,25 +2284,75 @@ export default function Layout() {
   }, []);
 
   useEffect(() => {
-    const onWheel = (event) => {
-      if (event.defaultPrevented) return;
-      if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
-      const start = event.target instanceof Element ? event.target : null;
-      const trap = start?.closest(".overflow-x-auto");
-      if (!trap || trap.scrollHeight > trap.clientHeight + 1) return;
-      let parent = trap.parentElement;
-      while (parent) {
-        const overflowY = getComputedStyle(parent).overflowY;
-        if ((overflowY === "auto" || overflowY === "scroll") && parent.scrollHeight > parent.clientHeight + 1) {
-          parent.scrollTop += event.deltaY;
-          event.preventDefault();
-          return;
+    const gestureTarget = (target) => (target instanceof Element ? target : null);
+
+    const mostlyHorizontal = (deltaX, deltaY) => Math.abs(deltaX) > Math.abs(deltaY) * 1.25;
+
+    // A card or shell that cannot scroll still sits under the finger and swallows
+    // the gesture. The nearest real scroller (page column, banner, dialog) should move.
+    const trappedScroller = (start) => {
+      let blocked = false;
+      let scroller = null;
+      let node = start;
+      while (node && node !== document.documentElement) {
+        const overflowY = getComputedStyle(node).overflowY;
+        const canScroll = (overflowY === "auto" || overflowY === "scroll") && node.scrollHeight > node.clientHeight + 1;
+        if (canScroll) {
+          scroller = node;
+          break;
         }
-        parent = parent.parentElement;
+        if (overflowY === "hidden" || overflowY === "auto" || overflowY === "scroll") blocked = true;
+        node = node.parentElement;
       }
+      return blocked ? scroller : null;
     };
+
+    const scrollBy = (scroller, deltaY) => {
+      const before = scroller.scrollTop;
+      const max = scroller.scrollHeight - scroller.clientHeight;
+      scroller.scrollTop = Math.max(0, Math.min(max, before + deltaY));
+      return scroller.scrollTop !== before;
+    };
+
+    const onWheel = (event) => {
+      if (event.defaultPrevented || mostlyHorizontal(event.deltaX, event.deltaY)) return;
+      const start = gestureTarget(event.target);
+      if (!start) return;
+      const scroller = trappedScroller(start);
+      if (scroller && scrollBy(scroller, event.deltaY)) event.preventDefault();
+    };
+
+    let lastTouchY = null;
+    const onTouchStart = (event) => {
+      lastTouchY = event.touches[0]?.clientY ?? null;
+    };
+    const onTouchMove = (event) => {
+      if (event.defaultPrevented || lastTouchY == null || !event.touches[0]) return;
+      const y = event.touches[0].clientY;
+      const deltaY = lastTouchY - y;
+      lastTouchY = y;
+      if (Math.abs(deltaY) < 0.5) return;
+      const start = gestureTarget(event.target);
+      if (!start) return;
+      const scroller = trappedScroller(start);
+      if (scroller && scrollBy(scroller, deltaY)) event.preventDefault();
+    };
+    const onTouchEnd = () => {
+      lastTouchY = null;
+    };
+
     document.addEventListener("wheel", onWheel, { passive: false, capture: true });
-    return () => document.removeEventListener("wheel", onWheel, { capture: true });
+    document.addEventListener("touchstart", onTouchStart, { passive: true, capture: true });
+    document.addEventListener("touchmove", onTouchMove, { passive: false, capture: true });
+    document.addEventListener("touchend", onTouchEnd, { capture: true });
+    document.addEventListener("touchcancel", onTouchEnd, { capture: true });
+    return () => {
+      document.removeEventListener("wheel", onWheel, { capture: true });
+      document.removeEventListener("touchstart", onTouchStart, { capture: true });
+      document.removeEventListener("touchmove", onTouchMove, { capture: true });
+      document.removeEventListener("touchend", onTouchEnd, { capture: true });
+      document.removeEventListener("touchcancel", onTouchEnd, { capture: true });
+    };
   }, []);
 
   return (
@@ -2576,7 +2628,7 @@ export default function Layout() {
       <div className={cn("relative flex flex-1 overflow-hidden", isVideoTheme && "z-[1]")}>
         <main
           className={cn(
-            "relative z-[1] flex-1 overflow-x-hidden",
+            "relative z-[1] flex-1 overflow-x-clip",
             isBannerStickyFullBleedRoute(location.pathname)
               || isScheduleFullBleedRoute(location.pathname)
               || isNewsFullBleedRoute(location.pathname)

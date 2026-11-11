@@ -179,7 +179,7 @@ export default function TransferMarket() {
     : undefined;
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain bg-[radial-gradient(circle_at_18%_16%,rgba(0,229,255,0.10),transparent_32%),linear-gradient(120deg,#050b12,#02070c_58%,#05070d)] text-white">
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-x-clip overflow-y-auto bg-[radial-gradient(circle_at_18%_16%,rgba(0,229,255,0.10),transparent_32%),linear-gradient(120deg,#050b12,#02070c_58%,#05070d)] text-white">
       {/* Banner scrolls away first */}
       <div
         className={cn(

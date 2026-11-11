@@ -461,6 +461,30 @@ html, body {
   -webkit-touch-callout: none;
 }
 
+/* overflow:hidden is a scroll container. On trackpad and on touch it eats the
+   gesture when the finger is over a card, even if that card does not scroll.
+   clip crops the same way and lets the page underneath move.
+   Layout shells (h-screen, flex-1) stay hidden so the column keeps its height. */
+.overflow-hidden:not(.h-screen):not(.flex-1) {
+  overflow: clip;
+}
+
+/* A horizontal strip must not become the vertical scroll target. */
+.overflow-x-auto,
+.overflow-x-scroll {
+  overflow-x: auto;
+  overflow-y: clip;
+}
+
+/* overflow-x:hidden on a vertical scroller cancels trackpad and touch. */
+.overflow-x-hidden.overflow-y-auto,
+.overflow-y-auto.overflow-x-hidden,
+.overflow-x-hidden.overflow-y-scroll,
+.overflow-y-scroll.overflow-x-hidden {
+  overflow-x: clip;
+  overflow-y: auto;
+}
+
 /* iOS momentum scroll on any scrollable container */
 .overflow-y-auto,
 .overflow-y-scroll {
@@ -1152,4 +1176,92 @@ html, body {
   .gost-detail-trophy > div {
     height: 220px;
   }
+}
+
+/* Landing v2 only. The rest of the app keeps EA Sports on headings.
+   Global rules set heading italics and force `.italic` upright, so this
+   page opts back into Anton, Chakra Petch and JetBrains Mono. */
+.landing-v2 {
+  font-synthesis-style: auto;
+}
+.landing-v2 :is(p, a, button, label, select) {
+  font-family: "Chakra Petch", system-ui, sans-serif !important;
+  font-style: normal;
+}
+.landing-v2 :is(h1, h2, h3, h4, h5, h6) {
+  font-family: Anton, sans-serif !important;
+  font-style: normal !important;
+  font-weight: 400;
+}
+.landing-v2 .landing-display {
+  font-family: Anton, sans-serif !important;
+  font-style: normal !important;
+}
+.landing-v2 .landing-italic {
+  font-style: italic !important;
+  font-synthesis-style: auto !important;
+}
+.landing-v2 .landing-mono {
+  font-family: "JetBrains Mono", ui-monospace, monospace !important;
+  font-style: normal !important;
+}
+
+/* Angled sport button, same cut as the landing CTAs. Color stays with each variant.
+   Tabs, round header controls, and bordered buttons keep their own shape. */
+button:where(:not(.landing-keep)):where(:not([role="switch"])):where(:not([role="checkbox"])):where(:not([role="radio"])):where(:not([role="slider"])):where(:not([role="tab"])):where(:not(.mobile-arena-tab)):where(:not(.stage-arena-tab)):where(:not(.rounded-full)):where(:not([class*="rounded-full"])):where(:not([class~="border"])):where(:not([class*="border-2"])):where(:not([class*="border-4"])):where(:not([class*="border-8"])) {
+  min-height: 36px;
+  border-radius: 0 !important;
+  clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px) !important;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+header:not(.landing-v2 header) button,
+.landing-v2 header button.rounded-full {
+  min-height: 0;
+  border-radius: revert-layer;
+  clip-path: none !important;
+  font-weight: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+button.rounded-full,
+button[class*="rounded-full"] {
+  min-height: 0;
+  border-radius: 9999px !important;
+  clip-path: none !important;
+  font-weight: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+button[class~="border"],
+button[class*="border-2"],
+button[class*="border-4"],
+button[class*="border-8"] {
+  min-height: 0;
+  clip-path: none !important;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  text-transform: none;
+}
+
+.landing-v2 header button:not(.rounded-full) {
+  min-height: 36px;
+  border-radius: 0 !important;
+  clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px) !important;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* Password-reveal icons sit inside the field. A 12px cut would erase them. */
+button[class*="absolute"]:where(:has(> svg:only-child)):not([class*="h-"]):not([class*="w-"]):not([class*="size-"]) {
+  min-height: 0 !important;
+  clip-path: none !important;
+  font-weight: inherit;
+  letter-spacing: normal;
+  text-transform: none;
 }
