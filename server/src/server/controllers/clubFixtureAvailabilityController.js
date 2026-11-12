@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+router.use((req,res,next)=>{if(!['GET','HEAD'].includes(req.method))return res.status(410).json({error:'Availability has been removed. Select players in GameDay → Match Squad.'});next();});
 const ClubFixtureAvailability = require('../models/clubFixtureAvailabilityModel');
 const {
   getUser,

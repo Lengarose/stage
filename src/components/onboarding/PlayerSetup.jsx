@@ -129,7 +129,6 @@ export default function PlayerSetup({ onComplete, user, initialPlayer = null, in
 
   const previewPlayer = {
     position,
-    overall_rating: initialPlayer?.overall_rating ?? 0,
     shirt_number: initialPlayer?.shirt_number ?? 6,
   };
   const continueLabel = intent === "both"
@@ -138,6 +137,7 @@ export default function PlayerSetup({ onComplete, user, initialPlayer = null, in
 
   return (
     <div className="space-y-5">
+      <p className="border border-white/15 p-3 text-xs text-white/65">{t("commonPages.boardSignupCard", "Your STAGE Card starts at Level 1 with 0 XP. Confirmed official match participation earns XP; your EA rating is separate.")}</p>
       <div>
         <h2 className="text-xl font-black uppercase tracking-wide text-white mb-1">{t("commonPages.obCreateProfile")}</h2>
         <p className="text-white/40 text-xs">{t("commonPages.obTellWorld")}</p>

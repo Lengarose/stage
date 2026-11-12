@@ -41,7 +41,7 @@ export function buildPlayerPresidentDirectoryRows(clubs, players) {
         club_tag: club.tag || "",
         club_logo_url: club.logo_url || "",
         display_name: player.gamertag || player.display_name || club.name || "",
-        role_title: "President",
+        role_title: "Manager",
         avatar_url: player.avatar_url || "",
         avatar_position: player.avatar_position || "50% 50%",
         avatar_zoom: player.avatar_zoom || 150,

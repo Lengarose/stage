@@ -454,7 +454,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
   );
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col overflow-x-clip overflow-y-auto bg-[#07070b] text-white">
+    <div className="flex h-full min-h-0 min-w-0 w-full flex-1 flex-col overflow-x-clip overflow-y-auto bg-[#07070b] text-white">
       {/* Banner scrolls away first */}
       <section className="relative h-[180px] w-full shrink-0 overflow-hidden border-b border-[#d8dee8]/30 bg-[#07070b] sm:h-[230px] xl:h-[260px]">
         <div
@@ -501,15 +501,15 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
           </ActionTab>
         </div>
 
-        <div className="mx-auto grid w-full max-w-[1600px] items-start gap-4 px-4 py-5 sm:px-6 lg:grid-cols-[380px_minmax(0,1fr)] lg:px-8">
+        <div className="mx-auto grid min-w-0 w-full grid-cols-1 max-w-[1600px] items-start gap-4 px-4 py-5 sm:px-6 lg:grid-cols-[380px_minmax(0,1fr)] lg:px-8">
           <aside className={cn(
-            "relative flex min-h-0 flex-col overflow-hidden border border-[#eef3fb]/22 p-3 shadow-[0_0_42px_-24px_rgba(238,243,251,0.85)]",
+            "relative flex min-h-0 min-w-0 w-full flex-col overflow-hidden border border-[#eef3fb]/22 p-3 shadow-[0_0_42px_-24px_rgba(238,243,251,0.85)]",
             hasMatchScreensBg ? "bg-black/40" : "bg-gradient-to-b from-[#1b212c]/90 via-[#111827]/95 to-black/82",
           )}
           >
             <GameDayTileBackgroundLayers style={matchScreensBackgroundStyle} variant="panel" />
             <div aria-hidden className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#f8fbff] to-transparent" />
-            <div className="relative z-[1] flex min-h-0 flex-1 flex-col">
+            <div className="relative z-[1] flex min-h-0 min-w-0 flex-1 flex-col">
               <div className="mb-3 flex shrink-0 items-center justify-between gap-3 px-2 pt-2">
                 <div>
                   <p className="font-heading text-xs font-black uppercase tracking-[0.2em] text-[#f8fbff]">Match Screens</p>
@@ -531,7 +531,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
                   </button>
                 ) : null}
               </div>
-              <div className="mb-3 space-y-2 px-2"><input aria-label="Search matches" placeholder="Search matches" value={search} onChange={e=>setSearch(e.target.value)} className="h-11 w-full border border-white/20 bg-black/25 px-3 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"/><select aria-label="Match competition scope" value={scopeFilter} onChange={e=>setScopeFilter(e.target.value)} className="h-11 w-full border border-white/20 bg-[#0b1019] px-3 text-xs text-white"><option value="general">General - All games</option><option value="gost">GOST</option><option value="regional">Regional</option><option value="tournament">Tournament</option><option value="friendly">Friendly</option></select><div className="flex justify-between gap-1" aria-label="Match status">{['all','upcoming','live','completed'].map(status=><button type="button" key={status} aria-pressed={statusFilter===status} onClick={()=>setStatusFilter(status)} className={cn('min-h-11 border-b-2 px-1 text-xs capitalize focus-visible:ring-2 focus-visible:ring-cyan-400',statusFilter===status?'border-cyan-400 text-white':'border-transparent text-white/55')}>{status}</button>)}</div></div>
+              <div className="mb-3 space-y-2 px-2"><input aria-label="Search matches" placeholder="Search matches" value={search} onChange={e=>setSearch(e.target.value)} className="h-11 w-full border border-white/20 bg-black/25 px-3 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"/><select aria-label="Match competition scope" value={scopeFilter} onChange={e=>setScopeFilter(e.target.value)} className="h-11 w-full border border-white/20 bg-[#0b1019] px-3 text-xs text-white"><option value="general">General - All games</option><option value="gost">GOST</option><option value="regional">Regional</option><option value="tournament">Tournament</option><option value="friendly">Friendly</option></select><div className="grid grid-cols-4 gap-1" aria-label="Match status">{['all','upcoming','live','completed'].map(status=><button type="button" key={status} aria-pressed={statusFilter===status} onClick={()=>setStatusFilter(status)} className={cn('min-h-11 min-w-0 border-b-2 px-0 text-[10px] sm:text-xs tracking-normal capitalize focus-visible:ring-2 focus-visible:ring-cyan-400',statusFilter===status?'border-cyan-400 text-white':'border-transparent text-white/55')}>{status}</button>)}</div></div>
               {backendNotice&&<p role="status" className="p-2 text-sm text-amber-200">{backendNotice}</p>}
               {loadError&&<p role="alert" className="p-2 text-sm text-red-300">{loadError}<button type="button" onClick={()=>setRefreshTick(n=>n+1)} className="ml-2 min-h-11 text-cyan-300">Retry</button></p>}
               {pendingScheduleFixtures.length > 0 && !scopedTournamentId && ['all','upcoming'].includes(statusFilter) && ['general','gost'].includes(scopeFilter) ? (

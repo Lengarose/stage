@@ -1,7 +1,8 @@
+import { CardLevelBadge } from "@/components/card/CardProgression";
 import { useState, useEffect } from "react";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { Link } from "react-router-dom";
-import { User, Star, Send } from "lucide-react";
+import { User, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -122,11 +123,7 @@ export default function FreeAgents() {
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                   <span className="text-xs text-primary leading-relaxed font-bold">{[player.position, player.secondary_position].filter(Boolean).join(" / ")}</span>
                   <span className="text-xs text-muted-foreground">{player.platform}</span>
-                  {player.overall_rating && (
-                    <span className="flex items-center gap-0.5 text-xs text-warning leading-relaxed font-bold">
-                      <Star className="w-3 h-3" />{player.overall_rating}
-                    </span>
-                  )}
+                  <CardLevelBadge playerId={player?.id} />
                 </div>
                 <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                   <span>⚽ {player.goals || 0}</span>

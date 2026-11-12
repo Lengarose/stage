@@ -3,7 +3,7 @@ import test from "node:test";
 import { getContractTypeLabel, formatContractTypeForSentence } from "../contractTypeLabels.js";
 
 test("getContractTypeLabel presents ownership contracts as president contracts", () => {
-  assert.equal(getContractTypeLabel("ownership"), "Club President");
+  assert.equal(getContractTypeLabel("ownership"), "Club Manager");
 });
 
 test("getContractTypeLabel keeps Founder on contract documents", () => {
@@ -12,7 +12,7 @@ test("getContractTypeLabel keeps Founder on contract documents", () => {
 });
 
 test("formatContractTypeForSentence presents ownership contracts as president", () => {
-  assert.equal(formatContractTypeForSentence("ownership"), "president");
+  assert.equal(formatContractTypeForSentence("ownership"), "manager");
 });
 
 test("formatContractTypeForSentence presents founder player contracts as founder player", () => {

@@ -1,0 +1,14 @@
+[
+  {
+    "level": "debug",
+    "message": "[DEBUG:mobile-width] {\"viewport\":390,\"width\":390,\"panels\":[{\"tag\":\"SECTION\",\"width\":390},{\"tag\":\"ASIDE\",\"width\":358}]}",
+    "timestamp": "2026-11-12T19:24:20.769Z",
+    "url": "http://127.0.0.1:4176/src/pages/GameDay.jsx?t=1794511457502"
+  },
+  {
+    "level": "debug",
+    "message": "[DEBUG:mobile-width] {\"viewport\":390,\"width\":390,\"panels\":[{\"tag\":\"SECTION\",\"width\":390},{\"tag\":\"ASIDE\",\"width\":358},{\"tag\":\"SECTION\",\"width\":358},{\"tag\":\"SECTION\",\"width\":326},{\"tag\":\"SECTION\",\"width\":358},{\"tag\":\"SECTION\",\"width\":358}]}",
+    "timestamp": "2026-11-12T19:26:06.044Z",
+    "url": "http://127.0.0.1:4176/src/pages/GameDay.jsx?t=1794511457511"
+  }
+]

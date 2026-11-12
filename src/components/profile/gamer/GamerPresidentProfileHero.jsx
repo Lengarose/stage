@@ -51,7 +51,7 @@ export function GamerPresidentPhotoFrame({
           {president?.display_name || "—"}
         </p>
         <p className="text-[10px] font-bold text-white/50 mt-0.5 truncate">
-          {president?.role_title || "President"}
+          {president?.role_title || "Manager"}
         </p>
       </div>
     </Component>
@@ -129,7 +129,7 @@ function GamerPresidentProfileHero({
             <div className="min-w-0 space-y-2">
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="font-heading text-3xl sm:text-4xl md:text-5xl font-black uppercase tracking-tight leading-none">
-                  {president?.display_name || "President"}
+                  {president?.display_name || "Manager"}
                 </h1>
                 {president?.role_title ? (
                   <span className="font-heading text-xl font-black text-amber-400/80 border border-amber-400/25 rounded-lg px-2 py-0.5">
@@ -139,7 +139,7 @@ function GamerPresidentProfileHero({
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <GamerMetaPill><Crown className="w-3 h-3 text-amber-400" />President</GamerMetaPill>
+                <GamerMetaPill><Crown className="w-3 h-3 text-amber-400" />Manager</GamerMetaPill>
                 {successLabel ? (
                   <GamerMetaPill className="border-amber-300/30 text-amber-200">{successLabel}</GamerMetaPill>
                 ) : null}

@@ -1,3 +1,4 @@
+import { roleDisplayText } from "@/lib/roleDisplay";
 import { createContext, useState, useEffect } from 'react';
 import { stageClient } from '@/api/stageClient';
 
@@ -132,7 +133,7 @@ export function TranslationProvider({ children }) {
       return text
         .replaceAll(`{{${paramKey}}}`, str)
         .replaceAll(`{${paramKey}}`, str);
-    }, value);
+    }, roleDisplayText(value));
   };
 
   return (

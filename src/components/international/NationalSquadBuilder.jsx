@@ -1,3 +1,4 @@
+import { CardLevelBadge } from "@/components/card/CardProgression";
 import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Save } from 'lucide-react';
@@ -41,7 +42,7 @@ export default function NationalSquadBuilder({ players, squad, squadPlayers, max
               <th className="text-left px-3 py-2">{t('competitionFlow.player')}</th>
               <th className="text-left px-3 py-2">{t('commonPages.position')}</th>
               <th className="text-left px-3 py-2">{t('competitionFlow.club')}</th>
-              <th className="text-right px-3 py-2">{t('commonPages.ovr')}</th>
+              <th className="text-right px-3 py-2">Card Level</th>
             </tr>
           </thead>
           <tbody>
@@ -53,7 +54,7 @@ export default function NationalSquadBuilder({ players, squad, squadPlayers, max
                 <td className="px-3 py-2 font-medium">{player.gamertag || player.email}</td>
                 <td className="px-3 py-2 text-muted-foreground">{player.position || '-'}</td>
                 <td className="px-3 py-2 text-muted-foreground">{player.club_name || '-'}</td>
-                <td className="px-3 py-2 text-right font-bold">{player.overall_rating || 0}</td>
+                <td className="px-3 py-2 text-right font-bold"><CardLevelBadge playerId={player.id} /></td>
               </tr>
             ))}
           </tbody>

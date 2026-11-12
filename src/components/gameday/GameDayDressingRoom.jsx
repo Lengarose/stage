@@ -3,49 +3,6 @@ import { stageClient } from "@/api/stageClient";
 import { Users, AlertTriangle, CheckCircle2, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-function getAvailabilityFixtureIds(game) {
-  return [
-    game?.id,
-    game?.source_fixture_id,
-    game?.fixture_id,
-    game?.related_fixture_id,
-  ]
-    .filter(Boolean)
-    .map(String)
-    .filter((id, index, ids) => ids.indexOf(id) === index);
-}
-
-function compactEventAvailabilityId(prefix, eventId, clubId, eventLength, clubLength) {
-  const eventPart = String(eventId || "").replace(/[^a-zA-Z0-9]/g, "").slice(0, eventLength);
-  const clubPart = String(clubId || "").replace(/[^a-zA-Z0-9]/g, "").slice(0, clubLength);
-  return `${prefix}:${eventPart}:${clubPart}`.slice(0, 36);
-}
-
-async function getEventAvailabilityFixtureId(game, clubId) {
-  const sourceType = String(game?.source_fixture_type || "").toLowerCase();
-  const sourceFixtureId = game?.source_fixture_id || game?.fixture_id || game?.related_fixture_id;
-  const tournamentId = String(game?.tournament_id || "").trim();
-  if (tournamentId && tournamentId.toLowerCase() !== "ranked" && clubId) {
-    return compactEventAvailabilityId("t", tournamentId, clubId, 16, 16);
-  }
-  if (!sourceFixtureId || !clubId) return "";
-  if (sourceType === "regional_league" || sourceType === "regional_league_fixture") {
-    const fixture = stageClient.entities.RegionalLeagueFixture
-      ? await stageClient.entities.RegionalLeagueFixture.get(sourceFixtureId).catch(() => null)
-      : null;
-    const leagueId = fixture?.regional_league_id || fixture?.league_id;
-    return leagueId ? compactEventAvailabilityId("rl", leagueId, clubId, 15, 15) : "";
-  }
-  if (sourceType === "competition" || sourceType === "competition_engine" || sourceType === "competition_fixture") {
-    const fixture = stageClient.entities.CompetitionFixture
-      ? await stageClient.entities.CompetitionFixture.get(sourceFixtureId).catch(() => null)
-      : null;
-    const eventId = fixture?.season_id || fixture?.competition_season_id || fixture?.competition_id || fixture?.competition_slug;
-    return eventId ? compactEventAvailabilityId("gost", eventId, clubId, 14, 14) : "";
-  }
-  return "";
-}
-
 function getInitials(name) {
   return String(name || "?")
     .trim()
@@ -85,27 +42,13 @@ export default function GameDayDressingRoom({ game, myClub, myPlayer, user, onSe
     async function load() {
       if (!myClub) { setLoading(false); return; }
 
-      const eventAvailabilityFixtureId = await getEventAvailabilityFixtureId(game, myClub.id);
-      const availabilityFixtureIds = [
-        eventAvailabilityFixtureId,
-        ...getAvailabilityFixtureIds(game),
-      ].filter(Boolean);
-      const [players, dressing, availabilityChunks] = await Promise.all([
+      const [players, dressing] = await Promise.all([
         stageClient.entities.Player.filter({ club_id: myClub.id }),
         stageClient.entities.DressingRoom.filter({ match_id: game.id, club_id: myClub.id }),
-        Promise.all(availabilityFixtureIds.map((fixtureId) =>
-          stageClient.entities.ClubFixtureAvailability
-            .filter({ club_id: myClub.id, fixture_id: fixtureId }, "-updated_date", 200)
-            .catch(() => [])
-        )),
       ]);
-      const availabilityRows = availabilityChunks.flat();
-
-      const availableIds = new Set((availabilityRows || [])
-        .filter((row) => row.status === "available")
-        .map((row) => row.player_id));
+      const availableIds = new Set(players.map(player => player.id));
       setAvailablePlayerIds(availableIds);
-      setClubPlayers((players || []).filter((player) => availableIds.has(player.id)));
+      setClubPlayers(players);
 
       if (dressing.length > 0) {
         setSeatedPlayerIds(parseIds(dressing[0].seated_players).filter((id) => availableIds.has(id)));
@@ -130,7 +73,7 @@ export default function GameDayDressingRoom({ game, myClub, myPlayer, user, onSe
   async function takeMySeat() {
     if (!myPlayerId || saving || matchStarted) return;
     if (!iAmAvailable) {
-      setError("Mark yourself available for this fixture before taking a dressing-room seat.");
+      setError("Only current club players can take a dressing-room seat.");
       return;
     }
     setSaving(true);
@@ -195,7 +138,7 @@ export default function GameDayDressingRoom({ game, myClub, myPlayer, user, onSe
             <div>
               <p className="font-heading text-sm font-black uppercase tracking-[0.22em] text-white">Locker Room</p>
               <p className={cn("mt-1 max-w-xl text-xs", hasCustomBackground ? "text-white/90" : "text-white/65")}>
-                Only players who confirmed event availability can take a seat before kickoff.
+                Club players can take a seat before kickoff. Match Squad controls the official selection.
               </p>
             </div>
           </div>
@@ -219,7 +162,7 @@ export default function GameDayDressingRoom({ game, myClub, myPlayer, user, onSe
         <div className="flex items-center gap-2 border border-[#f8fbff]/30 bg-black/60 px-3 py-2">
           <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-[#f8fbff]" />
           <p className="text-[11px] text-white">
-            Mark yourself available for this event first. Only available seated players receive ratings and stats.
+            The Manager confirms actual participants in Match Squad. Taking a seat does not award statistics or XP.
           </p>
         </div>
       )}
@@ -248,7 +191,7 @@ export default function GameDayDressingRoom({ game, myClub, myPlayer, user, onSe
           {iAmSeated ? (
             <><CheckCircle2 className="h-4 w-4" /> Leave My Seat</>
           ) : !iAmAvailable ? (
-            <><Lock className="h-4 w-4" /> Mark Event Available First</>
+            <><Lock className="h-4 w-4" /> Current Club Players Only</>
           ) : (
             <><Users className="h-4 w-4" /> Take My Seat ({myPlayer.gamertag})</>
           )}
@@ -259,7 +202,7 @@ export default function GameDayDressingRoom({ game, myClub, myPlayer, user, onSe
       <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-4">
         {clubPlayers.length === 0 && (
         <div className="col-span-full border border-dashed border-white/25 bg-black/45 p-5 text-center text-[11px] uppercase tracking-widest text-white">
-            No players have marked themselves available yet.
+            No club players are registered yet.
           </div>
         )}
         {clubPlayers.map(player => {

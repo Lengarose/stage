@@ -1,3 +1,4 @@
+import { CardLevelBadge } from "@/components/card/CardProgression";
 import { Children, cloneElement, isValidElement } from "react";
 import { cn } from "@/lib/utils";
 import { playerAvatarInitials, resolvePlayerAvatarUrl } from "@/lib/playerAvatar";
@@ -84,7 +85,6 @@ export function GamerPlayerPhotoFrame({
   imagePosition,
   imageZoom,
   positionLabel,
-  overallRating,
   shirtNumber,
   emptyLabel = "?",
   as: Component = "div",
@@ -92,16 +92,11 @@ export function GamerPlayerPhotoFrame({
   children,
   ...props
 }) {
-  const ovrRaw = overallRating ?? player?.overall_rating;
-  const ovr =
-    ovrRaw == null || ovrRaw === ""
-      ? 70
-      : Math.round(Number(ovrRaw) * 10) / 10;
   const position = positionLabel || player?.position || "—";
   const resolvedImageUrl = imageUrl || resolvePlayerAvatarUrl(player);
   const resolvedZoom = imageZoom ?? player?.avatar_zoom;
   const resolvedPosition = imagePosition || player?.avatar_position || "50% 20%";
-  const resolvedOverall = ovr === 0 ? "0.0" : (Number.isInteger(ovr) ? String(ovr) : ovr.toFixed(1));
+
   const resolvedShirtNumber = shirtNumber ?? player?.shirt_number;
   const zoomScale = Number(resolvedZoom);
   const hasZoom = Number.isFinite(zoomScale) && zoomScale > 0;
@@ -140,10 +135,7 @@ export function GamerPlayerPhotoFrame({
         </div>
       )}
       <div className="absolute inset-0 z-[1] bg-gradient-to-t from-black/82 via-black/20 to-transparent pointer-events-none" />
-      <div className="absolute top-3 right-3 z-[2] min-w-[40px] bg-gradient-to-br from-amber-300 to-yellow-500 px-2 py-1.5 text-center shadow-lg [clip-path:polygon(13%_0,100%_0,87%_100%,0_100%)]">
-        <p className="text-[7px] font-black uppercase tracking-wider text-black/70 leading-none">OVR</p>
-        <p className="font-heading text-[19px] font-black text-black leading-none">{resolvedOverall}</p>
-      </div>
+      <CardLevelBadge playerId={player?.id} className="absolute right-3 top-3 z-[2]" />
       <div className="absolute bottom-0 inset-x-0 z-[2] px-4 pb-3 pt-10">
         <div className="relative inline-flex min-w-[84px] items-center overflow-hidden border border-cyan-200/45 bg-gradient-to-r from-cyan-300/22 via-black/48 to-amber-300/18 px-3 py-1.5 pr-5 shadow-[0_0_22px_-9px_rgba(0,229,255,0.9)] [clip-path:polygon(13%_0,100%_0,87%_100%,0_100%)]">
           <span className="pointer-events-none absolute inset-0 bg-[linear-gradient(115deg,transparent_0%,rgba(255,255,255,0.18)_42%,transparent_62%)] opacity-70" />

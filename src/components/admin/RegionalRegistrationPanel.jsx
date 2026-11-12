@@ -53,7 +53,7 @@ export default function RegionalRegistrationPanel({ definitions = [], leagues = 
         {preview.report.window.season_orchestration_policy_version && <p>After confirmation closes, the server prepares a supported sporting cycle automatically. Unsupported fields, vacancies and unresolved results require Admin review. Existing editions retain their conditions.</p>}
         {preview.report.window.recurring_schedule_policy_version && <p>The next edition opens registration in playing weeks 5–8 and confirmation in week 9. Its league starts after twelve playing weeks and one transition week. Missing sporting decisions or places remain Admin exceptions.</p>}
         {preview.report.window.league_start_monday && <p>First league playing Monday: {preview.report.window.league_start_monday}</p>}
-        <p>Registering president: personal Plus. Confirmation: at least three eligible Plus players. ANY allowed; no goalkeeper requirement. Published conditions cannot be edited through this form.</p>
+        <p>Registering manager: personal Plus. Confirmation: at least three eligible Plus players. ANY allowed; no goalkeeper requirement. Published conditions cannot be edited through this form.</p>
         <details><summary className="min-h-11 cursor-pointer py-3 font-semibold">Full conditions to be published</summary><p className="whitespace-pre-wrap py-3">{preview.report.window.rules_text}</p></details>
         <button type="button" className="mr-5 min-h-11" onClick={() => { setPreview(null); setStep(1); }}>← Back to rules</button>
         <button type="button" className="min-h-11 font-semibold" onClick={() => submit(true)}>Confirm and publish these conditions →</button>

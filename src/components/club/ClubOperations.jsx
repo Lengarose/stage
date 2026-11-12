@@ -192,12 +192,7 @@ export default function ClubOperations({
     }
   }
 
-  async function handleOfferContract(terms) {
-    if (!offerApplicant) return;
-    if (!canCreateContractOffer(offersAvailable)) return;
-    await applicantAction(offerApplicant, "offer-contract", terms);
-    setOfferApplicant(null);
-  }
+
 
   async function assignStaffRole() {
     if (!selectedStaffPlayer) return;
@@ -475,11 +470,10 @@ export default function ClubOperations({
           gamertag: offerApplicant.player_gamertag,
           position: offerApplicant.player_position,
           secondary_position: offerApplicant.player_secondary_position,
-          overall_rating: offerApplicant.player_overall_rating || 70,
         } : null}
         existingActiveContract={false}
         playerContracts={normalizePlayerContracts(contracts).filter((contract) => getContractTargetPlayerId(contract) === offerApplicant?.player_id)}
-        onOffer={handleOfferContract}
+        onProposalCreated={() => load()}
         officialRecruitment={officialRecruitment}
         windowOpen={windowOpen}
         club={club}

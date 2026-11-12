@@ -52,7 +52,6 @@ const CAREER_STAT_FIELDS = [
   'clean_sheets',
   'man_of_the_match',
   'avg_match_rating',
-  'overall_rating',
   'ranking_points',
   'ranking_matches',
   'global_rank',

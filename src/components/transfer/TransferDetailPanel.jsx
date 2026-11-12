@@ -63,7 +63,6 @@ export default function TransferDetailPanel({ entry, canManage, canOffer, getOff
         <div className="grid grid-cols-3 gap-2 mb-3">
           {[
             { label: t("commonPages.position"), value: [player.position, player.secondary_position].filter(Boolean).join(" / ") || "—" },
-            { label: t("commonPages.ovr"), value: player.overall_rating || "—" },
             { label: t("commonPages.platform"), value: player.platform || "—" },
           ].map(s => (
             <div key={s.label} className="bg-secondary rounded-xl p-3 text-center">

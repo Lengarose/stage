@@ -108,7 +108,7 @@ Entry: {{entry_fee_stc}} STC and {{entry_credits}} credits. Prize pool {{prize_p
     title: { fr: "Pro Clubs", en: "Pro Clubs" },
     summary: {
       fr: "Nom EA FC identique, effectif du club, président.",
-      en: "Matching EA FC name, club squad, president.",
+      en: "Matching EA FC name, club squad, manager.",
     },
     body: {
       fr: `Règlement Pro Clubs de {{tournament_name}}
@@ -122,7 +122,7 @@ Frais : {{entry_fee_stc}} STC et {{entry_credits}} crédits. Cagnotte {{prize_po
 
 {{tournament_name}} is for clubs. Organizer: {{organizer}}. Format {{format}} on {{platform}}, region {{region}}, country {{country}}. Slots: {{max_teams}}. Starts {{start_date}}. Ends {{end_date}}. Entry type: {{participant_type}}.
 
-Only the club president can register the club. The EA FC Pro Clubs name entered at registration must be exactly the name used in game. The squad that plays is the club squad. A club cannot be replaced after the draw.
+Only the club manager can register the club. The EA FC Pro Clubs name entered at registration must be exactly the name used in game. The squad that plays is the club squad. A club cannot be replaced after the draw.
 
 Fee: {{entry_fee_stc}} STC and {{entry_credits}} credits. Prize pool {{prize_pool}} STC. Winner {{prize_winner}} STC, runner-up {{prize_runner_up}} STC, third place {{prize_third}} STC.`,
     },

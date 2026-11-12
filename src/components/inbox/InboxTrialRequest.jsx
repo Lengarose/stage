@@ -152,7 +152,7 @@ export default function InboxTrialRequest({ message, onActioned }) {
         <div className="flex-1 min-w-0">
           <p className="text-sm font-bold text-white truncate">{playerGamertag}</p>
           <p className="text-xs text-white/40">
-            {[playerPosition, playerOvr ? `OVR ${playerOvr}` : null].filter(Boolean).join(" · ")}
+            {[playerPosition, null].filter(Boolean).join(" · ")}
           </p>
         </div>
         <div className="text-right shrink-0">

@@ -34,5 +34,5 @@ test("Inbox polling keeps the selected message in sync", async () => {
 
   assert.match(source, /const nextMessages = latest\.filter\(hasInboxContent\)/);
   assert.match(source, /setSelected\(prev => \{/);
-  assert.match(source, /return nextMessages\.find\(m => m\.id === prev\.id\) \|\| prev/);
+  assert.match(source, /return nextMessages\.find\(m => m\.id === prev\.id\) \|\| null/);
 });

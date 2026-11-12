@@ -95,7 +95,7 @@ test('kickoff rechecks both published lineups and creates an atomic frozen snaps
   f.state.players[0].subscription_expires_at='2026-11-02T19:21:00Z';
   await f.start();const captured=structuredClone(f.state.snapshot);
   f.at('2026-11-02T19:30:00Z');await f.start();assert.deepEqual(f.state.snapshot,captured);
-  await f.service.assertParticipants(f.state.match,'home',{participating_player_ids:['home1','home2','home3'],player_stats:[{player_id:'home1'}]});
+  await f.service.assertParticipants(f.state.match,'home',{participating_player_ids:['home1','home2','home3'],home_score:0,goal_events:[],player_stats:[{player_id:'home1'}]});
   await assert.rejects(f.save({notes:'changed'},f.state.lineups[0].id),/frozen/);
   await assert.rejects(f.service.mutate({existingId:f.state.lineups[0].id,body:{},remove:true,user:f.user}),/frozen/);
   await assert.rejects(f.service.assertParticipants(f.state.match,'home',{participating_player_ids:['home1','home2','home4']}),/actual participants/);

@@ -848,3 +848,8 @@ foreign captured-cycle actual participation for Admin review; do not infer cycle
 priority/pause rights. Bench-only evidence remains allowed. The updated isolated
 HTTP player report passes; combined server remains163/164 with the same baseline.
 All temporary API/Vite/Chrome QA processes were stopped; MySQL is left reusable.
+
+
+## 2026-11-12 — Club Board foundation and registration alignment
+
+See `docs/handovers/club-board-prompt-1-2026-11-12.md` for implemented services, newly approved policies, APIs, test evidence and remaining Prompt 2 integration. Registration no longer collects founder self-pay; ownership and paid proposals are separate. Do not treat this as full programme completion or deploy the backend without its remaining UI integration. No production mutation or deployment was performed.

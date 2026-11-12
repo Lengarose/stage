@@ -1,3 +1,4 @@
+import { CardLevelBadge } from "@/components/card/CardProgression";
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
@@ -227,10 +228,7 @@ export default function Search() {
                       <p className="text-xs text-muted-foreground">{p.position} · {p.platform} · {t("commonPages.matchesCount", { count: p.matches_played || 0 })}</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="text-right mr-2">
-                        <p className="leading-relaxed font-bold text-lg text-primary">{p.overall_rating}</p>
-                        <p className="text-[10px] text-muted-foreground uppercase">{t("commonPages.ovr")}</p>
-                      </div>
+                      <CardLevelBadge playerId={p?.id} />
                       {myPlayer && p.email !== user?.email && myPlayer.club_id && (
                         <>
                           <Button size="sm" onClick={e => { e.preventDefault(); inviteToClub(p.email, p.gamertag); }}

@@ -154,7 +154,7 @@ function RegionElectionsSection({
                           {election.country_name || countryCode}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          National president: {election.winner_owner_club_name || election.winner_owner_email || election.winner_owner_club_id || 'Not elected yet'}
+                          National manager: {election.winner_owner_club_name || election.winner_owner_email || election.winner_owner_club_id || 'Not elected yet'}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           Squad: {squadPlayers.length}/{tournament.max_squad_size || 26} · {squad?.status || 'not submitted'}
@@ -176,7 +176,7 @@ function RegionElectionsSection({
                         {squadPlayers.map((player) => (
                           <div key={player.player_id} className="text-xs text-muted-foreground bg-card/60 border border-border rounded px-2 py-1">
                             <span className="font-medium text-foreground">{player.gamertag || player.email || player.player_id}</span>
-                            <span> · {player.position || 'Any'} · {player.overall_rating || 0}</span>
+                            <span> · {player.position || 'Any'}</span>
                           </div>
                         ))}
                       </div>

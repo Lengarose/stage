@@ -58,7 +58,7 @@ export default function AdminShirtSalesPanel() {
   const cfgFieldKeys = [
     "base_per_mv_1m", "goal_demand", "assist_demand", "rating_demand_per_point",
     "motm_demand", "clean_sheet_demand", "form_influence", "contract_boost",
-    "max_per_match", "price_base", "price_per_ovr_above_70", "price_per_goal",
+    "max_per_match", "price_base", "price_per_goal",
     "price_per_assist", "price_per_rating_point",
   ];
   const cfgFields = cfgFieldKeys.map((key) => ({

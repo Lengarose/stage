@@ -136,7 +136,6 @@ export default function ImagePositionEditor({
                 imagePosition={position}
                 imageZoom={zoom}
                 positionLabel={previewFramePlayer.position || "CDM"}
-                overallRating={previewFramePlayer.overall_rating || 70}
                 shirtNumber={previewFramePlayer.shirt_number ?? 6}
                 className="!w-36 cursor-grab select-none active:cursor-grabbing sm:!w-40"
                 onMouseDown={e => { e.preventDefault(); startDrag(e.clientX, e.clientY); }}
@@ -157,7 +156,6 @@ export default function ImagePositionEditor({
                   imagePosition={position}
                   imageZoom={zoom}
                   positionLabel={previewFramePlayer.position || "CDM"}
-                  overallRating={previewFramePlayer.overall_rating || 70}
                   shirtNumber={previewFramePlayer.shirt_number ?? 6}
                   className="!w-12 shadow-none sm:!w-12"
                 />

@@ -9,7 +9,7 @@ const { RegionalRegistrationModel } = require('../models/regionalRegistrationMod
 const Lineup = require('../models/clubFixtureLineupModel');
 const {OfficialMatchPreparationModel}=require('../models/officialMatchPreparationModel');
 const {matchWindows}=require('../lib/officialMatchWindows');
-const selectionRevision = value => crypto.createHash('sha256').update(JSON.stringify({players:playerIds(value),captain:value.captain_player_id || null,formation:value.formation || null,notes:value.notes || null})).digest('hex');
+const selectionRevision = value => crypto.createHash('sha256').update(JSON.stringify({players:playerIds(value),captain:value.captain_player_id || null,formation:value.formation || null,notes:value.notes || null,goalkeeper_player_id:value.goalkeeper_player_id||null,uses_any:Number(value.uses_any||0)})).digest('hex');
 const parse = value => typeof value === 'string' ? JSON.parse(value) : value;
 const closed = new Set(['completed','archived','cancelled','canceled','voided','deleted','reset','superseded','abandoned','retired']);
 const begun = new Set(['in_progress','awaiting_confirmation','disputed','completed','forfeit']);
@@ -21,6 +21,7 @@ function playerIds(body) {
   if(new Set(ids).size!==ids.length)fail('A player can appear only once in the selection',422);
   if(starters.length>11)fail('A starting selection has at most eleven human players',422);
   if(body.captain_player_id && !starters.includes(body.captain_player_id))fail('The captain must be a starting player',422);
+  if(body.goalkeeper_player_id&&!starters.includes(body.goalkeeper_player_id))fail('The goalkeeper must be a selected starter',422);
   return {starters,bench,ids};
 }
 function createService({query=EXECUTESQL,transaction=withTransaction,rosters=new RegionalRegistrationModel(),preparations=new OfficialMatchPreparationModel(),clock=()=>new Date()}={}) {
@@ -84,7 +85,7 @@ function createService({query=EXECUTESQL,transaction=withTransaction,rosters=new
   async function assertEditable(body,existing,q) {
     if(existing && ['id','club_id','fixture_id','fixture_type'].some(key=>body[key]!==existing[key]))fail('A selection cannot move to another club or fixture',409);
     const ctx=await context(body.fixture_id,q);
-    if(!ctx.official)return ctx;
+    if(!ctx.official){if(ctx.match&&begun.has(ctx.match.status))fail('The Match Squad is frozen after kickoff');return ctx;}
     if(![ctx.match.home_club_id,ctx.match.away_club_id].includes(body.club_id))fail('This club is not a participant in the official fixture',403);
     if(await snapshot(ctx.match.id,q) || begun.has(ctx.match.status))fail('The official selection is frozen after kickoff');
     return ctx;
@@ -94,6 +95,24 @@ function createService({query=EXECUTESQL,transaction=withTransaction,rosters=new
     const stored=await preparations.selectOne(ctx.match.id,q);
     const state=stored?.schedule_key===windows.schedule_key?stored:{match_id:ctx.match.id,edition_id:ctx.root.id,schedule_key:windows.schedule_key,sides:{},history:stored?[...(stored.history || []),{schedule_key:stored.schedule_key,sides:stored.sides}]:[]};
     return {windows,state};
+  }
+  async function matchSquad(clubId,ref) {
+    return transaction(async q=>{
+      const ctx=await context(ref,q);
+      if(!ctx.match||![ctx.match.home_club_id,ctx.match.away_club_id].includes(clubId))fail('This club is not a match participant',403);
+      const candidates=ctx.official?await rosters.players(clubId,q):await require('./tournamentSquadService').roster(clubId,q);
+      const players=[];
+      for(const player of candidates) {
+        try {const body={club_id:clubId,starting_players:[player.id],bench_players:[]};if(ctx.official)await validate(body,q,{publish:false},ctx);else await require('./tournamentSquadService').validateMatch(body,ctx.match,q);players.push({id:player.id,gamertag:player.gamertag,eligible:true});}
+        catch(err){if(![409,422].includes(err.status))throw err;players.push({id:player.id,gamertag:player.gamertag,eligible:false,reason:err.message});}
+      }
+      const aliases=ctx.aliases||[ctx.match.id,ctx.match.source_fixture_id].filter(Boolean);
+      const lineups=await q(`SELECT * FROM club_fixture_lineups WHERE club_id=? AND fixture_id IN (${aliases.map(()=>'?').join(',')}) ORDER BY updated_date DESC`,[clubId,...aliases]);
+      const previous=await q(`SELECT * FROM club_fixture_lineups WHERE club_id=? AND status='published' AND fixture_id NOT IN (${aliases.map(()=>'?').join(',')}) ORDER BY updated_date DESC LIMIT 1`,[clubId,...aliases]);
+      const [t]=ctx.match.tournament_id?await q('SELECT * FROM tournaments WHERE id=?',[ctx.match.tournament_id]):[];
+      const rules=ctx.official?{minimum_human_players:3,goalkeeper_required:false,any_allowed:true}:require('./tournamentSquadService').publishedRules(t||{});
+      return {match_id:ctx.match.id,club_id:clubId,official:ctx.official,rules,players,selection:lineups[0]||null,previous_selection_suggestion:previous[0]||null,frozen:begun.has(ctx.match.status),verification:'Club-declared selection; not independently verified by EA'};
+    });
   }
   async function preparationStatus(clubId,ref) {
     return transaction(async q=>{
@@ -166,7 +185,7 @@ function createService({query=EXECUTESQL,transaction=withTransaction,rosters=new
         const rows=await q(`SELECT * FROM club_fixture_lineups WHERE club_id=? AND fixture_id IN (${ctx.aliases.map(()=>'?').join(',')}) FOR UPDATE`,[next.club_id,...ctx.aliases]);
         if(rows.some(row=>row.id!==existingId))fail('A selection already exists for this match; edit that selection');
         if(!remove)await validate(next,q,{publish:next.status==='published'},ctx);
-      } else if(!remove)await require('./playerLoanService').assertLineupEligibleForClub(next.club_id,next,{query:q});
+      } else if(!remove) {await require('./playerLoanService').assertLineupEligibleForClub(next.club_id,next,{query:q});await require('./tournamentSquadService').validateMatch(next,ctx.match,q,{publish:next.status==='published'});}
       if(!remove && !['draft','published'].includes(next.status || 'draft'))fail('Invalid lineup status',400);
       const model=new Lineup(next);
       if(remove)await model.delete(existingId,q);
@@ -189,7 +208,7 @@ function createService({query=EXECUTESQL,transaction=withTransaction,rosters=new
   async function kickoff(matchId,write,actor=null) {
     return transaction(async q=>{
       const ctx=await context(matchId,q);
-      if(!ctx.official)return false;
+      if(!ctx.official)return require('./tournamentSquadService').kickoff(ctx.match,write,q);
       const captured=await snapshot(ctx.match.id,q);
       if(captured) {
         if(!begun.has(ctx.match.status))fail('Kickoff snapshot and match state disagree; Admin review required');
@@ -210,7 +229,7 @@ function createService({query=EXECUTESQL,transaction=withTransaction,rosters=new
       }
       const now=clock();
       for(const entry of pending){selections[entry.side]={club_id:entry.clubId,...validateRoster(entry.lineup,entry.players,now,{publish:true})};await require('./officialPlayerSanctionService').assertSelection(ctx,selections[entry.side],q,now);await require('./officialCupTiedService').assertSelection(ctx,selections[entry.side],q);await require('./officialPlayerTransferService').assertSelection(ctx,selections[entry.side],q);await require('./officialPlayerConflictService').assertSelection(ctx,selections[entry.side],q);}
-      const record={id:snapshotId(ctx.match.id),policy_version:VERSION,match_id:ctx.match.id,edition_id:ctx.root.id,started_at:now.toISOString(),started_by_user_id:actor?.id || null,selections};
+      const record={id:snapshotId(ctx.match.id),policy_version:VERSION,card_xp_policy_version:require('../lib/clubBoardPolicy').XP_VERSION,match_id:ctx.match.id,edition_id:ctx.root.id,started_at:now.toISOString(),started_by_user_id:actor?.id || null,selections};
       await q("INSERT INTO league_entities (id,entity_type,data_json) VALUES (?,'official_match_selection',?)",[record.id,JSON.stringify(record)]);
       await write(q,ctx.match);
       if(actor?.role_id!=null && [0,2].includes(Number(actor.role_id)))await q('INSERT INTO admin_audit_log (id,admin_user_id,admin_email,action,entity_type,entity_id,old_value,new_value,reason,created_date) VALUES (?,?,?,?,?,?,?,?,?,NOW())',[uuid(),actor.id,actor.email || null,'official_match_kickoff','official_match_selection',ctx.match.id,null,JSON.stringify(record),'Home participant started official match']);
@@ -218,9 +237,9 @@ function createService({query=EXECUTESQL,transaction=withTransaction,rosters=new
     });
   }
   async function assertParticipants(match,side,args,q=query) {
-    if(!['competition_engine','regional_league','regional_league_fixture','regional_pathway'].includes(match.source_fixture_type))return;
+    if(!['competition_engine','regional_league','regional_league_fixture','regional_pathway'].includes(match.source_fixture_type))return require('./tournamentSquadService').assertParticipants(match,side,args,q);
     const ctx=await context(match.id,q);
-    if(!ctx.official)return;
+    if(!ctx.official)return require('./tournamentSquadService').assertParticipants(match,side,args,q);
     const captured=await snapshot(ctx.match.id,q);
     if(!captured || captured.policy_version!==VERSION)fail('Official kickoff selection evidence is missing; Admin review required');
     const selection=captured.selections?.[side];
@@ -230,6 +249,7 @@ function createService({query=EXECUTESQL,transaction=withTransaction,rosters=new
     if(!Array.isArray(ids) || new Set(ids).size!==ids.length || ids.length<3 || ids.some(id=>!allowed.has(id)))fail('Declare at least three actual participants from the frozen official selection',422);
     const mentioned=[...(args.player_stats || []).map(s=>s.player_id),...(args.goal_events || []).flatMap(e=>[e.player_id,e.scorer_id,e.scorer_player_id,e.assist_player_id].filter(Boolean))];
     if(mentioned.some(id=>!ids.includes(id)))fail('Statistics must belong to declared actual participants',422);
+    if(captured.card_xp_policy_version===require('../lib/clubBoardPolicy').XP_VERSION)require('../lib/clubTournamentParticipation').validateContributions(args,ids,Number(args[`${side}_score`]));
   }
   async function assertGenericCreate(body) {
     if(body.source_fixture_id && (await context(body.source_fixture_id)).official)fail('Official fixtures are generated by the protected competition workflow',403);
@@ -242,6 +262,6 @@ function createService({query=EXECUTESQL,transaction=withTransaction,rosters=new
     const editable=new Set(['notes','home_stream_url','away_stream_url']);
     if(Object.keys(patch).some(k=>!editable.has(k) && String(patch[k])!==String(match[k])))fail('Use the official GameDay workflow to change this match');
   }
-  return {context,mutate,kickoff,assertParticipants,assertGenericPatch,assertGenericCreate,preparationStatus,preparationAction};
+  return {context,matchSquad,mutate,kickoff,assertParticipants,assertGenericPatch,assertGenericCreate,preparationStatus,preparationAction};
 }
 module.exports={createService,playerIds,...createService()};

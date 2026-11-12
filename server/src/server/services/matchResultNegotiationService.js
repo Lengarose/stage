@@ -119,7 +119,7 @@ function declaredFromArgs(args, side) {
   };
 }
 
-function participatingStats(playerStats, participatingIds) {
+function participatingStats(playerStats, participatingIds, clubId, events) {
   const list = (Array.isArray(playerStats) ? playerStats : []).map(stat => ({ ...stat, participation_verified: null }));
   const keepers = new Map();
   for (const stat of list) if (String(stat.position || '').toUpperCase() === 'GK' && Number(stat.goalkeeper_full_match) === 1) {
@@ -133,7 +133,9 @@ function participatingStats(playerStats, participatingIds) {
   }
   if (!Array.isArray(participatingIds) || !participatingIds.length) return list;
   const allowed = new Set(participatingIds.map(String));
-  return list.filter((stat) => allowed.has(String(stat.player_id))).map(stat => ({ ...stat, participation_verified: 1 }));
+  for(const id of allowed)if(!list.some(stat=>String(stat.player_id)===id))list.push({player_id:id,club_id:clubId,goals:0,assists:0,rating:null,participation_verified:1});
+  const contributions=Array.isArray(events)&&events.some(e=>e.scorer_kind)?require('../lib/clubTournamentParticipation').goalEvents(events,participatingIds,events.length):null;
+  return list.filter((stat) => allowed.has(String(stat.player_id))).map(stat => ({ ...stat,...(contributions?contributions[stat.player_id]||{goals:0,assists:0}:{}), participation_verified: 1 }));
 }
 
 function buildSubmission({ args, side, scores, penalty, proofOcr }) {
@@ -351,7 +353,7 @@ async function submitInitialResult(match, actor, args, proofOcr) {
 
   const scores = declaredFromArgs(args, actor.side);
   const penalty = await validateMatchPenalty(match, scores, args);
-  const stats = participatingStats(args.player_stats, args.participating_player_ids);
+  const stats = participatingStats(args.player_stats, args.participating_player_ids, match[`${actor.side}_club_id`], args.goal_events);
   assertNoForeignPlayerStats(stats, match, actor.side);
   await require('./officialMatchEligibilityService').assertParticipants(match, actor.side, args);
   const submission = buildSubmission({
@@ -413,7 +415,7 @@ async function amendSubmittedResult(match, actor, args, proofOcr) {
 
   const scores = declaredFromArgs(args, actor.side);
   const penalty = await validateMatchPenalty(match, scores, args);
-  const stats = participatingStats(args.player_stats, args.participating_player_ids);
+  const stats = participatingStats(args.player_stats, args.participating_player_ids, match[`${actor.side}_club_id`], args.goal_events);
   assertNoForeignPlayerStats(stats, match, actor.side);
   await require('./officialMatchEligibilityService').assertParticipants(match, actor.side, args);
   const existing = parseSubmission(actor.side === 'home' ? match.home_submission : match.away_submission) || {};
@@ -471,7 +473,7 @@ async function confirmResult(match, actor, args) {
   const scoreSource = submitSide === 'away' ? awayExisting : homeSub;
   if (!scoreSource) throw httpError('No submitted result to confirm.', 409, 'NO_SUBMITTED_RESULT');
 
-  const stats = participatingStats(args.player_stats, args.participating_player_ids);
+  const stats = participatingStats(args.player_stats, args.participating_player_ids, match[`${actor.side}_club_id`], args.goal_events);
   assertNoForeignPlayerStats(stats, match, actor.side);
   await require('./officialMatchEligibilityService').assertParticipants(match, actor.side, args);
   const confirmSheet = {
@@ -516,7 +518,7 @@ async function proposeCorrection(match, actor, args) {
   }
   const scores = declaredFromArgs(args, actor.side);
   const penalty = await validateMatchPenalty(match, scores, args);
-  const stats = participatingStats(args.player_stats, args.participating_player_ids);
+  const stats = participatingStats(args.player_stats, args.participating_player_ids, match[`${actor.side}_club_id`], args.goal_events);
   assertNoForeignPlayerStats(stats, match, actor.side);
   await require('./officialMatchEligibilityService').assertParticipants(match, actor.side, args);
   const submission = buildSubmission({
@@ -583,7 +585,7 @@ async function counterResult(match, actor, args, proofOcr) {
   }
   const scores = declaredFromArgs(args, actor.side);
   const penalty = await validateMatchPenalty(match, scores, args);
-  const stats = participatingStats(args.player_stats, args.participating_player_ids);
+  const stats = participatingStats(args.player_stats, args.participating_player_ids, match[`${actor.side}_club_id`], args.goal_events);
   assertNoForeignPlayerStats(stats, match, actor.side);
   await require('./officialMatchEligibilityService').assertParticipants(match, actor.side, args);
   const submission = buildSubmission({

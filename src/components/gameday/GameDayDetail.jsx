@@ -1,3 +1,4 @@
+import MatchSquad from "./MatchSquad";
 import OfficialReschedulePanel from './OfficialReschedulePanel';
 import { useState, useEffect, useRef } from "react";
 import { stageClient } from "@/api/stageClient";
@@ -313,7 +314,7 @@ export default function GameDayDetail({
   const matchDetailsBackgroundStyle = getGameDayTileBackgroundStyle(matchDetailsBackgroundConfig);
   const hasMatchDetailsBg = hasCustomGameDayTileBackground(matchDetailsBackgroundConfig);
   return (
-    <div className="space-y-5">
+    <div className="min-w-0 w-full space-y-5">
       <GameDayKickoffArena
         homeName={home}
         awayName={away}
@@ -339,6 +340,7 @@ export default function GameDayDetail({
       {game.competition_href&&<a href={game.competition_href} className="inline-flex min-h-11 items-center px-4 text-sm text-cyan-300">View competition</a>}
       {isCompleted&&<button type="button" onClick={()=>openResultForm(true)} className="min-h-11 border border-white/15 px-4 text-sm text-cyan-300">View Match Report</button>}
       {isClubMatch && isMyMatch && !isCompleted && ['scheduled', 'confirmed', 'in_progress'].includes(game.status) && <div className="px-4">
+        <MatchSquad clubId={myClub.id} matchId={game.id} />
         <OfficialMatchPreparation key={`${myClub.id}:${game.id}:${game.confirmed_date || game.scheduled_date}`} clubId={myClub.id} fixtureId={game.id} onState={setPreparationState} onChanged={async () => {}} hideForbidden />
       </div>}
       <section className="px-4" aria-label="Kickoff actions">

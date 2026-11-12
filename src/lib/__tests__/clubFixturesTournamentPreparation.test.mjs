@@ -9,22 +9,9 @@ function read(relativePath) {
   return readFileSync(resolve(root, relativePath), "utf8");
 }
 
-test("club fixtures show approved tournament preparation availability before draw", () => {
-  const clubDetail = read("src/pages/ClubDetail.jsx");
-  const functions = read("server/src/server/functions/legacyFunctions.js");
-
-  assert.match(clubDetail, /buildClubTournamentRegistrationFixtures/);
-  assert.match(clubDetail, /tournamentRegistrationFixtures/);
-  assert.match(clubDetail, /_fixtureType:\s*"tournament_registration"/);
-  assert.match(clubDetail, /registrationKindLabel\} approved/);
-  assert.match(clubDetail, /Available for this \$\{registrationKindLabel\.toLowerCase\(\)\} costs/);
-  assert.match(clubDetail, /stageClient\.functions\.invoke\("tournamentClubAvailability"/);
-  assert.match(clubDetail, /const payload = result\?\.data \|\| result/);
-  assert.match(clubDetail, /max-h-\[70vh\][\s\S]*availabilityError/);
-
-  assert.match(functions, /async tournamentClubAvailability/);
-  assert.match(functions, /Only club members can set tournament availability/);
-  assert.match(functions, /spendUserCredits\(_auth_user_id,\s*entryCost,\s*query\)/);
-  assert.match(functions, /registration_submitter_exempt/);
-  assert.match(functions, /deliverTournamentApprovedClubMessages/);
+test("club fixtures preserve entries while availability no longer gates participation",()=>{
+ const source=read("src/pages/ClubDetail.jsx"),functions=read("server/src/server/functions/legacyFunctions.js");
+ assert.match(source,/buildClubTournamentRegistrationFixtures/);assert.match(source,/function fixtureCanSetAvailability\(\) \{ return false/);
+ assert.doesNotMatch(source,/stageClient\.functions\.invoke\("tournamentClubAvailability"/);
+ assert.match(functions,/async tournamentClubAvailability/);assert.match(functions,/Match Squad/);
 });

@@ -62,6 +62,7 @@ function normalizeTournament(row) {
     registered_clubs: parseJsonList(row.registered_clubs),
     registered_players: parseJsonList(row.registered_players),
     registration_proofs: parseJsonObject(row.registration_proofs),
+    club_rules: row.club_rules ? parseJsonObject(row.club_rules) : null,
   };
 }
 
@@ -97,6 +98,7 @@ export async function registerTournamentClub(tournamentId, clubId, options = {})
     registration_proof_url: source.registrationProofUrl || source.registration_proof_url || null,
     ea_club_name: options.eaClubName || source.eaClubName || source.ea_club_name || null,
     ...rules,
+    club_rules_revision: source.tournament?.club_rules_revision || source.club_rules_revision,
   };
   return stageClient.functions.invoke("tournamentRegistration", {
     tournament_id: tournamentId,

@@ -729,7 +729,7 @@
   "obIdentityLinked": "Ton profil STAGE est déjà lié à une identité joueur vérifiée.",
   "obClaimPending": "Ta demande d'identité est en attente de validation admin.",
   "obClaimIdentity": "Revendique ton identité",
-  "obClaimIdentityDesc": "Lie ton profil joueur à ton identité console, EA ou Discord pour la vérification admin. Ajoute ton EA ID et ton OVR pour que les clubs te reconnaissent en jeu.",
+  "obClaimIdentityDesc": "Lie ton profil joueur à ton identité console, EA ou Discord pour la vérification admin. Ajoute ton EA ID pour que les clubs reconnaissent ton identité vérifiée.",
   "obPlatformHandle": "Pseudo plateforme *",
   "obPlatformHandlePlaceholder": "Pseudo PSN / Xbox / EA",
   "obEaId": "EA ID",

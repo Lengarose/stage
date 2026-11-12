@@ -354,7 +354,7 @@ const MOBILE_WALKTHROUGHS = [
     title: "Tournament clubs",
     steps: [
       "Review registered clubs and tournament teams here.",
-      "Open club profiles to inspect squad, president and tournament context.",
+      "Open club profiles to inspect squad, manager and tournament context.",
       "Use this page before matches to understand opponents and participants.",
     ],
   },
@@ -384,7 +384,7 @@ const MOBILE_WALKTHROUGHS = [
     title: "Club hub",
     steps: [
       "Find clubs, open your club profile, or inspect another team before a match.",
-      "Club presidents manage identity, squad, finance and operations from the club detail page.",
+      "Club managers manage identity, squad, finance and operations from the club detail page.",
       "Players can use club pages to understand rosters, activity and recruitment fit.",
     ],
   },
@@ -414,7 +414,7 @@ const MOBILE_WALKTHROUGHS = [
     title: "Tournaments",
     steps: [
       "Browse available tournaments and open one to inspect rules, teams and schedule.",
-      "Admins and eligible club presidents can create or manage tournaments from tournament controls.",
+      "Admins and eligible club managers can create or manage tournaments from tournament controls.",
       "Players should check registration status and deadlines before match day starts.",
     ],
   },
@@ -454,18 +454,18 @@ const MOBILE_WALKTHROUGHS = [
     title: "Players",
     steps: [
       "Search the player pool and open profiles to inspect stats, role and activity.",
-      "Club presidents can use this page as a scouting starting point.",
+      "Club managers can use this page as a scouting starting point.",
       "Players can compare themselves and discover potential teammates or rivals.",
     ],
   },
   {
     path: "/presidents-list",
-    label: "Presidents",
-    title: "Presidents",
+    label: "Managers",
+    title: "Managers",
     steps: [
-      "Browse club presidents and open their public profiles.",
+      "Browse club managers and open their public profiles.",
       "Check success level, management style and the club they run.",
-      "Use this directory to discover presidents separately from the player list.",
+      "Use this directory to discover managers separately from the player list.",
     ],
   },
   {
@@ -484,8 +484,8 @@ const MOBILE_WALKTHROUGHS = [
     title: "Scouting",
     steps: [
       "File a report on any player your club should look at, backed by video links.",
-      "The squad can vote on a report once the president opens a vote — it's advisory.",
-      "The president decides: send a contract offer from the report, or shelve it.",
+      "The squad can vote on a report once the manager opens a vote — it's advisory.",
+      "The manager decides: send a contract offer from the report, or shelve it.",
     ],
   },
   {
@@ -917,7 +917,7 @@ function HeaderIdentityMenu({
             </p>
             <div className="mt-0.5 flex items-center gap-1.5 flex-wrap">
               {showAsPresident && myClub ? (
-                <span style={subLabelStyle}>{myClub.tag ? `[${myClub.tag}]` : "President"}</span>
+                <span style={subLabelStyle}>{myClub.tag ? `[${myClub.tag}]` : "Manager"}</span>
               ) : (
                 subscriptionTier === "stage_plus" && myPlayer ? (
                   <StagePlusMark isWhiteTheme={isWhiteTheme} />
@@ -989,7 +989,7 @@ const MOBILE_MORE_GROUPS_PLAYER = [
     label: "Club",
     items: [
       { path: "/players-list",    icon: UsersRound,    label: "Players"       },
-      { path: "/presidents-list", icon: Crown,         label: "Presidents"    },
+      { path: "/presidents-list", icon: Crown,         label: "Managers"    },
       { path: "/free-agents",     icon: UsersRound,    label: "Free Agents"   },
       { path: "/scouting",        icon: Binoculars,     label: "Scouting"    },
       { path: "/transfer-market", icon: ArrowLeftRight, label: "Transfer Room"   },
@@ -1031,7 +1031,7 @@ function getMobileMoreGroupsPresident(clubPath) {
       items: [
         { path: clubPath || "/clubs", icon: Shield,      label: "My Club" },
         { path: "/players-list",    icon: UsersRound,    label: "Squad"       },
-        { path: "/presidents-list", icon: Crown,         label: "Presidents"  },
+        { path: "/presidents-list", icon: Crown,         label: "Managers"  },
         { path: "/scouting",        icon: Binoculars,     label: "Scouting"    },
         { path: "/transfer-market", icon: ArrowLeftRight, label: "Transfer Room"   },
         { path: "/contracts/create", icon: Handshake,     label: "Contracts"   },
@@ -2628,7 +2628,7 @@ export default function Layout() {
       <div className={cn("relative flex flex-1 overflow-hidden", isVideoTheme && "z-[1]")}>
         <main
           className={cn(
-            "relative z-[1] flex-1 overflow-x-clip",
+            "relative z-[1] min-w-0 flex-1 overflow-x-clip",
             isBannerStickyFullBleedRoute(location.pathname)
               || isScheduleFullBleedRoute(location.pathname)
               || isNewsFullBleedRoute(location.pathname)

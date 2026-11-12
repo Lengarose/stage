@@ -1,3 +1,4 @@
+import { CardLevelBadge } from "@/components/card/CardProgression";
 import { cn } from "@/lib/utils";
 import { Shield, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -55,11 +56,7 @@ export default function TransferPlayerList({ players, selectedId, onSelect, canM
                     {[player.position, player.secondary_position].filter(Boolean).join(" / ")}
                   </span>
                 )}
-                {player.overall_rating && (
-                  <span className="text-[11px] font-medium text-white/50">
-                    {t("commonPages.ovr")} {player.overall_rating}
-                  </span>
-                )}
+                <CardLevelBadge playerId={player?.id} />
                 {player.platform && (
                   <span className="hidden text-[11px] text-white/40 sm:inline">
                     {player.platform}

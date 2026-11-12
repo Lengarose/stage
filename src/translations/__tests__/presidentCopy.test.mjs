@@ -44,9 +44,9 @@ test("admin-facing international and club labels do not show owner wording", () 
   const adminTranslations = readText("src/translations/adminTranslationExtras.js");
 
   assert.doesNotMatch(internationalAdmin, /National owner:/);
-  assert.match(internationalAdmin, /National president:/);
+  assert.match(internationalAdmin, /National manager:/);
   assert.doesNotMatch(adminTranslations, /owner: "Owner"/);
-  assert.match(adminTranslations, /owner: "President"/);
+  assert.match(adminTranslations, /owner: "Manager"/);
 });
 
 test("common page packs use president wording for role, contract, and national vote keys", () => {

@@ -198,7 +198,7 @@ function computeValueFromStats(player, W, previousValue = 0) {
   const csRateBonus = Math.min((cleanSheets / matches) * W.clean_sheet_rate_bonus, 5_000_000);
   const outputBonus = goalRateBonus + asstRateBonus + csRateBonus;
   const achieveBonus = Math.min(motm * W.motm_bonus, 5_000_000);
-  const ovrBonus = Math.max(ovr - 60, 0) * 8_000 * W.ovr_weight;
+  const ovrBonus = 0; // Self-reported EA OVR is not economic evidence.
 
   const winRate = wins / matches;
   const winMult = winRate > 0.7 ? 1 + W.win_rate_boost
@@ -1254,6 +1254,7 @@ async function processMatchCompletion(match, acceptedSubmission, secondarySubmis
 
   await EXECUTESQL('UPDATE matches SET stats_processed = 1, updated_date = NOW() WHERE id = ?', [matchId]);
 
+  await require('../services/cardProgressionService').reconcile(matchId).catch(err=>console.error('[Card XP recovery pending]',matchId,err.message));
   const [completed] = await EXECUTESQL('SELECT * FROM matches WHERE id = ? LIMIT 1', [matchId]);
   await settleCompletedMatchWager(completed).catch((err) => {
     console.error('[matchKickoff wager settlement]', err.message);
@@ -2398,7 +2399,7 @@ function tournamentRegistrationMessageBody({ tournament, club, status, reason })
       `Platform: ${tournament?.platform || 'TBD'}`,
       Number(tournament?.prize_pool_stc || 0) > 0 ? `Prize pool: ${Number(tournament.prize_pool_stc).toLocaleString()} STC` : null,
       '',
-      'Your club is now officially registered. Club members should visit the Fixtures tab on the club profile to prepare their availability for the tournament.',
+      'Your club is now registered. Review the published rules and select your players in GameDay → Match Squad before each match.',
     ].filter(Boolean).join('\n');
   }
 
@@ -2667,7 +2668,7 @@ async function deliverAdminSelectedTournamentPresidentMessage({ tournament, club
       `Tournament credits charged: ${entryCost} credits per linked user account.`,
       `Charged accounts: ${chargedUsers.length}`,
       '',
-      'Your club members have been marked Available for tournament preparation. When fixtures are generated, registered club members will be seated automatically in GameDay so simulated matches can produce player stats.',
+      'Your eligible club members can be selected in GameDay → Match Squad. Confirm the actual playing selection before kickoff; being registered does not automatically create player statistics.',
     ].filter(Boolean).join('\n'),
     messageType: 'tournament_registration',
     actionType: 'none',
@@ -2725,92 +2726,7 @@ async function getClubPresidentUser(query, club) {
   return rows[0] || null;
 }
 
-async function upsertClubFixtureAvailability(query, { clubId, fixtureId, fixtureType, playerId, userId, status, note }) {
-  const rows = await query(
-    `SELECT id, note FROM club_fixture_availability
-      WHERE club_id = ? AND fixture_id = ? AND player_id = ?
-      LIMIT 1`,
-    [clubId, fixtureId, playerId],
-  );
-  const existing = rows[0] || null;
-  const mergedNote = JSON.stringify({
-    ...parseMaybeJson(existing?.note, {}),
-    ...note,
-  });
-  if (existing) {
-    await query(
-      `UPDATE club_fixture_availability
-          SET status = ?, user_id = COALESCE(?, user_id), fixture_type = ?, note = ?, updated_date = NOW()
-        WHERE id = ?`,
-      [status, userId || null, fixtureType, mergedNote, existing.id],
-    );
-    return existing.id;
-  }
-  const id = uuidv4();
-  await query(
-    `INSERT INTO club_fixture_availability
-       (id, club_id, fixture_id, fixture_type, player_id, user_id, status, note)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, clubId, fixtureId, fixtureType, playerId, userId || null, status, mergedNote],
-  );
-  return id;
-}
-
-async function upsertDressingRoom(query, { matchId, clubId, seatedPlayerIds }) {
-  const ids = [...new Set((seatedPlayerIds || []).map(String).filter(Boolean))];
-  const existing = await query('SELECT id FROM dressing_rooms WHERE match_id = ? AND club_id = ? LIMIT 1', [matchId, clubId]);
-  if (existing[0]) {
-    await query('UPDATE dressing_rooms SET seated_players = ? WHERE id = ?', [JSON.stringify(ids), existing[0].id]);
-    return existing[0].id;
-  }
-  const id = uuidv4();
-  await query(
-    'INSERT INTO dressing_rooms (id, match_id, club_id, seated_players) VALUES (?, ?, ?, ?)',
-    [id, matchId, clubId, JSON.stringify(ids)],
-  );
-  return id;
-}
-
-async function seedAdminSelectedClubMatchPreparation(query, tournament, clubId) {
-  const proofs = parseTournamentRegistrationProofs(tournament.registration_proofs);
-  const proof = proofs.club?.[String(clubId)] || null;
-  if (!proof?.admin_selected) return { availability: 0, dressing_rooms: 0 };
-
-  const players = await listTournamentClubPlayers(query, clubId);
-  const playerIds = players.map((player) => player.id).filter(Boolean);
-  if (!playerIds.length) return { availability: 0, dressing_rooms: 0 };
-
-  const matches = await query(
-    `SELECT id, home_club_id, away_club_id
-       FROM matches
-      WHERE tournament_id = ?
-        AND (home_club_id = ? OR away_club_id = ?)`,
-    [tournament.id, clubId, clubId],
-  );
-  let availability = 0;
-  let dressingRooms = 0;
-  for (const match of matches) {
-    for (const player of players) {
-      await upsertClubFixtureAvailability(query, {
-        clubId,
-        fixtureId: match.id,
-        fixtureType: 'tournament_match',
-        playerId: player.id,
-        userId: player.resolved_user_id || player.user_id || null,
-        status: 'available',
-        note: {
-          tournament_id: tournament.id,
-          tournament_name: tournament.name,
-          admin_selected_auto_available: true,
-        },
-      });
-      availability += 1;
-    }
-    await upsertDressingRoom(query, { matchId: match.id, clubId, seatedPlayerIds: playerIds });
-    dressingRooms += 1;
-  }
-  return { availability, dressing_rooms: dressingRooms };
-}
+async function seedAdminSelectedClubMatchPreparation() {return {availability:0,dressing_rooms:0};}
 
 async function seedAdminSelectedTournamentMatchPreparation(tournament) {
   const clubIds = parseMaybeJson(tournament.registered_clubs, []).map(String).filter(Boolean);
@@ -7461,76 +7377,10 @@ const HANDLERS = {
 
   async contractActions({
     action, _auth_user_id, team_id, user_id, target_player_id, contract_type, offer_note,
-    weekly_salary_stc, signing_bonus_stc, transfer_fee_stc, performance_targets, captaincy_offered,
+    weekly_salary_stc, signing_bonus_stc, transfer_fee_stc, performance_targets, captaincy_offered, duration_type, calendar_id,
   }) {
     if (action !== 'offer') throw new Error(`Unsupported contract action: ${action}`);
-    const { user } = await getMe(_auth_user_id);
-    const targetPlayerId = target_player_id || user_id;
-    if (!team_id || !targetPlayerId) throw new Error('team_id and target_player_id required');
-    await requireContractOfferAccess(user, team_id);
-
-    const status = 'pending';
-    const duration = CONTRACT_TYPE_DURATION[contract_type] || CONTRACT_TYPE_DURATION.squad;
-    await assertCanCreateContractOffer({
-      playerId: targetPlayerId,
-      teamId: team_id,
-      contractType: contract_type || 'squad',
-    });
-    if ((contract_type || 'squad') !== 'ownership') {
-      await assertClubContractFinance({
-        clubId: team_id,
-        weeklySalary: weekly_salary_stc,
-        signingBonus: signing_bonus_stc,
-        transferFee: transfer_fee_stc,
-      });
-    }
-    const { resolveOfferedByPresidentId } = require('../services/presidentResolutionService');
-    const offeredByPresidentId = await resolveOfferedByPresidentId({
-      userId: user.id,
-      clubId: team_id,
-    });
-    const id = uuidv4();
-    await EXECUTESQL(
-      `INSERT INTO player_contracts (
-        id, team_id, user_id, contract_type, status, offered_by, offered_by_user_id, offered_by_club_id, offered_by_president_id, max_games, max_days,
-        weekly_salary_stc, signing_bonus_stc, transfer_fee_stc, offer_note,
-        captaincy_offered, negotiation_round, performance_targets, created_date, updated_date
-      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, NOW(), NOW())`,
-      [
-        id,
-        team_id,
-        targetPlayerId,
-        contract_type || 'squad',
-        status,
-        user.email,
-        user.id,
-        team_id,
-        offeredByPresidentId,
-        duration.max_games,
-        duration.max_days,
-        Number(weekly_salary_stc || 0),
-        Number(signing_bonus_stc || 0),
-        Number(transfer_fee_stc || 0),
-        offer_note || '',
-        captaincy_offered ? 1 : 0,
-        0,
-        performance_targets ? JSON.stringify(performance_targets) : null,
-      ]
-    );
-    await deliverContractOfferMessage(id).catch(err => console.error('[contract delivery]', err.message));
-    if (Number(transfer_fee_stc || 0) > 0) {
-      await createClubTx({
-        clubId: team_id,
-        amount: 0,
-        type: 'locked',
-        category: 'transfer_locked',
-        description: `Transfer funds locked for contract offer (${Number(transfer_fee_stc || 0).toLocaleString()} STC)`,
-        referenceId: id,
-        relatedEntityType: 'player_contract',
-      }).catch(() => {});
-    }
-    const transfer = await recordContractMercatoEvent(id, 'offer').catch(() => null);
-    return { success: true, data: { contract_id: id, status, transfer_id: transfer?.id || null } };
+    return require('../services/clubContractBridge').offer({team_id,target_player_id:target_player_id||user_id,contract_type,weekly_salary_stc,signing_bonus_stc,transfer_fee_stc,offer_note,performance_targets,captaincy_offered,duration_type,calendar_id},{id:_auth_user_id});
   },
 
   async contractManagement({
@@ -7539,8 +7389,10 @@ const HANDLERS = {
     contract_id, weekly_salary_stc, signing_bonus_stc, transfer_fee_stc,
     contract_type, start_date, end_date, max_days, max_games,
     status, offer_note, performance_targets, note, amount, captaincy_offered,
-    last_negotiated_by,
+    last_negotiated_by, duration_type, calendar_id, expected_version, request_id,
   }) {
+    const boardResult = await require('../services/clubContractBridge').handle({action,_auth_user_id,team_id,user_id,target_player_id,contract_id,weekly_salary_stc,signing_bonus_stc,transfer_fee_stc,contract_type,offer_note,performance_targets,duration_type,calendar_id,expected_version,request_id});
+    if (boardResult) return boardResult;
     // ── offer / renewal_offer ───────────────────────────────────────────────
     if (action === 'offer' || action === 'renewal_offer') {
       if (!_auth_user_id) throw new Error('not authenticated');
@@ -7980,7 +7832,7 @@ const HANDLERS = {
          FROM player_contracts pc
          JOIN players p ON p.id = pc.user_id
          JOIN clubs c ON c.id = pc.team_id
-         WHERE pc.status = 'active' AND pc.weekly_salary_stc > 0
+         WHERE pc.status = 'active' AND pc.compensation_policy_version IS NULL AND pc.weekly_salary_stc > 0
            AND (pc.last_salary_paid_at IS NULL OR pc.last_salary_paid_at < DATE_SUB(NOW(), INTERVAL 7 DAY))`,
         []
       );
@@ -8208,7 +8060,7 @@ const HANDLERS = {
     }
 
     const activeContracts = await EXECUTESQL(
-      "SELECT *, user_id AS target_player_id FROM player_contracts WHERE status = 'active' AND IFNULL(weekly_salary_stc,0) > 0",
+      "SELECT *, user_id AS target_player_id FROM player_contracts WHERE compensation_policy_version IS NULL AND status = 'active' AND IFNULL(weekly_salary_stc,0) > 0",
       []
     );
     const now = new Date();
@@ -10271,7 +10123,7 @@ const HANDLERS = {
       if (!player) throw new Error('Player not found');
 
       const [contracts, summary, recent] = await Promise.all([
-        EXECUTESQL("SELECT *, user_id AS target_player_id FROM player_contracts WHERE user_id = ? AND status = 'active' LIMIT 1", [player.id]),
+        EXECUTESQL("SELECT *, user_id AS target_player_id FROM player_contracts WHERE user_id = ? AND status = 'active' AND compensation_policy_version IS NULL LIMIT 1", [player.id]),
         EXECUTESQL(
           `SELECT type, category, SUM(amount) as total FROM player_stc_transactions
            WHERE player_id = ? AND created_date >= DATE_SUB(NOW(), INTERVAL 30 DAY)
@@ -10314,7 +10166,7 @@ const HANDLERS = {
       const { user, player } = await getMe(_auth_user_id);
       if (!player) throw new Error('Player not found');
 
-      const contracts = await EXECUTESQL("SELECT *, user_id AS target_player_id FROM player_contracts WHERE user_id = ? AND status = 'active' LIMIT 1", [player.id]);
+      const contracts = await EXECUTESQL("SELECT *, user_id AS target_player_id FROM player_contracts WHERE user_id = ? AND status = 'active' AND compensation_policy_version IS NULL LIMIT 1", [player.id]);
       if (!contracts.length || !contracts[0].weekly_salary_stc) throw new Error('No active salary contract');
       const contract = contracts[0];
       const salary = Number(contract.weekly_salary_stc);
@@ -11353,7 +11205,7 @@ const HANDLERS = {
   //   { data: { success, error?, ... } }
   async tournamentRegistration({
     tournament_id, club_id, player_id, registration_proof_url, ea_club_name,
-    rules_accepted, rules_template_id, _auth_user_id,
+    rules_accepted, rules_template_id, club_rules_revision, _auth_user_id,
   }) {
     const MIN_STC = 100;
     const MAX_STC = 1_000_000;
@@ -11519,6 +11371,7 @@ const HANDLERS = {
           return fail('Tournament is full');
         }
 
+        const squadRegistration=await require('../services/tournamentSquadService').registration(tournament,club_id,{club_rules_revision},query);
         const clubStc = Number(club.stc || 0);
         if (entryFee > 0 && clubStc < entryFee) {
           return fail(`Insufficient STC. Need ${entryFee.toLocaleString()}, have ${clubStc.toLocaleString()}`);
@@ -11577,6 +11430,8 @@ const HANDLERS = {
           reviewed_at: requiresClubAdminReview ? null : now,
           credits_spent: creditsSpent,
           stc_locked: entryFee,
+          club_rules_revision:squadRegistration.rules_revision,
+          club_rules:squadRegistration.rules,
           rules_accepted_at: now,
         };
         await query(
@@ -11855,412 +11710,11 @@ const HANDLERS = {
     };
   },
 
-  async tournamentClubAvailability({
-    tournament_id, club_id, status, _auth_user_id,
-  }) {
-    if (!_auth_user_id) throw new Error('Not authenticated');
-    if (!tournament_id || !club_id) throw new Error('tournament_id and club_id required');
-    const requestedStatus = String(status || '').toLowerCase();
-    if (!['available', 'unavailable', 'no_response'].includes(requestedStatus)) {
-      throw new Error('status must be available, unavailable, or no_response');
-    }
+  async tournamentClubAvailability() {throw Object.assign(new Error('Availability registration has been removed. Select your eligible players in GameDay → Match Squad.'),{status:410});},
 
-    const result = await withTransaction(async (query) => {
-      const users = await query('SELECT id, email, role_id, credits FROM users WHERE id = ? LIMIT 1 FOR UPDATE', [_auth_user_id]);
-      const user = users[0];
-      if (!user) throw new Error('User not found');
+  async regionalLeagueClubAvailability() {throw Object.assign(new Error('Availability registration has been removed. Select your eligible players in GameDay → Match Squad.'),{status:410});},
 
-      const tournamentRows = await query('SELECT * FROM tournaments WHERE id = ? LIMIT 1 FOR UPDATE', [tournament_id]);
-      const tournament = tournamentRows[0];
-      if (!tournament) throw new Error('Tournament not found');
-      if (isWallClockPast(tournament.start_date)) {
-        throw new Error('Availability is locked for this tournament.');
-      }
-
-      const registered = parseMaybeJson(tournament.registered_clubs, []).map(String);
-      if (!registered.includes(String(club_id))) {
-        throw new Error('Club is not approved for this tournament');
-      }
-
-      const proofs = parseTournamentRegistrationProofs(tournament.registration_proofs);
-      const proof = proofs.club[String(club_id)] || null;
-      if (proof && String(proof.status || '').toLowerCase() !== 'approved') {
-        throw new Error('Club registration is not approved yet');
-      }
-
-      const players = await query(
-        `SELECT p.*
-           FROM players p
-           LEFT JOIN club_memberships cm
-             ON cm.player_id = p.id
-            AND cm.status = 'active'
-          WHERE (p.user_id = ? OR LOWER(TRIM(p.email)) = LOWER(TRIM(?)))
-            AND (p.club_id = ? OR cm.club_id = ?)
-          ORDER BY p.user_id = ? DESC, p.updated_date DESC
-          LIMIT 1`,
-        [_auth_user_id, user.email || '', club_id, club_id, _auth_user_id],
-      );
-      const player = players[0];
-      if (!player) throw new Error('Only club members can set tournament availability');
-
-      const fixtureId = tournamentAvailabilityFixtureId(tournament_id, club_id);
-      const existingRows = await query(
-        `SELECT * FROM club_fixture_availability
-          WHERE club_id = ? AND fixture_id = ? AND player_id = ?
-          LIMIT 1 FOR UPDATE`,
-        [club_id, fixtureId, player.id],
-      );
-      const existing = existingRows[0] || null;
-      const note = parseMaybeJson(existing?.note, {});
-      const registrationSubmitterId = proof?.submitted_by_user_id ? String(proof.submitted_by_user_id) : '';
-      const submitterExempt = registrationSubmitterId && registrationSubmitterId === String(_auth_user_id);
-      const storeSettings = await getActiveStoreSettings();
-      const entryCost = Number(tournament.entry_credits ?? storeSettings.tournament_entry_credits ?? TOURNAMENT_ENTRY_CREDITS);
-      let creditsSpent = Number(note.tournament_availability_credits_spent || 0);
-      let creditsAfter = await getUserCredits(_auth_user_id, query);
-
-      if (requestedStatus === 'available' && !submitterExempt && creditsSpent <= 0 && entryCost > 0) {
-        const spent = await spendUserCredits(_auth_user_id, entryCost, query);
-        creditsSpent = spent.credits_spent;
-        creditsAfter = spent.credits_after;
-      }
-
-      const nextNote = {
-        ...note,
-        tournament_id,
-        tournament_name: tournament.name,
-        tournament_availability: true,
-        registration_submitter_exempt: Boolean(submitterExempt),
-        tournament_availability_credits_spent: creditsSpent,
-        updated_by_user_id: _auth_user_id,
-      };
-
-      if (existing) {
-        await query(
-          `UPDATE club_fixture_availability
-              SET status = ?, note = ?, updated_date = NOW()
-            WHERE id = ?`,
-          [requestedStatus, JSON.stringify(nextNote), existing.id],
-        );
-      } else {
-        await query(
-          `INSERT INTO club_fixture_availability
-             (id, club_id, fixture_id, fixture_type, player_id, user_id, status, note)
-           VALUES (?, ?, ?, 'tournament_registration', ?, ?, ?, ?)`,
-          [uuidv4(), club_id, fixtureId, player.id, _auth_user_id, requestedStatus, JSON.stringify(nextNote)],
-        );
-      }
-
-      const savedRows = await query(
-        `SELECT cfa.*, p.gamertag AS player_gamertag, p.position AS player_position
-           FROM club_fixture_availability cfa
-           LEFT JOIN players p ON p.id = cfa.player_id
-          WHERE cfa.club_id = ? AND cfa.fixture_id = ? AND cfa.player_id = ?
-          LIMIT 1`,
-        [club_id, fixtureId, player.id],
-      );
-
-      return {
-        row: savedRows[0],
-        credits_spent: requestedStatus === 'available' ? creditsSpent : 0,
-        credits_after: creditsAfter,
-        registration_submitter_exempt: Boolean(submitterExempt),
-      };
-    });
-
-    return { data: { success: true, ...result } };
-  },
-
-  async regionalLeagueClubAvailability({
-    league_id, club_id, status, _auth_user_id,
-  }) {
-    if (!_auth_user_id) throw new Error('Not authenticated');
-    if (!league_id || !club_id) throw new Error('league_id and club_id required');
-    const requestedStatus = String(status || '').toLowerCase();
-    if (!['available', 'unavailable', 'no_response'].includes(requestedStatus)) {
-      throw new Error('status must be available, unavailable, or no_response');
-    }
-
-    const result = await withTransaction(async (query) => {
-      const users = await query('SELECT id, email, role_id, credits FROM users WHERE id = ? LIMIT 1 FOR UPDATE', [_auth_user_id]);
-      const user = users[0];
-      if (!user) throw new Error('User not found');
-
-      const leagueRows = await query(
-        `SELECT * FROM league_entities
-          WHERE id = ? AND entity_type = 'regional_league'
-          LIMIT 1 FOR UPDATE`,
-        [league_id]
-      );
-      const league = parseLeagueEntityRow(leagueRows[0]);
-      if (!league) throw new Error('Regional League not found');
-      if (['completed', 'archived', 'cancelled', 'canceled'].includes(String(league.status || '').toLowerCase())) {
-        throw new Error('Availability is locked for this regional league.');
-      }
-
-      const registered = normalizeIdList(league.registered_club_ids);
-      const standingRows = await query(
-        `SELECT id FROM league_entities
-          WHERE entity_type = 'regional_league_standing'
-            AND league_id = ?
-            AND club_id = ?
-          LIMIT 1`,
-        [league_id, club_id]
-      );
-      if (!registered.includes(String(club_id)) && !standingRows.length) {
-        throw new Error('Club is not approved for this regional league');
-      }
-
-      const players = await query(
-        `SELECT p.*
-           FROM players p
-           LEFT JOIN club_memberships cm
-             ON cm.player_id = p.id
-            AND cm.status = 'active'
-          WHERE (p.user_id = ? OR LOWER(TRIM(p.email)) = LOWER(TRIM(?)))
-            AND (p.club_id = ? OR cm.club_id = ?)
-          ORDER BY p.user_id = ? DESC, p.updated_date DESC
-          LIMIT 1`,
-        [_auth_user_id, user.email || '', club_id, club_id, _auth_user_id],
-      );
-      const player = players[0];
-      if (!player) throw new Error('Only club members can set regional league availability');
-
-      const clubRows = await query('SELECT id, owner_email, user_id, president_user_id FROM clubs WHERE id = ? LIMIT 1', [club_id]);
-      const presidentUser = clubRows[0] ? await getClubPresidentUser(query, clubRows[0]) : null;
-      const fixtureId = regionalLeagueAvailabilityFixtureId(league_id, club_id);
-      const existingRows = await query(
-        `SELECT * FROM club_fixture_availability
-          WHERE club_id = ? AND fixture_id = ? AND player_id = ?
-          LIMIT 1 FOR UPDATE`,
-        [club_id, fixtureId, player.id],
-      );
-      const existing = existingRows[0] || null;
-      const note = parseMaybeJson(existing?.note, {});
-      const storeSettings = await getActiveStoreSettings();
-      const entryCost = Number(league.entry_credits ?? storeSettings.regional_league_entry_credits ?? storeSettings.tournament_entry_credits ?? TOURNAMENT_ENTRY_CREDITS);
-      const submitterExempt = presidentUser?.id && String(presidentUser.id) === String(_auth_user_id);
-      let creditsSpent = Number(note.regional_league_availability_credits_spent || 0);
-      let creditsAfter = await getUserCredits(_auth_user_id, query);
-
-      if (requestedStatus === 'available' && !submitterExempt && creditsSpent <= 0 && entryCost > 0) {
-        const spent = await spendUserCredits(_auth_user_id, entryCost, query);
-        creditsSpent = spent.credits_spent;
-        creditsAfter = spent.credits_after;
-      }
-
-      const nextNote = {
-        ...note,
-        regional_league_id: league_id,
-        regional_league_name: league.name,
-        regional_league_availability: true,
-        registration_submitter_exempt: Boolean(submitterExempt),
-        regional_league_availability_credits_spent: creditsSpent,
-        updated_by_user_id: _auth_user_id,
-      };
-
-      if (existing) {
-        await query(
-          `UPDATE club_fixture_availability
-              SET status = ?, note = ?, updated_date = NOW()
-            WHERE id = ?`,
-          [requestedStatus, JSON.stringify(nextNote), existing.id],
-        );
-      } else {
-        await query(
-          `INSERT INTO club_fixture_availability
-             (id, club_id, fixture_id, fixture_type, player_id, user_id, status, note)
-           VALUES (?, ?, ?, 'regional_league_registration', ?, ?, ?, ?)`,
-          [uuidv4(), club_id, fixtureId, player.id, _auth_user_id, requestedStatus, JSON.stringify(nextNote)],
-        );
-      }
-
-      const savedRows = await query(
-        `SELECT cfa.*, p.gamertag AS player_gamertag, p.position AS player_position
-           FROM club_fixture_availability cfa
-           LEFT JOIN players p ON p.id = cfa.player_id
-          WHERE cfa.club_id = ? AND cfa.fixture_id = ? AND cfa.player_id = ?
-          LIMIT 1`,
-        [club_id, fixtureId, player.id],
-      );
-
-      return {
-        row: savedRows[0],
-        credits_spent: requestedStatus === 'available' ? creditsSpent : 0,
-        credits_after: creditsAfter,
-        registration_submitter_exempt: Boolean(submitterExempt),
-      };
-    });
-
-    return { data: { success: true, ...result } };
-  },
-
-  async officialStageClubAvailability({
-    season_id, competition_id, competition_slug, club_id, status, _auth_user_id,
-  }) {
-    if (!_auth_user_id) throw new Error('Not authenticated');
-    if (!club_id) throw new Error('club_id required');
-    const requestedStatus = String(status || '').toLowerCase();
-    if (!['available', 'unavailable', 'no_response'].includes(requestedStatus)) {
-      throw new Error('status must be available, unavailable, or no_response');
-    }
-
-    const result = await withTransaction(async (query) => {
-      const users = await query('SELECT id, email, role_id, credits FROM users WHERE id = ? LIMIT 1 FOR UPDATE', [_auth_user_id]);
-      const user = users[0];
-      if (!user) throw new Error('User not found');
-
-      let seasonRows = [];
-      if (season_id) {
-        seasonRows = await query(
-          `SELECT * FROM league_entities
-            WHERE id = ? AND entity_type = 'competition_season'
-            LIMIT 1 FOR UPDATE`,
-          [season_id],
-        );
-      } else if (competition_id) {
-        seasonRows = await query(
-          `SELECT * FROM league_entities
-            WHERE entity_type = 'competition_season'
-              AND competition_id = ?
-              AND status NOT IN ('completed', 'archived', 'cancelled', 'canceled')
-            ORDER BY updated_date DESC
-            LIMIT 1 FOR UPDATE`,
-          [competition_id],
-        );
-      } else if (competition_slug) {
-        seasonRows = await query(
-          `SELECT * FROM league_entities
-            WHERE entity_type = 'competition_season'
-              AND (
-                slug = ?
-                OR JSON_UNQUOTE(JSON_EXTRACT(data_json, '$.competition_slug')) = ?
-                OR JSON_UNQUOTE(JSON_EXTRACT(data_json, '$.slug')) = ?
-              )
-              AND status NOT IN ('completed', 'archived', 'cancelled', 'canceled')
-            ORDER BY updated_date DESC
-            LIMIT 1 FOR UPDATE`,
-          [competition_slug, competition_slug, competition_slug],
-        );
-      }
-
-      const season = parseLeagueEntityRow(seasonRows[0]);
-      if (!season) throw new Error('GOST season not found');
-      if (isWallClockPast(season.start_date || season.scheduled_date)) {
-        throw new Error('Availability is locked for this GOST event.');
-      }
-
-      const registered = normalizeIdList(season.registered_club_ids);
-      const qualified = normalizeIdList(season.qualified_club_ids);
-      const standingRows = await query(
-        `SELECT id FROM league_entities
-          WHERE entity_type = 'competition_standing'
-            AND season_id = ?
-            AND club_id = ?
-          LIMIT 1`,
-        [season.id, club_id],
-      );
-      const qualificationRows = await query(
-        `SELECT * FROM league_entities
-          WHERE entity_type = 'qualification_entry'
-            AND club_id = ?`,
-        [club_id],
-      );
-      const hasConfirmedQualification = qualificationRows
-        .map(parseLeagueEntityRow)
-        .some((entry) => {
-          const entryStatus = String(entry?.status || '').toLowerCase();
-          if (!['confirmed', 'approved', 'registered', 'active'].includes(entryStatus)) return false;
-          // Bind to THIS season only — never competition_id-only matching.
-          return String(entry.target_season_id || '') === String(season.id || '')
-            || String(entry.season_id || '') === String(season.id || '');
-        });
-      if (!registered.includes(String(club_id)) && !qualified.includes(String(club_id)) && !standingRows.length && !hasConfirmedQualification) {
-        throw new Error('Club is not qualified for this GOST event');
-      }
-
-      const players = await query(
-        `SELECT p.*
-           FROM players p
-           LEFT JOIN club_memberships cm
-             ON cm.player_id = p.id
-            AND cm.status = 'active'
-          WHERE (p.user_id = ? OR LOWER(TRIM(p.email)) = LOWER(TRIM(?)))
-            AND (p.club_id = ? OR cm.club_id = ?)
-          ORDER BY p.user_id = ? DESC, p.updated_date DESC
-          LIMIT 1`,
-        [_auth_user_id, user.email || '', club_id, club_id, _auth_user_id],
-      );
-      const player = players[0];
-      if (!player) throw new Error('Only club members can set GOST availability');
-
-      const eventId = season.id || season.competition_id || season.competition_slug || season.slug;
-      const fixtureId = officialStageAvailabilityFixtureId(eventId, club_id);
-      const existingRows = await query(
-        `SELECT * FROM club_fixture_availability
-          WHERE club_id = ? AND fixture_id = ? AND player_id = ?
-          LIMIT 1 FOR UPDATE`,
-        [club_id, fixtureId, player.id],
-      );
-      const existing = existingRows[0] || null;
-      const note = parseMaybeJson(existing?.note, {});
-      const storeSettings = await getActiveStoreSettings();
-      const entryCost = Number(season.entry_credits ?? storeSettings.official_competition_entry_credits ?? storeSettings.tournament_entry_credits ?? TOURNAMENT_ENTRY_CREDITS);
-      let creditsSpent = Number(note.official_stage_availability_credits_spent || 0);
-      let creditsAfter = await getUserCredits(_auth_user_id, query);
-
-      if (requestedStatus === 'available' && creditsSpent <= 0 && entryCost > 0) {
-        const spent = await spendUserCredits(_auth_user_id, entryCost, query);
-        creditsSpent = spent.credits_spent;
-        creditsAfter = spent.credits_after;
-      }
-
-      const nextNote = {
-        ...note,
-        competition_id: season.competition_id || competition_id || null,
-        competition_season_id: season.id,
-        season_id: season.id,
-        competition_slug: season.competition_slug || season.slug || competition_slug || null,
-        competition_name: season.competition_name || season.name || 'GOST',
-        official_stage_availability: true,
-        official_stage_availability_credits_spent: creditsSpent,
-        updated_by_user_id: _auth_user_id,
-      };
-
-      if (existing) {
-        await query(
-          `UPDATE club_fixture_availability
-              SET status = ?, note = ?, updated_date = NOW()
-            WHERE id = ?`,
-          [requestedStatus, JSON.stringify(nextNote), existing.id],
-        );
-      } else {
-        await query(
-          `INSERT INTO club_fixture_availability
-             (id, club_id, fixture_id, fixture_type, player_id, user_id, status, note)
-           VALUES (?, ?, ?, 'competition_registration', ?, ?, ?, ?)`,
-          [uuidv4(), club_id, fixtureId, player.id, _auth_user_id, requestedStatus, JSON.stringify(nextNote)],
-        );
-      }
-
-      const savedRows = await query(
-        `SELECT cfa.*, p.gamertag AS player_gamertag, p.position AS player_position
-           FROM club_fixture_availability cfa
-           LEFT JOIN players p ON p.id = cfa.player_id
-          WHERE cfa.club_id = ? AND cfa.fixture_id = ? AND cfa.player_id = ?
-          LIMIT 1`,
-        [club_id, fixtureId, player.id],
-      );
-
-      return {
-        row: savedRows[0],
-        credits_spent: requestedStatus === 'available' ? creditsSpent : 0,
-        credits_after: creditsAfter,
-      };
-    });
-
-    return { data: { success: true, ...result } };
-  },
+  async officialStageClubAvailability() {throw Object.assign(new Error('Availability registration has been removed. Select your eligible players in GameDay → Match Squad.'),{status:410});},
 
   async adminSetTournamentClubs({ tournament_id, club_ids = [], _auth_user_id }) {
     const admin = await requireAdminUser(_auth_user_id);
@@ -12347,26 +11801,6 @@ const HANDLERS = {
           }
         }
 
-        const prepFixtureId = tournamentAvailabilityFixtureId(tournament.id, clubId);
-        for (const player of players) {
-          await upsertClubFixtureAvailability(query, {
-            clubId,
-            fixtureId: prepFixtureId,
-            fixtureType: 'tournament_registration',
-            playerId: player.id,
-            userId: player.resolved_user_id || player.user_id || null,
-            status: 'available',
-            note: {
-              tournament_id: tournament.id,
-              tournament_name: tournament.name,
-              tournament_availability: true,
-              admin_selected_auto_available: true,
-              tournament_availability_credits_spent: entryCost,
-              selected_by_admin_user_id: admin.id,
-            },
-          });
-          seededTotals.tournament_availability += 1;
-        }
 
         proofs.club[String(clubId)] = {
           ...(proofs.club[String(clubId)] || {}),

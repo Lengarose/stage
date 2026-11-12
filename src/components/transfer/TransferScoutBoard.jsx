@@ -1,3 +1,4 @@
+import { CardLevelBadge } from "@/components/card/CardProgression";
 import { Link } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { Clock, ExternalLink, FileText, Search, Shield, Star, UserRound } from "lucide-react";
@@ -35,7 +36,6 @@ function metricValue(value, fallback = "0") {
 
 function TransferScoutCard({ entry, active, onSelect }) {
   const { player, badgeType, days_left } = entry;
-  const ovr = Number(player.overall_rating || 0);
 
   return (
     <button
@@ -73,10 +73,7 @@ function TransferScoutCard({ entry, active, onSelect }) {
       </div>
 
       <div className="relative flex flex-col items-end justify-between">
-        <div className="border border-[#f5c542]/40 bg-[#f5c542] px-2 py-1.5 text-center text-black shadow-[0_0_28px_-14px_rgba(245,197,66,0.9)]">
-          <p className="text-[8px] font-black uppercase leading-none">OVR</p>
-          <p className="font-heading text-lg font-black leading-none">{ovr || "-"}</p>
-        </div>
+        <CardLevelBadge playerId={player?.id} />
         <div className="text-right leading-none">
           <p className="text-[8px] uppercase tracking-[0.14em] text-white/35">Form</p>
           <p className="font-heading text-xs font-black text-white">{metricValue(player.avg_match_rating, "0.0")}</p>
@@ -235,10 +232,7 @@ export default function TransferScoutBoard({
                 {player.gamertag || "Unknown"}
               </h2>
             </div>
-            <div className="min-w-0 self-start border border-[#f5c542]/45 bg-[#f5c542] p-2.5 text-center text-black">
-              <p className="text-[9px] font-black uppercase leading-none">OVR</p>
-              <p className="font-heading text-2xl font-black leading-none">{player.overall_rating || "-"}</p>
-            </div>
+            <CardLevelBadge playerId={player?.id} />
           </div>
         </div>
 

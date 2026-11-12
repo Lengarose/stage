@@ -5,6 +5,7 @@ const { applyStoredTournamentRules } = require('../utils/tournamentRuleTemplates
 
 class Tournament {
   constructor(body = {}) {
+    this.club_rules = body.club_rules == null ? null : typeof body.club_rules==='string' ? body.club_rules : JSON.stringify(body.club_rules);
     this.id                      = body.id;
     this.schedule_policy_version = body.schedule_policy_version || null;
     this.name                    = body.name;
@@ -109,7 +110,7 @@ class Tournament {
       (id, name, description, type, participant_type, platform, region, max_teams,
        entry_credits, entry_fee_stc, prize_description, prize_pool_stc,
        prize_winner_stc, prize_runner_up_stc, prize_semi_final_stc, prize_participation_stc,
-       custom_rules, rules_template_id, rules_file_url, country_code,
+       custom_rules, rules_template_id, rules_file_url, club_rules, country_code,
        start_date, end_date, organizer_email,
        creator_email, creator_id, creator_gamertag,
        win_credits, win_credits_awarded,
@@ -118,13 +119,13 @@ class Tournament {
        banner_url, banner_color, banner_position,
        trophy_url, trophy_item_id,
        registered_players, registered_clubs, registration_proofs, schedule_policy_version)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, ?)`;
     const values = [
       this.id, this.name, this.description, this.type, this.participant_type,
       this.platform, this.region, this.max_teams,
       this.entry_credits, this.entry_fee_stc, this.prize_description, this.prize_pool_stc,
       this.prize_winner_stc, this.prize_runner_up_stc, this.prize_semi_final_stc, this.prize_participation_stc,
-      this.custom_rules, this.rules_template_id, this.rules_file_url, this.country_code,
+      this.custom_rules, this.rules_template_id, this.rules_file_url, this.club_rules, this.country_code,
       this.start_date, this.end_date, this.organizer_email,
       this.creator_email, this.creator_id, this.creator_gamertag,
       this.win_credits, this.win_credits_awarded,
@@ -142,7 +143,7 @@ class Tournament {
       name=?, description=?, type=?, participant_type=?, platform=?, region=?, max_teams=?,
       entry_credits=?, entry_fee_stc=?, prize_description=?, prize_pool_stc=?,
       prize_winner_stc=?, prize_runner_up_stc=?, prize_semi_final_stc=?, prize_participation_stc=?,
-      custom_rules=?, rules_template_id=?, rules_file_url=?, country_code=?,
+      custom_rules=?, rules_template_id=?, rules_file_url=?, club_rules=?, country_code=?,
       start_date=?, end_date=?, organizer_email=?,
       creator_email=?, creator_id=?, creator_gamertag=?,
       win_credits=?, win_credits_awarded=?,
@@ -157,7 +158,7 @@ class Tournament {
       this.platform, this.region, this.max_teams,
       this.entry_credits, this.entry_fee_stc, this.prize_description, this.prize_pool_stc,
       this.prize_winner_stc, this.prize_runner_up_stc, this.prize_semi_final_stc, this.prize_participation_stc,
-      this.custom_rules, this.rules_template_id, this.rules_file_url, this.country_code,
+      this.custom_rules, this.rules_template_id, this.rules_file_url, this.club_rules, this.country_code,
       this.start_date, this.end_date, this.organizer_email,
       this.creator_email, this.creator_id, this.creator_gamertag,
       this.win_credits, this.win_credits_awarded,

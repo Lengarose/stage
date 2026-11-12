@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS users (
   credits               INT          DEFAULT 0,
   credits_refreshed_at  DATETIME     NULL,
   timezone              VARCHAR(80)  DEFAULT 'Europe/Brussels',
+  location              TEXT NULL,
   created_date          DATETIME     DEFAULT CURRENT_TIMESTAMP,
   updated_date          DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -290,6 +291,7 @@ CREATE TABLE IF NOT EXISTS matches (
   bracket_side           VARCHAR(20),
   tournament_id          VARCHAR(36),
   scheduled_date         DATETIME,
+  timezone               VARCHAR(80) NULL,
   scheduling_status      VARCHAR(50)  DEFAULT 'open',
   home_proposed_date     DATETIME,
   away_proposed_date     DATETIME,
@@ -374,6 +376,7 @@ CREATE TABLE IF NOT EXISTS matches (
 
 -- ── tournaments ───────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS tournaments (
+  club_rules JSON NULL,
   schedule_policy_version VARCHAR(40) NULL,
   completed_at DATETIME NULL,
   archived_at DATETIME NULL,
@@ -616,6 +619,7 @@ CREATE TABLE IF NOT EXISTS player_contracts (
   offered_by_user_id    VARCHAR(36) NULL,
   offered_by_club_id    VARCHAR(36) NULL,
   offered_by_president_id VARCHAR(36) NULL,
+  compensation_policy_version VARCHAR(50) NULL,
   max_games             INT,
   max_days              INT,
   weekly_salary_stc     DECIMAL(12,2) DEFAULT 0,
@@ -698,6 +702,7 @@ CREATE TABLE IF NOT EXISTS player_identity_claims (
 
 -- ── inbox_messages ────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS inbox_messages (
+  deleted_at DATETIME NULL,
   id                  VARCHAR(36)  PRIMARY KEY,
   recipient_email     VARCHAR(255) NOT NULL,
   sender_email        VARCHAR(255),
@@ -987,6 +992,8 @@ CREATE TABLE IF NOT EXISTS club_fixture_availability (
 
 -- ── club_fixture_lineups ─────────────────────────────────────
 CREATE TABLE IF NOT EXISTS club_fixture_lineups (
+  goalkeeper_player_id VARCHAR(36) NULL,
+  uses_any TINYINT(1) NOT NULL DEFAULT 0,
   id                 VARCHAR(36) PRIMARY KEY,
   club_id            VARCHAR(36) NOT NULL,
   fixture_id         VARCHAR(36) NOT NULL,

@@ -3,7 +3,7 @@
  * Price reflects OVR, in-game performance, and avg match rating.
  */
 export function calculateShirtPrice(player) {
-  const ovr = player.overall_rating || 70;
+  const ovr = 70; // Historical baseline; self-reported ratings are not economic evidence.
   const goals = player.goals || 0;
   const assists = player.assists || 0;
   const avgRating = player.avg_match_rating || 6.0;

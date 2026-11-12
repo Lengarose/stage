@@ -27,7 +27,7 @@ async function awardPlacement({query,ownerId,ownerType,context}) {
     owner_id:ownerId,owner_type:ownerType,trophy_item_id:context.trophyItemId,
     source_type:proof.source_type,source_id:proof.source_id,edition_id:proof.edition_id,
     winning_club_id:clubWin?proof.winner:null,award_role:role,
-    metadata_json:{...snapshot(proof,role,context.rankingEligible),...(role==='club_champion'?{honoured_player_ids:context.playerIds||[],associated_history_unavailable:!!context.historicalBackfill}: {})}
+    metadata_json:{...snapshot(proof,role,context.rankingEligible),...(!context.historicalBackfill?{congratulations_policy_version:require('./trophyCongratulationsService').VERSION}:{}),...(role==='club_champion'?{honoured_player_ids:context.playerIds||[],associated_history_unavailable:!!context.historicalBackfill}: {})}
   },query);
   return {awarded:true,award_id:id};
 }

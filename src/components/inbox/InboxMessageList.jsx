@@ -1,6 +1,6 @@
 import { format, isToday } from "@/lib/momentDate";
 import { cn } from "@/lib/utils";
-import { inboxMessageIsActioned, inboxMessageNeedsAction } from "@/lib/inboxActionTypes";
+import { inboxMessageIsActioned } from "@/lib/inboxActionTypes";
 import { useTranslation } from "@/hooks/useTranslation";
 
 function isYesterdayLocal(dateValue) {
@@ -32,8 +32,8 @@ function previewText(msg) {
 function SenderAvatar({ msg, t }) {
   if (msg.is_system) {
     return (
-      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500/30 to-teal-700/40 text-lg ring-1 ring-cyan-400/20">
-        ⚡
+      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-200/10 text-lg ring-1 ring-cyan-400/20">
+        ✉
       </div>
     );
   }
@@ -69,11 +69,9 @@ export default function InboxMessageList({ messages, selectedId, onSelect }) {
       {messages.map((msg) => {
         const isSelected = msg.id === selectedId;
         const unread = !msg.is_read;
-        const needsAction = inboxMessageNeedsAction(msg);
+        const needsAction = false;
         const isActioned = inboxMessageIsActioned(msg);
-        const name = msg.is_system
-          ? t("matchFlow.stageSystem")
-          : (msg.sender_gamertag || t("matchFlow.unknown"));
+        const name = msg.sender_gamertag || (msg.is_system ? t("matchFlow.stageSystem") : t("matchFlow.unknown"));
         const preview = previewText(msg);
         const time = listTimestamp(msg.created_date, t);
 
@@ -83,8 +81,8 @@ export default function InboxMessageList({ messages, selectedId, onSelect }) {
             type="button"
             onClick={() => onSelect(msg)}
             className={cn(
-              "flex w-full items-center gap-3 px-3 py-3 text-left transition-colors",
-              isSelected ? "bg-white/[0.08]" : "hover:bg-white/[0.04]",
+              "flex min-w-0 w-full items-center gap-3 px-3 py-3 text-left normal-case tracking-normal transition-colors",
+              isSelected ? "bg-white/[0.08]" : "hover:bg-white/[0.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-200",
               unread && !isSelected && "bg-cyan-500/[0.04]"
             )}
           >
@@ -103,7 +101,7 @@ export default function InboxMessageList({ messages, selectedId, onSelect }) {
                 <span
                   className={cn(
                     "shrink-0 text-[11px] tabular-nums",
-                    unread ? "font-semibold text-cyan-300" : "text-white/35"
+                    unread ? "font-semibold text-blue-100" : "text-white/35"
                   )}
                 >
                   {time}
@@ -131,13 +129,13 @@ export default function InboxMessageList({ messages, selectedId, onSelect }) {
 
                 <div className="flex shrink-0 items-center gap-1.5">
                   {needsAction && (
-                    <span className="h-2 w-2 rounded-full bg-amber-400" title={t("matchFlow.needsAction")} />
+                    <span className="h-2 w-2 rounded-full bg-blue-200" title={t("matchFlow.needsAction")} />
                   )}
                   {isActioned && (
                     <span className="text-[10px] text-emerald-400/80">✓</span>
                   )}
                   {unread && (
-                    <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-cyan-400 px-1 text-[10px] font-bold text-[#061018]">
+                    <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-blue-200 px-1 text-[10px] font-bold text-[#061018]">
                       1
                     </span>
                   )}

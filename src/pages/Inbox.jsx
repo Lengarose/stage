@@ -19,6 +19,8 @@ export default function InboxPage({ tournamentId: scopedTournamentId } = {}) {
   const [myPlayer, setMyPlayer] = useState(null);
   const [myClub, setMyClub] = useState(null);
   const [query, setQuery] = useState("");
+  const [error,setError]=useState("");
+  const [marking,setMarking]=useState(false);
 
   useEffect(() => {
     let unsub = null;
@@ -79,13 +81,13 @@ export default function InboxPage({ tournamentId: scopedTournamentId } = {}) {
           setMessages(nextMessages);
           setSelected(prev => {
             if (!prev?.id) return prev;
-            return nextMessages.find(m => m.id === prev.id) || prev;
+            return nextMessages.find(m => m.id === prev.id) || null;
           });
         }
       }, 15000);
     }
 
-    load();
+    load().catch(e=>{if(!stopped){setError(e.message);setLoading(false);}});
 
     return () => {
       stopped = true;
@@ -102,24 +104,17 @@ export default function InboxPage({ tournamentId: scopedTournamentId } = {}) {
         const updated = { ...msg, is_read: true };
         setMessages(prev => prev.map(m => m.id === msg.id ? updated : m));
         setSelected(updated);
-      } catch {
-        // ignore mark-as-read failure
-      }
+      } catch(e) {setError(e.message); }
     }
   }
 
   async function markAllAsRead() {
-    const unread = mailboxMessages.filter(m => !m.is_read);
-    if (unread.length === 0) return;
-    const unreadIds = new Set(unread.map(m => m.id));
-    await Promise.all(unread.map(m => stageClient.entities.InboxMessage.update(m.id, { is_read: true })));
-    setMessages(prev => prev.map(m => unreadIds.has(m.id) ? { ...m, is_read: true } : m));
-    if (selected && unreadIds.has(selected.id)) setSelected(prev => ({ ...prev, is_read: true }));
+    setMarking(true);setError('');
+    try {await stageClient.http.post('/inbox-messages/mark-all-read',{});setMessages(prev=>prev.map(m=>({...m,is_read:true})));setSelected(prev=>prev?{...prev,is_read:true}:null);window.dispatchEvent(new CustomEvent('stage-inbox-changed'));}
+    catch(e){setError(e.message);}finally{setMarking(false);}
   }
-
-  function handleDeleted(id) {
-    setMessages(prev => prev.filter(m => m.id !== id));
-    setSelected(null);
+  function handleDeleted(id,ids=[id]) {
+    setMessages(prev=>prev.filter(m=>!ids.includes(m.id)));setSelected(null);window.dispatchEvent(new CustomEvent('stage-inbox-changed'));
   }
 
   function handleStatusChanged(id, newStatus) {
@@ -157,12 +152,12 @@ export default function InboxPage({ tournamentId: scopedTournamentId } = {}) {
   }
 
   return (
-    <div className="flex h-[calc(100vh-56px)] flex-col bg-[#060912] text-white lg:h-screen">
+    <div className="flex h-[calc(100vh-56px)] flex-col bg-[#060912] text-white lg:h-[calc(100vh-64px)]">
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {/* Discussions column */}
         <aside
           className={`
-            flex min-h-0 w-full flex-col border-r border-white/[0.07] bg-[#0a101c]
+            flex min-h-0 min-w-0 w-full lg:w-[380px] xl:w-[420px] lg:shrink-0 flex-col border-r border-white/[0.07] bg-[#0a101c]
             ${selected ? "hidden lg:flex lg:w-[380px] xl:w-[420px] shrink-0" : "flex"}
           `}
         >
@@ -172,7 +167,7 @@ export default function InboxPage({ tournamentId: scopedTournamentId } = {}) {
                 {t("matchFlow.inboxTitle")}
               </h1>
               {unreadCount > 0 && (
-                <span className="rounded-full bg-cyan-400 px-2 py-0.5 text-[11px] font-bold text-[#061018]">
+                <span className="rounded-full bg-blue-200 px-2 py-0.5 text-[11px] font-bold text-[#061018]">
                   {unreadCount}
                 </span>
               )}
@@ -180,7 +175,8 @@ export default function InboxPage({ tournamentId: scopedTournamentId } = {}) {
                 <button
                   type="button"
                   onClick={markAllAsRead}
-                  className="ml-auto inline-flex items-center gap-1.5 text-[11px] text-white/45 transition hover:text-cyan-300"
+                  disabled={marking}
+                  className="ml-auto inline-flex items-center gap-1.5 text-[11px] text-white/45 transition hover:text-blue-100"
                 >
                   <CheckCheck className="h-3.5 w-3.5" />
                   {t("matchFlow.markAllRead")}
@@ -194,11 +190,12 @@ export default function InboxPage({ tournamentId: scopedTournamentId } = {}) {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={t("matchFlow.inboxSearch", "Search")}
-                className="w-full rounded-lg border-0 bg-[#141b28] py-2.5 pl-10 pr-3 text-sm text-white placeholder:text-white/35 outline-none ring-1 ring-white/[0.06] focus:ring-cyan-400/40"
+                className="w-full rounded-none border-0 bg-[#141b28] py-2.5 pl-10 pr-3 text-sm text-white placeholder:text-white/35 outline-none ring-1 ring-white/[0.06] focus:ring-cyan-400/40"
               />
             </label>
           </div>
 
+          {error&&<p role="alert" className="border-b border-red-300/30 p-3 text-sm text-red-200">{error}</p>}
           <div className="min-h-0 flex-1 overflow-y-auto">
             {filtered.length === 0 ? (
               <div className="flex flex-col items-center justify-center px-8 py-16 text-center">
@@ -220,7 +217,7 @@ export default function InboxPage({ tournamentId: scopedTournamentId } = {}) {
         {/* Conversation pane */}
         <section
           className={`
-            relative min-h-0 flex-1 flex-col
+            relative min-h-0 min-w-0 flex-1 flex-col
             ${selected ? "flex" : "hidden lg:flex"}
           `}
         >
@@ -246,7 +243,7 @@ export default function InboxPage({ tournamentId: scopedTournamentId } = {}) {
               />
               <div className="relative z-10 flex flex-col items-center px-8 text-center">
                 <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white/[0.04] ring-1 ring-white/10">
-                  <Inbox className="h-7 w-7 text-cyan-300/70" />
+                  <Inbox className="h-7 w-7 text-blue-100/70" />
                 </div>
                 <p className="text-sm text-white/45">{t("matchFlow.selectMessage")}</p>
               </div>

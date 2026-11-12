@@ -7,8 +7,6 @@ import TransferFilters from "@/components/transfer/TransferFilters";
 import TransferPlayerList from "@/components/transfer/TransferPlayerList";
 import TransferScoutBoard from "@/components/transfer/TransferScoutBoard";
 import TransferDetailPanel from "@/components/transfer/TransferDetailPanel";
-import { ensureContractOfferInbox } from "@/lib/contractOfferDelivery";
-import { CONTRACT_TYPES } from "@/lib/contractTypes";
 import { getContractTargetPlayerId, normalizePlayerContracts } from "@/lib/playerContractFields";
 import { canShowContractOfferButton, getContractOfferBlockReason } from "@/lib/contractOfferVisibility";
 import { buildTransferMarketEntries, normalizeTransferMarketPlayers } from "@/lib/transferMarketEntries";
@@ -93,44 +91,7 @@ export default function TransferMarket() {
     return canManage && canCreateContractOffer(offersAvailable) && canShowContractOfferButton({ player, viewerClub: myClub, playerContracts: contracts });
   }
 
-  async function handleOffer({ contract_type, offer_note, weekly_salary_stc, signing_bonus_stc, transfer_fee_stc, performance_targets, captaincy_offered }) {
-    if (!offerTarget || !myClub) return;
-    if (!canCreateContractOffer(offersAvailable)) return;
-    const targetPlayer = offerTarget.player || offerTarget;
-    const result = await stageClient.functions.invoke("contractActions", {
-      action: "offer",
-      team_id: myClub.id,
-      target_player_id: targetPlayer.id,
-      contract_type,
-      offer_note,
-      weekly_salary_stc,
-      signing_bonus_stc,
-      transfer_fee_stc,
-      performance_targets,
-      captaincy_offered,
-    });
-    const contractId = result?.data?.contract_id || result?.contract_id;
-    const typeMeta = CONTRACT_TYPES[contract_type] || CONTRACT_TYPES.squad;
-    // Contract offer delivery is also handled server-side. Keep this fallback
-    // idempotent until every contract entry point uses one canonical endpoint.
-    if (contractId) {
-      await ensureContractOfferInbox({
-        contractId,
-        player: targetPlayer,
-        club: myClub,
-        contractType: contract_type,
-        maxGames: typeMeta.max_games,
-        maxDays: typeMeta.max_days,
-        weeklySalary: weekly_salary_stc,
-        signingBonus: signing_bonus_stc,
-        offerNote: offer_note,
-        senderEmail: myClub?.owner_email,
-      }).catch((err) => console.warn("[TransferMarket] inbox fallback failed:", err?.message || err));
-    }
-    const updated = await stageClient.entities.PlayerContract.filter({ team_id: myClub.id });
-    setMyContracts(normalizePlayerContracts(updated));
-    setOfferTarget(null);
-  }
+
 
   // Build unified flat list
   const allEntries = useMemo(() => {
@@ -329,7 +290,7 @@ export default function TransferMarket() {
         existingActiveContract={null}
         playerContracts={offerTarget ? myContracts.filter(c => getContractTargetPlayerId(c) === (offerTarget.player || offerTarget)?.id) : []}
         clubContracts={myContracts}
-        onOffer={handleOffer}
+        onProposalCreated={() => load()}
         officialRecruitment={officialRecruitment}
         windowOpen={windowOpen}
         club={myClub}

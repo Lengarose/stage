@@ -11,6 +11,19 @@ router.post('/:id/schedule/changes/:changeId/respond', async (req,res) => {try {
 router.get('/:id/schedule', async (req,res) => { try { res.json(await require('../services/tournamentScheduleService').read(req.params.id)); } catch(err) { res.status(err.status || 500).json({error:err.message}); } });
 router.post('/:id/schedule', async (req,res) => { try { res.json(await require('../services/tournamentScheduleService').publish(req.params.id,req.body || {},req.user)); } catch(err) { res.status(err.status || 500).json({error:err.message}); } });
 router.post('/:id/schedule/accept', async (req,res) => { try { res.json(await require('../services/tournamentScheduleService').accept(req.params.id,req.body || {},req.user)); } catch(err) { res.status(err.status || 500).json({error:err.message}); } });
+router.get('/:id/club-eligibility/:clubId', async (req,res) => {
+  try {
+    await require('../services/clubOperationsService').requireClubPermission(req,req.params.clubId,'manage_recruitment');
+    const result=await require('../db/database').withTransaction(async query=>{
+      const [tournament]=await query('SELECT * FROM tournaments WHERE id=?',[req.params.id]);
+      if(!tournament)throw Object.assign(new Error('Tournament not found'),{status:404});
+      const service=require('../services/tournamentSquadService');
+      const rules=service.publishedRules(tournament),players=await service.roster(req.params.clubId,query);
+      return {rules,eligible_count:players.length,eligible:players.length>=rules.minimum_human_players,club_rules_revision:service.registrationRevision(tournament)};
+    });
+    res.json(result);
+  }catch(err){res.status(err.status||500).json({error:err.message});}
+});
 router.get('/archive',async(req,res)=>{try{res.json(await require('../services/tournamentArchiveService').list(req.query));}catch(e){res.status(500).json({error:e.message});}});
 const {
   getTournamentStages,
@@ -100,7 +113,7 @@ router.get('/', async (req, res) => {
     res.json(result);
   } catch (err) {
     console.error(err);
-    res.status(err.statusCode || 500).json({ error: err.message });
+    res.status(err.status || err.statusCode || 500).json({ error: err.message });
   }
 });
 
@@ -110,10 +123,10 @@ router.get('/:id', async (req, res) => {
     const tournament = new Tournament();
     const result     = await tournament.selectOne(req.params.id);
     if (!result.length) return res.status(404).json({ error: 'Not found' });
-    res.json(result[0]);
+    res.json({...result[0],club_rules_revision:require('../services/tournamentSquadService').registrationRevision(result[0])});
   } catch (err) {
     console.error(err);
-    res.status(err.statusCode || 500).json({ error: err.message });
+    res.status(err.status || err.statusCode || 500).json({ error: err.message });
   }
 });
 
@@ -147,6 +160,7 @@ router.post('/', async (req, res) => {
     }
 
     const body = normalizeTournamentEconomics(req.body, { allowDisabled: false });
+    body.club_rules = require('../services/tournamentSquadService').normalize(body);
     body.schedule_policy_version = require('../services/tournamentScheduleService').VERSION;
     if (user?.email) {
       body.organizer_email = body.organizer_email || user.email;
@@ -187,7 +201,7 @@ router.post('/', async (req, res) => {
     res.status(201).json(record);
   } catch (err) {
     console.error(err);
-    res.status(err.statusCode || 500).json({ error: err.message });
+    res.status(err.status || err.statusCode || 500).json({ error: err.message });
   }
 });
 
@@ -208,7 +222,7 @@ router.patch('/:id', async (req, res) => {
       if(['completed','archived'].includes(before.status))throw Object.assign(Error('Completed history is read-only. Use explicit audited history review.'),{status:409});
       schedules.assertTermsEditable(before,req.body || {});
       const shouldNormalize=['type','max_teams','entry_fee_stc'].some(key=>req.body[key]!==undefined);
-      const merged={...before,...req.body};
+      const merged={...before,...req.body,club_rules:require('../services/tournamentSquadService').normalize(req.body||{},before)};
       await new Tournament(shouldNormalize?normalizeTournamentEconomics(merged,{allowDisabled:true}):merged).update(id,query);
       const [after]=await query('SELECT * FROM tournaments WHERE id=?',[id]);
       if(user.isAdmin)await query('INSERT INTO admin_audit_log (id,admin_user_id,admin_email,action,entity_type,entity_id,old_value,new_value,reason) VALUES (?,?,?,?,?,?,?,?,?)',[require('node:crypto').randomUUID(),user.id,user.email,'edit_tournament_conditions','tournament',id,JSON.stringify(before),JSON.stringify(after),req.body.reason || 'Admin edited tournament conditions']);

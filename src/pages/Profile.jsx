@@ -1,3 +1,4 @@
+import { CardLevelBadge } from "@/components/card/CardProgression";
 import { useState, useEffect } from "react";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import {
@@ -90,8 +91,7 @@ export default function Profile({
   const [clubMemberships, setClubMemberships] = useState([]);
 
   const [playerForm, setPlayerForm] = useState({
-    gamertag: "", position: "CM", secondary_position: "none", platform: "PlayStation",
-    overall_rating: 70, country: "", country_code: "", bio: "", shirt_number: "",
+    gamertag: "", position: "CM", secondary_position: "none", platform: "PlayStation", country: "", country_code: "", bio: "", shirt_number: "",
   });
 
   const [claimForm, setClaimForm] = useState({
@@ -184,7 +184,6 @@ export default function Profile({
             position: p.position || "CM",
             secondary_position: p.secondary_position || "none",
             platform: p.platform || "PlayStation",
-            overall_rating: p.overall_rating || 70,
             country: p.country || "",
             country_code: p.country_code || "",
             bio: p.bio || "",
@@ -467,7 +466,7 @@ export default function Profile({
                 <div className="pt-2 space-y-4">
                   <GamerSectionCard title="Command Overview" className="border-cyan-300/20">
                     <div className="grid gap-3 sm:grid-cols-4">
-                      <GamerStatTile label="OVR" value={Math.round(Number(player?.overall_rating || 70))} accent="gold" sub={player?.position || "Position"} shape="rounded" tinted />
+                      <CardLevelBadge playerId={player?.id} />
                       <GamerStatTile label="Club" value={signedClub?.tag || signedClub?.name || "Free"} accent="cyan" sub={signedClub ? "Signed" : "Agent"} shape="rounded" tinted />
                       <GamerStatTile label="Career" value={career?.club_career?.games || career?.player_career?.games || 0} accent="green" sub="Matches" shape="rounded" tinted />
                       <GamerStatTile label="Next" value={upcomingMatches.length || 0} accent="sky" sub="Fixtures" shape="rounded" tinted />
@@ -691,10 +690,7 @@ export default function Profile({
             </Select>
             {!playerForm.country && <p className="text-[11px] text-destructive mt-1">{t("commonPages.profCountryRequired")}</p>}
           </div>
-          <div>
-            <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.profOverallRating")}</label>
-            <Input type="number" min={1} max={99} value={playerForm.overall_rating} onChange={e => setPlayerForm(f => ({ ...f, overall_rating: parseInt(e.target.value) || 70 }))} className="bg-secondary border-border" />
-          </div>
+
           <div>
             <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.profShirtNumber")}</label>
             <Input

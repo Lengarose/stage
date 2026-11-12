@@ -10,7 +10,7 @@ const fail=(message,status=409)=>{throw Object.assign(Error(message),{status});}
 const scheduleId=id=>uuid(`organizer_schedule:${id}`,uuid.URL);
 const consentId=(id,kind,participant)=>uuid(`organizer_schedule_consent:${id}:${kind}:${participant}`,uuid.URL);
 const hash=value=>crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
-const rules=t=>Object.fromEntries(['rules_template_id','custom_rules','rules_file_url','type','participant_type','max_teams','entry_credits','entry_fee_stc','prize_pool_stc','prize_winner_stc','prize_runner_up_stc','prize_semi_final_stc','prize_participation_stc','trophy_item_id'].map(key=>[key,t[key]??null]));
+const rules=t=>({...t.club_rules?{club_rules:typeof t.club_rules==='string'?JSON.parse(t.club_rules):t.club_rules}:{},...Object.fromEntries(['rules_template_id','custom_rules','rules_file_url','type','participant_type','max_teams','entry_credits','entry_fee_stc','prize_pool_stc','prize_winner_stc','prize_runner_up_stc','prize_semi_final_stc','prize_participation_stc','trophy_item_id'].map(key=>[key,t[key]??null]))});
 const parse=value=>typeof value==='string'?JSON.parse(value):value||[];
 async function stored(id,q=EXECUTESQL){const [row]=await q("SELECT * FROM league_entities WHERE id=? AND entity_type='tournament_schedule'",[scheduleId(id)]);return row?unpack(row):null;}
 async function tournament(id,q){const [row]=await q('SELECT * FROM tournaments WHERE id=? FOR UPDATE',[id]);if(!row)fail('Tournament not found.',404);return row;}

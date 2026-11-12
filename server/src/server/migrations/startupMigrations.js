@@ -2801,6 +2801,11 @@ async function runStartupMigrations() {
   const notificationRelatedColumn=await EXECUTESQL("SELECT CHARACTER_MAXIMUM_LENGTH FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='notifications' AND column_name='related_id'");
   if(notificationRelatedColumn.some(column=>Number(column.CHARACTER_MAXIMUM_LENGTH)<255))await EXECUTESQL('ALTER TABLE notifications MODIFY COLUMN related_id VARCHAR(255) NULL');
 
+  await addCol('inbox_messages','deleted_at','DATETIME NULL');
+  await addCol('tournaments','club_rules','JSON NULL');
+  await addCol('club_fixture_lineups','goalkeeper_player_id','VARCHAR(36) NULL');
+  await addCol('club_fixture_lineups','uses_any','TINYINT(1) NOT NULL DEFAULT 0');
+  await addCol('player_contracts','compensation_policy_version','VARCHAR(50) NULL');
   await require('./retirePlayerLoans').retirePlayerLoans();
 
 }

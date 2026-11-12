@@ -28,7 +28,7 @@ export default function TutorialPopup({ open, onClose, intent = "player" }) {
     <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose?.(); }}>
       <DialogContent
         hideCloseButton
-        className="bg-card border-border max-w-[calc(100vw-1.5rem)] sm:max-w-lg lg:max-w-4xl p-0 overflow-hidden rounded-2xl max-h-[90vh] grid-rows-1"
+        className="bg-card border-border max-w-[calc(100vw-1.5rem)] sm:max-w-lg lg:max-w-4xl p-0 overflow-hidden rounded-none max-h-[90vh] grid-rows-1"
       >
         <DialogTitle className="sr-only">{current.title}</DialogTitle>
         <DialogDescription className="sr-only">{current.description}</DialogDescription>
@@ -45,7 +45,7 @@ export default function TutorialPopup({ open, onClose, intent = "player" }) {
                     type="button"
                     onClick={() => setStep(i)}
                     className={cn(
-                      "w-full rounded-xl border px-3 py-3 text-left transition-colors",
+                      "w-full rounded-none border px-3 py-3 text-left transition-colors",
                       i === safeStep
                         ? "border-primary/50 bg-primary/10"
                         : "border-transparent hover:bg-secondary/80"
@@ -128,7 +128,7 @@ export default function TutorialPopup({ open, onClose, intent = "player" }) {
                 ) : null}
               </div>
 
-              <div className="bg-secondary/50 border border-border rounded-xl p-4 space-y-3">
+              <div className="bg-secondary/50 border border-border rounded-none p-4 space-y-3">
                 <p className="text-xs font-bold text-foreground uppercase tracking-wider">
                   Your path
                 </p>

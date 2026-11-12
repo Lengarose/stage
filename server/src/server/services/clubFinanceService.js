@@ -83,10 +83,12 @@ async function getClubFinanceUsage(clubId, query = EXECUTESQL, options = {}) {
   );
   const usage = contractRows[0] || {};
   const loanDelta = await getClubLoanWageDelta(clubId, { query }).catch(() => ({ active_weekly_delta: 0 }));
+  const board=await require('./clubAgreementService').finance(club,query,{excluding:excluded});
   const tier = getStadiumFinanceTier(club.stadium_level);
-  const activeWeeklyWages = numberOrZero(usage.active_wages) + numberOrZero(loanDelta.active_weekly_delta);
-  const pendingWeeklyWages = numberOrZero(usage.pending_wages);
-  const transferLockedStc = numberOrZero(usage.pending_transfer_fees);
+  const legacyActive=numberOrZero(usage.active_wages)+numberOrZero(loanDelta.active_weekly_delta);
+  const activeWeeklyWages=legacyActive+board.agreements.filter(a=>a.kind==='management'&&a.status==='active').reduce((n,a)=>n+Number(a.weekly_salary_stc||0),0);
+  const pendingWeeklyWages = Math.max(numberOrZero(usage.pending_wages),board.committed_weekly_stc-activeWeeklyWages);
+  const transferLockedStc = numberOrZero(usage.pending_transfer_fees)+board.pending_transfer_fees_stc;
   const wageCap = numberOrZero(club.wage_budget_stc);
   const transferCap = numberOrZero(club.transfer_budget_stc);
   const balance = numberOrZero(club.stc);

@@ -9,23 +9,11 @@ function read(relativePath) {
   return readFileSync(resolve(root, relativePath), "utf8");
 }
 
-test("admin-selected tournament clubs charge users, seed availability, and auto-seat matches", () => {
-  const functions = read("server/src/server/functions/legacyFunctions.js");
-  const clubsRegistered = read("src/pages/ClubsRegistered.jsx");
-  const actions = read("src/api/tournamentActions.js");
-
-  assert.match(actions, /setAdminTournamentClubs/);
-  assert.match(clubsRegistered, /setAdminTournamentClubs\(id,\s*\[\.\.\.selected\]\)/);
-  assert.doesNotMatch(clubsRegistered, /Tournament\.update\(id,\s*\{\s*registered_clubs:\s*\[\.\.\.selected\]\s*\}/);
-
-  assert.match(functions, /async adminSetTournamentClubs/);
-  assert.match(functions, /spendUserCredits\(charge\.user_id,\s*entryCost,\s*query\)/);
-  assert.match(functions, /admin_selected_auto_available/);
-  assert.match(functions, /deliverAdminSelectedTournamentPresidentMessage/);
-  assert.match(functions, /seedAdminSelectedClubMatchPreparation/);
-  assert.match(functions, /upsertDressingRoom/);
-  assert.match(functions, /seedAdminSelectedTournamentMatchPreparation\(tournament\)/);
-  assert.match(functions, /listSimulatedMatchPlayers/);
+test("admin-selected clubs retain transactional entry without auto-availability",()=>{
+ const functions=read("server/src/server/functions/legacyFunctions.js"),actions=read("src/api/tournamentActions.js");
+ assert.match(actions,/setAdminTournamentClubs/);assert.match(functions,/async adminSetTournamentClubs/);
+ assert.match(functions,/spendUserCredits\(charge\.user_id,\s*entryCost,\s*query\)/);
+ assert.doesNotMatch(functions,/admin_selected_auto_available/);
 });
 
 test("admin-selected club player lookup keeps DISTINCT ORDER BY MySQL-compatible", () => {

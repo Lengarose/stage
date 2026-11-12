@@ -85,7 +85,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
           (c.name.toLowerCase().includes(q) || c.tag?.toLowerCase().includes(q))
         ).slice(0, 10));
       } else {
-        const all = await stageClient.entities.Player.list("-overall_rating", 2000);
+        const all = await stageClient.entities.Player.list("-created_date", 2000);
         const q = searchQuery.toLowerCase();
         setResults(all.filter(p =>
           p.id !== myPlayer?.id &&

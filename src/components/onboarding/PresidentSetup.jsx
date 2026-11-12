@@ -46,7 +46,7 @@ export function buildInitialPresidentProfile(player) {
   const countryCode = player?.country_code || COUNTRIES.find((c) => c.name === countryName)?.code || "";
   return {
     display_name: player?.gamertag || "",
-    role_title: "President",
+    role_title: "Manager",
     // Deliberately NOT prefilled from player.avatar_url: the president is a distinct
     // public identity from the player, even for the same real person, and copying the
     // player's photo by default made the two profiles look merged. The user must
@@ -76,7 +76,7 @@ export function buildProfileFromPresident(president) {
   const started = president.started_at ? String(president.started_at).slice(0, 10) : "";
   return {
     display_name: president.display_name || "",
-    role_title: president.role_title || "President",
+    role_title: president.role_title === "Manager" ? "Manager" : president.role_title || "Manager",
     avatar_url: president.avatar_url || "",
     avatar_position: president.avatar_position || "50% 50%",
     avatar_zoom: Number(president.avatar_zoom) || 150,
@@ -161,12 +161,12 @@ export default function PresidentSetup({
     }
     setUploading(true);
     try {
-      const uploadFile = await prepareImageForUpload(file, { fallbackName: "president-avatar.jpg" });
+      const uploadFile = await prepareImageForUpload(file, { fallbackName: "manager-avatar.jpg" });
       const { file_url } = await stageClient.integrations.Core.UploadFile({ file: uploadFile });
       if (!isPersistableMediaUrl(file_url)) throw new Error(t("commonPages.obErrUpload"));
       setPendingAvatar(file_url);
     } catch (err) {
-      console.error("Failed to upload president avatar:", err);
+      console.error("Failed to upload manager avatar:", err);
       setError(err?.data?.error || err?.message || t("commonPages.obErrUpload"));
     } finally {
       setUploading(false);
@@ -176,7 +176,6 @@ export default function PresidentSetup({
 
   const previewPlayer = {
     position: "CM",
-    overall_rating: 0,
     shirt_number: 1,
   };
   const canContinue = Boolean(profile.display_name?.trim() && profile.role_title?.trim());
