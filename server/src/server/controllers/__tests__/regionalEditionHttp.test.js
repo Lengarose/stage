@@ -7,7 +7,7 @@ function fixture() {
   const names = ['league_entities', 'matches', 'match_player_stats', 'club_fixture_lineups', 'club_fixture_availability', 'live_matches', 'live_match_events', 'competition_instances', 'competition_participants', 'competition_fixtures', 'competition_schedule_proposals', 'competition_result_submissions', 'competition_phase_states', 'competition_standings', 'competition_payouts', 'reward_configs', 'stc_transactions', 'player_stc_transactions', 'user_purchases', 'trophy_items', 'trophy_awards', 'trophy_placements', 'club_achievements', 'player_achievements', 'fixture_admin_actions', 'inbox_messages', 'notifications', 'predictions', 'rating_history'];
   const tables = Object.fromEntries(names.map(name => [name, []]));
   async function query(sql, values = []) {
-    if (/FROM users/.test(sql)) return [{ id: values[0], email: 'admin@test.local', role_id: values[0] === 'admin' ? 2 : 1 }];
+    if (/FROM users/.test(sql)) return [{ id: values[0], email: 'admin@test.local', role_id: values[0] === 'super' ? 0 : values[0] === 'admin' ? 2 : 1 }];
     if (/information_schema.tables/.test(sql)) return names.map(name => ({ name }));
     if (/@@transaction_isolation/.test(sql)) return [{ isolation_level: 'REPEATABLE-READ' }];
     if (/regional-edition-write-lock|league-lifecycle-write-lock/.test(sql)) return [];

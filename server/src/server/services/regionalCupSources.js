@@ -9,8 +9,15 @@ const stableId=v=>{const h=hash(v);return `${h.slice(0,8)}-${h.slice(8,12)}-${h.
 function trophySources(editions, records) {
   const catalogue=buildCatalogue(editions), sources=new Map();
   for(const root of catalogue.definitions) {
-    if(Number(root.division)!==1 || root.retired || root.retired_at || catalogue.groups.some(g=>g.permanent_league_id===root.id && (g.identity_conflict || g.identity_unverified)))continue;
-    const scope=identity(root),name=policy.names[scope.region_slug];
+    if(Number(root.division)!==1 || root.retired || root.retired_at)continue;
+    // A permanent Cup belongs to the region/platform, not a league season or
+    // group. Legacy duplicate editions must not hide its artwork/reward target.
+    // Preparation/activation still validate the actual sporting source editions.
+    let scope;
+    const permanentSlug=String(root.slug || '').replace(/-s\d+$/i,'').replace(/-reset-\d+$/i,'').replace(/-group-[a-z]$/i,'');
+    try { scope=identity({...root,slug:permanentSlug,group_code:'A',season_number:1,reset_series:0}); }
+    catch { continue; }
+    const name=policy.names[scope.region_slug];
     if(!name)continue;
     const id=stableId(['regional_cup',scope.region_slug,scope.platform]);
     sources.set(id,{id,name,region_slug:scope.region_slug,platform:scope.platform,status:'draft',policy_version:policy.version});

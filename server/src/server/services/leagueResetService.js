@@ -50,7 +50,7 @@ async function plan(input, query = EXECUTESQL) {
   const editions = entities.filter(r => (r.entity_type === 'regional_league' && (rootIds.has(r.id) || rootIds.has(data(r).permanent_league_id))) || (r.entity_type === 'competition_season' && rootIds.has(data(r).competition_id))).filter(r => data(r).status !== 'reset');
   for (const row of editions) if (row.entity_type === 'regional_league') {
     const info = describe(row);
-    if (info.identity_error || info.indexed_json_differences.length) blockers.push(`Edition identity/index mismatch requires review: ${row.id}`);
+    if (info.identity_error || info.indexed_json_differences.length) blockers.push(`Edition identity/index mismatch requires review: ${row.id}${info.identity_error ? `: ${info.identity_error}` : ''}`);
   }
   // Legacy independent rollover rows must be consolidated explicitly, never guessed.
   for (const root of roots.filter(r => r.entity_type === 'regional_league')) {
@@ -87,7 +87,10 @@ async function plan(input, query = EXECUTESQL) {
     const own = editions.filter(e => row.entity_type === 'regional_league' ? e.id === row.id || data(e).permanent_league_id === row.id : data(e).competition_id === row.id);
     const series = Math.max(0, Number(data(row).reset_series || 0), ...own.map(e => Number(data(e).reset_series || 0))) + 1;
     if (!Number.isSafeInteger(series)) blockers.push(`Invalid reset series: ${row.id}`);
-    const group_codes=row.entity_type==='regional_league'?[...new Set(own.map(e=>identity(data(e)).group_code))].sort():null;
+    // Invalid legacy identities are already reported above. Keep the preview
+    // readable instead of throwing again while assembling its group summary.
+    // Apply remains blocked; no group or historical season is guessed.
+    const group_codes=row.entity_type==='regional_league'?[...new Set(own.map(e=>describe(e).identity?.group_code).filter(Boolean))].sort():null;
     return { permanent_id: row.id, type: row.entity_type, reset_series: series, season_number: 1, ...(group_codes?{group_codes}:{}), invalidated_edition_ids: own.map(e => e.id), preserved_configuration: configuration(data(row)) };
   });
   const beforeCounts = {};

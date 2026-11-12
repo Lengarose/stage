@@ -22,6 +22,7 @@ const tasks = {
   schedule: { title: 'Schedule one match', description: 'Schedule or reschedule a specific official fixture, with a reason and explicit confirmation.', icon: CalendarDays },
   review: { title: 'Review league dependencies', description: 'Inspect a permanent league and its linked records before deciding what to change.', icon: Shield },
   retire: { title: 'Retire a league', description: 'Review dependencies and retire a permanent league while preserving its history.', icon: Shield },
+  consolidate: { title: 'Resolve duplicate league', description: 'Link a reviewed duplicate to its original league while preserving season records, fixtures, honours and payments.', icon: Layers },
   delete: { title: 'Delete an unused league', description: 'Only unused draft leagues can be deleted. The server checks dependencies before confirmation.', icon: Shield },
   decisions: { title: 'Official decisions', description: 'Keep withdrawals, transfer reviews, absence evidence and player sanctions separate from league setup.', icon: Settings2 },
   reset: { title: 'Fresh-start reset', description: 'Review the scope and consequences before resetting generated regional history. This is separate from season rollover.', icon: Shield },
@@ -51,6 +52,7 @@ export default function RegionalAdminWorkspace({ leagues, definitions, trophyIte
   const [cupError, setCupError] = useState('');
   const [cupRefresh, setCupRefresh] = useState(0);
   const [selectedCup, setSelectedCup] = useState(null);
+  const [repairLeagueId, setRepairLeagueId] = useState('');
   const [tab, setTab] = useState('overview');
   const [filter, setFilter] = useState('all');
   const [region, setRegion] = useState('all');
@@ -74,6 +76,7 @@ export default function RegionalAdminWorkspace({ leagues, definitions, trophyIte
     const next = new URLSearchParams(location.search); next.delete('regional_field'); next.delete('regional_calendar_cycle'); next.set('regional_task', id);
     navigate({ search: `?${next}`, hash: '' }, { replace: true });
   }
+  function openDuplicateTask(sourceId) { setRepairLeagueId(sourceId); openTask('consolidate'); }
   function closeTask() {
     setCupRefresh(value => value + 1);
     const next = new URLSearchParams(location.search);
@@ -119,13 +122,13 @@ export default function RegionalAdminWorkspace({ leagues, definitions, trophyIte
         </>}
       </section>}
     </>}
-    {tab === 'management' && <><div><h3 className="font-heading text-xl uppercase">Choose a separate management task</h3><p className="mt-1 text-sm text-muted-foreground">League setup, sporting decisions and maintenance each have their own workflow.</p></div><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{['create', 'registration', 'cycles', 'calendar', 'schedule', 'decisions', 'review', 'retire', 'delete', 'seed', 'reset'].map(id => <TaskCard key={id} id={id} onOpen={openTask} />)}</div></>}
+    {tab === 'management' && <><div><h3 className="font-heading text-xl uppercase">Choose a separate management task</h3><p className="mt-1 text-sm text-muted-foreground">League setup, sporting decisions and maintenance each have their own workflow.</p></div><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{['create', 'registration', 'cycles', 'calendar', 'schedule', 'decisions', 'review', 'consolidate', 'retire', 'delete', 'seed', 'reset'].map(id => <TaskCard key={id} id={id} onOpen={openTask} />)}</div></>}
     <Dialog open={!!task} onOpenChange={open => { if (!open) closeTask(); }}>
       <DialogContent className="flex max-h-[90dvh] w-[calc(100%-1.5rem)] max-w-5xl flex-col overflow-hidden rounded-xl border-border bg-card p-0 text-foreground">
         <DialogHeader className="shrink-0 border-b border-border p-5 pr-14"><DialogTitle className="font-heading text-xl uppercase">{task === 'choose' ? 'Choose your task' : tasks[task]?.title}</DialogTitle><DialogDescription>{task === 'choose' ? 'Each task opens a separate guided workflow. Start with league setup for a new regional system.' : tasks[task]?.description}</DialogDescription></DialogHeader>
         <div className="min-h-0 overflow-y-auto overscroll-contain p-5">
-          {task === 'choose' ? <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{['create', 'registration', 'cycles', 'calendar', 'cups', 'review', 'retire', 'delete', 'decisions'].map(id => <TaskCard key={id} id={id} onOpen={openTask} />)}</div> : <div key={task}>
-            {['create', 'review', 'retire', 'delete'].includes(task) && <RegionalLeagueManagementPanel initialAction={task} standalone definitions={definitions} trophyItems={trophyItems} onRefresh={onRefresh} />}
+          {task === 'choose' ? <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{['create', 'registration', 'cycles', 'calendar', 'cups', 'review', 'consolidate', 'retire', 'delete', 'decisions'].map(id => <TaskCard key={id} id={id} onOpen={openTask} />)}</div> : <div key={task}>
+            {['create', 'review', 'consolidate', 'retire', 'delete'].includes(task) && <RegionalLeagueManagementPanel initialAction={task} initialLeagueId={task === 'consolidate' ? repairLeagueId : ''} onResolveDuplicate={openDuplicateTask} standalone definitions={definitions} trophyItems={trophyItems} onRefresh={onRefresh} />}
             {task === 'registration' && <><RegionalRegistrationPanel definitions={definitions} leagues={leagues} /><details className="mt-5 rounded-lg border border-border p-4"><summary className="cursor-pointer font-semibold">Review registration applications</summary><div className="mt-4">{applicationsContent}</div></details></>}
             {task === 'cups' && <RegionalCupPanel definitions={definitions} initialCupId={selectedCup?.cupId} initialEditionId={selectedCup?.editionId} initialStep={selectedCup?.step} />}
             {task === 'cycles' && <RegionalCyclePanel leagues={leagues} registrations={registrations} onRefresh={onRefresh} />}

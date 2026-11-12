@@ -62,3 +62,14 @@ export function adminEndpointError(error) {
     ? 'This admin endpoint is unavailable on the connected backend. Deploy the lifecycle backend and refresh; the action was not confirmed.'
     : error?.message || 'The request failed. Refresh and review the current state before retrying.';
 }
+
+// Explicit user-reviewed legacy mappings; never infer a merge by name.
+export const REGIONAL_DUPLICATE_REPAIRS = [
+  { name: 'Premier Division', source_id: '46dbb09f-8319-4607-ab97-ec941745bfd8', canonical_id: 'c2d6e60f-89e0-4813-81a1-967551d8d69f' },
+  { name: 'North American Division 1', source_id: 'e582c55b-1e72-45f5-ab63-137c3420404a', canonical_id: 'e91c6c27-4fd2-45d9-b6ed-6a3591d7b210' },
+];
+export function buildDuplicateLeagueRequest(sourceId, reason, testHistoryReset = false) {
+  const pair = REGIONAL_DUPLICATE_REPAIRS.find(item => item.source_id === sourceId);
+  if (!pair) throw new Error('Select a reviewed duplicate league mapping.');
+  return { mode: 'consolidate', source_id: pair.source_id, canonical_id: pair.canonical_id, reason: reason.trim(), ...(testHistoryReset ? { test_history_reset: true } : {}) };
+}

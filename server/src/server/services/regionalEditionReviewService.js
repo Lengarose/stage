@@ -171,16 +171,28 @@ const REQUESTED_REPAIRS = [
   { source_id:'e582c55b-1e72-45f5-ab63-137c3420404a',canonical_id:'e91c6c27-4fd2-45d9-b6ed-6a3591d7b210',region_slug:'north-america',division:1,source_season_number:1 },
 ];
 async function consolidationPreview(body,actor,query=EXECUTESQL) {
-  await editions.admin(actor,query);
+  const reviewingAdmin = await editions.admin(actor,query);
   const rows=await editions.model.selectAll(query);
   const source=rows.find(r=>r.id===body.source_id),canonical=rows.find(r=>r.id===body.canonical_id);
   if(!source||!canonical||source.id===canonical.id)fail('Both explicit, different source and retained IDs must exist',404);
-  const s=unpack(source),c=unpack(canonical);
+  let s=unpack(source);
+  const c=unpack(canonical);
   const evidence=await readEvidence(query);
   const sourceInventory=collect(source,evidence),canonicalInventory=collect(canonical,evidence);
   const blockers=[...evidence.missing.map(t=>`Unavailable evidence table: ${t}`),...(evidence.gaps.length?['Malformed reference JSON requires review']:[])];
   for(const row of [source,canonical])for(const mismatch of describe(row).indexed_json_differences)blockers.push(`Indexed/JSON identity mismatch in ${row.id}: ${mismatch.field}`);
   const requested=REQUESTED_REPAIRS.find(p=>p.source_id===source.id&&p.canonical_id===canonical.id);
+  const testReset = body.test_history_reset === true;
+  if (testReset && (!requested || Number(reviewingAdmin.role_id) !== 0)) fail('Only super admin may retire the explicitly reviewed test duplicate identities',403);
+  if (testReset) {
+    // The old reset changed the stored season without changing its slug.
+    // This is permitted only for the two explicitly reviewed disposable test
+    // identities. Keep the raw identity in the audit/edition; never merge scores.
+    const storedGroup = s.group_code || /-group-([a-z])(?:-s\d+)?$/i.exec(s.slug || '')?.[1] || 'A';
+    const normalized = require('../lib/regionalEditionIdentity').identity({ ...s, group_code: storedGroup, slug: '' });
+    if (describe(source).identity_error && describe(source).identity_error !== 'Slug season contradicts stored season') blockers.push(`Unverified test identity: ${describe(source).identity_error}`);
+    s = { ...s, group_code: normalized.group_code, slug: normalized.canonical_slug, retired_test_identity: { slug: s.slug, season_number: s.season_number, reset_series: s.reset_series || 0, status: s.status } };
+  }
   if(REQUESTED_REPAIRS.some(p=>p.source_id===source.id)&&!requested)blockers.push('This requested repair must retain the user-selected original ID.');
   try {
     if(hierarchy.leagueKey(s)!==hierarchy.leagueKey(c))blockers.push('Region, division or platform differ; these are not the same permanent league.');
@@ -197,10 +209,11 @@ async function consolidationPreview(body,actor,query=EXECUTESQL) {
     const activityTables=['matches','match_player_stats','regional_league_fixture','regional_league_standing','competition_payouts','stc_transactions','player_stc_transactions','trophy_awards'];
     const sporting=Object.entries(sourceInventory.dependencies).flatMap(([table,records])=>records.filter(r=>activityTables.includes(table)||activityTables.includes(r.entity_type)));
     const registered=require('../lib/trophyHistory').parse(sourceInventory.registered_clubs);
-    if(sporting.length || sourceInventory.root_activity.length || (Array.isArray(registered)&&registered.length) || s.winner_club_id || s.fixtures_generated)blockers.push('The reset-era source collides with an existing edition and has activity. Reliable season provenance or backup recovery is required; do not relabel or merge results.');
+    if(!testReset && (sporting.length || sourceInventory.root_activity.length || (Array.isArray(registered)&&registered.length) || s.winner_club_id || s.fixtures_generated))blockers.push('The reset-era source collides with an existing edition and has activity. Reliable season provenance or backup recovery is required; do not relabel or merge results.');
     series=Math.max(...rows.filter(r=>hierarchy.permanentId(unpack(r))===c.id).map(r=>Number(unpack(r).reset_series || 0)),0)+1;
     status='superseded';
   }
+  if (testReset) status = 'superseded';
   const rewards=require('./rewardConfigurationService');
   const setting=id=>evidence.rows.find(e=>e.table==='league_entities'&&e.row.id===rewards.key('regional_league',id));
   const parse=require('../lib/trophyHistory').parse;
@@ -218,15 +231,17 @@ async function consolidationPreview(body,actor,query=EXECUTESQL) {
   const rewardRows=id=>evidence.rows.filter(e=>e.table==='reward_configs'&&e.row.source_type==='regional_league'&&e.row.source_id===id).map(e=>e.row);
   const sourceRewards=rewardRows(s.id),canonicalRewards=rewardRows(c.id);
   if(sourceRewards.length&&!canonicalRewards.length)blockers.push('Source has default reward rows but the retained league has none. Review/default configuration migration is required; historical rows will not be rewritten.');
-  const nextSource={...s,permanent_league_id:c.id,reset_series:series,status, ...(sameSlot?{season_label:'Superseded reset-era record; original season history unavailable',identity_review_required:true}:{})};
-  const current=Number(s.season_number)>Number(c.season_number)&&!sameSlot?s.id:c.current_edition_id || c.id;
+  const nextSource={...s,permanent_league_id:c.id,reset_series:series,status, ...(testReset?{season_label:'Retired test edition; excluded from launch history',edition_invalidated:true,test_history_retired:true,identity_review_required:false}:sameSlot?{season_label:'Superseded reset-era record; original season history unavailable',identity_review_required:true}:{})};
+  const excludedCurrent = new Set(['cancelled','abandoned','reset','superseded']);
+  const retainedCurrent = rows.map(unpack).find(row => row.id === c.current_edition_id && hierarchy.permanentId(row) === c.id && !excludedCurrent.has(row.status));
+  const current = Number(s.season_number)>Number(c.season_number) && !sameSlot && !excludedCurrent.has(status) ? s.id : retainedCurrent?.id || c.id;
   const nextCanonical={...c,permanent_league_id:c.id,current_edition_id:current,...(transferTrophy?{trophy_item_id:transferTrophy}:{})};
   const preservedDependencies=Object.entries(sourceInventory.dependencies).map(([table,list])=>({table,count:list.length,ids:list.map(r=>r.id),treatment:'Retain original IDs and references to this season edition; no ledger, match or award rewrite'}));
   const review={source,canonical,evidence,nextSource,nextCanonical};
-  return {dry_run:true,mode:'consolidate',source_id:s.id,canonical_id:c.id,canonical_selection:'Original permanent identities explicitly selected by the user',revision:digest(review),blockers,
+  return {dry_run:true,mode:'consolidate',test_history_reset:testReset,source_id:s.id,canonical_id:c.id,canonical_selection:'Original permanent identities explicitly selected by the user',revision:digest(review),blockers,
     before_after:{permanent_league_id:c.id,source_id_becomes_edition:s.id,current_edition_id:current,season_number:s.season_number,reset_series:series},source_inventory:sourceInventory,canonical_inventory:canonicalInventory,
     dependencies:preservedDependencies,discrepancies:{canonical_completed_without_fixture_evidence:['completed','archived'].includes(c.status)&&!canonicalInventory.dependencies.league_entities.some(r=>r.entity_type==='regional_league_fixture' && unpack(r.record).league_id===c.id),canonical_awards:canonicalInventory.dependencies.trophy_awards.map(r=>r.id),canonical_financial_records:canonicalInventory.dependencies.competition_payouts.map(r=>r.id)},
-    changes:blockers.length?[]:[{action:'convert_independent_identity_to_retained_league_edition',id:s.id,before:s,after:nextSource},{action:'retain_permanent_identity_and_set_current_edition',id:c.id,after:nextCanonical},...(transferTrophy?[{action:'restore_verified_default_trophy',trophy_item_id:transferTrophy,from:s.id,to:c.id}]:[])],
+    changes:blockers.length?[]:[{action:'convert_independent_identity_to_retained_league_edition',id:s.id,before:unpack(source),after:nextSource},{action:'retain_permanent_identity_and_set_current_edition',id:c.id,after:nextCanonical},...(transferTrophy?[{action:'restore_verified_default_trophy',trophy_item_id:transferTrophy,from:s.id,to:c.id}]:[])],
     final_permanent_entries:[{id:c.id,name:c.name,current_edition_id:current}],historical_access:'Both original record IDs and all fixture/award/financial references remain resolvable; the source is an edition, not another permanent league.',financial_mutations:false,_next:{source:nextSource,canonical:nextCanonical,transferTrophy} };
 }
 async function consolidate(body,actor) {
