@@ -6,9 +6,11 @@ const {unpack}=require('../models/competitionScopeModel');
 const {matchWindows}=require('../lib/officialMatchWindows');
 const {isValidTimeZone}=require('../utils/datetime');
 const VERSION='organizer_schedule_v1';
+const {canonicalPhase,roundPlan,assertRoundPlan}=require('../lib/tournamentSchedulePlan');
 const fail=(message,status=409)=>{throw Object.assign(Error(message),{status});};
 const scheduleId=id=>uuid(`organizer_schedule:${id}`,uuid.URL);
 const consentId=(id,kind,participant)=>uuid(`organizer_schedule_consent:${id}:${kind}:${participant}`,uuid.URL);
+function entryForMatch(plan,match){const phase=canonicalPhase(match.type||'knockout'),round=Number(match.round);return plan?.entries.find(e=>canonicalPhase(e.phase)===phase&&e.round===round)||(['round_of_64','round_of_32','round_of_16','quarter_final','semi_final'].includes(phase)?plan?.entries.find(e=>e.phase==='knockout'&&e.round===round):undefined);}
 const hash=value=>crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const rules=t=>({...t.club_rules?{club_rules:typeof t.club_rules==='string'?JSON.parse(t.club_rules):t.club_rules}:{},...Object.fromEntries(['rules_template_id','custom_rules','rules_file_url','type','participant_type','max_teams','entry_credits','entry_fee_stc','prize_pool_stc','prize_winner_stc','prize_runner_up_stc','prize_semi_final_stc','prize_participation_stc','trophy_item_id'].map(key=>[key,t[key]??null]))});
 const parse=value=>typeof value==='string'?JSON.parse(value):value||[];
@@ -19,19 +21,19 @@ function validate(body){
  if(!['fixed','windows'].includes(body.mode)||!isValidTimeZone(body.timezone))fail('Choose fixed times or bounded windows and a valid competition timezone.',422);
  if(!Array.isArray(body.entries)||!body.entries.length||body.entries.length>500)fail('Provide the schedule rounds.',422);
  const keys=new Set();
- const entries=body.entries.map(e=>{const key=`${e.phase}:${e.round}`;if(typeof e.phase!=='string'||!/^[a-z0-9_-]{1,40}$/.test(e.phase)||!Number.isInteger(e.round)||e.round<1||keys.has(key))fail('Use unique phase/round schedule entries.',422);keys.add(key);const start=Date.parse(e.starts_at),end=Date.parse(e.ends_at),minutes=['league','league_phase','group','group_stage','ucl_league','regional_league'].includes(e.phase)?40:60;
+ const entries=body.entries.map(input=>{const e={...input,phase:canonicalPhase(input.phase)};const key=`${e.phase}:${e.round}`;if(typeof e.phase!=='string'||!/^[a-z0-9_-]{1,40}$/.test(e.phase)||!Number.isInteger(e.round)||e.round<1||keys.has(key))fail('Use unique phase/round schedule entries.',422);keys.add(key);const start=Date.parse(e.starts_at),end=Date.parse(e.ends_at),minutes=['league','league_phase','group','group_stage','ucl_league','regional_league'].includes(e.phase)?40:60;
  if(!Number.isFinite(start)||!Number.isFinite(end)||end-start<minutes*60000||!/(Z|[+-]\d{2}:\d{2})$/.test(String(e.starts_at))||!/(Z|[+-]\d{2}:\d{2})$/.test(String(e.ends_at)))fail('Every round needs explicit timezone-aware start/end times and room for its match block.',422);
  if(body.mode==='fixed'&&end-start!==minutes*60000)fail('Fixed rounds reserve exactly 40 league minutes or 60 knockout minutes.',422);
  return {phase:e.phase,round:e.round,starts_at:new Date(start).toISOString(),ends_at:new Date(end).toISOString(),minutes};});
  return {mode:body.mode,timezone:body.timezone,entries:entries.sort((a,b)=>a.starts_at.localeCompare(b.starts_at)||a.phase.localeCompare(b.phase)||a.round-b.round)};
 }
-async function read(id){const [t]=await EXECUTESQL('SELECT * FROM tournaments WHERE id=?',[id]);if(!t)fail('Tournament not found.',404);const plan=await stored(id);return {changes:await require('./tournamentScheduleChangeService').list(id),required:t.schedule_policy_version===VERSION,schedule:plan,rules_current:!plan||hash(rules(t))===plan.rules_revision};}
+async function read(id){const [t]=await EXECUTESQL('SELECT * FROM tournaments WHERE id=?',[id]);if(!t)fail('Tournament not found.',404);const plan=await stored(id);return {changes:await require('./tournamentScheduleChangeService').list(id),required:t.schedule_policy_version===VERSION,round_plan:roundPlan(t),schedule:plan,rules_current:!plan||hash(rules(t))===plan.rules_revision};}
 async function publish(id,body,actor){return withTransaction(async q=>{
  const t=await tournament(id,q),user=await organizer(t,actor,q),before=await stored(id,q);
  if(t.status!=='registration')fail('Publish a tournament schedule before play starts. Started or archived schedules require the existing Admin exception process.');
  const field=[...parse(t.registered_clubs),...parse(t.registered_players)];
  if(field.length)fail('Participants already entered under the published conditions. Do not replace their schedule without an approved change and renewed consent.');
- const spec=validate(body),revision=hash([spec,rules(t)]);
+ const spec=validate(body);assertRoundPlan(t,spec.entries);const revision=hash([spec,rules(t)]);
  if(before?.revision===revision)return {schedule:before,already_applied:true};
  if(before && body.expected_revision!==before.revision)fail('The published schedule changed. Reload before replacing it.');
  const plan={id:scheduleId(id),tournament_id:id,version:VERSION,status:'published',...spec,rules_snapshot:rules(t),rules_revision:hash(rules(t)),revision,published_by:user.id,published_at:new Date().toISOString()};
@@ -68,10 +70,10 @@ async function assertConflicts(plan,who,q){
   if(plan.mode==='windows') {let cursor=start;for(const [a,b] of busy){if(cursor+e.minutes*60000<=a)break;cursor=Math.max(cursor,b);}if(cursor+e.minutes*60000>end)fail('No complete match block remains in this playing window because of existing matches.',422);}
  }
 }
-async function forMatch(t,match,q=EXECUTESQL){if(t.schedule_policy_version!==VERSION)return match;const plan=await stored(t.id,q);if(!plan)fail('Publish the tournament schedule before drawing fixtures.');const entry=plan.entries.find(e=>e.phase===(match.type||'knockout')&&e.round===Number(match.round));if(!entry)fail('The published schedule has no entry for this fixture phase and round.');
+async function forMatch(t,match,q=EXECUTESQL){if(t.schedule_policy_version!==VERSION)return match;const plan=await stored(t.id,q);if(!plan)fail('Publish the tournament schedule before drawing fixtures.');const entry=entryForMatch(plan,match);if(!entry)fail('The published schedule has no entry for this fixture phase and round.');
  if(plan.mode==='fixed'){await assertConflicts({...plan,entries:[entry],include_own_matches:true,ignore_match_id:match.id},{kind:t.participant_type==='player'?'player':'club',participant:match[t.participant_type==='player'?'home_player_id':'home_club_id']},q);await assertConflicts({...plan,entries:[entry],include_own_matches:true,ignore_match_id:match.id},{kind:t.participant_type==='player'?'player':'club',participant:match[t.participant_type==='player'?'away_player_id':'away_club_id']},q);return {...match,scheduled_date:entry.starts_at.replace('T',' ').slice(0,19),confirmed_date:entry.starts_at.replace('T',' ').slice(0,19),timezone:'UTC',status:'scheduled',scheduling_status:'confirmed'};}
  return {...match,status:'unscheduled',scheduling_status:'open',scheduled_date:null,confirmed_date:null};}
-async function assertMatch(t,match,schedule,q){if(t.schedule_policy_version!==VERSION)return;const plan=await stored(t.id,q);let entry=plan?.entries.find(e=>e.phase===(match.type||'knockout')&&e.round===Number(match.round));if(!entry)fail('No published schedule applies to this round.');
+async function assertMatch(t,match,schedule,q){if(t.schedule_policy_version!==VERSION)return;const plan=await stored(t.id,q);let entry=entryForMatch(plan,match);if(!entry)fail('No published schedule applies to this round.');
  const [override]=match.id?await q("SELECT * FROM league_entities WHERE id=? AND entity_type='tournament_schedule_override' AND status='applied'",[uuid(`tournament_schedule_override:${match.id}`,uuid.URL)]):[];
  if(override){const approved=unpack(override);entry={...entry,starts_at:approved.starts_at,ends_at:new Date(Date.parse(approved.starts_at)+approved.minutes*60000).toISOString(),minutes:approved.minutes};}
 const start=Date.parse(matchWindows({...match,confirmed_date:schedule,scheduled_date:schedule}).kickoff_at);if(plan.mode==='fixed'||override?start!==Date.parse(entry.starts_at):start<Date.parse(entry.starts_at)||start+entry.minutes*60000>Date.parse(entry.ends_at))fail('This kickoff is outside the participant-accepted tournament schedule.');

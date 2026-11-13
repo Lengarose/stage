@@ -3345,7 +3345,7 @@ async function createGroupStageKnockoutRound(query, tournament, groupMatches, { 
   const pairs = buildGroupKnockoutPairs(standings);
   if (!pairs.length) throw new Error('Not enough qualified teams to start the next round');
 
-  const firstKnockoutRound = Math.max(repairedStartRound || Number(tournament.current_round || 1) + 1, 2);
+  const firstKnockoutRound = Math.max(repairedStartRound || Math.max(...groupMatches.map(m => Number(m.round || 1))) + 1, 2);
   const tieType = knockoutTypeForTieCount(pairs.length);
   let created = 0;
   for (let index = 0; index < pairs.length; index += 1) {

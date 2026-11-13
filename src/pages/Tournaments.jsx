@@ -1,3 +1,5 @@
+import TournamentSquadRulesFields from '@/components/competition/TournamentSquadRulesFields';
+import TournamentScheduleGuide from '@/components/competition/TournamentScheduleGuide';
 import { useState, useEffect, useRef, useId } from "react";
 import { Link } from "react-router-dom";
 import { Trophy, Plus, Calendar, Users, Crown, Upload, X, ChevronLeft, ChevronRight, BookOpen, ChevronDown } from "lucide-react";
@@ -510,7 +512,8 @@ export default function Tournaments() {
                 </div>
 
                 <div>
-                  {form.participant_type === "club" && <fieldset className="mb-5 space-y-3 border border-white/20 p-4 text-sm text-white"><legend>Match Squad requirements</legend><label className="block">Minimum human players<select className="ml-3 bg-[#0b1423] p-2" value={form.club_rules.minimum_human_players} onChange={e=>setForm(f=>({...f,club_rules:{...f.club_rules,minimum_human_players:Number(e.target.value)}}))}>{Array.from({length:10},(_,i)=>i+2).map(n=><option key={n} value={n}>{n}</option>)}</select></label><label className="block"><input type="checkbox" checked={form.club_rules.goalkeeper_required} onChange={e=>setForm(f=>({...f,club_rules:{...f.club_rules,goalkeeper_required:e.target.checked}}))}/> Human goalkeeper required</label><label className="block"><input type="checkbox" checked={form.club_rules.any_allowed} onChange={e=>setForm(f=>({...f,club_rules:{...f.club_rules,any_allowed:e.target.checked}}))}/> ANY allowed</label><p className="text-xs text-white/50">Checked against the club roster at registration and the Match Squad before kickoff. Published requirements lock when applications begin.</p></fieldset>}
+                  <TournamentScheduleGuide format={form.type} />
+                  {form.participant_type === "club" && <TournamentSquadRulesFields value={form.club_rules} onChange={club_rules => setForm(f => ({ ...f, club_rules }))} />}
                   <label className="mb-4 block text-sm text-white">Written rules (optional)<textarea className="mt-2 min-h-28 w-full border border-white/20 bg-black/20 p-3" value={form.written_rules} onChange={e=>setForm(f=>({...f,written_rules:e.target.value}))} placeholder="Write the tournament rules, or use the template below."/></label>
                   <label className="label-xs">{t("commonPages.trnCustomRules")}</label>
                   <Select value={form.rules_template_id || "standard_cup"} onValueChange={value => setForm(current => ({ ...current, rules_template_id: value }))}>

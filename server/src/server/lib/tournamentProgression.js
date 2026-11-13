@@ -46,7 +46,7 @@ function shuffled(list) {
   for (let i = out.length - 1; i > 0; i--) { const j = crypto.randomInt(i + 1); [out[i], out[j]] = [out[j], out[i]]; }
   return out;
 }
-const knockoutType = n => n === 1 ? 'final' : n === 2 ? 'semi_final' : n === 4 ? 'quarter_final' : n === 8 ? 'round_of_16' : 'knockout';
+const { knockoutType } = require('./tournamentSchedulePlan');
 function planTournamentProgression(t, matches, shuffle = shuffled) {
   const player = t.participant_type === 'player';
   const plan = { fixtures: [], remove: [], conflicts: [], completed: false };
@@ -81,7 +81,7 @@ function planTournamentProgression(t, matches, shuffle = shuffled) {
   const rows = matches.filter(m => !plan.remove.includes(m.id));
   const historicalFinal = rows.find(m => m.type === 'final' && isConfirmedResult(m));
   const third = rows.find(m => thirds.has(m.type));
-  const semifinalStage = rows.some(m => m.type === 'semi_final') || rows.filter(m => m.type === 'knockout' && historicalFinal && Number(m.round) === Number(historicalFinal.round) - 1 && id(m, 'home', player) && id(m, 'away', player)).length === 2;
+  const semifinalStage = new Set(rows.filter(m => m.type === 'semi_final' && m.status !== 'bye').map(m => m.group_number ?? m.group ?? m.id)).size === 2 || rows.filter(m => m.type === 'knockout' && historicalFinal && Number(m.round) === Number(historicalFinal.round) - 1 && id(m, 'home', player) && id(m, 'away', player)).length === 2;
   if (eligibleThird(t) && historicalFinal && semifinalStage && (!third || !resolvedTie([third], t))) {
     plan.conflicts.push('The Final already has a confirmed result while its Third-Place Playoff is unresolved. Admin review is required; historical results were preserved.');
     return plan;
@@ -234,7 +234,7 @@ function planTournamentProgression(t, matches, shuffle = shuffled) {
       continue;
     }
     const isSemi = tieRows.length === 2;
-    const nextType = isSemi ? 'final' : (twoLegTypes.has(type) ? knockoutType(Math.ceil(tieRows.length / 2)) : 'knockout');
+    const nextType = isSemi ? 'final' : knockoutType(Math.ceil(tieRows.length / 2));
     const qualified = player ? results : shuffle(results);
     for (let i = 0; i < qualified.length; i += 2) {
       const existing = existingNext.find(m => Number(m.group_number || 0) === i / 2 && m.type === nextType);

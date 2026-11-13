@@ -1,3 +1,5 @@
+import TournamentSquadRulesFields, { defaultTournamentClubRules } from '@/components/competition/TournamentSquadRulesFields';
+import TournamentScheduleGuide from '@/components/competition/TournamentScheduleGuide';
 import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import {resolveReviewedForfeit} from '@/lib/adminForfeitReview';
 // @ts-nocheck — shadcn/ui primitives are untyped forwardRefs under checkJs; substantive admin logic stays typed elsewhere.
@@ -165,6 +167,7 @@ export default function Admin(props) {
     region: "Global", country_code: "", max_teams: 8, start_date: "", description: "",
     entry_credits: 50, win_credits: 200, entry_fee_stc: "1000", rules_template_id: "standard_cup",
     prize_winner_stc: "", prize_runner_up_stc: "", prize_semi_final_stc: "", prize_participation_stc: "",
+    club_rules: defaultTournamentClubRules(),
   });
   const [rulesFile, setRulesFile] = useState(null);
   const [bannerFile, setBannerFile] = useState(null);
@@ -825,6 +828,7 @@ export default function Admin(props) {
       await stageClient.entities.Tournament.create({
         ...tournamentForm,
         rules_template_id: rulesTemplateId,
+        club_rules: tournamentForm.participant_type === "club" ? tournamentForm.club_rules : null,
         custom_rules: encodeRulesTemplate(rulesTemplateId),
         max_teams: maxTeams,
         entry_credits: TOURNAMENT_CREDIT_COST,
@@ -854,6 +858,7 @@ export default function Admin(props) {
         max_teams: 8, start_date: "", description: "",
         entry_credits: 50, win_credits: 200, entry_fee_stc: "1000", rules_template_id: "standard_cup",
         prize_winner_stc: "", prize_runner_up_stc: "", prize_semi_final_stc: "", prize_participation_stc: "",
+        club_rules: defaultTournamentClubRules(),
       });
       setRulesFile(null); setBannerFile(null); setBannerColor("#1e2a3a"); setAdminTrophyFile(null);
       setAdminTrophyItemId(""); setAdminModalStep(1);
@@ -1979,6 +1984,7 @@ export default function Admin(props) {
                       </SelectContent>
                     </Select>
                     <p className="text-[10px] text-muted-foreground mt-1">{adminFormatRule.hint}</p>
+                    <TournamentScheduleGuide format={tournamentForm.type} />
                   </div>
                 </div>
 
@@ -2031,6 +2037,7 @@ export default function Admin(props) {
             {/* ── Step 2: Prize & Rules ── */}
             {adminModalStep === 2 && (
               <>
+                {tournamentForm.participant_type === 'club' && <TournamentSquadRulesFields value={tournamentForm.club_rules} onChange={club_rules => setTournamentForm(f => ({ ...f, club_rules }))} />}
                 <div>
                   <label className="label-xs">{t("admin.dialogs.entryFee")}</label>
                   <input type="number" min="0" value={tournamentForm.entry_fee_stc || ""} onChange={e => setTournamentForm(f => ({ ...f, entry_fee_stc: e.target.value }))}

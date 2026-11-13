@@ -161,7 +161,7 @@ function buildStageCatalogue(tournament, matches = []) {
     if (type === 'group_stage') add('group');
     if (type === 'swiss_ucl') ['league', 'playoff', 'r16', 'qf', 'sf', 'final'].forEach((key) => add(key));
     else if (!(type === 'group_stage' && !knockoutEnabled(tournament))) {
-      const qualifiers = type === 'group_stage' ? Math.min(count, Number(tournament.num_groups || 2) * 2) : count;
+      const qualifiers = type === 'group_stage' ? Math.min(count, (matches.some(m => ['group', 'group_stage'].includes(m.type)) ? Number(tournament.num_groups || 2) : Math.ceil(count / 4)) * 2) : count;
       for (let size = 2 ** Math.ceil(Math.log2(qualifiers)); size >= 2; size /= 2) add(knockoutKey(size));
     }
   }

@@ -69,12 +69,14 @@ async function reconcileTournament(tournamentId, { dryRun = false } = {}) {
           const [profile] = await query(`SELECT * FROM ${player ? 'players' : 'clubs'} WHERE id=? LIMIT 1`, [spec[side].id]);
           if (profile) spec[side] = { ...spec[side], name: profile.gamertag || profile.name, email: profile.email, owner_email: profile.owner_email };
         }
-        const payload = fixturePayload(t, spec);
+        let payload = fixturePayload(t, spec);
         const existing = rows.find(m => m.progression_key === spec.progression_key);
+        if (!existing && spec.home && spec.away && !spec.bye) payload = await require('./tournamentScheduleService').forMatch(t, payload, query);
         if (existing) {
           const keys = t.participant_type === 'player' ? ['home_player_id', 'away_player_id'] : ['home_club_id', 'away_club_id'];
           if (keys.every(k => String(existing[k] || '') === String(payload[k] || ''))) continue;
           if (hasActivity(existing)) throw conflict(`Fixture ${existing.id} already has downstream activity. Resolve it in admin before changing qualification.`);
+          if (spec.home && spec.away && !spec.bye) payload = await require('./tournamentScheduleService').forMatch(t, payload, query);
           await query("DELETE FROM competition_fixtures WHERE match_id=? AND legacy_fixture_type='tournament_match'", [existing.id]);
           const fields = Object.keys(payload).filter(k => !['id', 'tournament_id', 'home_score', 'away_score', 'stats_processed'].includes(k));
           await query(`UPDATE matches SET ${fields.map(k => `\`${k}\`=?`).join(', ')}, updated_date=NOW() WHERE id=?`, [...fields.map(k => payload[k]), existing.id]);
