@@ -51,7 +51,7 @@ const Presidents = React.lazy(() => import('./pages/Presidents'));
 const EAFCClub = React.lazy(() => import('./pages/EAFCClub'));
 const FreeAgents = React.lazy(() => import('./pages/FreeAgents'));
 const PlayerStats = React.lazy(() => import('./pages/PlayerStats'));
-const PredictionLeaderboard = React.lazy(() => import('./pages/PredictionLeaderboard'));
+const TheStands = React.lazy(() => import('./pages/TheStands'));
 const Settings = React.lazy(() => import('./pages/Settings'));
 const FontPreview = React.lazy(() => import('./pages/FontPreview'));
 const News = React.lazy(() => import('./pages/News'));
@@ -446,7 +446,8 @@ const AuthenticatedApp = () => {
             <Route path="/free-agents" element={<FreeAgents />} />
             <Route path="/stats" element={<PlayerStats />} />
             <Route path="/players-list" element={<Players />} />
-            <Route path="/predictions" element={<PredictionLeaderboard />} />
+            <Route path="/predictions" element={<Navigate to="/the-stands?view=rankings" replace />} />
+            <Route path="/the-stands" element={<TheStands />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/font-preview" element={<FontPreview />} />
             <Route path="/news" element={<News />} />

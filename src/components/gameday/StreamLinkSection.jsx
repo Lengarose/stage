@@ -252,6 +252,8 @@ export default function StreamLinkSection({ game, isMyMatch, amIHomeTeam, isComp
         )}
       </div>
 
+      <p className="text-xs text-muted-foreground">Match stream links also appear in <a className="text-cyan-200 hover:text-white" href={`/the-stands?match=${game.id}`}>The Stands ↗</a>, where spectators can watch without entering GameDay.</p>
+
       {/* Input form */}
       {editing && (
         <StreamInputForm

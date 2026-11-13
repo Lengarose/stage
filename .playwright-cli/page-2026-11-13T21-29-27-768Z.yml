@@ -1,0 +1,82 @@
+- generic [ref=f2e4]:
+  - generic [ref=f2e5]:
+    - generic [ref=f2e6]:
+      - paragraph [ref=f2e7]: GameDay
+      - heading "Banner Slideshow" [level=3] [ref=f2e8]
+      - paragraph [ref=f2e9]: Add and reorder banner photos. Multiple photos rotate automatically; visitors can also select a photo using the dots. The page title and introduction appear over every photo.
+    - button "Save" [ref=f2e10] [cursor=pointer]
+  - group [ref=f2e11]:
+    - generic [ref=f2e12]:
+      - text: Seconds per photo
+      - spinbutton "Seconds per photo" [ref=f2e13]: "3"
+      - generic [ref=f2e14]: 3–30 seconds; default 6.
+    - generic [ref=f2e15]:
+      - generic [ref=f2e16]:
+        - heading "Photo 1" [level=4] [ref=f2e17]
+        - generic [ref=f2e18]:
+          - button "Move photo 1 earlier" [disabled]
+          - button "Move photo 1 later" [ref=f2e19] [cursor=pointer]
+          - button "Remove photo 1" [ref=f2e20] [cursor=pointer]
+      - generic [ref=f2e21]:
+        - generic [ref=f2e22]:
+          - paragraph [ref=f2e23]: GameDay banner photo 1
+          - button "Click or drop to replace Upload" [ref=f2e24]
+          - paragraph [ref=f2e27] [cursor=pointer]: Click or drop to replace
+          - generic [ref=f2e28]:
+            - textbox "https://... or drop image above" [ref=f2e29]: /output/imagegen/game-day-2026-11-13/01-victory-roar.png
+            - generic [ref=f2e30] [cursor=pointer]: Upload
+            - button [ref=f2e34] [cursor=pointer]
+        - generic [ref=f2e35]:
+          - generic [ref=f2e38]:
+            - paragraph [ref=f2e39]: Arrange matches, follow live streams and chat with your opponents. Your matchday starts here.
+            - paragraph [ref=f2e40]: GameDay
+          - generic [ref=f2e41]:
+            - paragraph [ref=f2e42]: "Position: 50% 50%"
+            - button "Reposition" [ref=f2e43] [cursor=pointer]
+    - generic [ref=f2e44]:
+      - generic [ref=f2e45]:
+        - heading "Photo 2" [level=4] [ref=f2e46]
+        - generic [ref=f2e47]:
+          - button "Move photo 2 earlier" [ref=f2e48] [cursor=pointer]
+          - button "Move photo 2 later" [ref=f2e49] [cursor=pointer]
+          - button "Remove photo 2" [ref=f2e50] [cursor=pointer]
+      - generic [ref=f2e51]:
+        - generic [ref=f2e52]:
+          - paragraph [ref=f2e53]: GameDay banner photo 2
+          - button "Click or drop to replace Upload" [ref=f2e54]
+          - paragraph [ref=f2e57] [cursor=pointer]: Click or drop to replace
+          - generic [ref=f2e58]:
+            - textbox "https://... or drop image above" [ref=f2e59]: /output/imagegen/game-day-2026-11-13/02-knee-slide.png
+            - generic [ref=f2e60] [cursor=pointer]: Upload
+            - button [ref=f2e64] [cursor=pointer]
+        - generic [ref=f2e65]:
+          - generic [ref=f2e68]:
+            - paragraph [ref=f2e69]: Arrange matches, follow live streams and chat with your opponents. Your matchday starts here.
+            - paragraph [ref=f2e70]: GameDay
+          - generic [ref=f2e71]:
+            - paragraph [ref=f2e72]: "Position: 50% 50%"
+            - button "Reposition" [ref=f2e73] [cursor=pointer]
+    - generic [ref=f2e74]:
+      - generic [ref=f2e75]:
+        - heading "Photo 3" [level=4] [ref=f2e76]
+        - generic [ref=f2e77]:
+          - button "Move photo 3 earlier" [ref=f2e78] [cursor=pointer]
+          - button "Move photo 3 later" [disabled]
+          - button "Remove photo 3" [ref=f2e79] [cursor=pointer]
+      - generic [ref=f2e80]:
+        - generic [ref=f2e81]:
+          - paragraph [ref=f2e82]: GameDay banner photo 3
+          - button "Click or drop to replace Upload" [ref=f2e83]
+          - paragraph [ref=f2e86] [cursor=pointer]: Click or drop to replace
+          - generic [ref=f2e87]:
+            - textbox "https://... or drop image above" [ref=f2e88]: /output/imagegen/game-day-2026-11-13/03-hand-clasp.png
+            - generic [ref=f2e89] [cursor=pointer]: Upload
+            - button [ref=f2e93] [cursor=pointer]
+        - generic [ref=f2e94]:
+          - generic [ref=f2e97]:
+            - paragraph [ref=f2e98]: Arrange matches, follow live streams and chat with your opponents. Your matchday starts here.
+            - paragraph [ref=f2e99]: GameDay
+          - generic [ref=f2e100]:
+            - paragraph [ref=f2e101]: "Position: 50% 50%"
+            - button "Reposition" [ref=f2e102] [cursor=pointer]
+    - button "Add photo" [ref=f2e103] [cursor=pointer]

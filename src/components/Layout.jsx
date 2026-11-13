@@ -151,6 +151,7 @@ function getPlayerGroups(t, clubPath) {
     {
       label: t("nav.discover"),
       items: [
+        { path: "/the-stands", icon: Trophy, label: "The Stands" },
         { path: "/social",       icon: Rss,        label: t("nav.feed") },
         { path: "/community",    icon: MessagesSquare, label: t("nav.discord") },
         { path: "/news",  icon: Newspaper,   label: t("nav.news") },
@@ -227,6 +228,7 @@ function getPresidentGroups(t, clubPath, hasPlayer) {
     {
       label: t("nav.discover"),
       items: [
+        { path: "/the-stands", icon: Trophy, label: "The Stands" },
         { path: "/news",  icon: Newspaper,   label: t("nav.news") },
         { path: "/community", icon: MessagesSquare, label: t("nav.discord") },
         { path: "/store", icon: ShoppingBag, label: t("nav.store") },
@@ -278,6 +280,7 @@ function getAdminGroups(t) {
     {
       label: t("admin.nav.community"),
       items: [
+        { path: "/the-stands", icon: Trophy, label: "The Stands" },
         { path: "/community", icon: MessagesSquare, label: t("admin.nav.discord") },
       ],
     },
@@ -289,6 +292,11 @@ const TEAL = "#00E5BD";
 const headingFont = { fontFamily: "var(--font-heading)" };
 
 const MOBILE_WALKTHROUGHS = [
+  { path: "/the-stands", label: "The Stands", title: "Watch and predict", steps: [
+    "Browse live matches, upcoming broadcasts and featured games. Open a match centre to watch an available stream; private GameDay controls stay private.",
+    "Predict the normal-time score before kickoff. Players, contracted members, managers and staff cannot predict their own matches or clubs. Predictions have no stakes, points or rewards.",
+    "Compare accuracy within one competition edition after at least five settled predictions. Use My predictions to follow your record and set kickoff reminders on upcoming matches.",
+  ] },
   {
     path: "/leagues",
     label: "Regional Leagues",

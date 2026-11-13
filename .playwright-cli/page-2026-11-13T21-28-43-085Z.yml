@@ -1,0 +1,16 @@
+- generic [ref=e3]:
+  - region "GameDay" [ref=e4]:
+    - generic [ref=e11]:
+      - heading "GameDay" [level=1] [ref=e12]
+      - paragraph [ref=e13]: Arrange matches, follow live streams and chat with your opponents. Your matchday starts here.
+    - generic [ref=e14]:
+      - group "Banner slideshow controls" [ref=e15]:
+        - button "Show banner 1 of 3" [pressed] [ref=e16] [cursor=pointer]
+        - button "Show banner 2 of 3" [ref=e18] [cursor=pointer]
+        - button "Show banner 3 of 3" [ref=e20] [cursor=pointer]
+        - button "Pause banner slideshow" [ref=e22] [cursor=pointer]
+      - generic [ref=e26]:
+        - button "Arrange Game" [ref=e27] [cursor=pointer]
+        - button "Livestream" [ref=e28] [cursor=pointer]
+        - button "Chat" [ref=e29] [cursor=pointer]
+  - generic [ref=e30]: Match Screens

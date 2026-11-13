@@ -1,0 +1,35 @@
+// Isolated HTTP/JWT acceptance test. Uses only an explicitly named local acceptance database.
+const fs=require('node:fs'),assert=require('node:assert/strict'),{randomUUID:id}=require('node:crypto'),root=require('node:path').resolve(__dirname,'../../..');
+process.env.STAGE_ACCEPTANCE_SOCKET='/private/tmp/stage-season-acceptance-training.sock';require('./bootstrap.cjs').configure();
+const f=JSON.parse(fs.readFileSync(process.argv[2]));assert.match(f.database,/^stage_acceptance_[a-f0-9]{12}$/);process.env.DB_NAME=f.database;
+const db=require(root+'/server/src/server/db/database'),q=db.EXECUTESQL,uid=id(),tid=id(),mids=Array.from({length:6},id);let server;
+async function clone(table,source,changes){const [r]=await q('SELECT * FROM '+table+' WHERE id=?',[source]);assert(r,table+' source');Object.assign(r,changes);const keys=Object.keys(r);await q('INSERT INTO '+table+' ('+keys.map(k=>'`'+k+'`').join(',')+') VALUES ('+keys.map(()=>'?').join(',')+')',keys.map(k=>r[k]&&typeof r[k]==='object'?JSON.stringify(r[k]):r[k]));}
+(async()=>{try{
+ await clone('users',f.userId,{id:uid,email:`spectator-${uid}@stage.test`,role_id:1,owner_id:null});
+ await clone('tournaments',f.tournamentId,{id:tid,name:'The Stands acceptance league',type:'league',status:'in_progress',max_teams:4,registered_clubs:'[]',registered_players:'[]'});
+ for(let n=0;n<mids.length;n++)await clone('matches',f.matchId,{id:mids[n],tournament_id:tid,type:'league',round:n+1,status:'scheduled',result_state:null,stats_processed:0,scheduled_date:`2027-03-${String(n+1).padStart(2,'0')} 19:00:00`,confirmed_date:`2027-03-${String(n+1).padStart(2,'0')} 19:00:00`,timezone:'UTC',home_submission:null,away_submission:null,source_fixture_id:null,source_fixture_type:null,competition_context:null,progression_key:null,home_score:0,away_score:0,home_stream_url:'https://www.twitch.tv/stage_test_channel'});
+ const express=require(root+'/server/node_modules/express'),app=express();app.use(express.json());require(root+'/server/src/server/routes/registerStageRoutes').registerStageRoutes(app,require(root+'/server/src/server/authMiddleware'));server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));const origin='http://127.0.0.1:'+server.address().port;
+ const jwt=require(root+'/server/node_modules/jsonwebtoken');const token=user=>jwt.sign({id:user},process.env.ACCESS_TOKEN_SECRET,{expiresIn:'5m'});
+ async function request(path,body,user=uid){const r=await fetch(origin+'/api/stage/the-stands'+path,{headers:{authorization:'Bearer '+token(user),'content-type':'application/json'},method:body?'POST':'GET',...(body?{body:JSON.stringify(body)}:{})});return {status:r.status,data:await r.json()};}
+ const list=await request('?view=upcoming&competition='+encodeURIComponent('tournament:'+tid));assert.equal(list.status,200,JSON.stringify(list.data));assert.equal(list.data.matches.length,6);assert.equal(list.data.matches[0].streams[0].url,'https://www.twitch.tv/stage_test_channel');assert(!('home_owner_email' in list.data.matches[0]));
+ const searched=await request('?view=all&q=acceptance&competition='+encodeURIComponent('tournament:'+tid));assert.equal(searched.status,200,JSON.stringify(searched.data));assert.equal(searched.data.matches.length,6);
+ const denied=await request('/'+mids[0]+'/prediction',{home_score:2,away_score:1,user_id:uid},f.userId);assert.equal(denied.status,403,JSON.stringify(denied.data));
+ for(const mid of mids.slice(0,5)){const p=await request('/'+mid+'/prediction',{home_score:2,away_score:1,user_id:f.userId});assert.equal(p.status,200,JSON.stringify(p.data));assert.equal(p.data.prediction.user_id,uid);}
+ const updates=await Promise.all([request('/'+mids[0]+'/prediction',{home_score:3,away_score:1}),request('/'+mids[0]+'/prediction',{home_score:2,away_score:1})]);assert(updates.every(r=>r.status===200));
+ const count=await q("SELECT COUNT(*) AS n FROM league_entities WHERE entity_type='stands_prediction' AND season_id=?",[mids[0]]);assert.equal(count[0].n,1);
+ const before=await request('/'+mids[0]);assert.equal(before.status,200);assert.deepEqual(before.data.predictions,[]);assert(!('proof_url' in before.data.match));
+ await q("UPDATE matches SET status='in_progress' WHERE id=?",[mids[5]]);assert.equal((await request('/'+mids[5]+'/prediction',{home_score:1,away_score:0})).status,409);
+ assert.equal((await request('/'+mids[0]+'/feature',{enabled:true})).status,403);
+ await q('UPDATE users SET role_id=NULL WHERE id=?',[uid]);assert.equal((await request('/'+mids[0]+'/feature',{enabled:true})).status,403);assert.equal((await request('/'+mids[0])).data.is_admin,false);await q('UPDATE users SET role_id=1 WHERE id=?',[uid]);
+ const date=new Date(Date.now()+10*60000).toISOString().replace('T',' ').slice(0,19);await q('UPDATE matches SET scheduled_date=?,confirmed_date=? WHERE id=?',[date,date,mids[0]]);
+ assert.equal((await request('/'+mids[0]+'/reminder',{enabled:true})).status,200);
+ const svc=require(root+'/server/src/server/services/standsService');await svc.tick();await svc.tick();assert.equal((await q('SELECT COUNT(*) AS n FROM notifications WHERE recipient_email=? AND related_id=?',[`spectator-${uid}@stage.test`,mids[0]]))[0].n,1);
+ for(const mid of mids.slice(0,5))await q("UPDATE matches SET status='completed',result_state='CONFIRMED',home_score=2,away_score=1 WHERE id=?",[mid]);
+ let rank=await request('/rankings?competition='+encodeURIComponent('tournament:'+tid));assert.equal(rank.status,200,JSON.stringify(rank.data));assert.equal(rank.data.rankings[0].rank,1);assert.equal(rank.data.rankings[0].predictions,5);assert.equal(rank.data.rankings[0].accuracy,100);
+ await q('UPDATE matches SET home_score=3 WHERE id=?',[mids[0]]);rank=await request('/rankings?competition='+encodeURIComponent('tournament:'+tid));assert.equal(rank.data.rankings[0].accuracy,80);
+ await q("UPDATE matches SET status='forfeit' WHERE id=?",[mids[0]]);rank=await request('/rankings?competition='+encodeURIComponent('tournament:'+tid));assert.equal(rank.data.rankings[0].predictions,4);assert.equal(rank.data.rankings[0].rank,null);
+ const history=await request('/history');assert.equal(history.data.predictions.length,5);assert.equal(history.data.predictions.find(p=>p.match.id===mids[0]).outcome.status,'excluded');
+ console.log('PASS HTTP/JWT: directory privacy, GameDay stream link, own-team denial, identity spoof rejection, one prediction under concurrent updates, hidden predictions, kickoff lock, Admin permissions, idempotent reminder, edition rankings, result correction, forfeits and personal history.');
+}finally{
+ for(const mid of mids){await q("DELETE FROM league_entities WHERE entity_type LIKE 'stands_%' AND season_id=?",[mid]);await q('DELETE FROM notifications WHERE related_id=?',[mid]);await q('DELETE FROM matches WHERE id=?',[mid]);}await q('DELETE FROM tournaments WHERE id=?',[tid]);await q('DELETE FROM users WHERE id=?',[uid]);if(server)await new Promise(r=>server.close(r));await db.pool.promise().end();}
+})().catch(e=>{console.error(e.message);process.exitCode=1});

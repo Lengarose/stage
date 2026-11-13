@@ -1,0 +1,13 @@
+const router=require('express').Router();
+const service=require('../services/standsService');
+const action=fn=>async(req,res)=>{try{res.json(await fn(req));}catch(e){if(!e.status)console.error('[stands request]',e.code||'request_failed');res.status(e.status||500).json({error:e.status?e.message:'The Stands could not complete this request. Please retry.'});}};
+router.get('/',action(r=>service.directory(r.query)));
+router.get('/competitions',action(()=>service.competitions()));
+router.get('/history',action(r=>service.history(r.user,r.query)));
+router.get('/rankings',action(r=>service.rankings(String(r.query.competition||''))));
+router.get('/:id',action(r=>service.detail(r.params.id,r.user)));
+router.post('/:id/prediction',action(r=>service.savePrediction(r.params.id,r.body||{},r.user)));
+router.post('/:id/reminder',action(r=>service.reminder(r.params.id,r.body||{},r.user)));
+router.post('/:id/feature',action(r=>service.adminAction(r.params.id,r.body||{},r.user,'feature')));
+router.post('/:id/regulation-score',action(r=>service.adminAction(r.params.id,r.body||{},r.user,'regulation')));
+module.exports=router;

@@ -17,6 +17,7 @@ function registerStageRoutes(app, { verifyToken }) {
   app.use('/api/stage/matches', verifyToken, require('../controllers/matchController'));
   app.use('/api/stage/game-day', verifyToken, require('../controllers/gameDayViewController'));
   app.use('/api/stage/match-highlights', verifyToken, require('../controllers/matchHighlightController'));
+  app.use('/api/stage/the-stands', verifyToken, require('../controllers/standsController'));
   app.use('/api/stage/schedule', verifyToken, require('../controllers/scheduleCalendarController'));
   app.use('/api/stage/tournaments', verifyToken, require('../controllers/tournamentController'));
   app.use('/api/stage/tournaments', verifyToken, require('../controllers/tournamentPresentationController')());

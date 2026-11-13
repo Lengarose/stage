@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router-dom";
 import { MessageSquare, MoreHorizontal, Plus, Radio, RefreshCw, Zap } from "lucide-react";
 import { useChatNotifications } from "@/lib/ChatNotificationsContext";
 import GameDayCard from "@/components/gameday/GameDayCard";
+import GameDayBanner from "@/components/gameday/GameDayBanner";
 import GameDayDetail from "@/components/gameday/GameDayDetail";
 import GameDayTileBackgroundDialog, {
   GameDayTileBackgroundLayers,
@@ -430,15 +431,6 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
     </div>
   );
 
-  const bannerStyle = gameDayConfig?.banner_url
-    ? {
-      backgroundImage: `url(${gameDayConfig.banner_url})`,
-      backgroundPosition: gameDayConfig.banner_position || "50% 50%",
-      backgroundSize: gameDayConfig.banner_zoom ? `${Number(gameDayConfig.banner_zoom)}%` : "cover",
-      backgroundRepeat: "no-repeat",
-    }
-    : {};
-
   const ActionTab = ({ children, onClick, disabled, className = "" }) => (
     <button
       type="button"
@@ -455,20 +447,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
 
   return (
     <div className="flex h-full min-h-0 min-w-0 w-full flex-1 flex-col overflow-x-clip overflow-y-auto bg-[#07070b] text-white">
-      {/* Banner scrolls away first */}
-      <section className="relative h-[180px] w-full shrink-0 overflow-hidden border-b border-[#d8dee8]/30 bg-[#07070b] sm:h-[230px] xl:h-[260px]">
-        <div
-          className="absolute inset-0 bg-[radial-gradient(circle_at_72%_22%,rgba(238,243,251,0.26),transparent_30%),radial-gradient(circle_at_20%_72%,rgba(255,255,255,0.18),transparent_28%),linear-gradient(110deg,#171c25_0%,#10141d_45%,#252b36_100%)]"
-          style={bannerStyle}
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/24 to-black/62" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_48%_118%,rgba(255,255,255,0.16),transparent_36%)]" />
-        <div className="absolute bottom-0 left-[8%] h-px w-[74%] bg-gradient-to-r from-transparent via-[#eef3fb] to-transparent shadow-[0_0_24px_rgba(238,243,251,0.75)]" />
-      </section>
-
-      {/* Sticky dock under nav: action bar + match screens / detail */}
-      <div className="relative z-10 flex shrink-0 flex-col bg-[#07070b]">
-        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2.5 border-b border-[#d8dee8]/20 bg-[linear-gradient(120deg,rgba(17,24,39,0.96),rgba(7,7,11,0.94))] px-4 py-3 backdrop-blur-md sm:px-6 lg:px-8">
+      <GameDayBanner config={gameDayConfig}>
           {!scopedTournamentId && (
             <ActionTab
               onClick={() => setArrangeOpen(true)}
@@ -499,8 +478,9 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
               </span>
             ) : null}
           </ActionTab>
-        </div>
+      </GameDayBanner>
 
+      <div className="relative z-10 flex shrink-0 flex-col bg-[#07070b]">
         <div className="mx-auto grid min-w-0 w-full grid-cols-1 max-w-[1600px] items-start gap-4 px-4 py-5 sm:px-6 lg:grid-cols-[380px_minmax(0,1fr)] lg:px-8">
           <aside className={cn(
             "relative flex min-h-0 min-w-0 w-full flex-col overflow-hidden border border-[#eef3fb]/22 p-3 shadow-[0_0_42px_-24px_rgba(238,243,251,0.85)]",

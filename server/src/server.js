@@ -286,6 +286,7 @@ runStartupMigrations()
   .then(() => require('./server/services/regionalConfirmationReminderService').start())
   .then(() => require('./server/services/tournamentArchiveService').start())
   .then(() => require('./server/services/clubBoardWorker').start())
+  .then(() => require('./server/services/standsService').start())
   .catch(err => console.error('[migration] startup error:', err));
 
 server.listen(PORT, () => console.log(`[stage] server running on port ${PORT}`));
