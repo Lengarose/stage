@@ -1,23 +1,26 @@
-import React, { useState, useEffect, useRef, Fragment } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { stageClient } from "@/api/stageClient";
 import HeroImg from "@/assets/WIS.PNG";
 import CoachLuisImg from "@/assets/Coach Luis.PNG";
 import BFCHomeImg from "@/assets/BFC Home.PNG";
 import HIWImg from "@/assets/HIW.PNG";
-import StageWordmarkImg from "@/assets/Stage wordmark.png";
-import {
-  Trophy, Zap, ShoppingBag, Shield, Users, Gamepad2, Award,
-  ArrowRight, Mail, ChevronDown, ChevronUp, Calendar, Inbox,
-  Newspaper, CheckCircle2, Circle,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import DiscordJoinCard from "@/components/community/DiscordJoinCard";
 import { shouldShowDiscordPrompt } from "@/lib/discordJoin";
 import { COMPETITIONS } from "@/lib/competitionUtils";
 import { useTranslation } from "@/hooks/useTranslation";
-import { HOME_FEATURE_IMAGE_CLASS } from "@/lib/pageBanner";
+import {
+  CLIP_12,
+  CLIP_16,
+  CLIP_28,
+  focusRing,
+  fontDisplay,
+  fontItalic,
+  fontMono,
+  pagePad,
+} from "@/components/landing/clips";
 
 /* ── Defaults ──────────────────────────────────────────────── */
 const DEFAULTS = {
@@ -52,20 +55,17 @@ const DEFAULTS = {
 };
 
 const NAV_CARDS = [
-  { icon: Trophy,      labelKey: "homeNavCompetitions", descKey: "homeNavCompetitionsDesc", to: "/competitions", accent: "amber"   },
-  { icon: Zap,         labelKey: "homeNavGameDay",      descKey: "homeNavGameDayDesc",      to: "/game-day",     accent: "primary" },
-  { icon: Shield,      labelKey: "homeNavClubs",        descKey: "homeNavClubsDesc",        to: "/clubs",        accent: "blue"    },
-  { icon: ShoppingBag, labelKey: "homeNavStore",        descKey: "homeNavStoreDesc",        to: "/lifestyle",    accent: "purple"  },
+  { labelKey: "homeNavCompetitions", descKey: "homeNavCompetitionsDesc", to: "/competitions", accent: "#00d4ff" },
+  { labelKey: "homeNavGameDay",      descKey: "homeNavGameDayDesc",      to: "/game-day",     accent: "#f59e0b" },
+  { labelKey: "homeNavClubs",        descKey: "homeNavClubsDesc",        to: "/clubs",        accent: "#4d8dff" },
+  { labelKey: "homeNavStore",        descKey: "homeNavStoreDesc",        to: "/lifestyle",    accent: "#10b981" },
 ];
 
-const ACCENT = {
-  amber:   { bg: "from-amber-500/20 to-amber-500/5",    border: "border-amber-500/25",   icon: "text-amber-400"   },
-  primary: { bg: "from-primary/20 to-primary/5",        border: "border-primary/25",     icon: "text-primary"     },
-  blue:    { bg: "from-blue-500/20 to-blue-500/5",      border: "border-blue-500/25",    icon: "text-blue-400"    },
-  purple:  { bg: "from-purple-500/20 to-purple-500/5",  border: "border-purple-500/25",  icon: "text-purple-400"  },
-};
-
-const SECTION_ICONS = [Users, Gamepad2, Award];
+const FEATURES = [
+  { number: "01", accent: "#f59e0b", flip: false },
+  { number: "02", accent: "#4d8dff", flip: true },
+  { number: "03", accent: "#10b981", flip: false },
+];
 
 const textOrDefault = (value, fallback) =>
   typeof value === "string" ? (value.trim() ? value : fallback) : (value ?? fallback);
@@ -79,132 +79,161 @@ function timeAgo(dateStr) {
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
-/* ── FAQ accordion item ──────────────────────────────────── */
+const kickerClass = `${fontMono} text-xs font-bold uppercase tracking-[.32em] text-[#4d8dff]`;
+const quietLink = `${focusRing} ${fontMono} inline-flex items-center text-xs font-bold uppercase tracking-[.14em] text-[#7f8aa3] transition-colors hover:text-white`;
+const primaryCta = `${CLIP_12} ${focusRing} inline-flex items-center justify-center border-0 bg-[#2563eb] px-[clamp(16px,2vw,30px)] py-[clamp(10px,1.25vw,18px)] text-sm font-bold uppercase tracking-[.14em] text-white shadow-[0_10px_40px_rgba(37,99,235,.45)] transition-colors hover:bg-[#3b76f6]`;
+const ghostCta = `${CLIP_12} ${focusRing} inline-flex items-center justify-center border-0 bg-white/10 px-[clamp(16px,2vw,30px)] py-[clamp(10px,1.25vw,18px)] text-sm font-bold uppercase tracking-[.14em] text-white transition-colors hover:bg-white/20`;
+
+function ClipCard({ accent = "rgba(255,255,255,.16)", children, className }) {
+  return (
+    <div className={cn(CLIP_16, "h-full p-px", className)} style={{ background: accent }}>
+      <div className={cn(CLIP_16, "flex h-full flex-col bg-[#0a1130] px-7 pb-8 pt-7")}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function SectionHeading({ kicker, title, action }) {
+  return (
+    <div className="mb-10 flex flex-wrap items-end justify-between gap-x-10 gap-y-4">
+      <div className="min-w-0">
+        {kicker ? <div className={cn(kickerClass, "mb-[18px]")}>{kicker}</div> : null}
+        <h2 className={cn(fontDisplay, "m-0 text-[clamp(40px,5vw,72px)] font-normal uppercase leading-[.9] text-white")}>
+          {title}
+        </h2>
+      </div>
+      {action}
+    </div>
+  );
+}
+
 function FaqItem({ question, answer }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className={cn(
-      "border rounded-xl overflow-hidden transition-colors",
-      open ? "border-primary/40 bg-primary/[0.04]" : "border-border bg-card"
-    )}>
-      <button type="button" className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left" onClick={() => setOpen(o => !o)}>
-        <span className="font-bold text-sm text-foreground">{question}</span>
-        {open ? <ChevronUp className="w-4 h-4 shrink-0 text-primary" /> : <ChevronDown className="w-4 h-4 shrink-0 text-muted-foreground" />}
+    <div className={cn("border-t border-white/12", open && "border-[#00d4ff]")}>
+      <button
+        type="button"
+        className={cn(focusRing, "landing-keep flex w-full items-center justify-between gap-4 border-0 bg-transparent px-0 py-5 text-left")}
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <span className={cn(fontDisplay, "text-[clamp(22px,2.4vw,32px)] font-normal uppercase leading-[1.05] text-white")}>
+          {question}
+        </span>
+        {open
+          ? <ChevronUp className="h-5 w-5 shrink-0 text-[#00d4ff]" />
+          : <ChevronDown className="h-5 w-5 shrink-0 text-[#7f8aa3]" />}
       </button>
-      {open && <div className="px-5 pb-5"><p className="text-sm text-muted-foreground leading-relaxed">{answer}</p></div>}
+      {open && (
+        <p className="m-0 max-w-[68ch] pb-6 text-base leading-[1.6] text-[#aab3c8]">{answer}</p>
+      )}
     </div>
   );
 }
 
-/* ── Alternating image / text section ───────────────────── */
-function FeatureSection({ title, text, imageUrl, icon: Icon, flip, objectPosition = "50% 28%", imageZoom }) {
-  const img = imageUrl ? (
-    <div
-      role="img"
-      aria-label={title}
-      className={cn("w-full rounded-2xl border border-border bg-cover bg-no-repeat", HOME_FEATURE_IMAGE_CLASS)}
-      style={{
-        backgroundImage: `url(${imageUrl})`,
-        backgroundPosition: objectPosition,
-        backgroundSize: imageZoom ? `${imageZoom}%` : "cover",
-      }}
-    />
-  ) : (
-    <div className={cn("w-full rounded-2xl bg-secondary/40 border border-border flex items-center justify-center", HOME_FEATURE_IMAGE_CLASS)}>
-      <Icon className="w-12 h-12 text-muted-foreground/20" />
+function FeatureBlock({ title, text, imageUrl, flip, objectPosition = "50% 28%", imageZoom, number, accent }) {
+  const zoom = Number(imageZoom);
+  const frame = imageUrl ? (
+    <div className={cn(CLIP_28, "aspect-video w-full min-w-0 overflow-hidden [flex:1.2_1_420px]")}>
+      <img
+        src={imageUrl}
+        alt={title}
+        loading="lazy"
+        decoding="async"
+        className="h-full w-full object-cover"
+        style={{
+          objectPosition: objectPosition || "center",
+          transform: Number.isFinite(zoom) && zoom > 0 ? `scale(${zoom / 100})` : undefined,
+        }}
+      />
     </div>
+  ) : (
+    <div className={cn(CLIP_28, "aspect-video w-full min-w-0 bg-[#0a1130] [flex:1.2_1_420px]")} role="img" aria-label={title} />
   );
-  const txt = (
-    <div className="flex flex-col justify-center space-y-4">
-      <div className="flex items-center gap-2 text-primary">
-        <Icon className="w-5 h-5" />
-        <span className="text-[10px] font-bold uppercase tracking-[0.28em]">STAGE</span>
+
+  const copy = (
+    <div className="min-w-0 [flex:1_1_380px]">
+      <div className={cn(fontMono, "flex items-center gap-3.5 text-xs font-bold uppercase tracking-[.3em]")} style={{ color: accent }}>
+        <span className={cn(fontDisplay, "text-[15px] font-normal tracking-[.08em]")}>{number}</span>
+        <span aria-hidden="true" className="h-px w-9" style={{ background: accent }} />
       </div>
-      <h2 className="font-heading font-black uppercase leading-tight text-foreground" style={{ fontSize: "clamp(1.75rem, 4vw, 2.75rem)" }}>
+      <h2 className={cn(fontDisplay, "mb-[22px] mt-5 text-[clamp(40px,5vw,72px)] font-normal uppercase leading-[.95] text-white")}>
         {title}
       </h2>
-      <p className="text-muted-foreground text-sm sm:text-base leading-relaxed">{text}</p>
+      <p className="m-0 max-w-[560px] text-lg leading-[1.6] text-[#aab3c8] text-pretty">{text}</p>
     </div>
   );
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 sm:gap-14 items-center py-14 border-b border-border/40 last:border-0">
-      {flip ? <>{txt}{img}</> : <>{img}{txt}</>}
-    </div>
+    <section className={cn(pagePad, "flex items-center gap-[clamp(32px,5vw,80px)] pt-[clamp(64px,8vw,120px)]", flip ? "flex-wrap-reverse" : "flex-wrap")}>
+      {flip ? <>{copy}{frame}</> : <>{frame}{copy}</>}
+    </section>
   );
 }
 
-/* ══════════════════════════════════════════════════════════
-   SECTION A — EVENTS CAROUSEL
-   Tabbed carousel: Competitions → Tournaments → Leagues
-   ══════════════════════════════════════════════════════════ */
-function EventsCarousel({ seasons, tournaments, leagues, isLiveDarkTheme, isLiveWhiteTheme, compact = false }) {
+function EventsCarousel({ seasons, tournaments, leagues, compact = false }) {
   const [activeTab, setActiveTab] = useState("competitions");
   const { t } = useTranslation();
 
-  const headingClass = isLiveWhiteTheme ? "text-slate-900" : "text-white";
-  const subtleTextClass = compact
-    ? "text-muted-foreground"
-    : isLiveWhiteTheme ? "text-slate-700" : "text-white/40";
-  const cardBorderClass = compact
-    ? "border-border group-hover:border-primary/30"
-    : isLiveWhiteTheme ? "border-slate-300/80 group-hover:border-slate-500/70" : "border-white/8 group-hover:border-white/20";
-  const cardTitleClass = compact
-    ? "text-foreground group-hover:text-primary"
-    : isLiveWhiteTheme ? "text-slate-900 group-hover:text-[hsl(189,100%,35%)]" : "text-white group-hover:text-[hsl(189,100%,52%)]";
-  const cardBackground = compact
-    ? undefined
-    : isLiveWhiteTheme ? "rgba(255,255,255,0.72)" : "rgba(255,255,255,0.03)";
-  const progressBarBg = compact
-    ? "hsl(var(--secondary))"
-    : isLiveWhiteTheme ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.08)";
-  const cardSurfaceClass = compact ? "bg-card" : "";
-
   const TABS = [
-    { key: "competitions", label: t("commonPages.homeCompetitions"), accent: "hsl(189,100%,52%)", viewAllTo: "/competitions" },
-    { key: "tournaments",  label: t("commonPages.homeTournaments"),  accent: "#f59e0b",           viewAllTo: "/tournaments" },
-    { key: "leagues",      label: t("commonPages.homeLeagues"),       accent: "#a78bfa",           viewAllTo: "/leagues" },
+    { key: "competitions", label: t("commonPages.homeCompetitions"), accent: "#00d4ff", viewAllTo: "/competitions" },
+    { key: "tournaments",  label: t("commonPages.homeTournaments"),  accent: "#f59e0b", viewAllTo: "/tournaments" },
+    { key: "leagues",      label: t("commonPages.homeLeagues"),      accent: "#a78bfa", viewAllTo: "/leagues" },
   ];
-  const currentTab = TABS.find(t => t.key === activeTab) || TABS[0];
+  const currentTab = TABS.find((tab) => tab.key === activeTab) || TABS[0];
 
-  const statusBadge = (s) => {
-    if (!s) return null;
-    const sl = String(s).toLowerCase();
-    if (["open", "registration"].includes(sl))                        return { text: "OPEN",      cls: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" };
-    if (["league_phase", "in_progress", "group_stage"].includes(sl))  return { text: "LIVE",      cls: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" };
-    if (sl === "playoffs")                                             return { text: "PLAYOFFS",  cls: "bg-yellow-500/15 text-yellow-400 border-yellow-500/30" };
-    if (sl === "knockout")                                             return { text: "KNOCKOUT",  cls: "bg-orange-500/15 text-orange-400 border-orange-500/30" };
-    if (sl === "completed")                                            return { text: "COMPLETED", cls: "bg-white/10 text-white/50 border-white/20" };
-    if (sl === "cancelled")                                            return { text: "CANCELLED", cls: "bg-red-500/15 text-red-400 border-red-500/30" };
+  const statusBadge = (status) => {
+    if (!status) return null;
+    const sl = String(status).toLowerCase();
+    if (["open", "registration"].includes(sl)) return { text: "OPEN", color: "#34d399" };
+    if (["league_phase", "in_progress", "group_stage"].includes(sl)) return { text: "LIVE", color: "#34d399" };
+    if (sl === "playoffs") return { text: "PLAYOFFS", color: "#facc15" };
+    if (sl === "knockout") return { text: "KNOCKOUT", color: "#fb923c" };
+    if (sl === "completed") return { text: "COMPLETED", color: "#7f8aa3" };
+    if (sl === "cancelled") return { text: "CANCELLED", color: "#f87171" };
     return null;
   };
 
   const parseJsonArray = (val) => {
     if (Array.isArray(val)) return val;
-    if (typeof val === "string") { try { const p = JSON.parse(val); return Array.isArray(p) ? p : []; } catch { return []; } }
+    if (typeof val === "string") {
+      try {
+        const parsed = JSON.parse(val);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
     return [];
   };
 
-  // ── Card renderers ──
   const renderCompetitions = () =>
-    COMPETITIONS.map((comp, i) => {
-      const season = seasons?.find(s => s.competition_name?.toLowerCase().includes(comp.slug) || s.tier === comp.tier);
+    COMPETITIONS.map((comp) => {
+      const season = seasons?.find((item) => item.competition_name?.toLowerCase().includes(comp.slug) || item.tier === comp.tier);
       const badge = season ? statusBadge(season.status) : null;
       return (
-        <Link key={comp.slug} to="/competitions" className="group block min-w-0">
-          <div className={cn("relative overflow-hidden rounded-2xl border transition-all duration-300 p-6 h-full", cardBorderClass, cardSurfaceClass)} style={cardBackground ? { background: cardBackground } : undefined}>
-            <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ background: comp.color }} />
-            <div className="absolute right-4 top-4 font-heading font-black text-6xl leading-none select-none pointer-events-none" style={{ color: comp.color, opacity: 0.06 }}>{i + 1}</div>
-            <div className="flex items-start justify-between gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${comp.color}18`, border: `1px solid ${comp.color}30` }}>
-                <Trophy className="w-5 h-5" style={{ color: comp.color }} />
+        <Link key={comp.slug} to="/competitions" className={cn(focusRing, "group block h-full min-w-0")}>
+          <ClipCard accent={comp.color}>
+            <div className="mb-6 flex items-start justify-between gap-3">
+              <div className={cn(fontMono, "flex items-center gap-2.5 text-xs font-bold uppercase tracking-[.3em]")} style={{ color: comp.color }}>
+                <span aria-hidden="true" className="h-2 w-2 rounded-full" style={{ background: comp.color, boxShadow: `0 0 12px ${comp.color}` }} />
+                {t("commonPages.homeTier", { tier: comp.tier })}
               </div>
-              {badge && <span className={cn("text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full border", badge.cls)}>{badge.text}</span>}
+              {badge && (
+                <span className={cn(fontMono, "text-[10px] font-bold uppercase tracking-[.16em]")} style={{ color: badge.color }}>
+                  {badge.text}
+                </span>
+              )}
             </div>
-            <p className={cn("text-[9px] uppercase tracking-[0.3em] font-bold mb-1", subtleTextClass)}>{t("commonPages.homeTier", { tier: comp.tier })}</p>
-            <h3 className={cn("font-heading font-black uppercase leading-tight text-lg mb-2 transition-colors", cardTitleClass)}>{comp.name.replace("STAGE ", "")}</h3>
-            <p className={cn("text-xs leading-relaxed", subtleTextClass)}>{comp.description}</p>
-            <div className={cn("flex items-center gap-1.5 mt-5 text-[10px] font-medium transition-colors", subtleTextClass)}>{t("commonPages.homeViewBracket")} <ArrowRight className="w-3 h-3" /></div>
-          </div>
+            <h3 className={cn(fontDisplay, "text-[clamp(28px,3vw,40px)] font-normal uppercase leading-none text-white")}>
+              {comp.name.replace("STAGE ", "")}
+            </h3>
+            <p className="mt-4 text-sm leading-[1.6] text-[#aab3c8]">{comp.description}</p>
+            <div className={cn(fontMono, "mt-auto pt-6 text-[11px] font-medium uppercase tracking-[.14em] text-[#7f8aa3] transition-colors group-hover:text-white")}>
+              {t("commonPages.homeViewBracket")}
+            </div>
+          </ClipCard>
         </Link>
       );
     });
@@ -219,30 +248,44 @@ function EventsCarousel({ seasons, tournaments, leagues, isLiveDarkTheme, isLive
       const pct = max > 0 ? Math.min((count / max) * 100, 100) : 0;
 
       return (
-        <Link key={item.id} to={`${linkPrefix}/${item.id}`} className="group block min-w-0">
-          <div className={cn("relative overflow-hidden rounded-2xl border transition-all duration-300 p-6 h-full", cardBorderClass, cardSurfaceClass)} style={cardBackground ? { background: cardBackground } : undefined}>
-            <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ background: accent }} />
-            <div className="flex items-start justify-between gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${accent}18`, border: `1px solid ${accent}30` }}>
-                <Trophy className="w-5 h-5" style={{ color: accent }} />
-              </div>
-              {badge && <span className={cn("text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full border", badge.cls)}>{badge.text}</span>}
-            </div>
-            <h3 className={cn("font-heading font-black uppercase leading-tight text-lg mb-2 transition-colors", cardTitleClass)}>{item.name}</h3>
-            {max > 0 && (
-              <div className="mb-3">
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className={cn("text-[10px] font-bold uppercase tracking-widest", subtleTextClass)}>{t("commonPages.homePlayers", { count, max })}</span>
-                  {count >= max && <span className="text-[9px] font-black uppercase tracking-widest text-red-400">{t("commonPages.homeFull")}</span>}
+        <Link key={item.id} to={`${linkPrefix}/${item.id}`} className={cn(focusRing, "group block h-full min-w-0")}>
+          <ClipCard accent={accent}>
+            <div className="mb-6 flex items-start justify-between gap-3">
+              {item.type ? (
+                <div className={cn(fontMono, "text-xs font-bold uppercase tracking-[.3em]")} style={{ color: accent }}>
+                  {String(item.type).replace(/_/g, " ")}
                 </div>
-                <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: progressBarBg }}>
-                  <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: count >= max ? "#ef4444" : accent }} />
+              ) : <span />}
+              {badge && (
+                <span className={cn(fontMono, "text-[10px] font-bold uppercase tracking-[.16em]")} style={{ color: badge.color }}>
+                  {badge.text}
+                </span>
+              )}
+            </div>
+            <h3 className={cn(fontDisplay, "text-[clamp(28px,3vw,40px)] font-normal uppercase leading-none text-white")}>
+              {item.name}
+            </h3>
+            {max > 0 && (
+              <div className="mt-5">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <span className={cn(fontMono, "text-[10px] font-bold uppercase tracking-[.16em] text-[#7f8aa3]")}>
+                    {t("commonPages.homePlayers", { count, max })}
+                  </span>
+                  {count >= max && (
+                    <span className={cn(fontMono, "text-[10px] font-bold uppercase tracking-[.16em] text-[#f87171]")}>
+                      {t("commonPages.homeFull")}
+                    </span>
+                  )}
+                </div>
+                <div className="h-0.5 w-full bg-white/10">
+                  <div className="h-full" style={{ width: `${pct}%`, background: count >= max ? "#f87171" : accent }} />
                 </div>
               </div>
             )}
-            {item.type && <p className={cn("text-[9px] uppercase tracking-[0.3em] font-bold mb-1", subtleTextClass)}>{String(item.type).replace(/_/g, " ")}</p>}
-            <div className={cn("flex items-center gap-1.5 mt-4 text-[10px] font-medium transition-colors", subtleTextClass)}>{t("commonPages.homeViewDetails")} <ArrowRight className="w-3 h-3" /></div>
-          </div>
+            <div className={cn(fontMono, "mt-auto pt-6 text-[11px] font-medium uppercase tracking-[.14em] text-[#7f8aa3] transition-colors group-hover:text-white")}>
+              {t("commonPages.homeViewDetails")}
+            </div>
+          </ClipCard>
         </Link>
       );
     });
@@ -250,50 +293,60 @@ function EventsCarousel({ seasons, tournaments, leagues, isLiveDarkTheme, isLive
   const renderContent = () => {
     if (activeTab === "competitions") return renderCompetitions();
     if (activeTab === "tournaments") {
-      if (!tournaments?.length) return [<p key="empty" className={cn("text-sm col-span-3 text-center py-8", subtleTextClass)}>{t("commonPages.homeNoTournaments")}</p>];
+      if (!tournaments?.length) return [<p key="empty" className="col-span-full py-8 text-center text-base text-[#aab3c8]">{t("commonPages.homeNoTournaments")}</p>];
       return renderEventCards(tournaments, "/tournaments", currentTab.accent);
     }
-    if (!leagues?.length) return [<p key="empty" className={cn("text-sm col-span-3 text-center py-8", subtleTextClass)}>{t("commonPages.homeNoLeagues")}</p>];
+    if (!leagues?.length) return [<p key="empty" className="col-span-full py-8 text-center text-base text-[#aab3c8]">{t("commonPages.homeNoLeagues")}</p>];
     return renderEventCards(leagues, "/leagues", currentTab.accent);
   };
 
   const content = renderContent();
   const isEmptyMessage = content.length === 1 && content[0]?.type === "p";
 
+  const tabs = (
+    <div className="flex flex-wrap items-end gap-x-6 gap-y-2" role="tablist">
+      {TABS.map((tab) => (
+        <button
+          key={tab.key}
+          type="button"
+          role="tab"
+          aria-selected={activeTab === tab.key}
+          onClick={() => setActiveTab(tab.key)}
+          className={cn(
+            "landing-keep cursor-pointer border-0 bg-transparent p-0 uppercase transition-colors",
+            compact ? fontMono : fontDisplay,
+            activeTab === tab.key
+              ? compact
+                ? "text-[#00d4ff]"
+                : "text-[clamp(40px,5vw,72px)] leading-[.9] text-white"
+              : compact
+                ? "text-[#7f8aa3]"
+                : "text-[clamp(22px,2.4vw,32px)] leading-none text-white/25 hover:text-white/55",
+            compact && "text-[11px] font-bold tracking-[.16em]",
+          )}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
+
   if (compact) {
     return (
-      <section className="space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="font-heading font-black uppercase text-foreground text-lg leading-none">
+      <section className="space-y-4">
+        <div className="flex items-end justify-between gap-3">
+          <h2 className={cn(fontDisplay, "text-[32px] font-normal uppercase leading-none text-white")}>
             {t("commonPages.homeMobileDiscover")}
           </h2>
-          <Link to={currentTab.viewAllTo} className="text-[10px] font-bold uppercase tracking-widest text-primary shrink-0">
+          <Link to={currentTab.viewAllTo} className={quietLink}>
             {t("commonPages.homeViewAll")}
           </Link>
         </div>
-        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 snap-x snap-mandatory scrollbar-none">
-          {TABS.map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => setActiveTab(tab.key)}
-              className={cn(
-                "shrink-0 snap-start rounded-full px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-wider border transition-colors",
-                activeTab === tab.key
-                  ? "bg-primary/15 border-primary/40 text-primary"
-                  : "bg-card border-border text-muted-foreground"
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-        {isEmptyMessage ? (
-          content[0]
-        ) : (
-          <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 snap-x snap-mandatory scrollbar-none">
-            {content.map((node, i) => (
-              <div key={node.key || i} className="shrink-0 w-[min(82vw,280px)] snap-start">
+        {tabs}
+        {isEmptyMessage ? content[0] : (
+          <div className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-1">
+            {content.map((node, index) => (
+              <div key={node.key || index} className="w-[min(82vw,280px)] shrink-0 snap-start">
                 {node}
               </div>
             ))}
@@ -304,65 +357,25 @@ function EventsCarousel({ seasons, tournaments, leagues, isLiveDarkTheme, isLive
   }
 
   return (
-    <section
-      className="border-y border-white/8 py-14 relative overflow-hidden w-full"
-      style={{
-        background: isLiveWhiteTheme
-          ? "linear-gradient(135deg, rgba(255,255,255,0.72) 0%, rgba(255,255,255,0.60) 50%, rgba(255,255,255,0.72) 100%)"
-          : isLiveDarkTheme
-            ? "linear-gradient(135deg, rgba(2,8,23,0.72) 0%, rgba(8,15,40,0.62) 50%, rgba(2,8,23,0.72) 100%)"
-            : "linear-gradient(135deg, #060e1f 0%, #0a1628 50%, #060e1f 100%)" }}
-    >
-      <div className="absolute inset-0 pointer-events-none" style={{
-        background: isLiveWhiteTheme
-          ? `radial-gradient(ellipse 60% 80% at 50% 50%, ${currentTab.accent}14 0%, transparent 70%)`
-          : `radial-gradient(ellipse 60% 80% at 50% 50%, ${currentTab.accent}0a 0%, transparent 70%)`
-      }} />
-
-      <div className="relative max-w-7xl mx-auto px-6 lg:px-12">
-        {/* Header with tabs */}
-        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-8">
-          <div>
-            <p className="text-[10px] uppercase tracking-[0.35em] font-bold mb-1" style={{ color: `${currentTab.accent}b3` }}>{t("commonPages.homePlatform")}</p>
-            <div className="flex items-center gap-1">
-              {TABS.map((tab, i) => (
-                <React.Fragment key={tab.key}>
-                  {i > 0 && <span className={cn("text-lg font-heading font-black mx-1 select-none", isLiveWhiteTheme ? "text-slate-300" : "text-white/15")}>·</span>}
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab(tab.key)}
-                    className={cn(
-                      "font-heading font-black uppercase leading-none transition-all duration-300 cursor-pointer",
-                      activeTab === tab.key
-                        ? headingClass
-                        : isLiveWhiteTheme ? "text-slate-300 hover:text-slate-500" : "text-white/15 hover:text-white/30"
-                    )}
-                    style={{ fontSize: activeTab === tab.key ? "clamp(2rem, 5vw, 3rem)" : "clamp(1.2rem, 3vw, 1.8rem)" }}
-                  >
-                    {tab.label}
-                  </button>
-                </React.Fragment>
-              ))}
-            </div>
+    <section className={cn(pagePad, "border-y border-white/[.08] py-[clamp(64px,8vw,112px)]")}>
+      <div className="mb-10 flex flex-wrap items-end justify-between gap-6">
+        <div>
+          <div className={cn(kickerClass, "mb-[18px]")} style={{ color: currentTab.accent }}>
+            {t("commonPages.homePlatform")}
           </div>
-          <Link to={currentTab.viewAllTo} className={cn("flex items-center gap-1.5 text-xs transition-colors font-medium uppercase tracking-widest", isLiveWhiteTheme ? "text-slate-600 hover:text-slate-900" : "text-white/40 hover:text-white/70")}>
-            {t("commonPages.homeViewAll")} <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
+          {tabs}
         </div>
-
-        {/* Cards grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {renderContent()}
-        </div>
+        <Link to={currentTab.viewAllTo} className={quietLink}>
+          {t("commonPages.homeViewAll")}
+        </Link>
+      </div>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        {content}
       </div>
     </section>
   );
 }
 
-/* ══════════════════════════════════════════════════════════
-   SECTION B — NEWS MOSAIC
-   Asymmetric editorial grid
-   ══════════════════════════════════════════════════════════ */
 function NewsMosaic({ items }) {
   const { t } = useTranslation();
   if (!items?.length) return null;
@@ -370,72 +383,66 @@ function NewsMosaic({ items }) {
   const [featured, ...rest] = items.slice(0, 4);
 
   return (
-    <section className="py-16 px-4 sm:px-6 lg:px-8">
-      <div className="flex items-end justify-between mb-8">
-        <div>
-          <p className="text-[hsl(189,100%,52%)]/70 text-[10px] uppercase tracking-[0.35em] font-bold mb-1">{t("commonPages.homeLatest")}</p>
-          <h2 className="font-heading font-black uppercase text-foreground leading-none"
-            style={{ fontSize: "clamp(2rem, 5vw, 3rem)" }}>
-            {t("commonPages.newsTitle")}
-          </h2>
-        </div>
-        <Link to="/news" className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors font-medium uppercase tracking-widest">
-          {t("commonPages.homeAllNews")} <ArrowRight className="w-3.5 h-3.5" />
-        </Link>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-
-        {/* Featured — large left card */}
-        {featured && (
-          <Link to="/news" className="lg:col-span-3 group block">
-            <div className="relative overflow-hidden rounded-2xl border border-border bg-card h-full min-h-[260px] flex flex-col hover:border-primary/30 transition-all duration-300">
-              {/* Accent bar */}
-              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[hsl(189,100%,52%)] to-transparent" />
-              <div className="p-6 flex flex-col flex-1">
-                <div className="flex items-center justify-between gap-3 mb-4">
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 border border-primary/20 text-[10px] font-black text-primary uppercase tracking-wider">
-                    <Newspaper className="w-2.5 h-2.5" /> {t("commonPages.featured")}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground/60">{timeAgo(featured.published_at)}</span>
-                </div>
-                <h3 className="font-heading font-black text-foreground text-xl sm:text-2xl uppercase leading-tight group-hover:text-primary transition-colors flex-1 mb-4">
-                  {featured.title}
-                </h3>
-                {featured.body && (
-                  <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3 mb-4">{featured.body}</p>
-                )}
-                {(featured.club_name || featured.player_name) && (
-                  <div className="flex items-center gap-2 mt-auto">
-                    {featured.club_logo_url && (
-                      <img src={featured.club_logo_url} alt="" className="w-5 h-5 rounded-full object-cover border border-border" />
-                    )}
-                    {featured.player_avatar_url && (
-                      <img src={featured.player_avatar_url} alt="" className="w-5 h-5 rounded-full object-cover border border-border" />
-                    )}
-                    <span className="text-[11px] text-muted-foreground">
-                      {featured.club_name || featured.player_name}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
+    <section className={cn(pagePad, "pt-[clamp(64px,8vw,120px)]")}>
+      <SectionHeading
+        kicker={t("commonPages.homeLatest")}
+        title={t("commonPages.newsTitle")}
+        action={(
+          <Link to="/news" className={quietLink}>
+            {t("commonPages.homeAllNews")}
           </Link>
         )}
-
-        {/* Side stack */}
-        <div className="lg:col-span-2 flex flex-col gap-4">
-          {rest.slice(0, 3).map((item) => (
-            <Link key={item.id} to="/news" className="group block flex-1">
-              <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-4 hover:border-primary/30 transition-all duration-300 h-full">
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <span className="text-[9px] font-black text-primary uppercase tracking-widest">{item._category || item.category || "News"}</span>
-                  <span className="text-[9px] text-muted-foreground/50 shrink-0">{timeAgo(item.published_at)}</span>
+      />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
+        {featured && (
+          <Link to="/news" className={cn(focusRing, "group block lg:col-span-3")}>
+            <ClipCard accent="#00d4ff" className="min-h-[260px]">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <span className={cn(fontMono, "text-[11px] font-bold uppercase tracking-[.2em] text-[#00d4ff]")}>
+                  {t("commonPages.featured")}
+                </span>
+                <span className={cn(fontMono, "text-[11px] tracking-[.12em] text-[#7f8aa3]")}>
+                  {timeAgo(featured.published_at)}
+                </span>
+              </div>
+              <h3 className={cn(fontDisplay, "text-[clamp(28px,3vw,44px)] font-normal uppercase leading-[.95] text-white")}>
+                {featured.title}
+              </h3>
+              {featured.body && (
+                <p className="mt-4 line-clamp-3 text-base leading-[1.6] text-[#aab3c8]">{featured.body}</p>
+              )}
+              {(featured.club_name || featured.player_name) && (
+                <div className="mt-auto flex items-center gap-2 pt-6">
+                  {featured.club_logo_url && (
+                    <img src={featured.club_logo_url} alt="" className="h-5 w-5 object-cover" />
+                  )}
+                  {featured.player_avatar_url && (
+                    <img src={featured.player_avatar_url} alt="" className="h-5 w-5 object-cover" />
+                  )}
+                  <span className="text-sm text-[#aab3c8]">
+                    {featured.club_name || featured.player_name}
+                  </span>
                 </div>
-                <p className="font-bold text-sm text-foreground leading-snug group-hover:text-primary transition-colors line-clamp-2">
+              )}
+            </ClipCard>
+          </Link>
+        )}
+        <div className="flex flex-col gap-4 lg:col-span-2">
+          {rest.slice(0, 3).map((item) => (
+            <Link key={item.id} to="/news" className={cn(focusRing, "group block flex-1")}>
+              <ClipCard accent="rgba(255,255,255,.16)">
+                <div className="mb-3 flex items-start justify-between gap-2">
+                  <span className={cn(fontMono, "text-[11px] font-bold uppercase tracking-[.2em] text-[#4d8dff]")}>
+                    {item._category || item.category || "News"}
+                  </span>
+                  <span className={cn(fontMono, "shrink-0 text-[11px] tracking-[.12em] text-[#7f8aa3]")}>
+                    {timeAgo(item.published_at)}
+                  </span>
+                </div>
+                <p className={cn(fontDisplay, "text-[26px] font-normal uppercase leading-[1.05] text-white")}>
                   {item.title}
                 </p>
-              </div>
+              </ClipCard>
             </Link>
           ))}
         </div>
@@ -444,177 +451,141 @@ function NewsMosaic({ items }) {
   );
 }
 
-/* ══════════════════════════════════════════════════════════
-   SECTION C — SCHEDULE FRAME
-   Wide angled timeline
-   ══════════════════════════════════════════════════════════ */
 function ScheduleFrame({ matches }) {
   const { t } = useTranslation();
-  const formatDate = (d) => {
-    if (!d) return "TBD";
-    const dt = new Date(d);
-    return dt.toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) + " · " +
-           dt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  const formatDate = (value) => {
+    if (!value) return "TBD";
+    const dt = new Date(value);
+    return `${dt.toLocaleDateString("en-GB", { day: "2-digit", month: "short" })} · ${dt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`;
   };
 
-  const statusBadge = (s) => {
-    if (s === "live")      return "text-emerald-400";
-    if (s === "completed") return "text-white/30 line-through";
-    return "text-[hsl(189,100%,52%)]";
+  const statusColor = (status) => {
+    if (status === "live") return "#34d399";
+    if (status === "completed") return "#7f8aa3";
+    return "#00d4ff";
   };
 
   return (
-    <section
-      className="py-14 relative overflow-hidden w-full"
-      style={{
-        background: "linear-gradient(to right, hsl(var(--background)) 0%, hsl(var(--secondary)/0.3) 50%, hsl(var(--background)) 100%)" }}
-    >
-      <div className="max-w-7xl mx-auto px-6 lg:px-12">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 items-start">
-
-          {/* Left — heading block */}
-          <div className="lg:col-span-1 flex flex-col justify-center">
-            <p className="text-[hsl(189,100%,52%)]/70 text-[10px] uppercase tracking-[0.35em] font-bold mb-2">{t("commonPages.homeUpcoming")}</p>
-            <h2 className="font-heading font-black uppercase text-foreground leading-none mb-4"
-              style={{ fontSize: "clamp(2rem, 5vw, 3.5rem)" }}>
-              {t("commonPages.homeSchedule")}
-            </h2>
-            <p className="text-muted-foreground text-sm leading-relaxed mb-6">
-              {t("commonPages.homeScheduleDesc")}
+    <section className={cn(pagePad, "pt-[clamp(64px,8vw,120px)]")}>
+      <div className="grid grid-cols-1 items-start gap-10 lg:grid-cols-3">
+        <div>
+          <div className={cn(kickerClass, "mb-[18px]")}>{t("commonPages.homeUpcoming")}</div>
+          <h2 className={cn(fontDisplay, "m-0 text-[clamp(40px,5vw,72px)] font-normal uppercase leading-[.9] text-white")}>
+            {t("commonPages.homeSchedule")}
+          </h2>
+          <p className="mb-8 mt-5 max-w-[36ch] text-lg leading-[1.6] text-[#aab3c8]">
+            {t("commonPages.homeScheduleDesc")}
+          </p>
+          <Link to="/game-day" className={primaryCta}>
+            {t("commonPages.homeGameDay")}
+          </Link>
+        </div>
+        <div className="lg:col-span-2">
+          {!matches?.length ? (
+            <p className="border-t border-white/12 py-10 text-base text-[#aab3c8]">
+              {t("commonPages.homeNoMatches")}
             </p>
-            <Link to="/game-day">
-              <Button className="gap-2 font-heading font-black uppercase tracking-wider text-sm bg-primary text-primary-foreground hover:bg-primary/90 w-fit">
-                <Calendar className="w-4 h-4" /> {t("commonPages.homeGameDay")}
-              </Button>
-            </Link>
-          </div>
-
-          {/* Right — match list */}
-          <div className="lg:col-span-2">
-            {!matches?.length ? (
-              <div className="text-center py-12 text-muted-foreground/40 text-sm border border-border rounded-2xl">
-                {t("commonPages.homeNoMatches")}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {matches.slice(0, 6).map((m, i) => {
-                  const home = m.home_club_name || m.home_player_name || "TBD";
-                  const away = m.away_club_name || m.away_player_name || "TBD";
-                  const isLive = m.status === "live";
-                  return (
-                    <div key={m.id || i}
-                      className="flex items-center gap-4 px-5 py-4 rounded-2xl border border-border bg-card hover:border-primary/25 transition-all group">
-                      {/* Time */}
-                      <div className="shrink-0 w-20 text-center">
-                        <div className={cn("text-xs font-black", statusBadge(m.status))}>
-                          {isLive ? "LIVE" : formatDate(m.scheduled_date)}
+          ) : (
+            <div>
+              {matches.slice(0, 6).map((match, index) => {
+                const home = match.home_club_name || match.home_player_name || "TBD";
+                const away = match.away_club_name || match.away_player_name || "TBD";
+                const live = match.status === "live";
+                return (
+                  <div key={match.id || index} className="grid grid-cols-1 items-center gap-3 border-t border-white/12 py-4 sm:grid-cols-[9.5rem_1fr]">
+                    <div>
+                      <div className={cn(fontMono, "text-xs font-bold uppercase tracking-[.14em]")} style={{ color: statusColor(match.status) }}>
+                        {live ? "LIVE" : formatDate(match.scheduled_date)}
+                      </div>
+                      {match.competition && (
+                        <div className={cn(fontMono, "mt-1 truncate text-[10px] uppercase tracking-[.14em] text-[#7f8aa3]")}>
+                          {match.competition}
                         </div>
-                        {m.competition && (
-                          <div className="text-[9px] text-muted-foreground/50 mt-0.5 truncate">{m.competition}</div>
-                        )}
-                      </div>
-                      {/* Divider */}
-                      <div className="w-px h-8 bg-border shrink-0" />
-                      {/* Match */}
-                      <div className="flex-1 flex items-center justify-between gap-3 min-w-0">
-                        <span className="font-bold text-sm text-foreground truncate group-hover:text-primary transition-colors">{home}</span>
-                        <span className="text-[10px] font-black text-muted-foreground/50 uppercase tracking-widest shrink-0">vs</span>
-                        <span className="font-bold text-sm text-foreground truncate text-right group-hover:text-primary transition-colors">{away}</span>
-                      </div>
+                      )}
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
+                    <div className="grid min-w-0 grid-cols-[1fr_auto_1fr] items-center gap-3">
+                      <span className="truncate text-base font-medium text-white">{home}</span>
+                      <span className={cn(fontMono, "text-[10px] uppercase tracking-[.16em] text-[#7f8aa3]")}>vs</span>
+                      <span className="truncate text-right text-base font-medium text-white">{away}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </section>
   );
 }
 
-/* ══════════════════════════════════════════════════════════
-   SECTION D — INBOX PANEL
-   Notification-style message list
-   ══════════════════════════════════════════════════════════ */
 function InboxPanel({ messages, user }) {
   const { t } = useTranslation();
-  const unread = messages?.filter(m => !m.is_read).length || 0;
+  const unread = messages?.filter((message) => !message.is_read).length || 0;
 
   return (
-    <section className="py-16 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-2xl ml-auto">
-        <div className="flex items-end justify-between mb-6">
-          <div>
-            <p className="text-[hsl(189,100%,52%)]/70 text-[10px] uppercase tracking-[0.35em] font-bold mb-1">{t("commonPages.homeMessages")}</p>
-            <div className="flex items-center gap-3">
-              <h2 className="font-heading font-black uppercase text-foreground leading-none"
-                style={{ fontSize: "clamp(2rem, 5vw, 3rem)" }}>
-                {t("nav.inbox")}
-              </h2>
+    <section className={cn(pagePad, "pt-[clamp(64px,8vw,120px)]")}>
+      <div className="ml-auto max-w-2xl">
+        <SectionHeading
+          kicker={t("commonPages.homeMessages")}
+          title={(
+            <span className="inline-flex items-center gap-3">
+              {t("nav.inbox")}
               {unread > 0 && (
-                <span className="bg-[hsl(189,100%,52%)] text-black text-xs font-black px-2 py-0.5 rounded-full shadow-[0_0_12px_hsl(189_100%_52%/0.5)]">
+                <span className={cn(fontMono, "text-sm font-bold tracking-[.08em] text-[#04130d]", "bg-[#00d4ff] px-2 py-1")}>
                   {unread}
                 </span>
               )}
-            </div>
-          </div>
-          <Link to="/inbox" className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors font-medium uppercase tracking-widest">
-            {t("commonPages.homeOpen")} <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
-        </div>
+            </span>
+          )}
+          action={(
+            <Link to="/inbox" className={quietLink}>
+              {t("commonPages.homeOpen")}
+            </Link>
+          )}
+        />
 
         {!user ? (
-          <div className="rounded-2xl border border-border bg-card p-8 text-center">
-            <Inbox className="w-10 h-10 text-muted-foreground/20 mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground mb-4">{t("commonPages.homeSignInMessages")}</p>
-            <Link to="/login">
-              <Button variant="outline" size="sm" className="font-heading font-black uppercase tracking-wider text-xs">
-                {t("auth.signIn")}
-              </Button>
-            </Link>
+          <div className="border-t border-white/12 py-8">
+            <p className="mb-5 text-base text-[#aab3c8]">{t("commonPages.homeSignInMessages")}</p>
+            <Link to="/login" className={ghostCta}>{t("auth.signIn")}</Link>
           </div>
         ) : !messages?.length ? (
-          <div className="rounded-2xl border border-border bg-card p-8 text-center">
-            <Inbox className="w-10 h-10 text-muted-foreground/20 mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground">{t("commonPages.homeInboxEmpty")}</p>
-          </div>
+          <p className="border-t border-white/12 py-8 text-base text-[#aab3c8]">
+            {t("commonPages.homeInboxEmpty")}
+          </p>
         ) : (
-          <div className="rounded-2xl border border-border bg-card overflow-hidden divide-y divide-border">
+          <div>
             {messages.slice(0, 5).map((msg) => (
-              <Link key={msg.id} to={`/inbox?id=${msg.id}`} className="flex items-center gap-4 px-5 py-4 hover:bg-secondary/40 transition-colors group">
-                {/* Avatar */}
-                <div className="w-9 h-9 rounded-full border border-border overflow-hidden bg-secondary shrink-0 flex items-center justify-center">
+              <Link
+                key={msg.id}
+                to={`/inbox?id=${msg.id}`}
+                className={cn(focusRing, "grid grid-cols-[auto_1fr_auto] items-center gap-4 border-t border-white/12 py-4")}
+              >
+                <div className="flex h-9 w-9 items-center justify-center overflow-hidden bg-[#10183a] text-xs font-bold text-[#aab3c8]">
                   {msg.sender_avatar_url ? (
-                    <img src={msg.sender_avatar_url} alt="" className="w-full h-full object-cover" />
+                    <img src={msg.sender_avatar_url} alt="" className="h-full w-full object-cover" />
                   ) : (
-                    <span className="text-xs font-bold text-muted-foreground">
-                      {msg.is_system ? "S" : (msg.sender_gamertag || "?")[0].toUpperCase()}
-                    </span>
+                    msg.is_system ? "S" : (msg.sender_gamertag || "?")[0].toUpperCase()
                   )}
                 </div>
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className={cn("text-sm font-bold truncate", !msg.is_read ? "text-foreground" : "text-muted-foreground")}>
+                <div className="min-w-0">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className={cn("truncate text-sm font-medium", msg.is_read ? "text-[#7f8aa3]" : "text-white")}>
                       {msg.is_system ? t("commonPages.homeStageSystem") : (msg.sender_gamertag || t("commonPages.homeUnknown"))}
                     </span>
-                    <span className="text-[10px] text-muted-foreground/50 shrink-0 ml-auto">
+                    <span className={cn(fontMono, "shrink-0 text-[10px] tracking-[.12em] text-[#7f8aa3]")}>
                       {timeAgo(msg.created_date)}
                     </span>
                   </div>
-                  <p className={cn("text-xs truncate mt-0.5", !msg.is_read ? "text-foreground/70" : "text-muted-foreground/50")}>
+                  <p className={cn("mt-1 truncate text-sm", msg.is_read ? "text-[#7f8aa3]" : "text-[#aab3c8]")}>
                     {msg.subject}
                   </p>
                 </div>
-                {/* Read indicator */}
-                <div className="shrink-0">
-                  {!msg.is_read
-                    ? <Circle className="w-2 h-2 fill-[hsl(189,100%,52%)] text-[hsl(189,100%,52%)]" />
-                    : <CheckCircle2 className="w-3.5 h-3.5 text-muted-foreground/20" />
-                  }
-                </div>
+                <span
+                  aria-hidden="true"
+                  className={cn("h-2 w-2 rounded-full", msg.is_read ? "bg-white/15" : "bg-[#00d4ff]")}
+                />
               </Link>
             ))}
           </div>
@@ -627,13 +598,9 @@ function InboxPanel({ messages, user }) {
 function formatMatchWhen(dateStr) {
   if (!dateStr) return "TBD";
   const dt = new Date(dateStr);
-  return dt.toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) + " · " +
-    dt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  return `${dt.toLocaleDateString("en-GB", { day: "2-digit", month: "short" })} · ${dt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`;
 }
 
-/* ══════════════════════════════════════════════════════════
-   MOBILE HOME — native app-style dashboard (md:hidden)
-   ══════════════════════════════════════════════════════════ */
 function MobileHomeDashboard({
   user,
   player,
@@ -645,35 +612,31 @@ function MobileHomeDashboard({
   leagues,
   showDiscordBanner,
   onSkipDiscord,
-  isLiveDarkTheme,
-  isLiveWhiteTheme,
 }) {
   const { t } = useTranslation();
-  const unread = messages?.filter(m => !m.is_read).length || 0;
+  const unread = messages?.filter((message) => !message.is_read).length || 0;
   const nextMatch = matches?.[0];
   const homeName = nextMatch?.home_club_name || nextMatch?.home_player_name || "TBD";
   const awayName = nextMatch?.away_club_name || nextMatch?.away_player_name || "TBD";
   const displayName = player?.gamertag || user?.email?.split("@")[0] || null;
 
   return (
-    <div className="md:hidden px-4 pt-3 pb-6 space-y-5">
+    <div className={cn(pagePad, "space-y-8 pb-8 pt-6 md:hidden")}>
       <header className="flex items-center justify-between gap-3">
-        <Link to="/dashboard" className="min-w-0 flex-1">
-          <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-primary mb-0.5">
-            STAGE
-          </p>
-          <h1 className="font-heading font-black uppercase text-foreground text-2xl leading-none truncate">
+        <Link to="/dashboard" className={cn(focusRing, "min-w-0 flex-1")}>
+          <p className={cn(kickerClass, "mb-2")}>STAGE</p>
+          <h1 className={cn(fontDisplay, "truncate text-[40px] font-normal uppercase leading-none text-white")}>
             {displayName
               ? t("commonPages.homeMobileWelcomeBack")
               : t("commonPages.homeMobileWelcome")}
           </h1>
           {displayName && (
-            <p className="text-sm text-muted-foreground mt-1 truncate">{displayName}</p>
+            <p className="mt-2 truncate text-base text-[#aab3c8]">{displayName}</p>
           )}
         </Link>
         {player?.avatar_url && (
           <div
-            className="w-11 h-11 rounded-full border border-border shrink-0 bg-cover bg-center"
+            className={cn(CLIP_12, "h-11 w-11 shrink-0 bg-cover bg-center")}
             style={{ backgroundImage: `url(${player.avatar_url})` }}
             role="img"
             aria-label={displayName || "Player"}
@@ -681,100 +644,82 @@ function MobileHomeDashboard({
         )}
       </header>
 
-      <Link to="/game-day" className="block active:scale-[0.98] transition-transform">
-        <div className="relative overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/20 via-primary/10 to-card p-5">
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-primary" />
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-primary mb-1">
-                {t("commonPages.homeGameDay")}
-              </p>
-              <p className="font-heading font-black uppercase text-foreground text-xl leading-tight">
-                {t("commonPages.homeMobileOpenGameDay")}
-              </p>
-              <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
-                {nextMatch
-                  ? `${formatMatchWhen(nextMatch.scheduled_date)} · ${homeName} vs ${awayName}`
-                  : t("commonPages.homeMobileNoMatchHint")}
-              </p>
-            </div>
-            <div className="w-11 h-11 rounded-xl bg-primary/15 border border-primary/25 flex items-center justify-center shrink-0">
-              <Zap className="w-5 h-5 text-primary" />
-            </div>
-          </div>
-        </div>
+      <Link to="/game-day" className={cn(focusRing, "block")}>
+        <ClipCard accent="#00d4ff">
+          <p className={cn(fontMono, "text-[11px] font-bold uppercase tracking-[.2em] text-[#00d4ff]")}>
+            {t("commonPages.homeGameDay")}
+          </p>
+          <p className={cn(fontDisplay, "mt-3 text-[32px] font-normal uppercase leading-none text-white")}>
+            {t("commonPages.homeMobileOpenGameDay")}
+          </p>
+          <p className="mt-3 text-sm leading-[1.55] text-[#aab3c8]">
+            {nextMatch
+              ? `${formatMatchWhen(nextMatch.scheduled_date)} · ${homeName} vs ${awayName}`
+              : t("commonPages.homeMobileNoMatchHint")}
+          </p>
+        </ClipCard>
       </Link>
 
       {matches?.length > 1 && (
-        <section className="space-y-2">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="font-heading font-black uppercase text-foreground text-base">
+        <section>
+          <div className="mb-2 flex items-end justify-between gap-3">
+            <h2 className={cn(fontDisplay, "text-[28px] font-normal uppercase leading-none text-white")}>
               {t("commonPages.homeMobileNextMatch")}
             </h2>
-            <Link to="/schedule" className="text-[10px] font-bold uppercase tracking-widest text-primary">
+            <Link to="/schedule" className={quietLink}>
               {t("commonPages.homeMobileSeeSchedule")}
             </Link>
           </div>
-          <div className="space-y-2">
-            {matches.slice(1, 3).map((m, i) => {
-              const home = m.home_club_name || m.home_player_name || "TBD";
-              const away = m.away_club_name || m.away_player_name || "TBD";
-              return (
-                <Link key={m.id || i} to="/game-day" className="block">
-                  <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 active:bg-secondary/40 transition-colors">
-                    <div className="shrink-0 text-[10px] font-black text-primary uppercase w-16 text-center leading-tight">
-                      {m.status === "live" ? "LIVE" : formatMatchWhen(m.scheduled_date).split(" · ")[0]}
-                    </div>
-                    <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
-                      <span className="text-xs font-bold truncate">{home}</span>
-                      <span className="text-[9px] text-muted-foreground uppercase shrink-0">vs</span>
-                      <span className="text-xs font-bold truncate text-right">{away}</span>
-                    </div>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
+          {matches.slice(1, 3).map((match, index) => {
+            const home = match.home_club_name || match.home_player_name || "TBD";
+            const away = match.away_club_name || match.away_player_name || "TBD";
+            return (
+              <Link key={match.id || index} to="/game-day" className={cn(focusRing, "grid grid-cols-[5.5rem_1fr] items-center gap-3 border-t border-white/12 py-3")}>
+                <span className={cn(fontMono, "text-[10px] font-bold uppercase tracking-[.12em] text-[#00d4ff]")}>
+                  {match.status === "live" ? "LIVE" : formatMatchWhen(match.scheduled_date).split(" · ")[0]}
+                </span>
+                <span className="grid min-w-0 grid-cols-[1fr_auto_1fr] items-center gap-2 text-sm text-white">
+                  <span className="truncate">{home}</span>
+                  <span className={cn(fontMono, "text-[10px] uppercase tracking-[.14em] text-[#7f8aa3]")}>vs</span>
+                  <span className="truncate text-right">{away}</span>
+                </span>
+              </Link>
+            );
+          })}
         </section>
       )}
 
       {user && (
-        <section className="space-y-2">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <h2 className="font-heading font-black uppercase text-foreground text-base">
-                {t("nav.inbox")}
-              </h2>
+        <section>
+          <div className="mb-2 flex items-end justify-between gap-3">
+            <h2 className={cn(fontDisplay, "inline-flex items-center gap-2 text-[28px] font-normal uppercase leading-none text-white")}>
+              {t("nav.inbox")}
               {unread > 0 && (
-                <span className="bg-primary text-primary-foreground text-[10px] font-black px-1.5 py-0.5 rounded-full">
+                <span className={cn(fontMono, "bg-[#00d4ff] px-1.5 py-0.5 text-[10px] font-bold text-[#04130d]")}>
                   {unread}
                 </span>
               )}
-            </div>
-            <Link to="/inbox" className="text-[10px] font-bold uppercase tracking-widest text-primary">
+            </h2>
+            <Link to="/inbox" className={quietLink}>
               {t("commonPages.homeOpen")}
             </Link>
           </div>
           {!messages?.length ? (
-            <div className="rounded-xl border border-border bg-card px-4 py-5 text-center">
-              <p className="text-xs text-muted-foreground">{t("commonPages.homeInboxEmpty")}</p>
-            </div>
+            <p className="border-t border-white/12 py-4 text-sm text-[#aab3c8]">{t("commonPages.homeInboxEmpty")}</p>
           ) : (
-            <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border">
-              {messages.slice(0, 2).map((msg) => (
-                <Link key={msg.id} to={`/inbox?id=${msg.id}`} className="flex items-center gap-3 px-4 py-3 active:bg-secondary/40 transition-colors">
-                  <div className="flex-1 min-w-0">
-                    <p className={cn("text-xs truncate", !msg.is_read ? "font-bold text-foreground" : "text-muted-foreground")}>
-                      {msg.subject || msg.title || t("commonPages.homeStageSystem")}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground/70 mt-0.5">{timeAgo(msg.created_date)}</p>
-                  </div>
-                  {!msg.is_read && (
-                    <Circle className="w-2 h-2 fill-primary text-primary shrink-0" />
-                  )}
-                </Link>
-              ))}
-            </div>
+            messages.slice(0, 2).map((msg) => (
+              <Link key={msg.id} to={`/inbox?id=${msg.id}`} className={cn(focusRing, "flex items-center gap-3 border-t border-white/12 py-3")}>
+                <div className="min-w-0 flex-1">
+                  <p className={cn("truncate text-sm", msg.is_read ? "text-[#7f8aa3]" : "font-medium text-white")}>
+                    {msg.subject || msg.title || t("commonPages.homeStageSystem")}
+                  </p>
+                  <p className={cn(fontMono, "mt-1 text-[10px] tracking-[.12em] text-[#7f8aa3]")}>
+                    {timeAgo(msg.created_date)}
+                  </p>
+                </div>
+                {!msg.is_read && <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full bg-[#00d4ff]" />}
+              </Link>
+            ))
           )}
         </section>
       )}
@@ -783,37 +728,32 @@ function MobileHomeDashboard({
         <DiscordJoinCard variant="banner" onSkip={onSkipDiscord} />
       )}
 
-      <EventsCarousel
-        seasons={seasons}
-        tournaments={tournaments}
-        leagues={leagues}
-        isLiveDarkTheme={isLiveDarkTheme}
-        isLiveWhiteTheme={isLiveWhiteTheme}
-        compact
-      />
+      <EventsCarousel seasons={seasons} tournaments={tournaments} leagues={leagues} compact />
 
       {newsItems?.length > 0 && (
-        <section className="space-y-3">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="font-heading font-black uppercase text-foreground text-lg leading-none">
+        <section>
+          <div className="mb-3 flex items-end justify-between gap-3">
+            <h2 className={cn(fontDisplay, "text-[28px] font-normal uppercase leading-none text-white")}>
               {t("commonPages.newsTitle")}
             </h2>
-            <Link to="/news" className="text-[10px] font-bold uppercase tracking-widest text-primary shrink-0">
+            <Link to="/news" className={quietLink}>
               {t("commonPages.homeAllNews")}
             </Link>
           </div>
-          <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 snap-x snap-mandatory scrollbar-none">
+          <div className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-1">
             {newsItems.slice(0, 4).map((item) => (
-              <Link key={item.id} to="/news" className="shrink-0 w-[min(78vw,260px)] snap-start block">
-                <div className="h-full rounded-xl border border-border bg-card p-4 active:bg-secondary/30 transition-colors">
-                  <p className="text-[9px] font-black text-primary uppercase tracking-widest mb-2">
+              <Link key={item.id} to="/news" className={cn(focusRing, "w-[min(78vw,260px)] shrink-0 snap-start")}>
+                <ClipCard accent="#4d8dff">
+                  <p className={cn(fontMono, "text-[10px] font-bold uppercase tracking-[.18em] text-[#4d8dff]")}>
                     {item._category || item.category || t("commonPages.general")}
                   </p>
-                  <p className="font-bold text-sm text-foreground leading-snug line-clamp-3">
+                  <p className={cn(fontDisplay, "mt-3 text-[22px] font-normal uppercase leading-[1.05] text-white")}>
                     {item.title}
                   </p>
-                  <p className="text-[10px] text-muted-foreground/60 mt-2">{timeAgo(item.published_at)}</p>
-                </div>
+                  <p className={cn(fontMono, "mt-3 text-[10px] tracking-[.12em] text-[#7f8aa3]")}>
+                    {timeAgo(item.published_at)}
+                  </p>
+                </ClipCard>
               </Link>
             ))}
           </div>
@@ -823,107 +763,101 @@ function MobileHomeDashboard({
   );
 }
 
-/* ══════════════════════════════════════════════════════════
-   PAGE
-   ══════════════════════════════════════════════════════════ */
+const FOOTER_LINKS = [
+  ["homeNavCompetitions", "/competitions"],
+  ["homeNavGameDay", "/game-day"],
+  ["homeNavClubs", "/clubs"],
+  ["homeFooterRankings", "/rankings"],
+  ["homeNavStore", "/lifestyle"],
+];
+
 export default function Home() {
   const { t } = useTranslation();
-  const [cms,        setCms]        = useState(null);
-  const [faqItems,   setFaqItems]   = useState([]);
-  const [seasons,    setSeasons]    = useState([]);
+  const [cms, setCms] = useState(null);
+  const [faqItems, setFaqItems] = useState([]);
+  const [seasons, setSeasons] = useState([]);
   const [tournaments, setTournaments] = useState([]);
   const [leagues, setLeagues] = useState([]);
-  const [newsItems,  setNewsItems]  = useState([]);
-  const [matches,    setMatches]    = useState([]);
-  const [messages,   setMessages]   = useState([]);
-  const [user,       setUser]       = useState(null);
-  const [player,     setPlayer]     = useState(null);
+  const [newsItems, setNewsItems] = useState([]);
+  const [matches, setMatches] = useState([]);
+  const [messages, setMessages] = useState([]);
+  const [user, setUser] = useState(null);
+  const [player, setPlayer] = useState(null);
   const [showDiscordBanner, setShowDiscordBanner] = useState(() => shouldShowDiscordPrompt());
   const pageRef = useRef(null);
-  const [isLiveDarkTheme, setIsLiveDarkTheme] = useState(() =>
-    typeof document !== "undefined" && document.documentElement.classList.contains("theme-video")
-  );
-  const [isLiveWhiteTheme, setIsLiveWhiteTheme] = useState(() =>
-    typeof document !== "undefined" && document.documentElement.classList.contains("theme-white")
-  );
 
   useEffect(() => {
-    const safe = (p) => Promise.resolve(p).catch(() => []);
+    const safe = (promise) => Promise.resolve(promise).catch(() => []);
 
     safe(stageClient.entities.HomePageContent.filter({}, null, 1))
-      .then(rows => setCms(rows?.[0] || null));
+      .then((rows) => setCms(rows?.[0] || null));
 
     safe(stageClient.entities.FaqItem.filter({ is_active: 1 }, "sort_order", 50))
-      .then(rows => setFaqItems(rows || []));
+      .then((rows) => setFaqItems(rows || []));
 
     safe(stageClient.entities.CompetitionSeason.list("-season_number", 10))
-      .then(rows => setSeasons(rows || []));
+      .then((rows) => setSeasons(rows || []));
 
     safe(stageClient.entities.Tournament.filter({}, "-created_date", 20))
-      .then(rows => setTournaments((rows || []).filter(t => t.status !== "deleted")));
+      .then((rows) => setTournaments((rows || []).filter((item) => item.status !== "deleted")));
 
     safe(stageClient.entities.RegionalLeague.filter({}, "-created_date", 20))
-      .then(rows => setLeagues((rows || []).filter(l => l.status !== "deleted")));
+      .then((rows) => setLeagues((rows || []).filter((item) => item.status !== "deleted")));
 
     safe(stageClient.entities.NewsItem.list("-published_at", 6))
-      .then(rows => setNewsItems((rows || []).map(i => ({ ...i, _category: i.category || i.type || "general" }))));
+      .then((rows) => setNewsItems((rows || []).map((item) => ({ ...item, _category: item.category || item.type || "general" }))));
 
     safe(stageClient.entities.Match.filter({ status: "scheduled" }, "-scheduled_date", 10))
-      .then(rows => setMatches(rows || []));
+      .then((rows) => setMatches(rows || []));
 
     stageClient.auth.me()
-      .then(u => {
-        if (!u?.email) return;
-        setUser(u);
-        safe(stageClient.entities.InboxMessage.filter({ recipient_email: u.email }, "-created_date", 5))
-          .then(msgs => setMessages(msgs || []));
+      .then((account) => {
+        if (!account?.email) return;
+        setUser(account);
+        safe(stageClient.entities.InboxMessage.filter({ recipient_email: account.email }, "-created_date", 5))
+          .then((rows) => setMessages(rows || []));
         const playerId = localStorage.getItem("stage_player_id");
         if (playerId) {
           safe(stageClient.entities.Player.get(playerId))
-            .then(p => setPlayer(p || null));
+            .then((row) => setPlayer(row || null));
         }
       })
       .catch(() => {});
   }, []);
 
   useEffect(() => {
-    // Layout uses an internal scroll container (<main overflow-y-auto>).
-    // Ensure Home always opens at top so hero is visible.
     const node = pageRef.current;
     if (!node) return;
     const scroller = node.closest("main");
-    if (scroller) {
-      scroller.scrollTo({ top: 0, behavior: "auto" });
-    } else {
-      window.scrollTo({ top: 0, behavior: "auto" });
-    }
-  }, []);
-
-  useEffect(() => {
-    if (typeof document === "undefined") return undefined;
-    const root = document.documentElement;
-    const apply = () => {
-      setIsLiveDarkTheme(root.classList.contains("theme-video"));
-      setIsLiveWhiteTheme(root.classList.contains("theme-white"));
-    };
-    apply();
-    const observer = new MutationObserver(apply);
-    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
-    return () => observer.disconnect();
+    if (scroller) scroller.scrollTo({ top: 0, behavior: "auto" });
+    else window.scrollTo({ top: 0, behavior: "auto" });
   }, []);
 
   const c = cms ? { ...DEFAULTS, ...cms } : DEFAULTS;
   const heroBg = textOrDefault(c.hero_image_url, DEFAULTS.hero_image_url);
   const heroBgPosition = textOrDefault(c.hero_image_position, "50% 10%");
   const heroBgZoom = c.hero_image_zoom ? Number(c.hero_image_zoom) : null;
+  const heroTitle = textOrDefault(c.hero_title, DEFAULTS.hero_title);
+  const heroSubtitle = textOrDefault(c.hero_subtitle, DEFAULTS.hero_subtitle);
+  const ctas = [
+    { label: textOrDefault(c.hero_cta_1_label, DEFAULTS.hero_cta_1_label), url: textOrDefault(c.hero_cta_1_url, DEFAULTS.hero_cta_1_url), primary: true },
+    { label: textOrDefault(c.hero_cta_2_label, DEFAULTS.hero_cta_2_label), url: textOrDefault(c.hero_cta_2_url, DEFAULTS.hero_cta_2_url) },
+    { label: textOrDefault(c.hero_cta_3_label, DEFAULTS.hero_cta_3_label), url: textOrDefault(c.hero_cta_3_url, DEFAULTS.hero_cta_3_url) },
+  ];
+  const features = [1, 2, 3].map((index) => ({
+    ...FEATURES[index - 1],
+    title: textOrDefault(c[`section${index}_title`], DEFAULTS[`section${index}_title`]),
+    text: textOrDefault(c[`section${index}_text`], DEFAULTS[`section${index}_text`]),
+    imageUrl: textOrDefault(c[`section${index}_image_url`], DEFAULTS[`section${index}_image_url`]),
+    objectPosition: textOrDefault(c[`section${index}_image_position`], "50% 28%"),
+    imageZoom: c[`section${index}_image_zoom`] ? Number(c[`section${index}_image_zoom`]) : null,
+  }));
 
   return (
-    <div ref={pageRef} className="min-h-screen relative">
-      {isLiveDarkTheme && (
-        <div className="pointer-events-none fixed inset-0 z-0 bg-black/35" />
-      )}
-      <div className="relative z-[1]">
-
+    <div
+      ref={pageRef}
+      className="landing-v2 min-h-screen overflow-x-hidden bg-[#06091a] font-['Chakra_Petch',system-ui,sans-serif] text-white selection:bg-[#00d4ff] selection:text-[#04131a]"
+    >
       <MobileHomeDashboard
         user={user}
         player={player}
@@ -935,221 +869,146 @@ export default function Home() {
         leagues={leagues}
         showDiscordBanner={showDiscordBanner}
         onSkipDiscord={() => setShowDiscordBanner(false)}
-        isLiveDarkTheme={isLiveDarkTheme}
-        isLiveWhiteTheme={isLiveWhiteTheme}
       />
 
       <div className="hidden md:block">
-
-      {/* ══════════════════════════════════════════════════════
-          HERO
-         ══════════════════════════════════════════════════════ */}
-      <section
-        className="stage-home-hero relative flex items-center overflow-hidden w-full"
-        style={{ minHeight: "88vh" }}
-      >
-        <div
-          className="stage-home-hero-bg absolute inset-0 bg-cover bg-no-repeat"
-          style={{
-            backgroundImage: `url(${heroBg})`,
-            backgroundSize: heroBgZoom ? `${heroBgZoom}%` : "cover",
-            backgroundPosition: heroBgPosition,
-          }}
-        />
-        <div className="stage-home-hero-readable absolute inset-0 bg-gradient-to-r from-black/88 via-black/55 to-black/10" />
-        <div className="stage-home-hero-fade absolute inset-0" style={{ background: "linear-gradient(to top, hsl(var(--background)) 0%, transparent 45%)" }} />
-        <div className="stage-home-hero-content relative z-10 w-full max-w-7xl mx-auto px-6 lg:px-12 py-28">
-          <p className="font-bold uppercase mb-1 text-xs sm:text-sm" style={{ fontFamily: "var(--font-heading-legacy)", color: "rgba(255,255,255,0.55)", letterSpacing: "0.35em" }}>
-            {textOrDefault(c.hero_title, DEFAULTS.hero_title)}
-          </p>
-          {/^stage$/i.test(String(textOrDefault(c.hero_subtitle, DEFAULTS.hero_subtitle)).trim()) ? (
-            <h1 className="stage-home-hero-title m-0 p-0" aria-label="STAGE">
-              <img
-                src={StageWordmarkImg}
-                alt="STAGE"
-                className="stage-home-hero-wordmark"
-                draggable={false}
-                style={{
-                  display: "block",
-                  width: "clamp(15rem, 50vw, 30.5rem)",
-                  maxWidth: "min(92vw, 30.5rem)",
-                  height: "auto",
-                  // White wordmark → brand cyan
-                  filter:
-                    "brightness(0) saturate(100%) invert(67%) sepia(98%) saturate(2500%) hue-rotate(152deg) brightness(1.05) drop-shadow(0 0 20px hsl(189 100% 52% / 0.55)) drop-shadow(0 0 55px hsl(189 100% 52% / 0.2))",
-                }}
-              />
-            </h1>
-          ) : (
-            <h1
-              className="stage-home-hero-title font-black leading-none uppercase"
-              style={{
-                fontFamily: "var(--font-heading-legacy)",
-                fontSize: "clamp(5.5rem, 18vw, 11rem)",
-                color: "hsl(189,100%,52%)",
-                filter: "drop-shadow(0 0 20px hsl(189 100% 52% / 0.55)) drop-shadow(0 0 55px hsl(189 100% 52% / 0.2))",
-                transform: "skewX(-8deg)",
-                letterSpacing: "-0.02em",
-              }}
-            >
-              {textOrDefault(c.hero_subtitle, DEFAULTS.hero_subtitle)}
-            </h1>
-          )}
-          <p className="mt-6 max-w-md text-sm sm:text-base leading-relaxed" style={{ color: "rgba(255,255,255,0.78)" }}>
-            {textOrDefault(c.hero_description, DEFAULTS.hero_description)}
-          </p>
-          <div className="stage-home-hero-actions flex flex-wrap gap-3 mt-9">
-            <Link to={textOrDefault(c.hero_cta_1_url, DEFAULTS.hero_cta_1_url)}>
-              <Button size="lg" className="stage-home-liquid-cta is-primary h-12 px-7 gap-2 font-heading font-black uppercase tracking-wider text-sm bg-primary text-primary-foreground hover:bg-primary/90">
-                <Trophy className="w-4 h-4" /> {textOrDefault(c.hero_cta_1_label, DEFAULTS.hero_cta_1_label)}
-              </Button>
-            </Link>
-            <Link to={textOrDefault(c.hero_cta_2_url, DEFAULTS.hero_cta_2_url)}>
-              <Button size="lg" variant="outline" className="stage-home-liquid-cta h-12 px-7 gap-2 font-heading font-black uppercase tracking-wider text-sm" style={{ color: "white", borderColor: "rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.07)" }}>
-                <Zap className="w-4 h-4" /> {textOrDefault(c.hero_cta_2_label, DEFAULTS.hero_cta_2_label)}
-              </Button>
-            </Link>
-            <Link to={textOrDefault(c.hero_cta_3_url, DEFAULTS.hero_cta_3_url)}>
-              <Button size="lg" variant="outline" className="stage-home-liquid-cta h-12 px-7 gap-2 font-heading font-black uppercase tracking-wider text-sm" style={{ color: "white", borderColor: "rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.07)" }}>
-                <ShoppingBag className="w-4 h-4" /> {textOrDefault(c.hero_cta_3_label, DEFAULTS.hero_cta_3_label)}
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════════════════════
-          A — COMPETITIONS STRIP
-         ══════════════════════════════════════════════════════ */}
-      <EventsCarousel
-        seasons={seasons}
-        tournaments={tournaments}
-        leagues={leagues}
-        isLiveDarkTheme={isLiveDarkTheme}
-        isLiveWhiteTheme={isLiveWhiteTheme}
-      />
-
-      {showDiscordBanner && user && (
-        <div className="px-4 sm:px-6 lg:px-8 py-6 max-w-6xl mx-auto">
-          <DiscordJoinCard
-            variant="banner"
-            onSkip={() => setShowDiscordBanner(false)}
+        <section className={cn(pagePad, "relative box-border flex aspect-auto min-h-[720px] flex-col justify-center overflow-hidden bg-[#06091a] py-[clamp(56px,6vw,96px)] lg:aspect-video lg:min-h-0")}>
+          <img
+            src={heroBg}
+            alt=""
+            decoding="async"
+            fetchPriority="high"
+            className="absolute inset-0 h-full w-full object-cover"
+            style={{
+              objectPosition: heroBgPosition,
+              transform: heroBgZoom ? `scale(${heroBgZoom / 100})` : undefined,
+            }}
           />
-        </div>
-      )}
-
-      {/* ══════════════════════════════════════════════════════
-          FEATURE SECTION 1 — What is STAGE?
-         ══════════════════════════════════════════════════════ */}
-      <div className="px-4 sm:px-6 lg:px-8">
-        <FeatureSection title={textOrDefault(c.section1_title, DEFAULTS.section1_title)} text={textOrDefault(c.section1_text, DEFAULTS.section1_text)} imageUrl={textOrDefault(c.section1_image_url, DEFAULTS.section1_image_url)} objectPosition={textOrDefault(c.section1_image_position, "50% 28%")} imageZoom={c.section1_image_zoom ? Number(c.section1_image_zoom) : null} icon={SECTION_ICONS[0]} flip={false} />
-      </div>
-
-      {/* ══════════════════════════════════════════════════════
-          B — NEWS MOSAIC
-         ══════════════════════════════════════════════════════ */}
-      <NewsMosaic items={newsItems} />
-
-      {/* ══════════════════════════════════════════════════════
-          FEATURE SECTION 2 — How It Works
-         ══════════════════════════════════════════════════════ */}
-      <div className="px-4 sm:px-6 lg:px-8">
-        <FeatureSection title={textOrDefault(c.section2_title, DEFAULTS.section2_title)} text={textOrDefault(c.section2_text, DEFAULTS.section2_text)} imageUrl={textOrDefault(c.section2_image_url, DEFAULTS.section2_image_url)} icon={SECTION_ICONS[1]} flip={true} objectPosition={textOrDefault(c.section2_image_position, "50% 28%")} imageZoom={c.section2_image_zoom ? Number(c.section2_image_zoom) : null} />
-      </div>
-
-      {/* ══════════════════════════════════════════════════════
-          C — SCHEDULE FRAME
-         ══════════════════════════════════════════════════════ */}
-      <ScheduleFrame matches={matches} />
-
-      {/* ══════════════════════════════════════════════════════
-          FEATURE SECTION 3 — Built for Competitors
-         ══════════════════════════════════════════════════════ */}
-      <div className="px-4 sm:px-6 lg:px-8">
-        <FeatureSection title={textOrDefault(c.section3_title, DEFAULTS.section3_title)} text={textOrDefault(c.section3_text, DEFAULTS.section3_text)} imageUrl={textOrDefault(c.section3_image_url, DEFAULTS.section3_image_url)} icon={SECTION_ICONS[2]} flip={false} objectPosition={textOrDefault(c.section3_image_position, "50% 28%")} imageZoom={c.section3_image_zoom ? Number(c.section3_image_zoom) : null} />
-      </div>
-
-      {/* ══════════════════════════════════════════════════════
-          D — INBOX PANEL
-         ══════════════════════════════════════════════════════ */}
-      <InboxPanel messages={messages} user={user} />
-
-      {/* ══════════════════════════════════════════════════════
-          QUICK NAVIGATION
-         ══════════════════════════════════════════════════════ */}
-      <section
-        className="border-y border-border py-16 w-full"
-        style={{ background: "hsl(var(--secondary) / 0.3)" }}
-      >
-        <div className="max-w-7xl mx-auto px-6 lg:px-12">
-          <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary mb-1">{t("commonPages.homePlatform")}</p>
-          <h2 className="font-heading font-black uppercase text-foreground mb-1" style={{ fontSize: "clamp(2rem, 5vw, 3rem)" }}>{t("commonPages.homeJumpIn")}</h2>
-          <p className="text-muted-foreground text-sm mb-8">{t("commonPages.homeJumpInDesc")}</p>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {NAV_CARDS.map(card => {
-              const a = ACCENT[card.accent];
-              return (
-                <Link key={card.to} to={card.to}>
-                  <div className={cn("group relative overflow-hidden rounded-2xl border p-5 h-full bg-gradient-to-br transition-all duration-200 hover:scale-[1.02]", a.bg, a.border)}>
-                    <card.icon className={cn("w-8 h-8 mb-3", a.icon)} />
-                    <p className="font-heading font-black text-base sm:text-lg uppercase text-foreground tracking-wide">{t(`commonPages.${card.labelKey}`)}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{t(`commonPages.${card.descKey}`)}</p>
-                    <ArrowRight className="w-4 h-4 text-muted-foreground/40 absolute bottom-4 right-4 group-hover:text-foreground group-hover:translate-x-0.5 transition-all" />
-                  </div>
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,#06091a_0%,rgba(6,9,26,.92)_28%,rgba(6,9,26,.55)_52%,rgba(6,9,26,0)_78%)]"
+          />
+          <div className="relative z-10 max-w-[720px]">
+            <h1 className={cn(fontDisplay, "m-0 text-[clamp(36px,9vw,160px)] font-normal uppercase leading-[.88] tracking-[-.01em] text-white")}>
+              {heroTitle}
+              <br />
+              <span className={cn(fontDisplay, fontItalic, "text-[#00d4ff] [text-shadow:0_0_48px_rgba(0,212,255,.45)]")}>
+                {heroSubtitle}
+              </span>
+            </h1>
+            <p className="mb-[clamp(14px,2.2vw,36px)] mt-[clamp(12px,2vw,32px)] max-w-[520px] text-[clamp(13px,1.35vw,19px)] leading-[1.55] text-[#aab3c8] text-pretty">
+              {textOrDefault(c.hero_description, DEFAULTS.hero_description)}
+            </p>
+            <div className="flex flex-wrap gap-3.5">
+              {ctas.map((cta) => (
+                <Link key={`${cta.label}-${cta.url}`} to={cta.url} className={cta.primary ? primaryCta : ghostCta}>
+                  {cta.label}
                 </Link>
-              );
-            })}
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ══════════════════════════════════════════════════════
-          FAQ
-         ══════════════════════════════════════════════════════ */}
-      <section className="max-w-2xl mx-auto px-6 py-16">
-        <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary mb-1 text-center">{t("commonPages.homeQuestions")}</p>
-        <h2 className="font-heading font-black uppercase text-foreground text-center mb-2" style={{ fontSize: "clamp(2rem, 5vw, 3rem)" }}>{t("commonPages.homeFaq")}</h2>
-        <p className="text-muted-foreground text-sm text-center mb-8">{t("commonPages.homeFaqDesc")}</p>
-        <div className="space-y-2">
-          {(faqItems.length ? faqItems : DEFAULTS.faq_items).map((item) => (
-            <FaqItem key={item.id || item.question} question={item.question} answer={item.answer} />
-          ))}
-        </div>
-      </section>
+        <EventsCarousel seasons={seasons} tournaments={tournaments} leagues={leagues} />
 
-      {/* ══════════════════════════════════════════════════════
-          FOOTER
-         ══════════════════════════════════════════════════════ */}
-      <footer className="border-t border-border w-full" style={{ background: "hsl(var(--card))" }}>
-        <div className="max-w-7xl mx-auto px-6 lg:px-12 py-12 pb-8">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 mb-10">
+        {showDiscordBanner && user && (
+          <div className={cn(pagePad, "pt-10")}>
+            <DiscordJoinCard variant="banner" onSkip={() => setShowDiscordBanner(false)} />
+          </div>
+        )}
+
+        <FeatureBlock {...features[0]} />
+        <NewsMosaic items={newsItems} />
+        <FeatureBlock {...features[1]} />
+        <ScheduleFrame matches={matches} />
+        <FeatureBlock {...features[2]} />
+        <InboxPanel messages={messages} user={user} />
+
+        <section className="border-t border-white/[.08] bg-[#080d22] py-[clamp(64px,8vw,112px)]">
+          <div className={pagePad}>
+            <div className="mb-8 flex flex-wrap items-end justify-between gap-6">
+              <h2 className={cn(fontDisplay, "m-0 text-[clamp(48px,6vw,96px)] font-normal uppercase leading-[.9] text-white")}>
+                {t("commonPages.homeJumpIn")}
+              </h2>
+              <div className={cn(fontMono, "text-xs font-bold uppercase tracking-[.32em] text-[#4d8dff]")}>
+                {t("commonPages.homePlatform")}
+              </div>
+            </div>
+            <p className="mb-8 max-w-[52ch] text-lg leading-[1.6] text-[#aab3c8]">
+              {t("commonPages.homeJumpInDesc")}
+            </p>
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-px border border-white/10 bg-white/10">
+              {NAV_CARDS.map((card) => (
+                <Link
+                  key={card.to}
+                  to={card.to}
+                  className={cn(focusRing, "block bg-[#080d22] px-8 pb-10 pt-9 transition-colors hover:bg-[#0c1330]")}
+                >
+                  <div className="mb-6 h-1 w-7" style={{ background: card.accent }} />
+                  <h3 className={cn(fontDisplay, "m-0 text-[26px] font-normal uppercase leading-[1.1] text-white")}>
+                    {t(`commonPages.${card.labelKey}`)}
+                  </h3>
+                  <p className="mt-3 text-base leading-[1.6] text-[#aab3c8]">
+                    {t(`commonPages.${card.descKey}`)}
+                  </p>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className={cn(pagePad, "mx-auto max-w-3xl py-[clamp(64px,8vw,112px)]")}>
+          <div className={cn(kickerClass, "mb-[18px]")}>{t("commonPages.homeQuestions")}</div>
+          <h2 className={cn(fontDisplay, "m-0 text-[clamp(40px,5vw,72px)] font-normal uppercase leading-[.9] text-white")}>
+            {t("commonPages.homeFaq")}
+          </h2>
+          <p className="mb-8 mt-5 text-lg leading-[1.6] text-[#aab3c8]">{t("commonPages.homeFaqDesc")}</p>
+          <div>
+            {(faqItems.length ? faqItems : DEFAULTS.faq_items).map((item) => (
+              <FaqItem key={item.id || item.question} question={item.question} answer={item.answer} />
+            ))}
+            <div className="border-t border-white/12" />
+          </div>
+        </section>
+
+        <footer className={cn(pagePad, "border-t border-white/[.08] py-12")}>
+          <div className="grid grid-cols-1 gap-10 sm:grid-cols-3">
             <div>
-              <p className="font-heading font-black text-4xl uppercase mb-3" style={{ color: "hsl(189,100%,52%)", textShadow: "0 0 16px hsl(189 100% 52% / 0.35)" }}>STAGE</p>
-              <p className="text-sm text-muted-foreground leading-relaxed max-w-xs">{textOrDefault(c.footer_tagline, DEFAULTS.footer_tagline)}</p>
+              <p className={cn(fontDisplay, fontItalic, "text-5xl uppercase leading-none text-[#00d4ff] [text-shadow:0_0_28px_rgba(0,212,255,.45)]")}>
+                STAGE
+              </p>
+              <p className="mt-4 max-w-xs text-sm leading-[1.6] text-[#7f8aa3]">
+                {textOrDefault(c.footer_tagline, DEFAULTS.footer_tagline)}
+              </p>
             </div>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-muted-foreground mb-3">{t("commonPages.homePlatform")}</p>
+              <p className={cn(fontMono, "mb-4 text-[11px] font-bold uppercase tracking-[.22em] text-[#7f8aa3]")}>
+                {t("commonPages.homePlatform")}
+              </p>
               <div className="space-y-2">
-                {[["homeNavCompetitions", "/competitions"], ["homeNavGameDay", "/game-day"], ["homeNavClubs", "/clubs"], ["homeFooterRankings", "/rankings"], ["homeNavStore", "/lifestyle"]].map(([labelKey, to]) => (
-                  <Link key={to} to={to} className="block text-sm text-foreground/60 hover:text-foreground transition-colors">{t(`commonPages.${labelKey}`)}</Link>
+                {FOOTER_LINKS.map(([labelKey, to]) => (
+                  <Link key={to} to={to} className="block text-sm text-[#aab3c8] transition-colors hover:text-white">
+                    {t(`commonPages.${labelKey}`)}
+                  </Link>
                 ))}
               </div>
             </div>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-muted-foreground mb-3">{t("commonPages.homeContact")}</p>
-              <a href={`mailto:${textOrDefault(c.contact_email, DEFAULTS.contact_email)}`} className="flex items-center gap-2 text-sm text-foreground/60 hover:text-primary transition-colors">
-                <Mail className="w-4 h-4 shrink-0" /> {textOrDefault(c.contact_email, DEFAULTS.contact_email)}
+              <p className={cn(fontMono, "mb-4 text-[11px] font-bold uppercase tracking-[.22em] text-[#7f8aa3]")}>
+                {t("commonPages.homeContact")}
+              </p>
+              <a
+                href={`mailto:${textOrDefault(c.contact_email, DEFAULTS.contact_email)}`}
+                className={cn(focusRing, "text-sm text-[#aab3c8] transition-colors hover:text-[#00d4ff]")}
+              >
+                {textOrDefault(c.contact_email, DEFAULTS.contact_email)}
               </a>
             </div>
           </div>
-          <div className="border-t border-border pt-6 text-xs text-muted-foreground text-center">
+          <div className={cn(fontMono, "mt-10 border-t border-white/[.08] pt-6 text-center text-[11px] tracking-[.14em] text-[#7f8aa3]")}>
             © {new Date().getFullYear()} STAGE. {t("commonPages.homeRights")}
           </div>
-        </div>
-      </footer>
-
-      </div>{/* end desktop-only */}
-
+        </footer>
       </div>
     </div>
   );

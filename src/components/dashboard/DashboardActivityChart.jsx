@@ -1,3 +1,5 @@
+import { CLIP_12 } from "@/components/landing/clips";
+import { cn } from "@/lib/utils";
 import {
   Bar,
   BarChart,
@@ -14,7 +16,7 @@ function ChartTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   return (
     <div
-      className="border border-cyan-300/20 bg-[#0a101c]/95 p-3 text-xs shadow-[0_0_24px_-8px_rgba(0,229,255,0.6)] backdrop-blur-md"
+      className={cn(CLIP_12, "border border-cyan-300/20 bg-[#0a101c]/95 p-3 text-xs shadow-[0_0_24px_-8px_rgba(0,229,255,0.6)] backdrop-blur-md")}
     >
       <p className="font-bold text-white mb-1">{label}</p>
       {payload.map((p) => (

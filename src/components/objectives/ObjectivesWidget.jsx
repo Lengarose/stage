@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { stageClient } from '@/api/stageClient';
 import { useTranslation } from '@/hooks/useTranslation';
+import { cn } from '@/lib/utils';
+import { CLIP_12 } from '@/components/landing/clips';
 import { GamerHeroAction } from '@/components/profile/gamer/GamerProfileUI';
 
 const ROW_CLIP = { clipPath: "polygon(4% 0, 100% 0, 96% 100%, 0 100%)" };
@@ -71,7 +73,14 @@ export default function ObjectivesWidget({ playerId, scope, onClaimed, shape = '
         const claimed   = !!it.claimed_at;
 
         return (
-          <div key={it.id} className="border border-cyan-300/20 bg-gradient-to-r from-[#070b14]/95 via-black/88 to-[#070b14]/90 p-3 backdrop-blur-md" style={shape === 'rectangle' ? undefined : ROW_CLIP}>
+          <div
+            key={it.id}
+            className={cn(
+              "bg-gradient-to-r from-[#070b14]/95 via-black/88 to-[#070b14]/90 p-3 backdrop-blur-md",
+              shape === "stage" ? CLIP_12 : "border border-cyan-300/20",
+            )}
+            style={shape === "rectangle" || shape === "stage" ? undefined : ROW_CLIP}
+          >
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
@@ -100,6 +109,7 @@ export default function ObjectivesWidget({ playerId, scope, onClaimed, shape = '
                 ) : completed ? (
                   <GamerHeroAction
                     type="button"
+                    tone="primary"
                     onClick={() => handleClaim(it.id)}
                     disabled={claimingId === it.id}
                     className="max-w-none px-3 py-1.5 text-[10px] disabled:opacity-50"

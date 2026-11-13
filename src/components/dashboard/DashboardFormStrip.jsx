@@ -1,5 +1,8 @@
 import { cn } from "@/lib/utils";
 
+const CLIP_8 =
+  "[clip-path:polygon(8px_0,100%_0,100%_calc(100%_-_8px),calc(100%_-_8px)_100%,0_100%,0_8px)]";
+
 const OUTCOME_STYLE = {
   win: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
   draw: "bg-white/[0.06] text-white/50 border-white/10",
@@ -36,7 +39,7 @@ export default function DashboardFormStrip({ label, mode = "outcome", items = []
             return (
               <span
                 key={`${item}-${i}`}
-                className={cn("w-9 h-9 border flex items-center justify-center text-xs font-black", ratingStyle(item))}
+                className={cn(CLIP_8, "flex h-9 w-9 items-center justify-center text-xs font-black", ratingStyle(item))}
               >
                 {Number(item).toFixed(1)}
               </span>
@@ -48,7 +51,7 @@ export default function DashboardFormStrip({ label, mode = "outcome", items = []
           return (
             <span
               key={`${outcome}-${i}`}
-              className={cn("w-9 h-9 border flex items-center justify-center text-xs font-black", OUTCOME_STYLE[outcome] || OUTCOME_STYLE.draw)}
+              className={cn(CLIP_8, "flex h-9 w-9 items-center justify-center text-xs font-black", OUTCOME_STYLE[outcome] || OUTCOME_STYLE.draw)}
             >
               {letter}
             </span>

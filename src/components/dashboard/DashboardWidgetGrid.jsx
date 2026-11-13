@@ -83,8 +83,8 @@ export default function DashboardWidgetGrid({ widgets, hiddenByDefault = new Set
       <div className="flex flex-wrap items-center justify-end gap-2">
         <GamerHeroAction
           type="button"
+          tone={editMode ? "primary" : "ghost"}
           onClick={() => setEditMode((v) => !v)}
-          className={editMode ? "border-cyan-200/55 bg-cyan-300/15 text-white" : undefined}
         >
           <LayoutGrid className="w-3.5 h-3.5" />
           {editMode ? t("commonPages.dashboardLayoutDone") : t("commonPages.dashboardLayoutEdit")}

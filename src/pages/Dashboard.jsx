@@ -22,12 +22,14 @@ import DashboardWidgetGrid from "@/components/dashboard/DashboardWidgetGrid";
 import ObjectivesWidget from "@/components/objectives/ObjectivesWidget";
 import DashboardGamerStatCard, { DashboardRankRing } from "@/components/dashboard/DashboardGamerStatCard";
 import { GamerHeroAction, GamerMetaPill, GamerProfileShell, GamerSectionCard } from "@/components/profile/gamer/GamerProfileUI";
+import { CLIP_12, CLIP_16 } from "@/components/landing/clips";
 
 function DashboardRow({ children, className }) {
   return (
     <div
       className={cn(
-        "border border-cyan-300/20 bg-gradient-to-r from-[#070b14]/95 via-black/85 to-[#070b14]/90 px-4 py-3 transition-all backdrop-blur-md hover:border-cyan-200/35 hover:bg-black/90",
+        CLIP_12,
+        "bg-gradient-to-r from-[#070b14]/95 via-black/85 to-[#070b14]/90 px-4 py-3 transition-all backdrop-blur-md hover:bg-black/90",
         className,
       )}
     >
@@ -110,9 +112,8 @@ export default function Dashboard() {
     <GamerProfileShell scrollMode="page">
       <div className="px-4 py-6 lg:px-8 lg:py-8">
         <div className="mx-auto max-w-6xl space-y-6">
-          <header
-            className="relative overflow-hidden border border-cyan-300/20 bg-gradient-to-br from-cyan-500/10 via-[#0d1528]/80 to-amber-500/10 p-5 sm:p-6"
-          >
+          <header className={cn(CLIP_16, "p-px")} style={{ background: "rgba(0, 212, 255, 0.4)" }}>
+            <div className={cn(CLIP_16, "relative overflow-hidden bg-gradient-to-br from-cyan-500/10 via-[#0d1528]/80 to-amber-500/10 p-5 sm:p-6")}>
             <div className="absolute inset-0 opacity-30 pointer-events-none" style={{ backgroundImage: "radial-gradient(circle at 85% 20%, rgba(255,184,0,0.25), transparent 40%), radial-gradient(circle at 10% 80%, rgba(0,229,255,0.2), transparent 35%)" }} />
             <div className="relative flex flex-wrap items-start justify-between gap-4">
               <div className="flex items-start gap-4 min-w-0">
@@ -123,10 +124,10 @@ export default function Dashboard() {
                     {player?.gamertag || user?.email?.split("@")[0] || t("commonPages.dashboardGuest")}
                   </h1>
                   <div className="flex flex-wrap items-center gap-2 mt-2">
-                    {player?.position ? <GamerMetaPill>{player.position}</GamerMetaPill> : null}
-                    {player?.platform ? <GamerMetaPill>{player.platform}</GamerMetaPill> : null}
+                    {player?.position ? <GamerMetaPill cut>{player.position}</GamerMetaPill> : null}
+                    {player?.platform ? <GamerMetaPill cut>{player.platform}</GamerMetaPill> : null}
                     {player?.is_verified ? (
-                      <GamerMetaPill className="text-cyan-300 border-cyan-400/30">
+                      <GamerMetaPill cut className="text-cyan-300 border-cyan-400/30">
                         <BadgeCheck className="w-3.5 h-3.5" /> {t("commonPages.dashboardVerified")}
                       </GamerMetaPill>
                     ) : null}
@@ -134,10 +135,11 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
-                <GamerHeroAction as={Link} to="/rankings">
+                <GamerHeroAction as={Link} to="/rankings" tone="ghost">
                   <BarChart3 className="w-3.5 h-3.5" /> {t("commonPages.dashboardViewRankings")}
                 </GamerHeroAction>
               </div>
+            </div>
             </div>
           </header>
 
@@ -230,7 +232,7 @@ export default function Dashboard() {
                 </>
               ),
               form: (
-                <GamerSectionCard title={t("commonPages.dashboardRecentForm")}>
+                <GamerSectionCard shape="stage" title={t("commonPages.dashboardRecentForm")}>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <DashboardFormStrip
                       label={t("commonPages.dashboardStageForm")}
@@ -249,11 +251,11 @@ export default function Dashboard() {
               ),
               next_match: (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                  <GamerSectionCard
-                    className="lg:col-span-2 border-cyan-300/30 bg-gradient-to-br from-cyan-950/55 via-[#070b14]/90 to-black/92"
+                  <GamerSectionCard shape="stage"
+                    frameClassName="lg:col-span-2"
                     title={t("commonPages.dashboardNextMatch")}
                     action={(
-                      <div className="w-10 h-10 border border-cyan-300/25 bg-cyan-300/10 flex items-center justify-center shrink-0">
+                      <div className={cn(CLIP_12, "flex h-10 w-10 shrink-0 items-center justify-center bg-cyan-300/10")}>
                         <Zap className="w-5 h-5 text-cyan-300" />
                       </div>
                     )}
@@ -279,15 +281,15 @@ export default function Dashboard() {
                       </DashboardRow>
                     ) : null}
                     <div className="flex flex-wrap gap-2">
-                      <GamerHeroAction as={Link} to="/game-day">
+                      <GamerHeroAction as={Link} to="/game-day" tone="primary">
                         <Zap className="w-4 h-4" /> {t("commonPages.dashboardOpenGameDay")}
                       </GamerHeroAction>
-                      <GamerHeroAction as={Link} to="/schedule">
+                      <GamerHeroAction as={Link} to="/schedule" tone="ghost">
                         <Calendar className="w-4 h-4" /> {t("commonPages.dashboardSeeSchedule")}
                       </GamerHeroAction>
                     </div>
                   </GamerSectionCard>
-                  <GamerSectionCard title={t("commonPages.dashboardMyClub")}>
+                  <GamerSectionCard shape="stage" title={t("commonPages.dashboardMyClub")}>
                     <div className="flex items-center justify-between gap-3 mb-4 -mt-1">
                       {clubRank.rank ? (
                         <span className="text-[10px] font-black uppercase tracking-wider text-cyan-300">#{clubRank.rank}</span>
@@ -296,7 +298,7 @@ export default function Dashboard() {
                     {club ? (
                       <>
                         <Link to={`/clubs/${club.id}`} className="flex items-center gap-3 group mb-4">
-                          <div className="w-12 h-12 border border-cyan-300/20 bg-black/30 overflow-hidden flex items-center justify-center shrink-0">
+                          <div className={cn(CLIP_12, "flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden bg-black/30")}>
                             {club.logo_url ? (
                               <img src={club.logo_url} alt="" className="w-full h-full object-cover" />
                             ) : (
@@ -345,7 +347,7 @@ export default function Dashboard() {
               ...(upcomingMatches?.length > 1
                 ? {
                     upcoming: (
-                      <GamerSectionCard
+                      <GamerSectionCard shape="stage"
                         title={t("commonPages.dashboardUpcoming")}
                         action={(
                           <Link to="/schedule" className="text-[10px] font-bold uppercase tracking-widest text-cyan-300 hover:text-cyan-200 transition-colors">
@@ -376,8 +378,8 @@ export default function Dashboard() {
                 : {}),
               activity_objectives: (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                  <GamerSectionCard
-                    className="lg:col-span-2"
+                  <GamerSectionCard shape="stage"
+                    frameClassName="lg:col-span-2"
                     title={t("commonPages.dashboardActivity")}
                     action={club?.id ? (
                       <Link to="/stats" className="text-[10px] font-bold uppercase tracking-widest text-cyan-300 hover:text-cyan-200 transition-colors">
@@ -393,15 +395,15 @@ export default function Dashboard() {
                       emptyLabel={t("commonPages.dashboardActivityEmpty")}
                     />
                   </GamerSectionCard>
-                  <GamerSectionCard title={t("commonPages.dashboardObjectives")}>
+                  <GamerSectionCard shape="stage" title={t("commonPages.dashboardObjectives")}>
                     <p className="text-xs text-white/45 mb-3 -mt-1">{t("commonPages.dashboardObjectivesDesc")}</p>
-                    <ObjectivesWidget playerId={player.id} shape="rectangle" />
+                    <ObjectivesWidget playerId={player.id} shape="stage" />
                   </GamerSectionCard>
                 </div>
               ),
               tournaments_league: (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  <GamerSectionCard
+                  <GamerSectionCard shape="stage"
                     title={t("commonPages.dashboardActiveTournaments")}
                     action={(
                       <Link to="/tournaments" className="text-[10px] font-bold uppercase tracking-widest text-cyan-300 hover:text-cyan-200 transition-colors">
@@ -433,7 +435,7 @@ export default function Dashboard() {
                                     </p>
                                   ) : null}
                                 </div>
-                                <span className={cn("text-[9px] font-black uppercase tracking-widest px-2 py-1 border shrink-0", badge.cls)}>
+                                <span className={cn(CLIP_12, "shrink-0 px-2 py-1 text-[9px] font-black uppercase tracking-widest", badge.cls)}>
                                   {badge.text}
                                 </span>
                               </DashboardRow>
@@ -443,7 +445,7 @@ export default function Dashboard() {
                       </div>
                     )}
                   </GamerSectionCard>
-                  <GamerSectionCard
+                  <GamerSectionCard shape="stage"
                     title={t("commonPages.dashboardLeagueStandings")}
                     action={(
                       <Link to="/competitions" className="text-[10px] font-bold uppercase tracking-widest text-cyan-300 hover:text-cyan-200 transition-colors">
@@ -488,16 +490,16 @@ export default function Dashboard() {
           />
         ) : null}
 
-        <section
-          className="border border-dashed border-cyan-300/25 bg-gradient-to-r from-[#070b14]/92 via-black/88 to-[#070b14]/90 p-5 flex flex-wrap items-center justify-between gap-3 backdrop-blur-md"
-        >
+        <section className={cn(CLIP_16, "p-px")} style={{ background: "rgba(0, 212, 255, 0.28)" }}>
+          <div className={cn(CLIP_16, "flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-[#070b14]/92 via-black/88 to-[#070b14]/90 p-5 backdrop-blur-md")}>
           <div className="flex items-center gap-3">
             <Trophy className="w-5 h-5 text-white/40" />
             <p className="text-sm text-white/45">{t("commonPages.dashboardWelcomeHint")}</p>
           </div>
-          <Link to="/" className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-cyan-300 hover:text-cyan-200 transition-colors">
+          <Link to="/" className={cn(CLIP_12, "inline-flex min-h-11 items-center gap-1.5 bg-white/10 px-4 text-xs font-bold uppercase tracking-widest text-white transition-colors hover:bg-white/20")}>
             {t("commonPages.dashboardGoWelcome")} <ArrowRight className="w-3.5 h-3.5" />
           </Link>
+          </div>
         </section>
       </div>
       </div>

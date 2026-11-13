@@ -1,18 +1,18 @@
 import { useState } from 'react';
 import { GripVertical, X, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { CLIP_16 } from '@/components/landing/clips';
 
 export default function DashboardWidget({ id, title, children, onRemove, isDragging, dragHandleProps }) {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
     <div
-      className={cn(
-        'overflow-hidden border border-cyan-300/20 bg-[#070b14]/88 backdrop-blur-md transition-all',
-        isDragging && 'opacity-50 ring-2 ring-cyan-400/50',
-      )}
+      className={cn(CLIP_16, "p-px", isDragging && "opacity-50")}
+      style={{ background: "rgba(0, 212, 255, 0.4)" }}
       data-widget-id={id}
     >
+      <div className={cn(CLIP_16, "overflow-hidden bg-gradient-to-br from-cyan-950/55 via-[#070b14]/90 to-black/92 backdrop-blur-md")}>
       <div className="flex items-center justify-between p-4 border-b border-cyan-300/10 bg-cyan-300/[0.03]">
         <div className="flex items-center gap-2">
           <span {...(dragHandleProps || {})} className="cursor-grab active:cursor-grabbing flex items-center">
@@ -47,6 +47,7 @@ export default function DashboardWidget({ id, title, children, onRemove, isDragg
           {children}
         </div>
       )}
+      </div>
     </div>
   );
 }

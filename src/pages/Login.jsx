@@ -8,7 +8,8 @@ import { openDiscordInvite } from '@/lib/discordJoin';
 import { DISCORD_INVITE_URL } from '@/lib/discordConfig';
 import { SUPPORTED_LANGUAGES } from '@/lib/languages';
 import { useTranslation } from '@/hooks/useTranslation';
-import BannerImg from '@/assets/Banner.jpg';
+import GamersImg from '@/assets/landing/gamers.webp';
+import WordmarkImg from '@/assets/Stage wordmark.png';
 import LogoImg from '@/assets/Stadium Logo.png';
 
 // RFC-5322-ish email validation: local-part@domain.tld with a real TLD.
@@ -164,8 +165,8 @@ export default function Login() {
       transition={{ duration: 0.6, ease: 'easeOut' }}
     >
       {/* Background */}
-      <img src={BannerImg} alt="" className="absolute inset-0 w-full h-full object-cover" />
-      <div className="absolute inset-0 bg-black/55" />
+      <img src={GamersImg} alt="" className="absolute inset-0 h-full w-full object-cover object-center" />
+      <div className="absolute inset-0 bg-[#06091a]/55" />
 
       {/* Card */}
       <motion.div
@@ -177,9 +178,12 @@ export default function Login() {
         <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-8 shadow-2xl">
 
           {/* Branding */}
-          <div className="flex flex-col items-center mb-7 gap-2">
-            <img src={LogoImg} alt="STAGE" className="h-24 w-auto object-contain" />
-            <p className="font-heading text-white/50 text-sm uppercase tracking-[0.25em]">
+          <div className="mb-7 flex flex-col items-center gap-3">
+            <div className="flex items-center">
+              <img src={WordmarkImg} alt="STAGE" className="h-9 w-auto object-contain" />
+              <img src={LogoImg} alt="" className="-ml-1 h-[5.25rem] w-auto object-contain" />
+            </div>
+            <p className="font-heading text-sm uppercase tracking-[0.25em] text-white/50">
               {mode === 'forgot' || mode === 'sent' ? t('auth.resetTitle') : (isSignup ? t('auth.createAccount') : t('auth.welcomeBack'))}
             </p>
           </div>

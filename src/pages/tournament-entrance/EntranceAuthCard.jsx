@@ -7,7 +7,8 @@ import { ensureAdminPanelMode, isAppAdminUser } from "@/lib/adminAuth";
 import { entranceTournamentPath, finishTournamentEntranceSession } from "@/lib/tournamentEntranceAccess";
 import { format, parseISO, isValid } from "@/lib/momentDate";
 import { useTranslation } from "@/hooks/useTranslation";
-import BannerImg from "@/assets/Banner.jpg";
+import GamersImg from "@/assets/landing/gamers.webp";
+import WordmarkImg from "@/assets/Stage wordmark.png";
 import LogoImg from "@/assets/Stadium Logo.png";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -223,17 +224,17 @@ export default function EntranceAuthCard({ mode }) {
       transition={{ duration: 0.45, ease: "easeOut" }}
     >
       <img
-        src={BannerImg}
+        src={GamersImg}
         alt=""
-        className="hidden md:block absolute inset-0 w-full h-full object-cover"
+        className="hidden md:block absolute inset-0 h-full w-full object-cover object-center"
       />
-      <div className="hidden md:block absolute inset-0 bg-black/55" />
+      <div className="hidden md:block absolute inset-0 bg-[#06091a]/55" />
 
       <div className="md:hidden relative w-full h-[40vh] min-h-[240px] max-h-[340px] shrink-0 overflow-hidden">
         <img
-          src={BannerImg}
+          src={GamersImg}
           alt=""
-          className="absolute inset-0 w-full h-full object-cover"
+          className="absolute inset-0 h-full w-full object-cover object-center"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/55 to-[#0a0e1a]" />
         <motion.div
@@ -243,11 +244,10 @@ export default function EntranceAuthCard({ mode }) {
           className="relative h-full flex flex-col items-center justify-end gap-2 px-6 pb-5"
           style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 20px)" }}
         >
-          <img
-            src={LogoImg}
-            alt="STAGE"
-            className="h-20 w-auto object-contain drop-shadow-2xl"
-          />
+          <div className="flex items-center drop-shadow-2xl">
+            <img src={WordmarkImg} alt="STAGE" className="h-8 w-auto object-contain" />
+            <img src={LogoImg} alt="" className="-ml-1 h-[4.75rem] w-auto object-contain" />
+          </div>
           <p className="text-white/70 text-[10px] uppercase tracking-[0.3em]">
             {t("commonPages.teEntrance")}
           </p>
@@ -264,8 +264,11 @@ export default function EntranceAuthCard({ mode }) {
           className="px-6 pt-2 md:p-8 md:bg-white/10 md:backdrop-blur-xl md:border md:border-white/20 md:rounded-2xl md:shadow-2xl"
           style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 28px)" }}
         >
-          <div className="hidden md:flex flex-col items-center mb-6 gap-2">
-            <img src={LogoImg} alt="STAGE" className="h-24 w-auto object-contain" />
+          <div className="mb-6 hidden flex-col items-center gap-3 md:flex">
+            <div className="flex items-center">
+              <img src={WordmarkImg} alt="STAGE" className="h-9 w-auto object-contain" />
+              <img src={LogoImg} alt="" className="-ml-1 h-[5.25rem] w-auto object-contain" />
+            </div>
             <p className="text-white/50 text-xs uppercase tracking-[0.25em]">
               {isSignup ? t("auth.createAccount") : t("auth.welcomeBack")}
             </p>

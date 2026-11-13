@@ -1,32 +1,36 @@
 import { Link } from "react-router-dom";
 import { Bell, Coins, Mail, Store } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CLIP_12 } from "@/components/landing/clips";
 import { useTranslation } from "@/hooks/useTranslation";
 
 const GLANCE_SURFACE = {
-  default: "border-cyan-300/20 bg-gradient-to-br from-[#070b14]/95 via-[#0a101c]/92 to-black/90",
-  highlight: "border-cyan-300/35 bg-gradient-to-br from-cyan-950/75 via-[#061018]/95 to-black/90 shadow-[0_0_24px_-12px_rgba(0,229,255,0.8)]",
+  default: "bg-gradient-to-br from-[#070b14]/95 via-[#0a101c]/92 to-black/90",
+  highlight: "bg-gradient-to-br from-cyan-950/75 via-[#061018]/95 to-black/90",
 };
 
 function GlanceCard({ to, icon: Icon, label, value, highlight = false }) {
   const body = (
-    <div
-      className={cn(
-        "min-w-0 border px-4 py-3 flex items-center gap-3 transition-all backdrop-blur-md",
-        highlight ? GLANCE_SURFACE.highlight : GLANCE_SURFACE.default,
-        to && !highlight && "hover:border-cyan-200/35 hover:from-cyan-950/50",
-      )}
-    >
-      <div className={cn(
-        "w-10 h-10 flex items-center justify-center shrink-0 border bg-black/50",
-        highlight ? "text-cyan-300 border-cyan-300/30" : "text-white/55 border-white/15",
-      )}
+    <div className={cn(CLIP_12, "h-full p-px")} style={{ background: highlight ? "rgba(0,212,255,.7)" : "rgba(0,212,255,.35)" }}>
+      <div
+        className={cn(
+          CLIP_12,
+          "flex min-w-0 items-center gap-3 px-4 py-3 backdrop-blur-md transition-all",
+          highlight ? GLANCE_SURFACE.highlight : GLANCE_SURFACE.default,
+        )}
       >
-        <Icon className="w-4 h-4" />
-      </div>
-      <div className="min-w-0">
-        <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-white/55">{label}</p>
-        <p className="font-heading font-black text-xl text-white leading-none mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">{value}</p>
+        <div className={cn(
+          CLIP_12,
+          "flex h-10 w-10 shrink-0 items-center justify-center bg-black/50",
+          highlight ? "text-cyan-300" : "text-white/55",
+        )}
+        >
+          <Icon className="w-4 h-4" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-white/55">{label}</p>
+          <p className="font-heading font-black text-xl text-white leading-none mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">{value}</p>
+        </div>
       </div>
     </div>
   );

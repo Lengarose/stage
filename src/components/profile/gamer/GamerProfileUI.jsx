@@ -1,4 +1,5 @@
 import { Children, cloneElement, isValidElement } from "react";
+import { CLIP_12, CLIP_16, focusRing } from "@/components/landing/clips";
 import { cn } from "@/lib/utils";
 import { playerAvatarInitials, resolvePlayerAvatarUrl } from "@/lib/playerAvatar";
 import { useEffect, useState } from "react";
@@ -28,6 +29,24 @@ const ACCENT_VALUE = {
   rose: "text-rose-200",
   violet: "text-violet-200",
   sky: "text-sky-200",
+};
+
+const ACCENT_FILL = {
+  cyan: "bg-gradient-to-br from-cyan-950/80 via-[#061018]/95 to-black/92",
+  gold: "bg-gradient-to-br from-amber-950/70 via-[#100c06]/95 to-black/92",
+  green: "bg-gradient-to-br from-emerald-950/70 via-[#061210]/95 to-black/92",
+  rose: "bg-gradient-to-br from-rose-950/70 via-[#100608]/95 to-black/92",
+  violet: "bg-gradient-to-br from-violet-950/70 via-[#0c0618]/95 to-black/92",
+  sky: "bg-gradient-to-br from-sky-950/70 via-[#060e18]/95 to-black/92",
+};
+
+const ACCENT_EDGE = {
+  cyan: "rgba(0,212,255,.55)",
+  gold: "rgba(251,191,36,.55)",
+  green: "rgba(52,211,153,.5)",
+  rose: "rgba(251,113,133,.5)",
+  violet: "rgba(167,139,250,.5)",
+  sky: "rgba(56,189,248,.5)",
 };
 
 export function GamerProfileShell({ children, className, scrollMode = "shell" }) {
@@ -187,23 +206,37 @@ export function GamerRecordStrip({ wins = 0, draws = 0, losses = 0, className })
   );
 }
 
-export function GamerMetaPill({ children, className }) {
+export function GamerMetaPill({ children, className, cut = false }) {
   return (
-    <span className={cn("inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white/60", className)}>
+    <span className={cn(
+      "inline-flex items-center gap-1.5 border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white/60",
+      cut ? CLIP_12 : "rounded-full",
+      className,
+    )}>
       {children}
     </span>
   );
 }
 
-export function GamerHeroAction({ children, className, style, as: Component = "button", ...props }) {
+export function GamerHeroAction({ children, className, style, as: Component = "button", tone, ...props }) {
   const buttonProps = Component === "button" ? { type: "button" } : {};
+  const staged = tone === "primary" || tone === "ghost";
   return (
     <Component
       className={cn(
-        "inline-flex max-w-[240px] items-center justify-center gap-2 px-1 py-2 text-xs font-black uppercase tracking-[0.14em] text-cyan-50/90 drop-shadow-[0_0_14px_rgba(0,229,255,0.28)] transition-all",
-        "hover:text-white hover:drop-shadow-[0_0_18px_rgba(0,229,255,0.55)]",
+        "inline-flex items-center justify-center gap-2 text-xs font-black uppercase tracking-[0.14em] transition-all",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/40",
-        className
+        staged
+          ? cn(
+              CLIP_12,
+              focusRing,
+              "min-h-11 px-4 py-2.5",
+              tone === "primary"
+                ? "border-0 bg-[#2563eb] text-white shadow-[0_10px_40px_rgba(37,99,235,.45)] hover:bg-[#3b76f6]"
+                : "border-0 bg-white/10 text-white hover:bg-white/20",
+            )
+          : "max-w-[240px] px-1 py-2 text-cyan-50/90 drop-shadow-[0_0_14px_rgba(0,229,255,0.28)] hover:text-white hover:drop-shadow-[0_0_18px_rgba(0,229,255,0.55)]",
+        className,
       )}
       style={style}
       {...buttonProps}
@@ -249,6 +282,31 @@ export function GamerTabNav({ tabs, active, onChange, className }) {
 
 export function GamerStatTile({ label, value, accent = "cyan", sub, className, shape = "rounded", tinted = false }) {
   const rounded = shape === "rounded";
+  const copy = (
+    <>
+      <p className={cn("text-[9px] font-bold uppercase tracking-[0.22em] mb-1 truncate", tinted ? "text-white/55" : "text-white/40")}>{label}</p>
+      <p className={cn(
+        "font-heading text-2xl font-black leading-none",
+        tinted
+          ? (ACCENT_VALUE[accent] || ACCENT_VALUE.cyan)
+          : cn("bg-gradient-to-r bg-clip-text text-transparent", ACCENT[accent] || ACCENT.cyan),
+      )}>
+        {value}
+      </p>
+      {sub ? <p className={cn("text-[10px] mt-1 truncate", tinted ? "text-white/50" : "text-white/40")}>{sub}</p> : null}
+    </>
+  );
+
+  if (shape === "stage") {
+    return (
+      <div className={cn(CLIP_12, "h-full p-px", className)} style={{ background: ACCENT_EDGE[accent] || ACCENT_EDGE.cyan }}>
+        <div className={cn(CLIP_12, "min-w-0 px-5 py-3 backdrop-blur-md", tinted ? (ACCENT_FILL[accent] || ACCENT_FILL.cyan) : "bg-[#070b14]/88")}>
+          {copy}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn(
@@ -264,16 +322,7 @@ export function GamerStatTile({ label, value, accent = "cyan", sub, className, s
       )}
       style={rounded || shape === "rectangle" ? undefined : { clipPath: "polygon(6% 0, 100% 0, 94% 100%, 0 100%)" }}
     >
-      <p className={cn("text-[9px] font-bold uppercase tracking-[0.22em] mb-1 truncate", tinted ? "text-white/55" : "text-white/40")}>{label}</p>
-      <p className={cn(
-        "font-heading text-2xl font-black leading-none",
-        tinted
-          ? (ACCENT_VALUE[accent] || ACCENT_VALUE.cyan)
-          : cn("bg-gradient-to-r bg-clip-text text-transparent", ACCENT[accent] || ACCENT.cyan),
-      )}>
-        {value}
-      </p>
-      {sub ? <p className={cn("text-[10px] mt-1 truncate", tinted ? "text-white/50" : "text-white/40")}>{sub}</p> : null}
+      {copy}
     </div>
   );
 }
@@ -296,8 +345,33 @@ export function GamerAttributeBar({ label, value, max = 99, accent = "cyan" }) {
   );
 }
 
-export function GamerSectionCard({ title, action, children, className, shape = "rounded" }) {
+export function GamerSectionCard({ title, action, children, className, frameClassName, shape = "rounded" }) {
   const rounded = shape === "rounded";
+  const body = (
+    <>
+      {title ? (
+        <div className={cn(
+          "flex items-center justify-between gap-3 border-b px-5 py-3",
+          rounded || shape === "stage" ? "border-white/10 bg-black/35" : "border-cyan-300/10 bg-black/35",
+        )}>
+          <h3 className="font-heading text-sm font-black uppercase tracking-[0.16em] text-white/90">{title}</h3>
+          {action}
+        </div>
+      ) : null}
+      <div className="p-5">{children}</div>
+    </>
+  );
+
+  if (shape === "stage") {
+    return (
+      <section className={cn(CLIP_16, "h-full p-px", frameClassName)} style={{ background: "rgba(0, 212, 255, 0.4)" }}>
+        <div className={cn(CLIP_16, "flex h-full min-h-0 flex-col overflow-hidden bg-gradient-to-br from-cyan-950/55 via-[#070b14]/90 to-black/92 backdrop-blur-md", className)}>
+          {body}
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section
       className={cn(
@@ -309,16 +383,7 @@ export function GamerSectionCard({ title, action, children, className, shape = "
       )}
       style={rounded ? undefined : { clipPath: "polygon(2% 0, 100% 0, 98% 100%, 0 100%)" }}
     >
-      {title ? (
-        <div className={cn(
-          "flex items-center justify-between gap-3 border-b px-5 py-3",
-          rounded ? "border-white/10 bg-black/35" : "border-cyan-300/10 bg-black/35",
-        )}>
-          <h3 className="font-heading text-sm font-black uppercase tracking-[0.16em] text-white/90">{title}</h3>
-          {action}
-        </div>
-      ) : null}
-      <div className="p-5">{children}</div>
+      {body}
     </section>
   );
 }
