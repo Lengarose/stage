@@ -204,7 +204,7 @@ export default function PresidentSetup({
           <label
             htmlFor={avatarInputId}
             className={cn(
-              "absolute inset-0 z-10 bg-black/55 flex items-center justify-center cursor-pointer transition-opacity touch-manipulation [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)]",
+              "absolute inset-0 z-10 bg-black/55 flex items-center justify-center cursor-pointer transition-opacity touch-manipulation",
               uploading && "pointer-events-none opacity-60",
               profile.avatar_url
                 ? "opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"

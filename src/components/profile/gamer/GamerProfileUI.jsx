@@ -112,7 +112,6 @@ export function GamerPlayerPhotoFrame({
         "relative w-[168px] sm:w-[208px] aspect-[4/5] rounded-none overflow-hidden shrink-0 text-left",
         "border border-cyan-300/40 shadow-[0_0_50px_-8px_rgba(0,229,255,0.7),0_0_90px_-42px_rgba(245,197,66,0.85)]",
         "bg-gradient-to-br from-cyan-500/10 via-[#0d1528] to-amber-500/10",
-        "[clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)]",
         className
       )}
       {...props}

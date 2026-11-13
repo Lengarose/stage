@@ -3,7 +3,8 @@ import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { cn } from "@/lib/utils";
 import ScheduleList from "../components/schedule/ScheduleList";
 import MatchDetail from "../components/schedule/MatchDetail";
-import { CalendarDays, X, List } from "lucide-react";
+import { CalendarDays, List } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import ScheduleCalendar from "../components/schedule/ScheduleCalendar";
 import { CHANNELS, setSocketListeners, offSocketListeners } from "@/lib/SocketContext";
 import { getContractTargetPlayerId } from "@/lib/playerContractFields";
@@ -12,12 +13,18 @@ import { scheduleResult as getResult } from '@/lib/scheduleResult';
 
 export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
   const { t } = useTranslation();
-  const [user, setUser] = useState(null);
   const [myPlayer, setMyPlayer] = useState(null);
   const [myClub, setMyClub] = useState(null);
   const [events, setEvents] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia("(max-width: 1023px)").matches);
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 1023px)");
+    const update = () => setIsMobile(media.matches);
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
   const [view, setView] = useState("calendar"); // "fixtures" | "calendar"
 
   useEffect(() => {
@@ -43,7 +50,6 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
   async function load() {
     setLoading(true);
     const { user: u, player, club } = await resolveMyPlayerAndClub();
-    setUser(u || null);
     setMyPlayer(player || null);
     if (club) setMyClub(club);
     else setMyClub(null);
@@ -108,7 +114,7 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
     });
     // Collect unique club IDs for logo lookup
     const clubIds = new Set();
-    matches.forEach(m => {
+    [...matches, ...(gostFixtures || []), ...(regionalFixtures || [])].forEach(m => {
       if (m.home_club_id) clubIds.add(m.home_club_id);
       if (m.away_club_id) clubIds.add(m.away_club_id);
     });
@@ -124,6 +130,8 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
     ]);
     const playerAvatarMap = new Map(soloPlayersData.map(p => [p.id, p.avatar_url]));
     const clubLogoMap = new Map(clubsData.map(c => [c.id, c.logo_url]));
+    const clubPhotoMap = new Map(clubsData.map(c => [c.id, { position: c.logo_position, zoom: c.logo_zoom, isClub: true }]));
+    const playerPhotoMap = new Map(soloPlayersData.map(p => [p.id, { position: p.avatar_position, zoom: p.avatar_zoom }]));
 
     // Build schedule events from matches
     const cupByMatch = new Map((cupCatalogue.cups || []).flatMap(cup => cup.rounds.flatMap(round => round.matches.map(match => [match.id, cup]))));
@@ -176,6 +184,8 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
         isHome,
         homeAvatarUrl,
         awayAvatarUrl,
+        homePhoto: m.home_club_id ? clubPhotoMap.get(m.home_club_id) : playerPhotoMap.get(m.home_player_id),
+        awayPhoto: m.away_club_id ? clubPhotoMap.get(m.away_club_id) : playerPhotoMap.get(m.away_player_id),
       };
     });
 
@@ -214,6 +224,10 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
         status: f.status || f.scheduling_status || "scheduled",
         matchData: null,
         fixtureData: f,
+        homeAvatarUrl: clubLogoMap.get(f.home_club_id),
+        awayAvatarUrl: clubLogoMap.get(f.away_club_id),
+        homePhoto: clubPhotoMap.get(f.home_club_id),
+        awayPhoto: clubPhotoMap.get(f.away_club_id),
         isHome,
       };
     });
@@ -246,6 +260,10 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
         status: f.status || f.scheduling_status || "scheduled",
         matchData: null,
         fixtureData: f,
+        homeAvatarUrl: clubLogoMap.get(f.home_club_id),
+        awayAvatarUrl: clubLogoMap.get(f.away_club_id),
+        homePhoto: clubPhotoMap.get(f.home_club_id),
+        awayPhoto: clubPhotoMap.get(f.away_club_id),
         isHome,
       };
     });
@@ -354,157 +372,38 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
   }
 
   return (
-    <div className={cn(
-      view === "calendar"
-        ? "h-full min-h-0 flex-1 overflow-y-auto bg-background p-4 lg:p-8"
-        : "min-h-screen overflow-y-auto bg-background p-4 lg:p-8"
-    )}>
-      {view === "calendar" ? (
-        <div className="mx-auto w-full max-w-[1600px]">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
-            <div>
-              <h1 className="font-heading text-4xl font-black uppercase tracking-normal text-foreground sm:text-5xl">
-                {t("matchFlow.scheduleTitle")}
-              </h1>
-              <p className="mt-1 text-xs text-muted-foreground">Overview / Schedule / Calendar</p>
-            </div>
-            <div className="flex items-center gap-5" aria-label="Schedule view">
-              <button
-                type="button"
-                onClick={() => setView("fixtures")}
-                className={cn(
-                  "flex min-h-11 items-center gap-1.5 border-b-2 border-transparent px-2 text-sm font-semibold transition-all focus-visible:ring-2 focus-visible:ring-cyan-400",
-                  "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <List className="w-3.5 h-3.5" />
-                {t("matchFlow.fixtures")}
-              </button>
-              <button
-                type="button"
-                onClick={() => setView("calendar")}
-                className={cn(
-                  "flex min-h-11 items-center gap-1.5 border-b-2 border-cyan-400 px-2 text-sm font-semibold text-cyan-500 focus-visible:ring-2 focus-visible:ring-cyan-400"
-                )}
-              >
-                <CalendarDays className="w-3.5 h-3.5" />
-                {t("matchFlow.calendar")}
-              </button>
-            </div>
+    <div className="h-full min-h-0 min-w-0 flex-1 overflow-y-auto bg-background p-4 lg:p-8">
+      <div className="mx-auto w-full min-w-0 max-w-[1600px]">
+        <div className="flex flex-wrap items-center justify-between gap-5 border-b border-border pb-5">
+          <div>
+            <h1 className="font-heading text-4xl font-black uppercase tracking-normal text-foreground sm:text-5xl">{t("matchFlow.scheduleTitle")}</h1>
+            <p className="mt-2 text-xs text-muted-foreground">{scopedTournamentId ? t("matchFlow.scheduleSubtitleTournament") : t("matchFlow.scheduleSubtitleAll")}</p>
           </div>
-
-          <ScheduleCalendar tournamentId={scopedTournamentId} />
-        </div>
-      ) : (
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
-          <div className="flex items-center gap-3">
-            <CalendarDays className="w-6 h-6 text-primary" />
-            <div>
-              <h1
-                className="font-heading font-black text-5xl md:text-6xl text-foreground uppercase"
-                style={{ transform: "skewX(-8deg)", letterSpacing: "-0.02em", transformOrigin: "left center" }}
-              >
-                {t("matchFlow.scheduleTitle")}
-              </h1>
-              <p className="text-xs text-muted-foreground mt-2">
-                {scopedTournamentId ? t("matchFlow.scheduleSubtitleTournament") : t("matchFlow.scheduleSubtitleAll")}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 ml-auto">
-            {/* View toggle */}
-            <div className="flex items-center gap-5" aria-label="Schedule view">
-              <button
-                type="button"
-                onClick={() => setView("fixtures")}
-                className={cn(
-                  "flex min-h-11 items-center gap-1.5 border-b-2 px-2 text-sm font-semibold transition-all",
-                  view === "fixtures"
-                    ? "border-cyan-400 text-cyan-500"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <List className="w-3.5 h-3.5" />
-                {t("matchFlow.fixtures")}
-              </button>
-              <button
-                type="button"
-                onClick={() => setView("calendar")}
-                className={cn(
-                  "flex min-h-11 items-center gap-1.5 border-b-2 px-2 text-sm font-semibold transition-all",
-                  view === "calendar"
-                    ? "border-cyan-400 text-cyan-500"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <CalendarDays className="w-3.5 h-3.5" />
-                {t("matchFlow.calendar")}
-              </button>
-            </div>
+          <div className="flex flex-wrap items-center gap-5" aria-label="Schedule view">
+            {[{ key: "fixtures", Icon: List, label: t("matchFlow.fixtures") }, { key: "calendar", Icon: CalendarDays, label: t("matchFlow.calendar") }].map(({key, Icon, label}) => (
+              <button type="button" key={key} onClick={() => setView(key)} aria-pressed={view === key}
+                className={cn("flex min-h-11 items-center gap-2 rounded-none border border-transparent bg-transparent px-2 text-sm font-semibold uppercase tracking-wider transition-all hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary", view === key ? "text-foreground [text-shadow:0_0_16px_rgba(110,200,255,0.7)]" : "text-muted-foreground")}
+              ><Icon className="h-4 w-4" />{label}</button>
+            ))}
           </div>
         </div>
-
-        {loading ? (
-          <div className="flex justify-center py-32">
-            <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-          </div>
+        {view === "calendar" ? <ScheduleCalendar tournamentId={scopedTournamentId} /> : loading ? (
+          <div className="flex justify-center py-32"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary/20 border-t-primary" /></div>
         ) : (
-          <>
-            {/* Desktop: dual-column layout */}
-            <div className="hidden lg:grid lg:grid-cols-[1fr_380px] gap-4">
-              <ScheduleList
-                events={events.filter(e => e.type !== "tournament_start")}
-                selectedId={selectedEvent?.id}
-                onSelect={setSelectedEvent}
-              />
-              <div className="lg:sticky lg:top-6 lg:self-start">
-                <MatchDetail event={selectedEvent} myPlayer={myPlayer} myClub={myClub} />
-              </div>
-            </div>
-
-            {/* Mobile/Tablet: list only, detail as slide-up panel */}
-            <div className="lg:hidden">
-              <ScheduleList
-                events={events.filter(e => e.type !== "tournament_start")}
-                selectedId={selectedEvent?.id}
-                onSelect={setSelectedEvent}
-              />
-            </div>
-
-            {/* Mobile slide-up detail panel */}
-            {selectedEvent && (
-              <div className="lg:hidden fixed inset-0 z-50 flex flex-col justify-end">
-                {/* Backdrop */}
-                <div
-                  className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-                  onClick={() => setSelectedEvent(null)}
-                />
-                {/* Panel */}
-                <div className="relative bg-background rounded-t-2xl shadow-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-300">
-                  {/* Drag handle + close */}
-                  <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-border shrink-0">
-                    <div className="w-10 h-1 rounded-full bg-border mx-auto absolute left-1/2 -translate-x-1/2 top-2" />
-                    <span className="text-sm font-semibold text-foreground">{t("matchFlow.matchDetails")}</span>
-                    <button
-                      onClick={() => setSelectedEvent(null)}
-                      className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                  {/* Scrollable detail content */}
-                  <div className="overflow-y-auto flex-1 p-4">
-                    <MatchDetail event={selectedEvent} myPlayer={myPlayer} myClub={myClub} />
-                  </div>
-                </div>
-              </div>
-            )}
-          </>
+          <div className="mt-6 grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_360px]">
+            <ScheduleList events={events.filter(e => e.type !== "tournament_start")} selectedId={selectedEvent?.id} onSelect={setSelectedEvent} />
+            <aside className="hidden min-w-0 self-start lg:sticky lg:top-6 lg:block">
+              <MatchDetail event={selectedEvent} myPlayer={myPlayer} myClub={myClub} />
+            </aside>
+          </div>
         )}
+        {view === "fixtures" && <Dialog open={Boolean(selectedEvent) && isMobile} onOpenChange={open => { if (!open) setSelectedEvent(null); }}>
+          <DialogContent className="max-h-[85dvh] w-[calc(100vw-32px)] overflow-y-auto rounded-none border-border bg-background p-4 sm:rounded-none lg:hidden">
+            <DialogHeader><DialogTitle>{t("matchFlow.matchDetails")}</DialogTitle></DialogHeader>
+            <MatchDetail event={selectedEvent} myPlayer={myPlayer} myClub={myClub} />
+          </DialogContent>
+        </Dialog>}
       </div>
-      )}
     </div>
   );
 }

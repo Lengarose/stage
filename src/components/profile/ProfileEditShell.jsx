@@ -73,8 +73,8 @@ export default function ProfileEditShell({
   }
 
   const photoFrameCls = photoShape === "rounded"
-    ? "w-20 h-24 rounded-none [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)]"
-    : "w-20 h-20 rounded-none [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)]";
+    ? "w-20 h-24 rounded-none"
+    : "w-20 h-20 rounded-none";
   const usesPlayerFrame = Boolean(photoPreviewPlayer);
   const usesClubFrame = !usesPlayerFrame && Boolean(photoPreviewClub);
 
@@ -146,7 +146,7 @@ export default function ProfileEditShell({
             <label
               htmlFor={uploading ? undefined : fileInputId}
               className={cn(
-                "absolute inset-0 z-10 bg-black/50 flex items-center justify-center cursor-pointer touch-manipulation transition-opacity [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)]",
+                "absolute inset-0 z-10 bg-black/50 flex items-center justify-center cursor-pointer touch-manipulation transition-opacity",
                 uploading && "pointer-events-none opacity-60",
                 photoUrl
                   ? "opacity-100 md:opacity-0 md:group-hover:opacity-100"
