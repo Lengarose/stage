@@ -8,7 +8,7 @@ export function CardLevelPhotoMark({ playerId, className = "" }) {
   const { card, error } = useCardProgression(playerId);
   return <span className={`pointer-events-none inline-flex items-end whitespace-nowrap ${className}`} title={error || "STAGE Card Level — earned through official match participation"} aria-label={`STAGE Level ${card?.level ?? "unavailable"}`}>
     <span className="relative z-[1] font-heading text-lg font-black leading-none text-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.95)]">LV</span>
-    <span className="relative z-0 -mb-px -ml-[0.2em] font-heading text-[26px] font-black leading-[0.8] text-blue-400/50 drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)] sm:text-[30px]">{card?.level ?? "—"}</span>
+    <span className="relative z-0 -mb-px -ml-[0.1em] font-heading text-[26px] font-black leading-[0.8] text-blue-400/50 drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)] sm:text-[30px]">{card?.level ?? "—"}</span>
   </span>;
 }
 export default function CardProgression({playerId}) {
