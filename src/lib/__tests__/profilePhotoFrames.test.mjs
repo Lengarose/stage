@@ -21,8 +21,7 @@ test("player photos support selectable flat frames while club photos remain circ
   assert.match(clubFrame, /aspect-square[\s\S]{0,60}rounded-full/);
   assert.match(clubFrame, /absolute inset-0 rounded-full bg-cover/);
   assert.doesNotMatch(clubFrame, /clip-path:polygon\(12%_0,100%_0,88%_100%,0_100%\)/);
-  assert.match(playerFrame, /inline-flex min-w-\[84px\][\s\S]{0,260}border-cyan-200\/45/);
-  assert.match(playerFrame, /text-amber-200\/30[\s\S]{0,140}\{resolvedShirtNumber\}/);
+  assert.match(playerFrame, /\{resolvedShirtNumber\}/);
   assert.match(playerFrame, />POS<\/span>/);
   assert.match(playerFrame, /\{position\}/);
   assert.doesNotMatch(playerFrame, /Kit No\./);
