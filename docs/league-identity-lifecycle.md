@@ -172,6 +172,40 @@ is a substitute for that preview.
 
 ## Production Preview and Reviewed Apply
 
+### Approved disposable test-history reset — 12 November 2026
+
+The owner confirmed that the earlier played seasons used test-pack clubs and
+requested a launch reset, including both exact duplicate IDs above. For this
+specific workflow, a super admin can select **Management → Resolve duplicate
+league**, choose the reviewed duplicate and tick **This duplicate contains
+disposable test-pack history**. This sends `test_history_reset:true` with the
+existing consolidation preview/apply request. Ordinary consolidation keeps its
+existing provenance restrictions.
+
+This option only accepts the two reviewed source/original mappings. It retires
+the source as an invalidated test edition, preserving its original identity in
+`retired_test_identity` and the audit. The North American stale `-s2` slug can be
+aligned with the stored Season 1 without pretending it represents recovered
+Season 2 history. A colliding test edition receives a separate reset series;
+scores and financial records are never merged into the original league.
+Trophy conflicts and indexed/JSON disagreements still require resolution.
+Cancelled/superseded editions do not become the original's current edition.
+
+After both consolidations, run the existing fresh-start reset for Regional and
+GOST scope. That separate operation invalidates the test results, generated
+records and honours, then creates fresh Season 1 editions while preserving
+permanent identities, trophy/reward defaults, accounts, clubs and payment/audit
+evidence. Retiring a duplicate alone is not completion of the requested reset.
+
+The connected production backend was previewed on 12 November and still rejects
+North America's contradictory season identity. No live repair/reset was applied.
+Deploy `server/src/server/services/regionalEditionReviewService.js` and
+`server/src/server/services/leagueResetService.js`, then restart the Gandi app.
+The frontend changes are in the management panel/workspace and lifecycle helper;
+upload a new frontend build for hosted use. No dependency or schema migration
+is introduced. The UI blocks test-retirement confirmation if the server does
+not explicitly return `test_history_reset:true`.
+
 After deploying the backend, use an authenticated Admin session. In the browser
 console, the existing client can be used without exposing tokens:
 

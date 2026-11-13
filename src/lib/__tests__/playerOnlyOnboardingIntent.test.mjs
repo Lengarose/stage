@@ -47,12 +47,12 @@ test("onboarding role flows remove president-only and use player identity for cl
   assert.match(onboarding, /dual \? 6 : 3/);
   assert.match(onboarding, /FounderPlayerTermsSetup/);
   assert.match(onboarding, /setStep\("founder_terms"\)/);
-  assert.match(onboarding, /playerContract=\{founderPlayerTerms\}/);
+  assert.doesNotMatch(onboarding, /playerContract=\{founderPlayerTerms\}/);
   assert.match(onboarding, /phase === "club"/);
   assert.match(onboarding, /label: "Club Profile"/);
   assert.match(onboarding, /setStep\("president_contract"\)/);
   assert.match(onboarding, /PresidentContractSetup/);
-  assert.match(onboarding, /playerContract=\{founderPlayerTerms\}/);
+  assert.doesNotMatch(onboarding, /playerContract=\{founderPlayerTerms\}/);
   assert.doesNotMatch(onboarding, /setStep\("owner_club"\)/);
   assert.doesNotMatch(onboarding, /step === "owner_club"/);
   assert.doesNotMatch(onboarding, /setOnboardingIntent\("president"/);
@@ -60,7 +60,7 @@ test("onboarding role flows remove president-only and use player identity for cl
   assert.match(clubSetup, /required \? "club_profile" : "choice"/);
   assert.match(clubSetup, /stageClient\.clubs\.createFounder/);
   assert.match(clubSetup, /player_id:\s*player\.id/);
-  assert.match(clubSetup, /playerContract:\s*playerContract/);
+  assert.doesNotMatch(clubSetup, /playerContract:\s*playerContract/);
   assert.doesNotMatch(clubSetup, /stageClient\.entities\.Club\.create/);
   assert.doesNotMatch(clubSetup, /toPresidentApiPayload/);
 });
@@ -100,21 +100,9 @@ test("layout only prompts for club onboarding when president intent exists", () 
   assert.doesNotMatch(source, /writeAccountIntent\(nextIntent,\s*effectiveUser\?\.id\)/);
 });
 
-test("mobile header role switch uses the canonical president club only", () => {
-  const source = readText("src/components/Layout.jsx");
-
-  assert.match(source, /function MobileHeaderIdentity\(\{ myPlayer, myClub, presidentClub, accountIntent, accountMode, switchMode \}\)/);
-  assert.match(source, /const canSwitchRole = accountIntent === "both"[\s\S]{0,80}myPlayer[\s\S]{0,80}presidentClub\?\.id/);
-  assert.match(source, /const identityHref = showAsPresident[\s\S]{0,120}presidentClub\?\.id \? `\/clubs\/\$\{presidentClub\.id\}` : "\/profile"/);
-  assert.match(source, /<Link to=\{identityHref\}/);
-  assert.match(source, /accountIntent=\{accountIntent\}/);
-  assert.match(source, /presidentClub=\{myClub\}/);
-  assert.match(source, /myClub=\{mobileClubIdentity\}/);
-  assert.doesNotMatch(source, /myPresidentId/);
-  assert.doesNotMatch(source, /presidentProfilePath/);
-  assert.doesNotMatch(source, /\/presidents\/\$\{/);
-  assert.doesNotMatch(source, /const canSwitchRole = Boolean\(myPlayer && myClub\?\.id\)/);
-  assert.doesNotMatch(source, /if \(!canSwitchRole\)[\s\S]{0,120}<Link to="\/profile"/);
+test("mobile identity uses the canonical managed club and a Logout-only dropdown",()=>{
+ const source=readText("src/components/Layout.jsx");const mobile=source.slice(source.indexOf("function MobileHeaderIdentity"),source.indexOf("function AdminMobileTopBar"));
+ assert.match(mobile,/accountMode === "club" && Boolean\(presidentClub\?\.id\)/);assert.match(mobile,/<IdentityLogoutItem \/>/);assert.doesNotMatch(mobile,/switchMode/);
 });
 
 test("account intent is stored per user and cleared with auth tokens", () => {
@@ -135,14 +123,9 @@ test("profile completion modal only opens club onboarding when explicitly allowe
   assert.doesNotMatch(source, /if \(!player\.club_id\)/);
 });
 
-test("president-only header does not offer a player profile switch", () => {
-  const source = readText("src/components/Layout.jsx");
-
-  assert.match(source, /accountIntent,/);
-  assert.match(source, /const canSwitchRole = accountIntent === "both"[\s\S]{0,80}myPlayer[\s\S]{0,80}myClubId/);
-  assert.match(source, /accountIntent=\{accountIntent\}/);
-  assert.doesNotMatch(source, /\+ Player profile/);
-  assert.doesNotMatch(source, /myClubId && !myPlayer[\s\S]{0,260}to="\/profile"/);
+test("Manager-only identity menu does not add a profile switch",()=>{
+ const source=readText("src/components/Layout.jsx");const menu=source.slice(source.indexOf("function HeaderIdentityMenu"),source.indexOf("function getMobilePrimary"));
+ assert.match(menu,/<IdentityLogoutItem \/>/);assert.doesNotMatch(menu,/switchMode|\+ Player profile/);
 });
 
 test("profile page club onboarding prompts are gated by president intent", () => {

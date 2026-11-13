@@ -15,36 +15,7 @@ import {
   sideHasResultClaim,
 } from "@/lib/gameDayResultFlow";
 
-function compactEventAvailabilityId(prefix, eventId, clubId, eventLength, clubLength) {
-  const eventPart = String(eventId || "").replace(/[^a-zA-Z0-9]/g, "").slice(0, eventLength);
-  const clubPart = String(clubId || "").replace(/[^a-zA-Z0-9]/g, "").slice(0, clubLength);
-  return `${prefix}:${eventPart}:${clubPart}`.slice(0, 36);
-}
 
-async function getOfficialEventAvailabilityFixtureId(game, clubId) {
-  const sourceType = String(game?.source_fixture_type || "").toLowerCase();
-  const sourceFixtureId = game?.source_fixture_id || game?.fixture_id || game?.related_fixture_id;
-  const tournamentId = String(game?.tournament_id || "").trim();
-  if (tournamentId && tournamentId.toLowerCase() !== "ranked" && clubId) {
-    return compactEventAvailabilityId("t", tournamentId, clubId, 16, 16);
-  }
-  if (!sourceFixtureId || !clubId) return "";
-  if (sourceType === "regional_league" || sourceType === "regional_league_fixture") {
-    const fixture = stageClient.entities.RegionalLeagueFixture
-      ? await stageClient.entities.RegionalLeagueFixture.get(sourceFixtureId).catch(() => null)
-      : null;
-    const leagueId = fixture?.regional_league_id || fixture?.league_id;
-    return leagueId ? compactEventAvailabilityId("rl", leagueId, clubId, 15, 15) : "";
-  }
-  if (sourceType === "competition" || sourceType === "competition_engine" || sourceType === "competition_fixture") {
-    const fixture = stageClient.entities.CompetitionFixture
-      ? await stageClient.entities.CompetitionFixture.get(sourceFixtureId).catch(() => null)
-      : null;
-    const eventId = fixture?.season_id || fixture?.competition_season_id || fixture?.competition_id || fixture?.competition_slug;
-    return eventId ? compactEventAvailabilityId("gost", eventId, clubId, 14, 14) : "";
-  }
-  return "";
-}
 
 /**
  * GameDayMatchResult — one proposal, opponent confirmation or correction.
@@ -131,6 +102,8 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
     if (priorEvents.length) {
       setGoalEvents(priorEvents.map((ev) => ({
         minute: ev.minute ?? "",
+        scorer_kind: ev.scorer_kind || (ev.scorer_player_id ? "human" : null),
+        assist_kind: ev.assist_kind || (ev.assist_player_id ? "human" : "none"),
         scorer_player_id: ev.scorer_player_id || "",
         scorer_gamertag: ev.scorer_gamertag || "",
         assist_player_id: ev.assist_player_id || "",
@@ -184,32 +157,20 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
     let cancelled = false;
     async function loadSquad() {
       if (!myClub) { setLoadingPlayers(false); return; }
-      const [squad, eventAvailabilityFixtureId] = await Promise.all([
-        stageClient.entities.Player
-          .filter({ club_id: myClub.id })
-          .catch(() => []),
-        getOfficialEventAvailabilityFixtureId(game, myClub.id),
-      ]);
-      if (cancelled) return;
-      let roster = squad || [];
-      if (eventAvailabilityFixtureId) {
-        const availabilityRows = await stageClient.entities.ClubFixtureAvailability
-          .filter({ club_id: myClub.id, fixture_id: eventAvailabilityFixtureId }, "-updated_date", 200)
-          .catch(() => []);
-        if (cancelled) return;
-        const availablePlayerIds = new Set((availabilityRows || [])
-          .filter((row) => String(row.status || "").toLowerCase() === "available")
-          .map((row) => String(row.player_id)));
-        roster = roster.filter((player) => availablePlayerIds.has(String(player.id)));
-      }
+      const info=await stageClient.http.get(`/club-fixture-lineups/match-squad/${myClub.id}/${game.id}`);
+      const parse=value=>typeof value==='string'?JSON.parse(value):value||[];
+      const nominated=[...parse(info.selection?.starting_players),...parse(info.selection?.bench_players)];
+      if(!nominated.length)throw new Error('The confirmed Match Squad is missing. Ask the Manager to review the selection.');
+      const roster=await Promise.all(nominated.map(id=>stageClient.entities.Player.get(id)));
+      if(cancelled)return;
       setSeatedPlayers(roster);
       const initRatings = {};
-      roster.forEach(p => { initRatings[p.id] = 6; });
+      roster.forEach(p => { initRatings[p.id] = ""; });
       setRatings(initRatings);
       let suggested = [];
-      if (game.source_fixture_id && myClub?.id) {
+      if (myClub?.id) {
         const lineups = await stageClient.entities.ClubFixtureLineup
-          .filter({ fixture_id: game.source_fixture_id, club_id: myClub.id })
+          .filter({ fixture_id: game.source_fixture_id || game.id, club_id: myClub.id })
           .catch(() => []);
         const raw = lineups?.[0]?.starting_players;
         try {
@@ -222,7 +183,7 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
       setPlayedIds(new Set(suggested.map(String)));
       setLoadingPlayers(false);
     }
-    loadSquad();
+    loadSquad().catch(e=>{if(!cancelled){setSubmitError(e.message);setLoadingPlayers(false);}});
     return () => { cancelled = true; };
   }, [game.id, myClub, isClubMatch]);
 
@@ -243,26 +204,27 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
     setGoalEvents(prev => prev.map((ev, i) => {
       if (i !== idx) return ev;
       if (field === "scorer_player_id") {
+        const kind=value==="__ai"?"ai":value==="__own_goal"?"own_goal":"human";
         const p = seatedPlayers.find(pl => pl.id === value);
-        if (value) {
+        if (value && !value.startsWith("__")) {
           setPlayedIds((prevIds) => {
             const next = new Set(prevIds);
             next.add(String(value));
             return next;
           });
         }
-        return { ...ev, scorer_player_id: value, scorer_gamertag: p?.gamertag || "" };
+        return { ...ev, scorer_kind:kind,scorer_player_id:kind==="human"?value:"",scorer_gamertag:p?.gamertag||"",...(kind==="own_goal"?{assist_kind:"none",assist_player_id:""}:{}) };
       }
       if (field === "assist_player_id") {
         const p = value ? seatedPlayers.find(pl => pl.id === value) : null;
-        if (value) {
+        if (value && !value.startsWith("__")) {
           setPlayedIds((prevIds) => {
             const next = new Set(prevIds);
             next.add(String(value));
             return next;
           });
         }
-        return { ...ev, assist_player_id: value, assist_gamertag: p?.gamertag || "" };
+        return { ...ev, assist_kind:value==="__ai"?"ai":value?"human":"none",assist_player_id:value==="__ai"?"":value,assist_gamertag:p?.gamertag||"" };
       }
       return { ...ev, [field]: value };
     }));
@@ -323,7 +285,7 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
   const goalCount   = goalEvents.length;
   const needsEvents = isClubMatch && myScore > 0;
   const goalsMismatch = needsEvents && goalCount !== myScore;
-  const missingScorers = needsEvents && goalEvents.some((ev) => !ev.scorer_player_id);
+  const missingScorers = needsEvents && goalEvents.some((ev) => !ev.scorer_player_id && !["ai","own_goal"].includes(ev.scorer_kind));
   const goalsIncomplete = needsEvents && (goalsMismatch || missingScorers);
   const noPlayersSelected = isClubMatch && seatedPlayers.length > 0 && playedIds.size === 0;
 
@@ -393,11 +355,13 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
           club_id:         null,
           goals:           Number(isHomeTeam ? homeScore : awayScore) || 0,
           assists:         0,
-          rating:          6,
+          rating:          null,
         }];
       }
 
       const eventsToStore = goalEvents.map(ev => ({
+        scorer_kind:ev.scorer_kind||(ev.scorer_player_id?"human":null),
+        assist_kind:ev.assist_kind||(ev.assist_player_id?"human":"none"),
         minute:           Number(ev.minute) || null,
         scorer_player_id: ev.scorer_player_id || null,
         scorer_gamertag:  ev.scorer_gamertag  || null,
@@ -665,12 +629,13 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
                   <label className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center gap-1">
                     <Target className="w-3 h-3" /> Scorer
                   </label>
-                  <Select value={ev.scorer_player_id} onValueChange={v => updateGoalEvent(idx, "scorer_player_id", v)}>
+                  <Select value={ev.scorer_kind==="ai"?"__ai":ev.scorer_kind==="own_goal"?"__own_goal":ev.scorer_player_id} onValueChange={v => updateGoalEvent(idx, "scorer_player_id", v)}>
                     <SelectTrigger className="h-7 text-xs bg-background border-border">
                       <SelectValue placeholder="Select player" />
                     </SelectTrigger>
                     <SelectContent className="bg-card border-border text-foreground">
-                      {seatedPlayers.map(p => (
+                      <SelectItem value="__ai">AI player</SelectItem><SelectItem value="__own_goal">Own goal — credited to this team</SelectItem>
+                      {seatedPlayers.filter(p=>playedIds.has(String(p.id))).map(p => (
                         <SelectItem key={p.id} value={p.id} className="text-xs">{p.gamertag}</SelectItem>
                       ))}
                     </SelectContent>
@@ -684,14 +649,14 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
                   <label className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center gap-1">
                     <Zap className="w-3 h-3" /> Assist <span className="normal-case font-normal">(opt.)</span>
                   </label>
-                  <Select value={ev.assist_player_id || "none"} onValueChange={v => updateGoalEvent(idx, "assist_player_id", v === "none" ? "" : v)}>
+                  <Select disabled={ev.scorer_kind==="own_goal"} value={ev.assist_kind==="ai"?"__ai":ev.assist_player_id || "none"} onValueChange={v => updateGoalEvent(idx, "assist_player_id", v === "none" ? "" : v)}>
                     <SelectTrigger className="h-7 text-xs bg-background border-border">
                       <SelectValue placeholder="No assist" />
                     </SelectTrigger>
                     <SelectContent className="bg-card border-border text-foreground">
-                      <SelectItem value="none" className="text-xs text-muted-foreground">No assist</SelectItem>
+                      <SelectItem value="none" className="text-xs text-muted-foreground">No assist</SelectItem><SelectItem value="__ai">AI player</SelectItem>
                       {seatedPlayers
-                        .filter(p => p.id !== ev.scorer_player_id)
+                        .filter(p => playedIds.has(String(p.id)) && p.id !== ev.scorer_player_id)
                         .map(p => (
                           <SelectItem key={p.id} value={p.id} className="text-xs">{p.gamertag}</SelectItem>
                         ))}

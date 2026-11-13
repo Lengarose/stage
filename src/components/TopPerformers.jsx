@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
@@ -51,9 +52,9 @@ export default function TopPerformers() {
     return list.map((p, i) => (
       <Link key={p.id} to={`/players/${p.id}`} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-secondary/60 transition-all group">
         <span className={cn("w-5 text-center text-xs font-bold shrink-0", getMedal(i))}>{i + 1}</span>
-        <div className="w-8 h-8 rounded-full bg-secondary border border-border shrink-0 overflow-hidden flex items-center justify-center">
+        <div className="identity-avatar-shell w-8 h-8 rounded-full bg-secondary border border-border shrink-0 overflow-hidden flex items-center justify-center">
           {p.avatar_url
-            ? <img src={p.avatar_url} alt={p.gamertag} className="w-full h-full object-cover" style={{ objectPosition: p.avatar_position || "center" }} />
+            ? <IdentityAvatar src={p.avatar_url} alt={p.gamertag} className="w-full h-full object-cover" style={{ objectPosition: p.avatar_position || "center" }}  zoom={p?.avatar_zoom} />
             : <span className="text-[10px] font-bold text-primary">{p.gamertag?.[0]?.toUpperCase()}</span>
           }
         </div>
@@ -74,9 +75,9 @@ export default function TopPerformers() {
     return clubs.map((c, i) => (
       <Link key={c.id} to={`/clubs/${c.id}`} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-secondary/60 transition-all group">
         <span className={cn("w-5 text-center text-xs font-bold shrink-0", getMedal(i))}>{i + 1}</span>
-        <div className="w-8 h-8 rounded-full bg-secondary border border-border shrink-0 overflow-hidden flex items-center justify-center">
+        <div className="identity-avatar-shell w-8 h-8 rounded-full bg-secondary border border-border shrink-0 overflow-hidden flex items-center justify-center">
           {c.logo_url
-            ? <img src={c.logo_url} alt={c.name} className="w-full h-full object-cover" />
+            ? <IdentityAvatar src={c.logo_url} alt={c.name} className="w-full h-full object-cover"  zoom={c?.logo_zoom}  position={c?.logo_position} />
             : <Shield className="w-4 h-4 text-primary" />
           }
         </div>

@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { useState } from "react";
 import { stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
@@ -321,26 +322,14 @@ export default function FormationPitch({ club, players, canEdit, onUpdate, curre
                   stroke={slotPlayer ? "rgba(0,220,255,0.95)" : "rgba(0,220,255,0.35)"}
                   strokeWidth={slotPlayer ? "1.8" : "1"}
                 />
-                {slotPlayer && avatarUrl ? (
-                  <>
-                    <defs>
-                      <clipPath id={`clip-${slot}`}>
-                        <circle cx={x} cy={y} r="12" />
-                      </clipPath>
-                    </defs>
-                    <image
-                      href={avatarUrl}
-                      x={x - 12} y={y - 12}
-                      width="24" height="24"
-                      clipPath={`url(#clip-${slot})`}
-                      preserveAspectRatio="xMidYMid slice"
-                    />
-                  </>
+                {slotPlayer ? (
+                  <foreignObject x={x - 13} y={y - 13} width="26" height="26">
+                    <IdentityAvatar src={avatarUrl} name={slotPlayer.gamertag} className="h-full w-full" position={avatarPlayer?.avatar_position} zoom={avatarPlayer?.avatar_zoom} />
+                  </foreignObject>
                 ) : (
                   <text x={x} y={y + 4} textAnchor="middle" fontSize="7" fontWeight="bold"
-                    fill={slotPlayer ? "rgba(0,220,255,1)" : "rgba(255,255,255,0.45)"}
-                    fontFamily="sans-serif" style={{ userSelect: "none" }}>
-                    {slotPlayer ? slotPlayer.gamertag.slice(0, 5) : label}
+                    fill="rgba(255,255,255,0.45)" fontFamily="sans-serif" style={{ userSelect: "none" }}>
+                    {label}
                   </text>
                 )}
               </g>

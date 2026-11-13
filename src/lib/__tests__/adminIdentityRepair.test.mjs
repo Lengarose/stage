@@ -24,7 +24,7 @@ test("admin identity repair UI describes canonical President Player link repair"
   assert.match(tabSource, /normalizeRepairResult/);
   assert.match(tabSource, /groups\.ambiguous/);
   assert.match(tabSource, /current_president_player_id/);
-  assert.match(translations, /President Player Link Repair/);
+  assert.match(translations, /Manager Player Link Repair/);
   assert.match(translations, /president_player_id/);
   assert.doesNotMatch(translations, /clears the player's club link/);
   assert.doesNotMatch(translations, /incorrectly turned into a club president/);

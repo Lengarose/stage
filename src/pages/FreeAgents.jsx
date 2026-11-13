@@ -1,7 +1,9 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
+import { CardLevelBadge } from "@/components/card/CardProgression";
 import { useState, useEffect } from "react";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { Link } from "react-router-dom";
-import { User, Star, Send } from "lucide-react";
+import { User, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -110,9 +112,9 @@ export default function FreeAgents() {
         <div className="grid sm:grid-cols-2 gap-3">
           {filtered.map(player => (
             <div key={player.id} className="bg-card border border-border rounded-xl p-4 flex items-center gap-4 hover:border-primary/30 transition-all">
-              <div className="w-12 h-12 rounded-full overflow-hidden bg-secondary shrink-0">
+              <div className="identity-avatar-shell w-12 h-12 rounded-full overflow-hidden bg-secondary shrink-0">
                 {player.avatar_url
-                  ? <img src={player.avatar_url} alt={player.gamertag} className="w-full h-full object-cover" style={{ objectPosition: player.avatar_position || "50% 50%" }} />
+                  ? <IdentityAvatar src={player.avatar_url} alt={player.gamertag} className="w-full h-full object-cover" style={{ objectPosition: player.avatar_position || "50% 50%" }}  zoom={player?.avatar_zoom} />
                   : <div className="w-full h-full flex items-center justify-center"><User className="w-5 h-5 text-muted-foreground" /></div>}
               </div>
               <div className="flex-1 min-w-0">
@@ -122,11 +124,7 @@ export default function FreeAgents() {
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                   <span className="text-xs text-primary leading-relaxed font-bold">{[player.position, player.secondary_position].filter(Boolean).join(" / ")}</span>
                   <span className="text-xs text-muted-foreground">{player.platform}</span>
-                  {player.overall_rating && (
-                    <span className="flex items-center gap-0.5 text-xs text-warning leading-relaxed font-bold">
-                      <Star className="w-3 h-3" />{player.overall_rating}
-                    </span>
-                  )}
+                  <CardLevelBadge playerId={player?.id} />
                 </div>
                 <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                   <span>⚽ {player.goals || 0}</span>

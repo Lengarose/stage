@@ -136,7 +136,7 @@ export const STORE_ITEMS = [
     type: "subscription",
     name: "STAGE Plus",
     price_eur: 4.99,
-    description: "One competitive membership for players and club presidents.",
+    description: "One competitive membership for players and club managers.",
     price: 0,
     rarity: "rare",
     perks: [

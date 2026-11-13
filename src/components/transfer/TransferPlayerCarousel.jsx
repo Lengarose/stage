@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Shield } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { GamerPlayerPhotoFrame } from "@/components/profile/gamer/GamerProfileUI";
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
+import { CardLevelBadge } from "@/components/card/CardProgression";
 import TransferBadge from "./TransferBadge";
 import { stepCarouselIndex, visibleCarouselSlots } from "@/lib/transferCarousel";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -179,15 +180,12 @@ export default function TransferPlayerCarousel({ entries = [], selectedId, onSel
                 } : { filter: "drop-shadow(0 0 0px rgba(245,197,66,0))" }}
                 transition={focused ? { duration: 0.55, ease: "easeOut" } : spring}
               >
-                <GamerPlayerPhotoFrame
-                  player={player}
-                  className={cn(
-                    "relative z-[2] w-[170px] sm:w-[210px] md:w-[236px]",
-                    focused
-                      ? "border-[#f5c542]/70 shadow-[0_0_48px_-6px_rgba(245,197,66,0.55)]"
-                      : "border-cyan-400/20 shadow-none",
-                  )}
-                />
+                <IdentityAvatar src={player.avatar_url} name={player.gamertag}
+                  position={player.avatar_position} zoom={player.avatar_zoom}
+                  className="relative z-[2] w-[170px] sm:w-[210px] md:w-[236px]" />
+                <div className="mt-2 flex items-center justify-center gap-2 text-xs text-white/65">
+                  <CardLevelBadge playerId={player.id} /><span>{player.position}</span>
+                </div>
                 <div className="absolute left-4 top-0 z-[5]">
                   <TransferBadge type={entry.badgeType} daysLeft={entry.days_left} />
                 </div>

@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -48,7 +49,7 @@ export default function ScoutingVideoCard({ video, onOpen, onLike }) {
             className="mt-1 flex min-w-0 items-center gap-2 text-xs text-muted-foreground transition-colors hover:text-primary"
           >
             {video.avatar_url ? (
-              <img src={video.avatar_url} alt="" className="h-5 w-5 rounded-full object-cover" />
+              <IdentityAvatar src={video.avatar_url} alt="" className="h-5 w-5 rounded-full object-cover"  zoom={video?.avatar_zoom}  position={video?.avatar_position} />
             ) : (
               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-secondary">
                 <User className="h-3 w-3" />

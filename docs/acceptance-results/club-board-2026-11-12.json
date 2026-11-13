@@ -1,0 +1,22 @@
+{
+  "database": "stage_acceptance_0b5ab864d776",
+  "scope": "Isolated Club Board / contracts / payroll / progression / Match Squad",
+  "scenarios": [
+    "new club creates unpaid ownership/player documents and two pending Board offers",
+    "JWT routes enforce recipient identity, counter versions and idempotent acceptance",
+    "separate management/player pay is committed once within the shared budget",
+    "player role does not bypass salary band; signing bonus debits and credits exactly once",
+    "player counter, Manager withdrawal and player decline retain active accepted pay",
+    "weekly payroll waits seven days and retries without duplicate payment",
+    "insufficient funds record arrears; recovery pays without destroying debt evidence",
+    "Card API starts at Level 1 without importing EA OVR or historical XP",
+    "real Match Squad routes enforce club permission and published goalkeeper/ANY rules without availability records",
+    "captured official participation earns XP once; unused players earn none and invalidation revokes XP",
+    "a failed player ledger insert rolls back the paired club debit and player credit",
+    "renewal is a separate scheduled agreement and does not overwrite current accepted pay",
+    "real tournament create, published rules, insufficient/sufficient squad entry, renewed consent and entry fees connect without double charges",
+    "congratulation delivery is durable and deleting the mail does not cause a retry to recreate it",
+    "ending the Manager’s player agreement requires authorization and preserves club ownership"
+  ],
+  "complete": true
+}

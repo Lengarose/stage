@@ -71,6 +71,7 @@ export default function ClubOnboardingModal({ open, player, onComplete }) {
           </DialogTitle>
         </DialogHeader>
 
+        <p className="border border-white/15 p-3 text-xs text-muted-foreground">{t("commonPages.boardSignupLaterClub", "After club creation, the Club Board sends separate management and player offers to Inbox. Creating the club does not accept paid terms.")}</p>
         {step === "choose" && (
           <div className="space-y-4 mt-2">
             <p className="text-sm text-muted-foreground">{t("commonPages.comWelcome", { name: player?.gamertag })}</p>

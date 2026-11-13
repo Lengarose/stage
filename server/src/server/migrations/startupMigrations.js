@@ -147,6 +147,7 @@ async function runStartupMigrations() {
   `).catch((err) => console.error('[migration] post_likes backfill:', err.message));
 
   await addCol('players', 'stc', 'DECIMAL(12,2) DEFAULT 0');
+  await addCol('players', 'avatar_frame', "VARCHAR(20) NOT NULL DEFAULT 'rectangle'");
   const playerMoneyColumns = await EXECUTESQL("SELECT DATA_TYPE,NUMERIC_SCALE FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='players' AND column_name='stc'");
   if (playerMoneyColumns.some(c=>c.DATA_TYPE !== 'decimal' || Number(c.NUMERIC_SCALE) !== 2)) await EXECUTESQL('ALTER TABLE players MODIFY COLUMN stc DECIMAL(12,2) NULL DEFAULT 0');
   await EXECUTESQL("ALTER TABLE players ALTER COLUMN subscription SET DEFAULT 'free'")
@@ -2801,6 +2802,11 @@ async function runStartupMigrations() {
   const notificationRelatedColumn=await EXECUTESQL("SELECT CHARACTER_MAXIMUM_LENGTH FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='notifications' AND column_name='related_id'");
   if(notificationRelatedColumn.some(column=>Number(column.CHARACTER_MAXIMUM_LENGTH)<255))await EXECUTESQL('ALTER TABLE notifications MODIFY COLUMN related_id VARCHAR(255) NULL');
 
+  await addCol('inbox_messages','deleted_at','DATETIME NULL');
+  await addCol('tournaments','club_rules','JSON NULL');
+  await addCol('club_fixture_lineups','goalkeeper_player_id','VARCHAR(36) NULL');
+  await addCol('club_fixture_lineups','uses_any','TINYINT(1) NOT NULL DEFAULT 0');
+  await addCol('player_contracts','compensation_policy_version','VARCHAR(50) NULL');
   await require('./retirePlayerLoans').retirePlayerLoans();
 
 }

@@ -75,7 +75,7 @@ export default function Tournaments() {
     start_date: "", entry_fee_stc: "1000",
     banner_url: "", banner_color: "#0d1830", banner_position: "50% 50%",
     participant_type: "club", rules_template_id: "standard_cup", rules_file_url: "",
-    trophy_item_id: "",
+    trophy_item_id: "", club_rules: { minimum_human_players: 2, goalkeeper_required: false, any_allowed: true }, written_rules: "",
   });
 
   const [bannerPreview, setBannerPreview] = useState(null);
@@ -150,8 +150,9 @@ export default function Tournaments() {
       const rulesTemplateId = form.rules_template_id || "standard_cup";
       const created = await stageClient.entities.Tournament.create({
         ...form,
-        rules_template_id: rulesTemplateId,
-        custom_rules: encodeRulesTemplate(rulesTemplateId),
+        rules_template_id: form.written_rules.trim() ? null : rulesTemplateId,
+        custom_rules: form.written_rules.trim() || encodeRulesTemplate(rulesTemplateId),
+        club_rules: form.participant_type === "club" ? form.club_rules : null,
         name: user.role === "admin" ? `By STAGE · ${form.name}` : form.name,
         max_teams: maxTeams,
         entry_credits: TOURNAMENT_CREDIT_COST,
@@ -185,7 +186,7 @@ export default function Tournaments() {
   }
 
   function resetForm() {
-    setForm({ name: "", description: "", type: "knockout", platform: "PlayStation", region: "Global", country_code: "", max_teams: "8", start_date: "", entry_fee_stc: "1000", banner_url: "", banner_color: "#0d1830", banner_position: "50% 50%", participant_type: "club", rules_template_id: "standard_cup", rules_file_url: "", trophy_item_id: "" });
+    setForm({ name: "", description: "", type: "knockout", platform: "PlayStation", region: "Global", country_code: "", max_teams: "8", start_date: "", entry_fee_stc: "1000", banner_url: "", banner_color: "#0d1830", banner_position: "50% 50%", participant_type: "club", rules_template_id: "standard_cup", rules_file_url: "", trophy_item_id: "", club_rules: { minimum_human_players: 2, goalkeeper_required: false, any_allowed: true }, written_rules: "" });
     setBannerPreview(null);
     setBannerFile(null);
     setModalStep(1);
@@ -509,6 +510,8 @@ export default function Tournaments() {
                 </div>
 
                 <div>
+                  {form.participant_type === "club" && <fieldset className="mb-5 space-y-3 border border-white/20 p-4 text-sm text-white"><legend>Match Squad requirements</legend><label className="block">Minimum human players<select className="ml-3 bg-[#0b1423] p-2" value={form.club_rules.minimum_human_players} onChange={e=>setForm(f=>({...f,club_rules:{...f.club_rules,minimum_human_players:Number(e.target.value)}}))}>{Array.from({length:10},(_,i)=>i+2).map(n=><option key={n} value={n}>{n}</option>)}</select></label><label className="block"><input type="checkbox" checked={form.club_rules.goalkeeper_required} onChange={e=>setForm(f=>({...f,club_rules:{...f.club_rules,goalkeeper_required:e.target.checked}}))}/> Human goalkeeper required</label><label className="block"><input type="checkbox" checked={form.club_rules.any_allowed} onChange={e=>setForm(f=>({...f,club_rules:{...f.club_rules,any_allowed:e.target.checked}}))}/> ANY allowed</label><p className="text-xs text-white/50">Checked against the club roster at registration and the Match Squad before kickoff. Published requirements lock when applications begin.</p></fieldset>}
+                  <label className="mb-4 block text-sm text-white">Written rules (optional)<textarea className="mt-2 min-h-28 w-full border border-white/20 bg-black/20 p-3" value={form.written_rules} onChange={e=>setForm(f=>({...f,written_rules:e.target.value}))} placeholder="Write the tournament rules, or use the template below."/></label>
                   <label className="label-xs">{t("commonPages.trnCustomRules")}</label>
                   <Select value={form.rules_template_id || "standard_cup"} onValueChange={value => setForm(current => ({ ...current, rules_template_id: value }))}>
                     <SelectTrigger className={tournamentDialogSelectClass}><SelectValue /></SelectTrigger>

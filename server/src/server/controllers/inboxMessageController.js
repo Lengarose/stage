@@ -11,6 +11,35 @@ async function getCurrentUser(req) {
   return rows[0] || null;
 }
 
+async function auditInbox(user,action,id,before,after) {
+  if(![0,2].includes(Number(user?.role_id)))return;
+  await require('../services/rewardConfigurationService').audit(EXECUTESQL,user,action,'inbox_message',id,before,after,'Authenticated account correspondence action');
+}
+
+// Bulk read is scoped to the authenticated account, not a visible page.
+router.post('/mark-all-read',async(req,res)=>{
+ try {
+  const user=await getCurrentUser(req);if(!user?.email)return res.status(403).json({error:'Forbidden'});
+  const model=new InboxMessage(),before=await model.selectByRecipient(user.email);
+  const result=await model.markAllRead(user.email);
+  await auditInbox(user,'mark_all_inbox_read',user.id,{unread:before.filter(r=>!Number(r.is_read)).length},{updated:result.affectedRows});
+  for(const record of before.filter(r=>!Number(r.is_read)))broadcastInbox({...record,is_read:1});
+  res.json({success:true,updated:result.affectedRows});
+ }catch(e){res.status(500).json({error:e.message});}
+});
+router.post('/:id/delete-conversation',async(req,res)=>{
+ try {
+  const user=await getCurrentUser(req),model=new InboxMessage();
+  const [record]=await model.selectOne(req.params.id);
+  if(!user?.email||!record||String(record.recipient_email).toLowerCase()!==user.email.toLowerCase())return res.status(404).json({error:'Message not found'});
+  const records=await model.conversation(record);
+  if(records.length)await EXECUTESQL(`UPDATE inbox_messages SET deleted_at=NOW(),is_read=1 WHERE LOWER(recipient_email)=LOWER(?) AND id IN (${records.map(()=>'?').join(',')})`,[user.email,...records.map(r=>r.id)]);
+  await auditInbox(user,'delete_inbox_conversation',record.id,{ids:records.map(r=>r.id)},{hidden:true});
+  for(const row of records)broadcastInboxDeleted(row.id,user.email);
+  res.json({success:true,deleted_ids:records.map(row=>row.id)});
+ }catch(e){res.status(500).json({error:e.message});}
+});
+
 // GET /
 router.get('/', async (req, res) => {
   try {
@@ -79,6 +108,7 @@ router.post('/', async (req, res) => {
     await inbox.create();
     const created = await inbox.selectOne(inbox.id);
     const record  = created[0];
+    await auditInbox(currentUser,'create_inbox_message',record.id,null,{id:record.id,recipient_email:record.recipient_email});
     broadcastInbox(record);
     res.status(201).json(record);
   } catch (err) {
@@ -96,10 +126,10 @@ router.patch('/:id', async (req, res) => {
     const isAdmin = Number(currentUser.role_id) === 0;
     const existing = await new InboxMessage().selectOne(id);
     if (!existing.length) return res.status(404).json({ error: 'Not found' });
-    if (!isAdmin && existing[0].recipient_email !== currentUser.email) {
+    if (String(existing[0].recipient_email).toLowerCase() !== currentUser.email.toLowerCase()) {
       return res.status(403).json({ error: 'Forbidden' });
     }
-    const merged = { ...existing[0], ...req.body };
+    const merged = { ...existing[0], ...(Object.hasOwn(req.body||{},'is_read')?{is_read:[true,1,'1'].includes(req.body.is_read)?1:0}:{}), ...(req.body?.status?{status:req.body.status}:{}) };
     if (!isAdmin) {
       merged.sender_email = existing[0].sender_email;
       merged.recipient_email = existing[0].recipient_email;
@@ -108,6 +138,7 @@ router.patch('/:id', async (req, res) => {
     await inbox.update(id);
     const updated = await inbox.selectOne(id);
     const record  = updated[0];
+    await auditInbox(currentUser,'update_inbox_message',id,{is_read:existing[0].is_read,status:existing[0].status},{is_read:record.is_read,status:record.status});
     broadcastInbox(record);
     res.json(record);
   } catch (err) {
@@ -125,11 +156,12 @@ router.delete('/:id', async (req, res) => {
     const isAdmin = Number(currentUser.role_id) === 0;
     const existing = await new InboxMessage().selectOne(id);
     if (!existing.length) return res.status(404).json({ error: 'Not found' });
-    if (!isAdmin && existing[0].recipient_email !== currentUser.email) {
+    if (String(existing[0].recipient_email).toLowerCase() !== currentUser.email.toLowerCase()) {
       return res.status(403).json({ error: 'Forbidden' });
     }
     const { recipient_email } = existing[0];
     await new InboxMessage().delete(id);
+    await auditInbox(currentUser,'delete_inbox_message',id,{id},{hidden:true});
     broadcastInboxDeleted(id, recipient_email);
     res.json({ success: true });
   } catch (err) {

@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { stageClient } from "@/api/stageClient";
@@ -14,7 +15,7 @@ import {
 function ClubMark({ name, logo, side }) {
   return (
     <div className={`mercato-club mercato-club--${side}`}>
-      {logo ? <img src={logo} alt="" /> : <span className="mercato-club-fallback">{(name || "?").slice(0, 2)}</span>}
+      <IdentityAvatar src={logo} name={name} className="h-10 w-10" />
       <strong>{name || (side === "from" ? "Free agent" : "Unknown")}</strong>
       <em>{side === "from" ? "FROM" : "TO"}</em>
     </div>
@@ -27,7 +28,7 @@ export function MercatoTransferCard({ transfer, selected, onSelect }) {
     <button type="button" className={`mercato-card${selected ? " is-selected" : ""}`} onClick={() => onSelect?.(transfer)}>
       <span className={`mercato-stamp mercato-stamp--${transfer.status}`}>{transfer.status_label || mercatoStatusLabel(transfer.status)}</span>
       <div className="mercato-card-player">
-        {transfer.player_avatar_url ? <img src={transfer.player_avatar_url} alt="" /> : <span className="mercato-avatar-fallback" />}
+        <IdentityAvatar src={transfer.player_avatar_url} name={transfer.player_name} className="h-14 w-14" />
         <div>
           <p className="mercato-kicker">{transfer.deal_type_label || transfer.deal_type}</p>
           <h3>{transfer.player_name || "Player"}</h3>

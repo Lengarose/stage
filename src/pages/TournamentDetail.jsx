@@ -313,6 +313,12 @@ function TournamentDetailContent() {
       }
     }
 
+    try {
+      const eligibility = await stageClient.http.get(`/tournaments/${tournament.id}/club-eligibility/${effectiveId}`);
+      if (!eligibility.eligible) { await swalAlert(`This tournament requires ${eligibility.rules.minimum_human_players} eligible human players. Your club has ${eligibility.eligible_count}. No entry fee has been charged.`); return; }
+      if (tournament.club_rules_revision !== eligibility.club_rules_revision) { await swalAlert('Tournament rules have changed. Reload and accept the latest rules before entering.'); return; }
+    } catch (error) { await swalAlert(error.message); return; }
+
     // Check user-scoped credits (shared pot for player + club tournaments)
     if (!takeoverClub && (user?.credits ?? 0) < entryCost) {
       await swalAlert(t("tournamentDetail.notEnoughCredits"));
@@ -1290,13 +1296,15 @@ function TournamentDetailContent() {
       <MatchStatsModal match={statsMatch} open={statsModalOpen} onClose={() => { setStatsModalOpen(false); setStatsMatch(null); }} />
 
       <Dialog open={rulesModalOpen} onOpenChange={setRulesModalOpen}>
-        <DialogContent className="bg-card border-border max-w-lg max-h-[80vh] overflow-y-auto">
+        <DialogContent className="bg-card border-border rounded-none max-w-lg max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-xl flex items-center gap-2">
               <BookOpen className="w-5 h-5 text-primary" /> {tournament.name} — Rules
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-2">
+            {!isPlayerTournament&&tournament.club_rules&&<div className="border border-white/20 p-4 text-sm"><h3 className="font-heading uppercase">Match Squad requirements</h3><p className="mt-2">Minimum {tournament.club_rules.minimum_human_players} human players · goalkeeper {tournament.club_rules.goalkeeper_required?'required':'optional'} · ANY {tournament.club_rules.any_allowed?'allowed':'not permitted'}</p><p className="mt-2 text-xs text-white/60">Your club roster must meet the minimum before entry. The Manager confirms the eligible Match Squad in GameDay before kickoff.</p></div>}
+
             {rules?.body && (
               <div className="bg-secondary/50 rounded-xl p-4">
                 <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{rules.body}</p>
@@ -1403,6 +1411,8 @@ function TournamentDetailContent() {
           </DialogHeader>
           {scheduleMatch && (
             <div className="space-y-4 mt-2">
+            {!isPlayerTournament&&tournament.club_rules&&<div className="border border-white/20 p-4 text-sm"><h3 className="font-heading uppercase">Match Squad requirements</h3><p className="mt-2">Minimum {tournament.club_rules.minimum_human_players} human players · goalkeeper {tournament.club_rules.goalkeeper_required?'required':'optional'} · ANY {tournament.club_rules.any_allowed?'allowed':'not permitted'}</p><p className="mt-2 text-xs text-white/60">Your club roster must meet the minimum before entry. The Manager confirms the eligible Match Squad in GameDay before kickoff.</p></div>}
+
               <div className="rounded-xl border border-border/70 bg-secondary/30 p-3">
                 <p className="text-sm font-bold text-foreground">
                   {scheduleMatch.home_player_name || scheduleMatch.home_club_name} vs {scheduleMatch.away_player_name || scheduleMatch.away_club_name}
@@ -1442,6 +1452,8 @@ function TournamentDetailContent() {
           </DialogHeader>
           {forfeitMatch && (
             <div className="space-y-4 mt-2">
+            {!isPlayerTournament&&tournament.club_rules&&<div className="border border-white/20 p-4 text-sm"><h3 className="font-heading uppercase">Match Squad requirements</h3><p className="mt-2">Minimum {tournament.club_rules.minimum_human_players} human players · goalkeeper {tournament.club_rules.goalkeeper_required?'required':'optional'} · ANY {tournament.club_rules.any_allowed?'allowed':'not permitted'}</p><p className="mt-2 text-xs text-white/60">Your club roster must meet the minimum before entry. The Manager confirms the eligible Match Squad in GameDay before kickoff.</p></div>}
+
               <p className="text-sm text-muted-foreground">{forfeitMatch.home_club_name} vs {forfeitMatch.away_club_name}</p>
               <div className="bg-warning/5 border border-warning/20 rounded-lg p-3 text-xs text-warning">
                 ⚠️ Only claim a forfeit if your opponent is a genuine no-show.
@@ -1467,6 +1479,8 @@ function TournamentDetailContent() {
           </DialogHeader>
           {activeDispute && (
             <div className="space-y-4 mt-2">
+            {!isPlayerTournament&&tournament.club_rules&&<div className="border border-white/20 p-4 text-sm"><h3 className="font-heading uppercase">Match Squad requirements</h3><p className="mt-2">Minimum {tournament.club_rules.minimum_human_players} human players · goalkeeper {tournament.club_rules.goalkeeper_required?'required':'optional'} · ANY {tournament.club_rules.any_allowed?'allowed':'not permitted'}</p><p className="mt-2 text-xs text-white/60">Your club roster must meet the minimum before entry. The Manager confirms the eligible Match Squad in GameDay before kickoff.</p></div>}
+
               <p className="text-sm text-muted-foreground">{activeDispute.home_club_name} vs {activeDispute.away_club_name}</p>
               <div className="space-y-1 text-xs text-muted-foreground bg-destructive/5 border border-destructive/20 rounded-lg p-3">
                 {activeDispute.home_submitted_score && <p>🏠 {activeDispute.home_club_name}: <strong>{activeDispute.home_submitted_score}</strong></p>}
@@ -1511,6 +1525,8 @@ function TournamentDetailContent() {
           </DialogHeader>
           {streamMatch && (
             <div className="space-y-4 mt-2">
+            {!isPlayerTournament&&tournament.club_rules&&<div className="border border-white/20 p-4 text-sm"><h3 className="font-heading uppercase">Match Squad requirements</h3><p className="mt-2">Minimum {tournament.club_rules.minimum_human_players} human players · goalkeeper {tournament.club_rules.goalkeeper_required?'required':'optional'} · ANY {tournament.club_rules.any_allowed?'allowed':'not permitted'}</p><p className="mt-2 text-xs text-white/60">Your club roster must meet the minimum before entry. The Manager confirms the eligible Match Squad in GameDay before kickoff.</p></div>}
+
               <p className="text-sm text-muted-foreground">{streamMatch.home_club_name} vs {streamMatch.away_club_name}</p>
               <div>
                 <label className="text-xs text-muted-foreground uppercase tracking-wider block mb-1">{t("commonPages.tdStreamUrl")}</label>

@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { useEffect, useRef, useState } from "react";
 import { Heart, Loader2, MessageSquare, Send, Trash2, X } from "lucide-react";
 import { stageClient } from "@/api/stageClient";
@@ -88,9 +89,9 @@ export default function FeedPostModal({
 
         <div className={cn("flex flex-col flex-1 min-h-0", !post.media_url && "w-full")}>
           <div className="flex items-center gap-3 p-4 border-b border-border shrink-0">
-            <div className="w-9 h-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 overflow-hidden">
+            <div className="identity-avatar-shell w-9 h-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 overflow-hidden">
               {post.author_avatar
-                ? <img src={post.author_avatar} className="w-full h-full object-cover" alt="" />
+                ? <IdentityAvatar src={post.author_avatar} className="w-full h-full object-cover" alt="" />
                 : <span className="text-primary font-bold text-sm">{(post.author_name || "?")[0].toUpperCase()}</span>
               }
             </div>

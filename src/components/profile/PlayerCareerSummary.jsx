@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -169,11 +170,11 @@ function PlayerMini({ player, align = "left" }) {
   const content = (
     <span className={cn("group flex min-w-0 items-center gap-2", align === "right" && "flex-row-reverse text-right")}>
       <span
-        className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden border border-cyan-200/25 bg-black/40"
+        className="identity-avatar-shell flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden border border-cyan-200/25 bg-black/40"
         style={{ clipPath: "polygon(14% 0, 100% 0, 86% 100%, 0 100%)" }}
       >
         {avatarUrl ? (
-          <img src={avatarUrl} alt={player?.gamertag || "Player"} className="h-full w-full object-cover" style={{ objectPosition: player?.avatar_position || "50% 50%" }} />
+          <IdentityAvatar src={avatarUrl} alt={player?.gamertag || "Player"} className="h-full w-full object-cover" style={{ objectPosition: player?.avatar_position || "50% 50%" }} />
         ) : (
           <span className="font-heading text-xs font-black text-[#f5c542]">{playerAvatarInitials(player)}</span>
         )}
@@ -192,11 +193,11 @@ function ClubMini({ id, name, tag, logoUrl, align = "left" }) {
   const content = (
     <span className={cn("flex min-w-0 items-center gap-2", align === "right" && "flex-row-reverse text-right")}>
       <span
-        className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden border border-[#f5c542]/30 bg-black/40"
+        className="identity-avatar-shell flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden border border-[#f5c542]/30 bg-black/40"
         style={{ clipPath: "polygon(14% 0, 100% 0, 86% 100%, 0 100%)" }}
       >
         {logoUrl ? (
-          <img src={logoUrl} alt={name || "Club"} className="h-full w-full object-cover" />
+          <IdentityAvatar src={logoUrl} alt={name || "Club"} className="h-full w-full object-cover" />
         ) : (
           <span className="font-heading text-[10px] font-black text-[#f5c542]">{String(tag || name || "?").slice(0, 2).toUpperCase()}</span>
         )}

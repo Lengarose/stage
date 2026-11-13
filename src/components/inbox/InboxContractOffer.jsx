@@ -12,7 +12,8 @@ import {
   Loader2, Gamepad2, Plus, Trash2
 } from "lucide-react";
 import { notify, postContractNews } from "@/lib/notify";
-import { formatSTC } from "@/lib/playerValue";
+import { useCardProgression } from "@/hooks/useCardProgression";
+import { formatSTC, suggestSalaryRange } from "@/lib/playerValue";
 import { PERFORMANCE_STAT_OPTIONS } from "@/lib/contractPerformanceTargets";
 import { useTranslation } from "@/hooks/useTranslation";
 import { withTranslationFallback } from "@/lib/translationFallback";
@@ -85,6 +86,8 @@ export default function InboxContractOffer({ message, onActioned }) {
     load();
   }, [contractId]);
 
+  const {card}=useCardProgression(contract ? getContractTargetPlayerId(contract) : null);
+  const salaryBand=suggestSalaryRange('squad',null,null,card?.level||1);
   const windowOpen = transferWindowLoading ? null : realtimeWindowOpen;
 
   const TARGET_TYPES = [
@@ -103,7 +106,7 @@ export default function InboxContractOffer({ message, onActioned }) {
 
   if (!contract || !contractId) {
     return (
-      <div className="mt-4 px-4 py-3 rounded-xl bg-muted/30 border border-border text-sm text-muted-foreground">
+      <div className="mt-4 px-4 py-3 rounded-none bg-muted/30 border border-border text-sm text-muted-foreground">
         {tx("commonPages.icoContractUnavailable", "Contract data unavailable or already resolved.")}
       </div>
     );
@@ -129,7 +132,7 @@ export default function InboxContractOffer({ message, onActioned }) {
   const acceptanceFlow = getContractAcceptanceFlow({ contract, player: myPlayer, windowOpen });
   const contractType = getContractType(contract);
   const contractTypeLabel = contractType === "ownership"
-    ? tx("commonPages.icoClubOwnership", "Club President")
+    ? tx("commonPages.icoClubOwnership", "Club Manager")
     : getContractTypeLabel(contractType);
 
   async function doAction(action) {
@@ -215,8 +218,8 @@ export default function InboxContractOffer({ message, onActioned }) {
         last_negotiated_by: myPlayer?.id || "",
         offer_note: counterNote || contract.offer_note,
       };
-      if (counterSalary) updatedFields.weekly_salary_stc = parseInt(counterSalary);
-      if (counterBonus)  updatedFields.signing_bonus_stc  = parseInt(counterBonus);
+      if (counterSalary) updatedFields.weekly_salary_stc = Number(counterSalary);
+      if (counterBonus)  updatedFields.signing_bonus_stc  = Number(counterBonus);
       if (counterFee)    updatedFields.transfer_fee_stc   = parseInt(counterFee);
       if (counterTargets.length > 0) updatedFields.performance_targets = counterTargets;
 
@@ -263,9 +266,9 @@ export default function InboxContractOffer({ message, onActioned }) {
   }[contract.status] || contract.status;
 
   return (
-    <div className="mt-5 space-y-4">
+    <div className="mt-5 space-y-4"><p className="text-xs text-white/60">Historical correspondence. The current linked contract controls which responses are available. A recorded bonus promise is not a payment receipt.</p><p className="text-xs text-blue-100">{card?`Current Card Level ${card.level}: ${formatSTC(salaryBand.min)}–${formatSTC(salaryBand.max)} per week for new proposed terms.`:'Loading current Card Level…'}</p>
       {/* Contract summary card */}
-      <div className="rounded-2xl border border-border bg-secondary/40 overflow-hidden">
+      <div className="rounded-none border border-border bg-secondary/40 overflow-hidden">
         <div className="px-4 py-3 bg-primary/10 border-b border-border flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-2">
             <Gamepad2 className="w-4 h-4 text-primary" />
@@ -273,16 +276,16 @@ export default function InboxContractOffer({ message, onActioned }) {
               {contractTypeLabel} {contractType !== "ownership" && tx("commonPages.icoContract", "Contract")}
             </span>
             {contract.negotiation_round > 0 && (
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30">
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-none bg-white/5 text-blue-100 border border-white/20">
                 {tx("commonPages.icoRound", "Round {round}", { round: contract.negotiation_round })}
               </span>
             )}
           </div>
-          <span className={cn("text-[10px] font-bold px-2.5 py-1 rounded-full border uppercase tracking-wider",
-            contract.status === "active" ? "bg-success/20 text-success border-success/30" :
+          <span className={cn("text-[10px] font-bold px-2.5 py-1 rounded-none border uppercase tracking-wider",
+            contract.status === "active" ? "bg-success/20 text-blue-100 border-success/30" :
             contract.status === "rejected" ? "bg-destructive/20 text-destructive border-destructive/30" :
             contract.status === "pending_window" ? "bg-blue-500/20 text-blue-400 border-blue-500/30" :
-            "bg-warning/20 text-warning border-warning/30"
+            "bg-warning/20 text-blue-100 border-warning/30"
           )}>
             {statusLabel}
           </span>
@@ -291,18 +294,18 @@ export default function InboxContractOffer({ message, onActioned }) {
         <div className="p-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
           <div>
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">{tx("commonPages.icoDuration", "Duration")}</p>
-            <p className="text-sm font-medium text-foreground">{tx("commonPages.icoDurationValue", "{games} games / {days} days", { games: contract.max_games, days: contract.max_days })}</p>
+            <p className="text-sm font-medium text-foreground">{contract.end_date?new Date(contract.end_date).toLocaleDateString():'Historical duration recorded in Club Office'}</p>
           </div>
           {contract.weekly_salary_stc > 0 && (
             <div>
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">{t("commonPages.cccWeeklySalary")}</p>
-              <p className="text-sm font-medium text-success">{formatSTC(contract.weekly_salary_stc)}</p>
+              <p className="text-sm font-medium text-blue-100">{formatSTC(contract.weekly_salary_stc)}</p>
             </div>
           )}
           {contract.signing_bonus_stc > 0 && (
             <div>
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">{t("commonPages.cccSigningBonus")}</p>
-              <p className="text-sm font-medium text-warning">{formatSTC(contract.signing_bonus_stc)}</p>
+              <p className="text-sm font-medium text-blue-100">{formatSTC(contract.signing_bonus_stc)}</p>
             </div>
           )}
           {contract.transfer_fee_stc > 0 && (
@@ -314,7 +317,7 @@ export default function InboxContractOffer({ message, onActioned }) {
           {contract.captaincy_offered && (
             <div>
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">{t("commonPages.cccCaptaincy")}</p>
-              <p className="text-sm font-medium text-warning">{tx("commonPages.icoOffered", "Offered")}</p>
+              <p className="text-sm font-medium text-blue-100">{tx("commonPages.icoOffered", "Offered")}</p>
             </div>
           )}
           {contract.performance_targets?.length > 0 && (
@@ -335,7 +338,7 @@ export default function InboxContractOffer({ message, onActioned }) {
                 const statMeta = PERFORMANCE_STAT_OPTIONS.find(s => s.value === t.stat);
                 return (
                   <div key={i} className="text-xs text-muted-foreground flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-primary/50 shrink-0" />
+                    <span className="w-1.5 h-1.5 rounded-none bg-primary/50 shrink-0" />
                     <span className="text-foreground font-medium">{statMeta?.label || t.stat}</span>
                     <span>— {t.type === "min" ? "≥" : t.type === "exact" ? "=" : "between"} {t.value}{t.type === "range" ? `–${t.value_max}` : ""}{t.unit || ""}</span>
                   </div>
@@ -347,16 +350,16 @@ export default function InboxContractOffer({ message, onActioned }) {
       </div>
 
       {error && (
-        <div className="px-3 py-2 rounded-lg bg-destructive/10 border border-destructive/30 text-sm text-destructive">
+        <div className="px-3 py-2 rounded-none bg-destructive/10 border border-destructive/30 text-sm text-destructive">
           {error}
         </div>
       )}
 
       {/* Transfer window notice — shown only for players moving from another club. */}
       {isPlayer && canAct && acceptanceFlow.isClubTransfer && (
-        <div className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-xs font-semibold ${
+        <div className={`flex items-center gap-2 px-3 py-2.5 rounded-none border text-xs font-semibold ${
           windowOpen === true
-            ? "bg-success/10 border-success/20 text-success"
+            ? "bg-success/10 border-success/20 text-blue-100"
             : windowOpen === false
             ? "bg-blue-500/10 border-blue-500/20 text-blue-400"
             : "bg-muted/30 border-border text-muted-foreground"
@@ -391,7 +394,7 @@ export default function InboxContractOffer({ message, onActioned }) {
             variant="outline"
             onClick={() => setShowCounter(true)}
             disabled={!!actionLoading}
-            className="border-purple-500/40 text-purple-400 hover:bg-purple-500/10 gap-1.5"
+            className="border-purple-500/40 text-blue-100 hover:bg-purple-500/10 gap-1.5"
           >
             <MessageSquare className="w-3.5 h-3.5" />
             {tx("commonPages.icoCounterOffer", "Counter-Offer")}
@@ -413,7 +416,7 @@ export default function InboxContractOffer({ message, onActioned }) {
 
       {/* Status info when not actionable */}
       {!canAct && isActionable && (
-        <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs font-semibold">
+        <div className="flex items-center gap-2 px-3 py-2.5 rounded-none bg-purple-500/10 border border-purple-500/20 text-blue-100 text-xs font-semibold">
           <Clock className="w-3.5 h-3.5 shrink-0" />
           {tx("commonPages.icoWaitingOther", "Waiting for the other party to respond.")}
         </div>
@@ -421,9 +424,9 @@ export default function InboxContractOffer({ message, onActioned }) {
 
       {/* Counter-offer form */}
       {showCounter && (
-        <div className="bg-card border border-purple-500/20 rounded-2xl p-4 space-y-4">
+        <div className="bg-card border border-purple-500/20 rounded-none p-4 space-y-4">
           <div className="flex items-center justify-between">
-            <p className="font-bold text-sm text-purple-400 flex items-center gap-2">
+            <p className="font-bold text-sm text-blue-100 flex items-center gap-2">
               <MessageSquare className="w-4 h-4" /> {tx("commonPages.icoCounterOffer", "Counter-Offer")}
             </p>
             <button type="button" onClick={() => setShowCounter(false)} className="text-muted-foreground hover:text-foreground">
@@ -438,7 +441,7 @@ export default function InboxContractOffer({ message, onActioned }) {
                 type="number" min="0" value={counterSalary}
                 onChange={e => setCounterSalary(e.target.value)}
                 placeholder="e.g. 100000"
-                className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-success"
+                className="w-full px-3 py-2 rounded-none bg-secondary border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-success"
               />
             </div>
             <div>
@@ -447,7 +450,7 @@ export default function InboxContractOffer({ message, onActioned }) {
                 type="number" min="0" value={counterBonus}
                 onChange={e => setCounterBonus(e.target.value)}
                 placeholder="e.g. 50000"
-                className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-warning"
+                className="w-full px-3 py-2 rounded-none bg-secondary border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-warning"
               />
             </div>
             <div>
@@ -456,7 +459,7 @@ export default function InboxContractOffer({ message, onActioned }) {
                 type="number" min="0" value={counterFee}
                 onChange={e => setCounterFee(e.target.value)}
                 placeholder="e.g. 0"
-                className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full px-3 py-2 rounded-none bg-secondary border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
           </div>
@@ -465,13 +468,13 @@ export default function InboxContractOffer({ message, onActioned }) {
           <button
             type="button"
             onClick={() => setShowTargets(!showTargets)}
-            className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-secondary border border-border hover:border-primary/30 transition-all text-sm"
+            className="w-full flex items-center justify-between px-3 py-2 rounded-none bg-secondary border border-border hover:border-primary/30 transition-all text-sm"
           >
             <div className="flex items-center gap-2">
               <Target className="w-3.5 h-3.5 text-primary" />
               <span className="text-sm text-foreground">{t("commonPages.ocdPerformanceTargets")}</span>
               {counterTargets.length > 0 && (
-                <span className="px-1.5 py-0.5 rounded-full bg-primary/20 text-primary text-[10px] font-bold">{counterTargets.length}</span>
+                <span className="px-1.5 py-0.5 rounded-none bg-primary/20 text-primary text-[10px] font-bold">{counterTargets.length}</span>
               )}
             </div>
             {showTargets ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
@@ -480,19 +483,19 @@ export default function InboxContractOffer({ message, onActioned }) {
           {showTargets && (
             <div className="space-y-2">
               {counterTargets.map((target, idx) => (
-                <div key={idx} className="bg-secondary/50 border border-border rounded-xl p-3 space-y-2">
+                <div key={idx} className="bg-secondary/50 border border-border rounded-none p-3 space-y-2">
                   <div className="flex items-center gap-2">
                     <select
                       value={target.stat}
                       onChange={e => updateTarget(idx, "stat", e.target.value)}
-                      className="flex-1 px-2 py-1.5 rounded-lg bg-secondary border border-border text-xs text-foreground focus:outline-none"
+                      className="flex-1 px-2 py-1.5 rounded-none bg-secondary border border-border text-xs text-foreground focus:outline-none"
                     >
                       {PERFORMANCE_STAT_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
                     </select>
                     <select
                       value={target.type}
                       onChange={e => updateTarget(idx, "type", e.target.value)}
-                      className="w-28 px-2 py-1.5 rounded-lg bg-secondary border border-border text-xs text-foreground focus:outline-none"
+                      className="w-28 px-2 py-1.5 rounded-none bg-secondary border border-border text-xs text-foreground focus:outline-none"
                     >
                       {TARGET_TYPES.map(tt => <option key={tt.value} value={tt.value}>{tt.label}</option>)}
                     </select>
@@ -505,7 +508,7 @@ export default function InboxContractOffer({ message, onActioned }) {
                       type="number" value={target.value}
                       onChange={e => updateTarget(idx, "value", parseFloat(e.target.value) || 0)}
                       placeholder={target.type === "range" ? t("commonPages.cccMin") : t("commonPages.cccValue")}
-                      className="flex-1 px-2 py-1.5 rounded-lg bg-secondary border border-border text-xs text-foreground focus:outline-none"
+                      className="flex-1 px-2 py-1.5 rounded-none bg-secondary border border-border text-xs text-foreground focus:outline-none"
                     />
                     {target.type === "range" && (
                       <>
@@ -514,7 +517,7 @@ export default function InboxContractOffer({ message, onActioned }) {
                           type="number" value={target.value_max || ""}
                           onChange={e => updateTarget(idx, "value_max", parseFloat(e.target.value) || 0)}
                           placeholder={t("commonPages.cccMax")}
-                          className="flex-1 px-2 py-1.5 rounded-lg bg-secondary border border-border text-xs text-foreground focus:outline-none"
+                          className="flex-1 px-2 py-1.5 rounded-none bg-secondary border border-border text-xs text-foreground focus:outline-none"
                         />
                       </>
                     )}
@@ -524,7 +527,7 @@ export default function InboxContractOffer({ message, onActioned }) {
               <button
                 type="button"
                 onClick={addTarget}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-dashed border-primary/30 text-primary text-xs hover:bg-primary/5 transition-all"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-none border border-dashed border-primary/30 text-primary text-xs hover:bg-primary/5 transition-all"
               >
                 <Plus className="w-3.5 h-3.5" /> {t("commonPages.cccAddTarget")}
               </button>

@@ -1,3 +1,5 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
+import { CardLevelBadge } from "@/components/card/CardProgression";
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { stageClient } from "@/api/stageClient";
@@ -34,7 +36,7 @@ export default function PlayersRegistered({ overrideTournamentId } = {}) {
       try {
         const [tData, players] = await Promise.all([
           stageClient.entities.Tournament.filter({ id }, null, 1),
-          loadDirectoryRows(stageClient.entities.Player, { orderBy: '-overall_rating' }),
+          loadDirectoryRows(stageClient.entities.Player, { orderBy: '-created_date' }),
         ]);
         if (!active) return;
         const row = tData[0];
@@ -80,7 +82,7 @@ export default function PlayersRegistered({ overrideTournamentId } = {}) {
       const matchCountry = filterCountry === "all" || p.country === filterCountry;
       return matchSearch && matchCountry;
     })
-    .sort((a, b) => (b.overall_rating || 0) - (a.overall_rating || 0));
+    .sort((a,b) => String(a.gamertag||"").localeCompare(String(b.gamertag||"")));
 
   const paginated = filtered.slice(0, page * PAGE_SIZE);
   const hasMore = paginated.length < filtered.length;
@@ -171,9 +173,9 @@ export default function PlayersRegistered({ overrideTournamentId } = {}) {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 overflow-hidden">
+                      <div className="identity-avatar-shell w-9 h-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 overflow-hidden">
                         {player.avatar_url
-                          ? <img src={player.avatar_url} alt={player.gamertag} className="w-full h-full object-cover" style={{ objectPosition: player.avatar_position || "50% 50%" }} />
+                          ? <IdentityAvatar src={player.avatar_url} alt={player.gamertag} className="w-full h-full object-cover" style={{ objectPosition: player.avatar_position || "50% 50%" }}  zoom={player?.avatar_zoom} />
                           : <User className="w-4 h-4 text-primary" />}
                       </div>
                       <div>
@@ -186,7 +188,7 @@ export default function PlayersRegistered({ overrideTournamentId } = {}) {
                     {player.country_code && <span className="mr-1">{player.country_code}</span>}
                     {player.country || "—"}
                   </td>
-                  <td className="px-3 py-3 text-center font-bold text-foreground">{player.overall_rating || 70}</td>
+                  <td className="px-3 py-3 text-center font-bold text-foreground"><CardLevelBadge playerId={player.id} /></td>
                   <td className="hidden md:table-cell px-3 py-3 text-center text-xs">
                     <span className="text-success">{player.wins_count || 0}W</span>
                     <span className="text-muted-foreground mx-1">/</span>

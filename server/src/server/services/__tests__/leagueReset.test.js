@@ -109,6 +109,18 @@ test('reset includes captured pathway cycles, their fixtures and matches instead
   assert.equal(env.state.matches.find(r=>r.id==='pathway-match').status,'cancelled');
 });
 
+test('a reset-era slug/season contradiction returns its record ID without crashing or mutating history', async () => {
+  const env = fixture();
+  const duplicateId = 'e582c55b-1e72-45f5-ab63-137c3420404a';
+  env.state.league_entities.push(env.regional(duplicateId, { season_number: 1, slug: 'north-america-div-1-s2', status: 'registration' }));
+  const before = structuredClone(env.state);
+  const report = await env.service.preview({ scope: 'regional' }, env.actor);
+  assert.ok(report.blockers.some(message => message.includes(duplicateId) && message.includes('Slug season contradicts stored season')));
+  assert.ok(report.blockers.some(message => message.includes('consolidation')));
+  await assert.rejects(env.service.apply({ scope: 'regional', confirmation: 'RESET LEAGUES', reason: 'Launch reset', review_revision: report.revision }, env.actor), /identity\/dependency review/);
+  assert.deepEqual(env.state, before);
+});
+
 test('a reset spanning only part of a captured regional system is blocked',async()=>{
   const env=fixture();
   env.state.league_entities.push(env.entity('pathway-cycle','regional_cycle',{status:'running',source_edition_ids:['original'],permanent_league_ids:['original','unrelated'],season_number:2,reset_series:0}));

@@ -1,6 +1,7 @@
+import CardProgression from "@/components/card/CardProgression";
 import { useState, useEffect } from "react";
 import PlayerFeed from "../components/PlayerFeed";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useLocation } from "react-router-dom";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import {
   ArrowLeft,
@@ -13,7 +14,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatSTC } from "@/lib/playerValue";
-import { postContractNews } from "@/lib/notify";
 import PlayerTrophyCabinet from "@/components/profile/PlayerTrophyCabinet";
 import PlayerAchievementsSection from "@/components/rewards/PlayerAchievementsSection";
 import PlayerLifestyleTab from "@/components/lifestyle/PlayerLifestyleTab";
@@ -23,13 +23,11 @@ import { formatProfilePlatform } from "@/lib/profilePlatform";
 import { GamerHeroAction, GamerPlayerPhotoFrame, GamerProfileShell, GamerSectionCard, GamerStatTile, GamerTabNav } from "@/components/profile/gamer/GamerProfileUI";
 import PlayerCareerSummary from "@/components/profile/PlayerCareerSummary";
 import PlayerTransferHistory from "@/components/profile/PlayerTransferHistory";
-import { CONTRACT_TYPES, getContractProgress } from "@/lib/contractTypes";
+import { getContractProgress } from "@/lib/contractTypes";
 import OfferContractDialog from "@/components/contracts/OfferContractDialog";
 import TransferPaymentDialog from "@/components/contracts/TransferPaymentDialog";
-import { ensureContractOfferInbox } from "@/lib/contractOfferDelivery";
 import { canShowContractOfferButton, getSignedClubIdForPlayer } from "@/lib/contractOfferVisibility";
 import { getContractType, normalizePlayerContracts } from "@/lib/playerContractFields";
-import { getClubPresidentContactEmail } from "@/lib/clubPresidentAccess";
 import { canCreateContractOffer } from "@/lib/transferWindowAccess";
 import { useTransferWindowStatus } from "@/lib/useTransferWindowStatus";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -56,9 +54,7 @@ function PlayerProfileOverview({ player, club, activeContract, upcomingMatches, 
   const nextMatch = asObjectArray(upcomingMatches)[0] || null;
   const playerCareer = career?.player_career || {};
   const clubCareer = career?.club_career || {};
-  const rating = Number(player?.overall_rating || 70);
   const stats = [
-    { label: "OVR", value: Number.isFinite(rating) ? Math.round(rating) : 70, accent: "gold", sub: player?.position || "Position" },
     { label: "Matches", value: clubStats?.matches ?? clubCareer.games ?? playerCareer.games ?? 0, accent: "cyan", sub: "Recorded" },
     { label: "Goals", value: clubStats?.goals ?? clubCareer.goals ?? playerCareer.goals_for ?? 0, accent: "green", sub: "Career" },
     { label: "Assists", value: clubStats?.assists ?? clubCareer.assists ?? 0, accent: "sky", sub: "Career" },
@@ -131,7 +127,9 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
   const [club, setClub] = useState(null);
   const [presidedClub, setPresidedClub] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
-  const [activeTab, setActiveTab] = useState("overview");
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState(() => new URLSearchParams(location.search).get("tab") === "trophies" ? "trophies" : "overview");
+  useEffect(() => { if (new URLSearchParams(location.search).get("tab") === "trophies") setActiveTab("trophies"); }, [location.search]);
   const [loading, setLoading] = useState(true);
   const [myPlayer, setMyPlayer] = useState(null);
   const [upcomingMatches, setUpcomingMatches] = useState([]);
@@ -266,58 +264,7 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
     load();
   }, [id]);
 
-  async function handleOfferContract(terms) {
-    if (!viewerClub?.id || !player?.id) return;
-    if (!canCreateContractOffer(offersAvailable)) return;
-    const typeMeta = CONTRACT_TYPES[terms.contract_type] || CONTRACT_TYPES.squad;
-    let recipientEmail = player.email;
-    if (!recipientEmail) {
-      try { const f = await stageClient.entities.Player.get(player.id); recipientEmail = f?.email || null; } catch { }
-    }
-    const result = await stageClient.functions.invoke("contractManagement", {
-      action: "offer",
-      team_id: viewerClub.id,
-      target_player_id: player.id,
-      contract_type: terms.contract_type, offer_note: terms.offer_note || "",
-      max_games: typeMeta.max_games, max_days: typeMeta.max_days,
-      weekly_salary_stc:   terms.weekly_salary_stc   || 0,
-      signing_bonus_stc:   terms.signing_bonus_stc   || 0,
-      transfer_fee_stc:    0,
-      performance_targets: terms.performance_targets || [],
-      captaincy_offered:   terms.captaincy_offered   || false,
-      status: "pending",
-    });
-    const newContract = result?.data?.contract || result?.contract || null;
-    const contractId = newContract?.id || result?.data?.contract_id || result?.contract_id;
-    if (contractId) {
-      await ensureContractOfferInbox({
-        contractId,
-        player: { ...player, email: recipientEmail || player.email },
-        club: viewerClub,
-        contractType: terms.contract_type,
-        maxGames: typeMeta.max_games,
-        maxDays: typeMeta.max_days,
-        weeklySalary: terms.weekly_salary_stc,
-        signingBonus: terms.signing_bonus_stc,
-        offerNote: terms.offer_note,
-        senderEmail: getClubPresidentContactEmail({ club: viewerClub }),
-      }).catch((err) => console.warn("[PlayerProfile] inbox fallback failed:", err?.message || err));
-    }
-    postContractNews({
-      title: `📄 ${viewerClub.name} offered a contract to ${player.gamertag}`,
-      body: `${viewerClub.name} sent a ${terms.contract_type} contract offer to ${player.gamertag}.`,
-      club_name: viewerClub.name, club_logo_url: viewerClub.logo_url || "",
-      player_name: player.gamertag, player_avatar_url: player.avatar_url || "",
-      link: `/players/${player.id}`,
-    });
-    setOfferDialogOpen(false);
-    if (newContract) {
-      setPlayerContracts(prev => normalizePlayerContracts([...prev, newContract]));
-    } else {
-      const refreshed = await stageClient.entities.PlayerContract.filter({ user_id: player.id }).catch(() => []);
-      setPlayerContracts(normalizePlayerContracts(refreshed));
-    }
-  }
+
 
   if (loading || !id) {
     return <div className="flex items-center justify-center h-full min-h-screen bg-[#06091a]"><div className="w-8 h-8 border-4 border-white/10 border-t-blue-400 rounded-full animate-spin" /></div>;
@@ -442,6 +389,7 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
       </GamerProfileHero>
 
       <div className="max-w-6xl mx-auto px-4 mt-6 space-y-5 pb-10">
+        <CardProgression playerId={player?.id} />
         <GamerTabNav tabs={profileTabs} active={activeTab} onChange={setActiveTab} />
 
         {activeTab === "overview" ? (
@@ -515,7 +463,7 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
         player={player}
         playerContracts={playerContracts}
         existingActiveContract={null}
-        onOffer={handleOfferContract}
+        onProposalCreated={() => stageClient.entities.PlayerContract.filter({user_id:player.id}).then(rows=>setPlayerContracts(normalizePlayerContracts(rows)))}
         officialRecruitment={officialRecruitment}
         windowOpen={windowOpen}
         club={viewerClub}

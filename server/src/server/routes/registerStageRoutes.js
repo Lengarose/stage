@@ -9,6 +9,8 @@ function registerStageRoutes(app, { verifyToken }) {
   app.use('/api/stage/functions', verifyToken, require('../controllers/functionsController'));
 
   app.use('/api/stage/players', verifyToken, require('../controllers/playerController'));
+  app.use('/api/stage/card-progressions', verifyToken, require('../controllers/cardProgressionController'));
+  app.use('/api/stage/club-board', verifyToken, require('../controllers/clubBoardController'));
   app.use('/api/stage/player-careers', verifyToken, require('../controllers/playerCareerController'));
   app.use('/api/stage/presidents', verifyToken, require('../controllers/presidentController'));
   app.use('/api/stage/clubs', verifyToken, require('../controllers/clubController'));

@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { cn } from "@/lib/utils";
 import { CONTRACT_TYPES } from "@/lib/contractTypes";
 import { getContractTargetPlayerId, getContractType, normalizePlayerContracts } from "@/lib/playerContractFields";
@@ -31,14 +32,14 @@ export default function PlayerSelectList({ players, contracts, selectedId, onSel
                 : "bg-card border-border hover:border-primary/20 hover:bg-secondary/50"
             )}
           >
-            <div className="w-10 h-10 rounded-full bg-secondary border border-border flex items-center justify-center shrink-0 overflow-hidden">
+            <div className="identity-avatar-shell w-10 h-10 rounded-full bg-secondary border border-border flex items-center justify-center shrink-0 overflow-hidden">
               {p.avatar_url ? (
-                <img
+                <IdentityAvatar
                   src={p.avatar_url}
                   alt={p.gamertag}
                   className="w-full h-full object-cover"
                   style={{ objectPosition: p.avatar_position || "50% 50%" }}
-                />
+                 zoom={p?.avatar_zoom} />
               ) : (
                 <User className="w-4 h-4 text-muted-foreground" />
               )}

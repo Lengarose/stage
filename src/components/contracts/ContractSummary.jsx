@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { CONTRACT_TYPES } from "@/lib/contractTypes";
 import { cn } from "@/lib/utils";
 import { User, FileText, Gamepad2, Clock, Calendar, Info } from "lucide-react";
@@ -18,14 +19,14 @@ export default function ContractSummary({ player, contractType }) {
       <div className="space-y-3">
         {/* Player */}
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-secondary border border-border flex items-center justify-center overflow-hidden shrink-0">
+          <div className="identity-avatar-shell w-8 h-8 rounded-full bg-secondary border border-border flex items-center justify-center overflow-hidden shrink-0">
             {player.avatar_url ? (
-              <img
+              <IdentityAvatar
                 src={player.avatar_url}
                 alt={player.gamertag}
                 className="w-full h-full object-cover"
                 style={{ objectPosition: player.avatar_position || "50% 50%" }}
-              />
+               zoom={player?.avatar_zoom} />
             ) : (
               <User className="w-3.5 h-3.5 text-muted-foreground" />
             )}

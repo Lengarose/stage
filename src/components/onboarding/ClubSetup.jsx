@@ -7,8 +7,6 @@ import ImagePositionEditor from "@/components/ImagePositionEditor";
 import { GamerClubPhotoFrame } from "@/components/profile/gamer/GamerClubCard";
 import { prepareImageForUpload } from "@/lib/imageUpload";
 import { isPersistableMediaUrl } from "@/lib/mediaUrls";
-import { FOUNDER_PLAYER_WEEKLY_SALARY_MAX } from "@/lib/founderPlayerTerms";
-import { formatSTC } from "@/lib/playerValue";
 import { useTranslation } from "@/hooks/useTranslation";
 import { cn } from "@/lib/utils";
 
@@ -18,7 +16,7 @@ const inputCls = "w-full bg-white/10 border border-white/20 text-white placehold
 const labelCls = "text-[10px] text-white/45 uppercase tracking-widest mb-1 block";
 const selectCls = "bg-white/10 border-white/20 text-white text-sm rounded-xl h-10 focus:ring-0 focus:border-white/40";
 
-export default function ClubSetup({ onSkip, onComplete, onPhaseChange, player, user, playerContract = null, required = false }) {
+export default function ClubSetup({ onSkip, onComplete, onPhaseChange, player, user, required = false }) {
   const { t } = useTranslation();
   const [step, setStep] = useState(required ? "club_profile" : "choice");
   const [name, setName] = useState("");
@@ -85,12 +83,6 @@ export default function ClubSetup({ onSkip, onComplete, onPhaseChange, player, u
     setError(null);
     try {
       if (!player?.id) throw new Error("Create your Player profile before founding a club.");
-      const founderWeeklySalary = Number(playerContract?.weekly_salary_stc || 0);
-      if (founderWeeklySalary > FOUNDER_PLAYER_WEEKLY_SALARY_MAX) {
-        throw new Error(t("commonPages.founderWageRequired", {
-          max: formatSTC(FOUNDER_PLAYER_WEEKLY_SALARY_MAX),
-        }));
-      }
       const founderState = await stageClient.clubs.createFounder({
         player_id: player.id,
         idempotency_key: `${user?.id || user?.email || "user"}:${player.id}:${name.trim().toLowerCase()}`,
@@ -107,7 +99,6 @@ export default function ClubSetup({ onSkip, onComplete, onPhaseChange, player, u
           description: "",
           trophies: [],
         },
-        playerContract: playerContract || undefined,
       });
       const club = founderState?.club;
 
@@ -196,12 +187,12 @@ export default function ClubSetup({ onSkip, onComplete, onPhaseChange, player, u
             imagePosition={logoPosition}
             imageZoom={logoZoom}
             winRate={50}
-            className="w-24 sm:w-28 shadow-[0_0_24px_-10px_rgba(255,184,0,0.65)] pointer-events-none"
+            className="!w-24 sm:!w-28 pointer-events-none"
           />
           <label
             htmlFor={logoInputId}
             className={cn(
-              "absolute inset-0 z-10 bg-black/55 flex items-center justify-center cursor-pointer transition-opacity touch-manipulation [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)]",
+              "absolute inset-0 z-10 rounded-full bg-black/55 flex items-center justify-center cursor-pointer transition-opacity touch-manipulation",
               uploading && "pointer-events-none opacity-60",
               logoUrl
                 ? "opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
@@ -285,6 +276,7 @@ export default function ClubSetup({ onSkip, onComplete, onPhaseChange, player, u
           </SelectContent>
         </Select>
       </div>
+
 
       {error && (
         <p className="text-red-400 text-xs bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">

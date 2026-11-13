@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 // @ts-nocheck — shadcn/ui primitives are untyped forwardRefs under checkJs.
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -217,8 +218,8 @@ export default function PlayersTab({
         {visiblePlayers.map(p => (
           <div key={p.id} className="bg-card border border-border rounded p-4 flex items-center gap-4">
             <Link to={`/players/${p.id}`} className="flex min-w-0 flex-1 items-center gap-4 group">
-              <div className="w-9 h-9 rounded-full bg-secondary border border-border flex items-center justify-center shrink-0 overflow-hidden">
-                {p.avatar_url ? <img src={p.avatar_url} alt="" className="w-full h-full object-cover" /> : <span className="text-xs font-bold text-primary">{(p.gamertag || "?")[0].toUpperCase()}</span>}
+              <div className="identity-avatar-shell w-9 h-9 rounded-full bg-secondary border border-border flex items-center justify-center shrink-0 overflow-hidden">
+                {p.avatar_url ? <IdentityAvatar src={p.avatar_url} alt="" className="w-full h-full object-cover"  zoom={p?.avatar_zoom}  position={p?.avatar_position} /> : <span className="text-xs font-bold text-primary">{(p.gamertag || "?")[0].toUpperCase()}</span>}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-foreground truncate group-hover:text-primary transition-colors">{p.gamertag}</p>

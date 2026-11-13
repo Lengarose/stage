@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { Link } from 'react-router-dom';
 import { cn } from "@/lib/utils";
 import { Trophy } from "lucide-react";
@@ -86,7 +87,7 @@ export default function UCLStandings({ matches, registeredClubs, tournament }) {
                     )}
                   </td>
                   <td className="px-2 py-1.5">
-                    {row.avatar_url && <img src={row.avatar_url} alt="" className="mr-2 inline-block h-6 w-6 object-cover" />}
+                    {row.avatar_url && <IdentityAvatar src={row.avatar_url} alt="" className="mr-2 inline-block h-6 w-6 object-cover"  zoom={row?.avatar_zoom}  position={row?.avatar_position} />}
                     <Link to={`/${tournament?.participant_type === 'player' ? 'players' : 'clubs'}/${encodeURIComponent(row.id)}`} className="inline-flex min-h-10 items-center font-semibold text-foreground">{row.name}</Link>
                   </td>
                   <td className="px-1.5 py-1.5 text-center text-muted-foreground">{row.P}</td>

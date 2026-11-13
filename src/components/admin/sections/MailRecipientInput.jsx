@@ -1,4 +1,5 @@
 // @ts-nocheck
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { stageClient } from "@/api/stageClient";
 import { Loader2, X } from "lucide-react";
@@ -32,11 +33,11 @@ function ContactAvatar({ contact }) {
 
   if (contact?.avatar_url) {
     return (
-      <img
+      <IdentityAvatar
         src={contact.avatar_url}
         alt=""
         className="h-8 w-8 shrink-0 rounded-full object-cover"
-      />
+       zoom={contact?.avatar_zoom}  position={contact?.avatar_position} />
     );
   }
 

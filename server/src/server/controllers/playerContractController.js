@@ -3,10 +3,6 @@ const router         = express.Router();
 const PlayerContract = require('../models/playerContractModel');
 const { EXECUTESQL } = require('../db/database');
 const { requireClubPermission, writeClubAudit } = require('../services/clubOperationsService');
-const { deliverContractOfferMessage } = require('../services/messageDeliveryService');
-const { assertCanCreateContractOffer } = require('../services/contractRulesService');
-const { resolveOfferedByPresidentId } = require('../services/presidentResolutionService');
-const { assertClubContractFinance } = require('../services/clubFinanceService');
 const { assertContractCanBeDeleted } = require('../services/lifecycleOwnedContracts');
 const { v4: uuidv4 } = require('uuid');
 
@@ -42,6 +38,7 @@ async function cancelContractOffer(contractId, req, reason = null) {
     err.status = 404;
     throw err;
   }
+  if(contract.compensation_policy_version)throw Object.assign(new Error('Use the versioned Board proposal action'),{status:409});
   if (!['pending', 'pending_window', 'negotiating'].includes(contract.status)) {
     const err = new Error('Only pending contract offers can be cancelled');
     err.status = 400;
@@ -173,64 +170,11 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /
-router.post('/', async (req, res) => {
-  try {
-    const safeBody = {
-      ...req.body,
-      user_id: req.body?.target_player_id || req.body?.user_id,
-      status: 'pending',
-      start_date: null,
-      end_date: null,
-      games_played: Number(req.body?.games_played || 0),
-    };
-    const { user } = await requireClubPermission(req, safeBody.team_id, 'offer_contracts');
-    safeBody.offered_by = user.email || safeBody.offered_by || '';
-    safeBody.offered_by_user_id = user.id;
-    safeBody.offered_by_club_id = safeBody.team_id;
-    if (!safeBody.offered_by_president_id) {
-      safeBody.offered_by_president_id = await resolveOfferedByPresidentId({
-        userId: user.id,
-        clubId: safeBody.team_id,
-      });
-    }
-    await assertCanCreateContractOffer({
-      playerId: safeBody.user_id,
-      teamId: safeBody.team_id,
-      contractType: safeBody.contract_type,
-    });
-    if ((safeBody.contract_type || 'squad') !== 'ownership') {
-      await assertClubContractFinance({
-        clubId: safeBody.team_id,
-        weeklySalary: safeBody.weekly_salary_stc,
-        signingBonus: safeBody.signing_bonus_stc,
-        transferFee: safeBody.transfer_fee_stc,
-      });
-    }
-    const contract = new PlayerContract(safeBody);
-    await contract.create();
-    const created = await contract.selectOne(contract.id);
-    if (Number(safeBody.transfer_fee_stc || 0) > 0) {
-      await insertClubLedgerRow({
-        clubId: safeBody.team_id,
-        amount: 0,
-        type: 'locked',
-        category: 'transfer_locked',
-        description: `Transfer funds locked for contract offer (${Number(safeBody.transfer_fee_stc || 0).toLocaleString()} STC)`,
-        referenceId: contract.id,
-      });
-    }
-    await deliverContractOfferMessage(contract.id).catch(err => console.error('[contract delivery]', err.message));
-    res.status(201).json(created[0]);
-  } catch (err) {
-    const status = Number(err?.status) >= 400 && Number(err.status) < 600 ? Number(err.status) : 500;
-    if (status >= 500) console.error(err);
-    const payload = { error: err.message };
-    if (err?.code) payload.code = String(err.code);
-    res.status(status).json(payload);
-  }
+router.post('/', async (req,res)=>{
+  try {res.status(201).json(await require('../services/clubAgreementService').offer(req.body||{},req.user));}
+  catch(err){res.status(err.status||500).json({error:err.message,details:err.details,code:err.code||null});}
 });
 
-// POST /:id/cancel
 router.post('/:id/cancel', async (req, res) => {
   try {
     const updated = await cancelContractOffer(req.params.id, req, req.body?.reason || null);

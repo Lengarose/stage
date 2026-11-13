@@ -17,7 +17,7 @@ export async function loadDirectoryRows(entity, { filters = {}, orderBy = 'id', 
 
 export async function searchDirectory(client, query) {
   const [players, matchingClubs] = await Promise.all([
-    loadDirectoryRows(client.entities.Player, { filters: { search: query }, orderBy: '-overall_rating' }),
+    loadDirectoryRows(client.entities.Player, { filters: { search: query }, orderBy: '-created_date' }),
     loadDirectoryRows(client.entities.Club, { filters: { search: query }, orderBy: '-wins' }),
   ]);
   // Club search also matches its president's gamertag. Hydrate president players

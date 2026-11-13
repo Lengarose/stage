@@ -773,8 +773,8 @@
   margin: 10px 0;
 }
 
-.mercato-card-player img,
-.mercato-club img,
+.mercato-card-player > img,
+.mercato-club > img,
 .mercato-avatar-fallback,
 .mercato-club-fallback {
   width: 44px;
@@ -869,8 +869,8 @@
   gap: 10px;
 }
 
-.news-desk-mark img,
-.news-desk-mark span {
+.news-desk-mark > img,
+.news-desk-mark > span:not(.identity-avatar) {
   width: 44px;
   height: 44px;
   object-fit: cover;

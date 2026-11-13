@@ -44,21 +44,18 @@ test("founder player wages can be 0 but cannot pass the starter club wage budget
   assert.equal(isFounderPlayerWageAllowed(250_000), true);
   assert.equal(isFounderPlayerWageAllowed(250_001), false);
   assert.deepEqual(suggestSalaryRange("founder_player", 86), {
-    min: 0,
-    max: 250_000,
-    label: "Founder Player",
+    min: 5000,
+    max: 15000,
+    label: "STAGE Card Level 1",
     based_on_value: false,
   });
 });
 
-test("renegotiate and onboarding UIs enforce the founder wage band", () => {
-  const root = resolve(import.meta.dirname, "../../..");
-  const dialog = readFileSync(resolve(root, "src/components/contracts/OfferContractDialog.jsx"), "utf8");
-  const onboarding = readFileSync(resolve(root, "src/components/onboarding/FounderPlayerTermsSetup.jsx"), "utf8");
-  assert.match(dialog, /founderPlayerWageError/);
-  assert.match(dialog, /FOUNDER_PLAYER_WEEKLY_SALARY_MAX/);
-  assert.match(onboarding, /FOUNDER_PLAYER_WEEKLY_SALARY_MIN/);
-  assert.match(onboarding, /isFounderPlayerWageAllowed/);
+test("new compensation forms use Board terms and onboarding never collects self-assigned pay", () => {
+ const dialog=readFileSync(resolve(import.meta.dirname,"../../components/contracts/OfferContractDialog.jsx"),"utf8");
+ const onboarding=readFileSync(resolve(import.meta.dirname,"../../components/onboarding/FounderPlayerTermsSetup.jsx"),"utf8");
+ assert.match(dialog,/club-board\/proposals/);assert.match(dialog,/options\.band/);
+ assert.doesNotMatch(onboarding,/<input|setWeekly|setBonus/);assert.match(onboarding,/boardSignupManagement/);
 });
 
 test("only active founder player contracts can be renegotiated", () => {

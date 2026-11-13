@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { Link } from "react-router-dom";
 import { Users } from "lucide-react";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -40,11 +41,11 @@ export default function ClubCard({ club: rawClub }) {
         <div className="relative z-10 flex items-center gap-4 px-7 py-4 sm:px-8">
           {/* Logo */}
           <div
-            className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden border-2 border-white/15 bg-black/40 transition-colors group-hover:border-white/30"
+            className="identity-avatar-shell flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden border-2 border-white/15 bg-black/40 transition-colors group-hover:border-white/30"
             style={{ clipPath: "polygon(14% 0, 100% 0, 86% 100%, 0 100%)" }}
           >
             {club.logo_url ? (
-              <img src={club.logo_url} alt={club.name} className="h-full w-full object-cover" />
+              <IdentityAvatar src={club.logo_url} alt={club.name} className="h-full w-full object-cover"  zoom={club?.logo_zoom}  position={club?.logo_position} />
             ) : (
               <Users className="w-5 h-5 text-white/30" />
             )}

@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { useState, useEffect } from "react";
 import { stageClient } from "@/api/stageClient";
 import { cn } from "@/lib/utils";
@@ -132,9 +133,9 @@ export default function DressingRoom({ clubId, currentPlayerEmail, isAdmin }) {
               ? "border-success/30 bg-success/5"
               : "border-border bg-card"
           )}>
-            <div className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center shrink-0 overflow-hidden">
+            <div className="identity-avatar-shell w-7 h-7 rounded-full bg-secondary flex items-center justify-center shrink-0 overflow-hidden">
               {p.avatar_url
-                ? <img src={p.avatar_url} className="w-full h-full object-cover" />
+                ? <IdentityAvatar src={p.avatar_url} className="w-full h-full object-cover"  zoom={p?.avatar_zoom}  position={p?.avatar_position} />
                 : <span className="text-[10px] leading-relaxed font-bold text-primary">{p.position}</span>
               }
             </div>
@@ -172,7 +173,7 @@ function SeatButton({ seat, player, isMe, onClick, myPlayer }) {
       {occupied ? (
         <div className="flex flex-col items-center gap-0.5">
           {player.avatar_url
-            ? <img src={player.avatar_url} className="w-5 h-5 rounded-full object-cover" />
+            ? <IdentityAvatar src={player.avatar_url} className="w-5 h-5 rounded-full object-cover"  zoom={player?.avatar_zoom}  position={player?.avatar_position} />
             : <span className="leading-relaxed font-bold text-[8px]">{player.position}</span>
           }
           <span className="truncate w-full text-center px-0.5" style={{ fontSize: "7px" }}>

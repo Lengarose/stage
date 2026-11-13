@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { stageClient } from "@/api/stageClient";
@@ -6,7 +7,7 @@ import { DESK_FILTERS, filterDeskFeed, formatDeskAmount, formatDeskClock } from 
 function Mark({ name, image }) {
   return (
     <div className="news-desk-mark">
-      {image ? <img src={image} alt="" /> : <span>{(name || "?").slice(0, 2)}</span>}
+      <IdentityAvatar src={image} name={name} className="h-10 w-10" />
       <strong>{name || "STAGE"}</strong>
     </div>
   );

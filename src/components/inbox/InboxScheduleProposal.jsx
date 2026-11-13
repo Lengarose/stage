@@ -119,7 +119,7 @@ export default function InboxScheduleProposal({ message, myClub, myEmail, myGame
   return (
     <div className="mt-4 space-y-3">
       {/* Context card */}
-      <div className="bg-secondary/60 border border-border rounded-lg p-3 space-y-1">
+      <div className="bg-secondary/60 border border-border rounded-none p-3 space-y-1">
         <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{meta.match_context || "League Match"}</p>
         <p className="text-sm font-semibold text-foreground">{fixture.home_club_name} vs {fixture.away_club_name}</p>
         {deadline && (
@@ -131,7 +131,7 @@ export default function InboxScheduleProposal({ message, myClub, myEmail, myGame
 
       {/* Proposed date */}
       {proposedDate && (
-        <div className="flex items-center gap-2.5 bg-primary/5 border border-primary/20 rounded-lg px-3 py-2.5">
+        <div className="flex items-center gap-2.5 bg-primary/5 border border-primary/20 rounded-none px-3 py-2.5">
           <CalendarDays className="w-4 h-4 text-primary shrink-0" />
           <div>
             <p className="text-[10px] text-muted-foreground">Proposed match time</p>

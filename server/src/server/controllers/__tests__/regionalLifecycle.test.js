@@ -153,3 +153,51 @@ test('permanent management, catalogue and consolidation routes are exercised ove
     assert.ok(env.audits.length>=3);
   } finally { await new Promise(resolve=>server.close(resolve)); }
 });
+
+test('cancelled Premier duplicate with 112 fixture references consolidates without selecting it as current', async()=>{
+ const env=fixture(),review=require('../../services/regionalEditionReviewService');
+ delete require.cache[require.resolve('../../services/regionalLeagueManagementService')];
+ const management=require('../../services/regionalLeagueManagementService');
+ const canonical_id='c2d6e60f-89e0-4813-81a1-967551d8d69f',source_id='46dbb09f-8319-4607-ab97-ec941745bfd8';
+ const base={name:'Premier',region_slug:'uk-ireland',division:1,platform:'cross-platform'};
+ env.legacy({...base,id:canonical_id,slug:'uk-ireland-div-1',season_number:1,status:'completed'});
+ env.legacy({...base,id:source_id,slug:'uk-ireland-div-1-s2',season_number:2,status:'cancelled',previous_season_id:canonical_id});
+ for(let i=0;i<112;i++)env.rows.set(`fixture-${i}`,{id:`fixture-${i}`,entity_type:'regional_league_fixture',league_id:source_id,data_json:JSON.stringify({league_id:source_id,status:'cancelled'})});
+ const before=[...env.rows].filter(([,row])=>row.entity_type==='regional_league_fixture').map(([id,row])=>[id,row.data_json]);
+ const deletion=await management.preview({action:'delete',league_id:source_id},{id:'admin'});
+ assert.ok(deletion.blockers.some(b=>b.includes('112 dependent')));
+ const body={source_id,canonical_id,mode:'consolidate'},actor={id:'admin'},preview=await review.repair(body,actor);
+ assert.deepEqual(preview.blockers,[]);
+ assert.equal(preview.before_after.current_edition_id,canonical_id,'a cancelled edition must not become the permanent league current pointer');
+ const result=await review.repair({...body,apply:true,expected_revision:preview.revision,reason:'Resolve the cancelled duplicate while preserving fixture history'},actor);
+ assert.equal(result.applied,true);assert.equal(JSON.parse(env.rows.get(source_id).data_json).status,'cancelled');
+ assert.equal(JSON.parse(env.rows.get(source_id).data_json).permanent_league_id,canonical_id);
+ assert.deepEqual([...env.rows].filter(([,row])=>row.entity_type==='regional_league_fixture').map(([id,row])=>[id,row.data_json]),before);
+ const catalogue=await require('../../services/regionalEditionService').catalogue(actor);
+ assert.equal(catalogue.definitions.length,1);assert.equal(catalogue.leagues[0].id,canonical_id);
+});
+
+test('explicit super-admin test retirement repairs the reset-era North American duplicate without merging history or payments', async () => {
+ const env=fixture(),review=require('../../services/regionalEditionReviewService');
+ const source_id='e582c55b-1e72-45f5-ab63-137c3420404a',canonical_id='e91c6c27-4fd2-45d9-b6ed-6a3591d7b210';
+ const base={name:'North American League',region_slug:'north-america',division:1,season_number:1,platform:'Cross-Platform',status:'registration'};
+ env.legacy({...base,id:canonical_id,slug:'north-america-div-1',trophy_item_id:'original-trophy'});
+ env.legacy({...base,id:source_id,slug:'north-america-div-1-s2',registered_club_ids:['test-club'],previous_season_id:canonical_id});
+ env.rows.set('test-fixture',{id:'test-fixture',entity_type:'regional_league_fixture',data_json:JSON.stringify({league_id:source_id,status:'played',home_score:2,away_score:2})});
+ env.tables.competition_payouts.push({id:'test-payment',source_id,amount:'100.00',status:'paid'});
+ const payments=structuredClone(env.tables.competition_payouts),savedFixture=env.rows.get('test-fixture').data_json;
+ const body={mode:'consolidate',source_id,canonical_id,test_history_reset:true},actor={id:'super'};
+ await assert.rejects(review.repair(body,{id:'admin'}),/Only super admin/);
+ const preview=await review.repair(body,actor);
+ assert.deepEqual(preview.blockers,[]);assert.equal(preview.test_history_reset,true);
+ const result=await review.repair({...body,apply:true,expected_revision:preview.revision,reason:'All historical seasons used disposable test-pack clubs; prepare launch reset'},actor);
+ assert.equal(result.applied,true);
+ const saved=JSON.parse(env.rows.get(source_id).data_json),original=JSON.parse(env.rows.get(canonical_id).data_json);
+ assert.equal(saved.permanent_league_id,canonical_id);assert.equal(saved.status,'superseded');assert.equal(saved.edition_invalidated,true);
+ assert.equal(saved.slug,'north-america-div-1');assert.equal(saved.reset_series,1);
+ assert.equal(saved.retired_test_identity.slug,'north-america-div-1-s2');
+ assert.equal(original.current_edition_id,canonical_id);assert.equal(original.trophy_item_id,'original-trophy');
+ assert.deepEqual(env.tables.competition_payouts,payments);assert.equal(env.rows.get('test-fixture').data_json,savedFixture);
+ assert.equal((await require('../../services/regionalEditionService').catalogue(actor)).leagues.length,1);
+ assert.ok(env.audits.length);assert.equal((await review.repair(body,actor)).already_applied,true);
+});

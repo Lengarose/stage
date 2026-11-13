@@ -340,7 +340,7 @@ async function createFounderContractLifecycle(input, options = {}) {
       offerNote: makeFounderPlayerOfferNote(founderKey),
       compatibleTypes: [FOUNDER_PLAYER_CONTRACT_TYPE, LEGACY_FOUNDER_CONTRACT_TYPE],
       compatibleOfferNotes: [makeFounderPlayerOfferNote(founderKey), makeFounderOfferNote(founderKey)],
-      terms: input?.playerContract || input?.contract || {},
+      terms: {}, // Paid player terms are proposed by the Club Board, never self-activated.
     });
     const presidentContract = await ensureFounderContract(query, {
       clubId,
@@ -387,7 +387,9 @@ async function createFounderContractLifecycle(input, options = {}) {
     const finalPlayerContract = playerContractRows[0] || playerContract;
     const finalPresidentContract = presidentContractRows[0] || presidentContract;
 
+    const boardOffers = !existingClub ? await require('./clubAgreementService').initial(clubRows[0] || {...clubShell,id:clubId},playerRows[0] || player,user,query) : [];
     return {
+      boardOffers,
       club: clubRows[0] || { ...clubShell, president_player_id: playerId },
       player: playerRows[0] || { ...player, club_id: clubId, role: 'president', status: 'active' },
       contract: finalPlayerContract,

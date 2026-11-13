@@ -85,7 +85,7 @@ export const CONTRACT_TYPES = {
     bg: "bg-primary/10",
     border: "border-primary/20",
     badge: "bg-primary/20 text-primary",
-    description: "President role for the club (10 years) — signed by the club president",
+    description: "Manager role for the club (10 years) — signed by the club manager",
   },
 };
 

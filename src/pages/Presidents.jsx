@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Crown, Search, ChevronLeft, ChevronRight, Shield } from "lucide-react";
@@ -121,21 +122,7 @@ export default function Presidents() {
                     <div className="absolute inset-0 border border-white/8 transition-colors duration-300 group-hover:border-amber-400/35" />
 
                     <div className="relative z-10 flex items-center gap-4 px-7 py-4 sm:px-8">
-                      <div
-                        className="h-11 w-11 shrink-0 overflow-hidden border-2 border-white/15 bg-black/40 transition-colors group-hover:border-amber-300/40"
-                        style={{ clipPath: "polygon(14% 0, 100% 0, 86% 100%, 0 100%)", ...(president.avatar_url ? {
-                          backgroundImage: `url(${president.avatar_url})`,
-                          backgroundSize: `${president.avatar_zoom || 150}%`,
-                          backgroundPosition: president.avatar_position || "50% 50%",
-                          backgroundRepeat: "no-repeat",
-                        } : {}) }}
-                      >
-                        {!president.avatar_url ? (
-                          <div className="w-full h-full flex items-center justify-center text-amber-300/70">
-                            <Crown className="w-5 h-5" />
-                          </div>
-                        ) : null}
-                      </div>
+                      <IdentityAvatar src={president.avatar_url} name={president.display_name} className="h-11 w-11" position={president.avatar_position} zoom={president.avatar_zoom} />
 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">

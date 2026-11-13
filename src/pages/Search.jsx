@@ -1,3 +1,5 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
+import { CardLevelBadge } from "@/components/card/CardProgression";
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
@@ -216,9 +218,9 @@ export default function Search() {
               <div className="space-y-3">
                 {players.map(p => (
                   <Link key={p.id} to={`/players/${p.id}`} className="block bg-card border border-border rounded-xl p-4 flex items-center gap-4 hover:border-primary/30 transition-all">
-                    <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center overflow-hidden shrink-0">
+                    <div className="identity-avatar-shell w-12 h-12 rounded-full bg-secondary flex items-center justify-center overflow-hidden shrink-0">
                       {p.avatar_url
-                        ? <img src={p.avatar_url} alt={p.gamertag} className="w-full h-full object-cover" />
+                        ? <IdentityAvatar src={p.avatar_url} alt={p.gamertag} className="w-full h-full object-cover"  zoom={p?.avatar_zoom}  position={p?.avatar_position} />
                         : <span className="leading-relaxed font-bold text-primary">{p.position}</span>
                       }
                     </div>
@@ -227,10 +229,7 @@ export default function Search() {
                       <p className="text-xs text-muted-foreground">{p.position} · {p.platform} · {t("commonPages.matchesCount", { count: p.matches_played || 0 })}</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="text-right mr-2">
-                        <p className="leading-relaxed font-bold text-lg text-primary">{p.overall_rating}</p>
-                        <p className="text-[10px] text-muted-foreground uppercase">{t("commonPages.ovr")}</p>
-                      </div>
+                      <CardLevelBadge playerId={p?.id} />
                       {myPlayer && p.email !== user?.email && myPlayer.club_id && (
                         <>
                           <Button size="sm" onClick={e => { e.preventDefault(); inviteToClub(p.email, p.gamertag); }}
@@ -267,9 +266,9 @@ export default function Search() {
                     to={`/players/${p.player_id}`}
                     className="block bg-card border border-border rounded-xl p-4 flex items-center gap-4 hover:border-amber-400/30 transition-all"
                   >
-                    <div className="w-12 h-12 rounded-xl bg-amber-400/10 flex items-center justify-center overflow-hidden shrink-0">
+                    <div className="identity-avatar-shell w-12 h-12 rounded-xl bg-amber-400/10 flex items-center justify-center overflow-hidden shrink-0">
                       {p.avatar_url ? (
-                        <img src={p.avatar_url} alt={p.display_name} className="w-full h-full object-cover" />
+                        <IdentityAvatar src={p.avatar_url} alt={p.display_name} className="w-full h-full object-cover"  zoom={p?.avatar_zoom}  position={p?.avatar_position} />
                       ) : (
                         <Crown className="w-5 h-5 text-amber-300" />
                       )}
@@ -297,8 +296,8 @@ export default function Search() {
               <div className="space-y-3">
                 {clubs.map(c => (
                   <div key={c.id} className="bg-card border border-border rounded-xl p-4 flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden shrink-0">
-                      {c.logo_url ? <img src={c.logo_url} alt={c.name} className="w-full h-full object-cover" /> : <Shield className="w-6 h-6 text-primary" />}
+                    <div className="identity-avatar-shell w-12 h-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden shrink-0">
+                      {c.logo_url ? <IdentityAvatar src={c.logo_url} alt={c.name} className="w-full h-full object-cover"  zoom={c?.logo_zoom}  position={c?.logo_position} /> : <Shield className="w-6 h-6 text-primary" />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="leading-relaxed font-bold text-foreground">{c.name} <span className="text-xs text-primary font-mono">[{c.tag}]</span></p>

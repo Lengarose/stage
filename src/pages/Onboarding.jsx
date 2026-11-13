@@ -61,7 +61,7 @@ function getStepMeta(intent, step, phase) {
   }
 
   if (step === "president_contract" && dual) {
-    return { label: "President Contract", labelKey: "obStepPresidentContract", index: 5, total: 6 };
+    return { label: "Club Ready", labelKey: "obStepPresidentContract", index: 5, total: 6 };
   }
 
   return { labelKey: "obStepChooseRole", index: 0, total: 2 };
@@ -77,7 +77,6 @@ export default function Onboarding({ onComplete }) {
   const [clubSetupPhase, setClubSetupPhase] = useState("club");
   const [foundedClub,  setFoundedClub]  = useState(null);
   const [founderState, setFounderState] = useState(null);
-  const [founderPlayerTerms, setFounderPlayerTerms] = useState(null);
   const [loading,      setLoading]      = useState(true);
   const [tutorialOpen, setTutorialOpen] = useState(false);
   const [timezone, setTimezone] = useState(DEFAULT_TIMEZONE);
@@ -346,9 +345,7 @@ export default function Onboarding({ onComplete }) {
                   {step === "founder_terms" && intent === "both" && (
                     <FounderPlayerTermsSetup
                       player={player}
-                      initialTerms={founderPlayerTerms}
-                      onComplete={(terms) => {
-                        setFounderPlayerTerms(terms);
+                      onComplete={() => {
                         setStep("club");
                       }}
                     />
@@ -362,7 +359,6 @@ export default function Onboarding({ onComplete }) {
                       onPhaseChange={setClubSetupPhase}
                       player={player}
                       user={user}
-                      playerContract={founderPlayerTerms}
                       required
                     />
                   )}
@@ -373,7 +369,6 @@ export default function Onboarding({ onComplete }) {
                       player={player}
                       user={user}
                       founderState={founderState}
-                      playerContract={founderPlayerTerms}
                       onComplete={finishOnboarding}
                     />
                   )}

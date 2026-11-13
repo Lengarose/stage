@@ -47,7 +47,7 @@ export default function PresidentProfileEdit({
       const updated = asObject(await stageClient.entities.President.update(president.id, patch));
       onSaved?.(updated || { ...president, ...patch });
     } catch (err) {
-      console.error("Failed to save president photo:", err);
+      console.error("Failed to save manager photo:", err);
       setError(err?.data?.error || err?.message || t("commonPages.obErrSave"));
     }
   }
@@ -58,7 +58,7 @@ export default function PresidentProfileEdit({
       const updated = asObject(await stageClient.entities.President.update(president.id, patch));
       onSaved?.(updated || { ...president, ...patch });
     } catch (err) {
-      console.error("Failed to save president banner:", err);
+      console.error("Failed to save manager banner:", err);
       setError(err?.data?.error || err?.message || t("commonPages.obErrSave"));
     }
   }
@@ -72,7 +72,7 @@ export default function PresidentProfileEdit({
       onSaved?.(updated || { ...president, ...payload });
       onBack?.();
     } catch (err) {
-      console.error("Failed to save president profile:", err);
+      console.error("Failed to save manager profile:", err);
       setError(err?.data?.error || err?.message || t("commonPages.obErrSave"));
     } finally {
       setSaving(false);

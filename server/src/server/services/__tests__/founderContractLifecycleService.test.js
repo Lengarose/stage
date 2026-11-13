@@ -24,6 +24,10 @@ function loadFounderServiceWithConnection(connection) {
     },
   };
 
+  // Board transactions are exercised against MySQL/JWT in acceptance/club-board.cjs.
+  // Keep this unit focused on atomic ownership/membership creation.
+  const boardPath=path.resolve(__dirname,'../clubAgreementService.js');
+  require.cache[boardPath]={id:boardPath,filename:boardPath,loaded:true,exports:{initial:async()=>[{kind:'management',status:'pending'},{kind:'player',status:'pending'}]}};
   return require(servicePath);
 }
 
@@ -239,7 +243,7 @@ test('founder lifecycle creates club, active player contract, active president c
   assert.equal(connection.state.memberships.length, 1);
 });
 
-test('founder lifecycle stores player wages and performance targets on the founder player contract only', async () => {
+test('founder lifecycle ignores self-assigned onboarding pay and prepares Board offers', async () => {
   const connection = makeConnection();
   const { createFounderContractLifecycle } = loadFounderServiceWithConnection(connection);
 
@@ -255,26 +259,20 @@ test('founder lifecycle stores player wages and performance targets on the found
     idempotencyKey: 'founder-wages-1',
   });
 
-  assert.equal(result.playerContract.weekly_salary_stc, 18500);
-  assert.equal(result.playerContract.signing_bonus_stc, 5000);
-  assert.equal(result.playerContract.performance_targets, JSON.stringify([{ stat: 'goals', type: 'min', value: 10, value_max: 0 }]));
+  assert.equal(result.playerContract.weekly_salary_stc, 0);
+  assert.equal(result.boardOffers.length,2);
+  assert.equal(result.playerContract.signing_bonus_stc, 0);
+  assert.equal(JSON.parse(result.playerContract.performance_targets).source,'founder_onboarding');
   assert.equal(result.presidentContract.weekly_salary_stc, 0);
   assert.equal(result.presidentContract.signing_bonus_stc, 0);
 });
 
-test('founder lifecycle rejects player wages above the starter club weekly wage budget', async () => {
-  const connection = makeConnection();
-  const { createFounderContractLifecycle } = loadFounderServiceWithConnection(connection);
-
-  await assert.rejects(
-    () => createFounderContractLifecycle({
-      user: { id: 'user-1', email: 'founder@example.test' },
-      playerId: 'player-1',
-      club: { name: 'Founder FC', tag: 'FFC' },
-      playerContract: { weekly_salary_stc: 250001 },
-    }),
-    /250,000 STC wage budget/
-  );
+test('founder lifecycle cannot bypass the Board using a huge signup salary', async () => {
+  const connection=makeConnection();
+  const {createFounderContractLifecycle}=loadFounderServiceWithConnection(connection);
+  const result=await createFounderContractLifecycle({user:{id:'user-1',email:'founder@example.test'},playerId:'player-1',club:{name:'Founder FC',tag:'FFC'},playerContract:{weekly_salary_stc:250001}});
+  assert.equal(result.playerContract.weekly_salary_stc,0);
+  assert.equal(result.boardOffers.length,2);
 });
 
 test('founder lifecycle rolls back when contract creation fails before attaching player', async () => {
@@ -485,7 +483,7 @@ test('founder lifecycle reuses an existing ownership contract even when the offe
   assert.equal(connection.state.contracts.length, 2);
 });
 
-test('founder lifecycle applies onboarding wages when reusing an existing founder_player contract', async () => {
+test('founder lifecycle cannot overwrite existing founder terms through onboarding', async () => {
   const existingClub = {
     id: 'club-existing',
     user_id: 'user-1',
@@ -541,6 +539,6 @@ test('founder lifecycle applies onboarding wages when reusing an existing founde
   });
 
   assert.equal(result.playerContract.id, 'contract-player-existing');
-  assert.equal(result.playerContract.weekly_salary_stc, 40000);
-  assert.equal(result.playerContract.signing_bonus_stc, 10000);
+  assert.equal(result.playerContract.weekly_salary_stc, 0);
+  assert.equal(result.playerContract.signing_bonus_stc, 0);
 });

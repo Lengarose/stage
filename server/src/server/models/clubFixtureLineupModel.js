@@ -8,6 +8,8 @@ function jsonOrNull(value) {
 
 class ClubFixtureLineup {
   constructor(body = {}) {
+    this.goalkeeper_player_id=body.goalkeeper_player_id||null;
+    this.uses_any=body.uses_any===true||body.uses_any===1||body.uses_any==='1'?1:0;
     this.id = body.id;
     this.club_id = body.club_id;
     this.fixture_id = body.fixture_id;
@@ -47,12 +49,12 @@ class ClubFixtureLineup {
     return query(
       `INSERT INTO club_fixture_lineups
         (id, club_id, fixture_id, fixture_type, formation, starting_players,
-         bench_players, captain_player_id, notes, status, created_by_user_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         bench_players, captain_player_id, notes, status, created_by_user_id,goalkeeper_player_id,uses_any)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         this.id, this.club_id, this.fixture_id, this.fixture_type, this.formation,
         this.starting_players, this.bench_players, this.captain_player_id,
-        this.notes, this.status, this.created_by_user_id,
+        this.notes, this.status, this.created_by_user_id,this.goalkeeper_player_id,this.uses_any,
       ]
     );
   }
@@ -61,12 +63,12 @@ class ClubFixtureLineup {
     return query(
       `UPDATE club_fixture_lineups SET
         club_id=?, fixture_id=?, fixture_type=?, formation=?, starting_players=?,
-        bench_players=?, captain_player_id=?, notes=?, status=?, created_by_user_id=?, updated_date=NOW()
+        bench_players=?, captain_player_id=?, notes=?, status=?, created_by_user_id=?,goalkeeper_player_id=?,uses_any=?, updated_date=NOW()
        WHERE id=?`,
       [
         this.club_id, this.fixture_id, this.fixture_type, this.formation,
         this.starting_players, this.bench_players, this.captain_player_id,
-        this.notes, this.status, this.created_by_user_id, id,
+        this.notes, this.status, this.created_by_user_id,this.goalkeeper_player_id,this.uses_any, id,
       ]
     );
   }

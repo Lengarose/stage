@@ -1,3 +1,5 @@
+import { CardLevelPhotoMark } from "@/components/card/CardProgression";
+import { playerPhotoFrame, playerPhotoFrameStyle } from "@/lib/playerPhotoFrame";
 import { Children, cloneElement, isValidElement } from "react";
 import { CLIP_12, CLIP_16, focusRing } from "@/components/landing/clips";
 import { cn } from "@/lib/utils";
@@ -103,7 +105,6 @@ export function GamerPlayerPhotoFrame({
   imagePosition,
   imageZoom,
   positionLabel,
-  overallRating,
   shirtNumber,
   emptyLabel = "?",
   as: Component = "div",
@@ -111,16 +112,13 @@ export function GamerPlayerPhotoFrame({
   children,
   ...props
 }) {
-  const ovrRaw = overallRating ?? player?.overall_rating;
-  const ovr =
-    ovrRaw == null || ovrRaw === ""
-      ? 70
-      : Math.round(Number(ovrRaw) * 10) / 10;
+  const frame = playerPhotoFrame(player?.avatar_frame);
+  const frameStyle = playerPhotoFrameStyle(frame);
   const position = positionLabel || player?.position || "—";
   const resolvedImageUrl = imageUrl || resolvePlayerAvatarUrl(player);
   const resolvedZoom = imageZoom ?? player?.avatar_zoom;
   const resolvedPosition = imagePosition || player?.avatar_position || "50% 20%";
-  const resolvedOverall = ovr === 0 ? "0.0" : (Number.isInteger(ovr) ? String(ovr) : ovr.toFixed(1));
+
   const resolvedShirtNumber = shirtNumber ?? player?.shirt_number;
   const zoomScale = Number(resolvedZoom);
   const hasZoom = Number.isFinite(zoomScale) && zoomScale > 0;
@@ -133,14 +131,15 @@ export function GamerPlayerPhotoFrame({
   return (
     <Component
       className={cn(
-        "relative w-[168px] sm:w-[208px] aspect-[4/5] rounded-none overflow-hidden shrink-0 text-left",
-        "border border-cyan-300/40 shadow-[0_0_50px_-8px_rgba(0,229,255,0.7),0_0_90px_-42px_rgba(245,197,66,0.85)]",
-        "bg-gradient-to-br from-cyan-500/10 via-[#0d1528] to-amber-500/10",
-        "[clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)]",
+        "relative w-[168px] sm:w-[208px] shrink-0 border border-transparent text-left",
+        frame === "circle" ? "aspect-square" : "aspect-[4/5]",
+
         className
       )}
       {...props}
     >
+      <div className="pointer-events-none absolute inset-0 bg-cyan-200/50" style={frameStyle} />
+      <div className="absolute inset-px overflow-hidden bg-[#0d1528]" style={frameStyle}>
       {resolvedImageUrl && !imageFailed ? (
         <img
           src={resolvedImageUrl}
@@ -159,26 +158,23 @@ export function GamerPlayerPhotoFrame({
         </div>
       )}
       <div className="absolute inset-0 z-[1] bg-gradient-to-t from-black/82 via-black/20 to-transparent pointer-events-none" />
-      <div className="absolute top-3 right-3 z-[2] min-w-[40px] bg-gradient-to-br from-amber-300 to-yellow-500 px-2 py-1.5 text-center shadow-lg [clip-path:polygon(13%_0,100%_0,87%_100%,0_100%)]">
-        <p className="text-[7px] font-black uppercase tracking-wider text-black/70 leading-none">OVR</p>
-        <p className="font-heading text-[19px] font-black text-black leading-none">{resolvedOverall}</p>
       </div>
-      <div className="absolute bottom-0 inset-x-0 z-[2] px-4 pb-3 pt-10">
-        <div className="relative inline-flex min-w-[84px] items-center overflow-hidden border border-cyan-200/45 bg-gradient-to-r from-cyan-300/22 via-black/48 to-amber-300/18 px-3 py-1.5 pr-5 shadow-[0_0_22px_-9px_rgba(0,229,255,0.9)] [clip-path:polygon(13%_0,100%_0,87%_100%,0_100%)]">
-          <span className="pointer-events-none absolute inset-0 bg-[linear-gradient(115deg,transparent_0%,rgba(255,255,255,0.18)_42%,transparent_62%)] opacity-70" />
-          {resolvedShirtNumber != null && resolvedShirtNumber !== "" ? (
-            <p className="pointer-events-none absolute right-2 top-1/2 z-0 -translate-y-1/2 font-heading text-[30px] font-black italic leading-none text-amber-200/30 drop-shadow-[0_0_14px_rgba(245,197,66,0.9)] sm:text-[34px]">
-              {resolvedShirtNumber}
-            </p>
-          ) : null}
-          <div className="relative z-[1] flex min-w-0 flex-col">
+      <div className={cn("pointer-events-none absolute z-[2]", frame === "circle" ? "bottom-[18%] left-[12%]" : "bottom-[6%] left-[7%]")}>
+        <div className="relative inline-flex items-end">
+          <div className="relative z-[1] flex min-w-0 flex-col gap-0.5">
             <span className="text-[7px] font-black uppercase leading-none tracking-[0.28em] text-cyan-200/70">POS</span>
-            <span className="font-heading text-lg font-black uppercase leading-none tracking-[0.03em] text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.95)]">
+            <span className="font-heading text-lg font-black uppercase leading-none tracking-[0.03em] text-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.95)]">
               {position}
             </span>
           </div>
+          {resolvedShirtNumber != null && resolvedShirtNumber !== "" ? (
+            <span className="relative z-0 -mb-px -ml-[0.2em] whitespace-nowrap font-heading text-[30px] font-black leading-[0.8] text-amber-200/50 drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)] sm:text-[34px]">
+              {resolvedShirtNumber}
+            </span>
+          ) : null}
         </div>
       </div>
+      <CardLevelPhotoMark playerId={player?.id} className={cn("absolute z-[2]", frame === "circle" ? "bottom-[18%] right-[12%]" : frame === "parallelogram" ? "bottom-[6%] right-[17%]" : "bottom-[6%] right-[7%]")} />
       {children}
     </Component>
   );

@@ -1,3 +1,4 @@
+const { normalizePlayerPhotoFrame } = require('../utils/playerPhotoFrame');
 const { EXECUTESQL } = require('../db/database');
 const { v4: uuidv4 } = require('uuid');
 const { directoryOrder, containsPattern } = require('../utils/directoryQuery');
@@ -18,6 +19,7 @@ class Player {
     this.avatar_url              = body.avatar_url;
     this.avatar_zoom             = body.avatar_zoom;
     this.avatar_position         = body.avatar_position;
+    this.avatar_frame            = normalizePlayerPhotoFrame(body.avatar_frame);
     this.player_card_background_type = body.player_card_background_type;
     this.player_card_background_id   = body.player_card_background_id;
     this.player_card_background_url  = body.player_card_background_url;
@@ -113,7 +115,7 @@ class Player {
     this.id = this.id || uuidv4();
     const sql = `INSERT INTO players
       (id, user_id, email, gamertag, position, secondary_position, platform, country, country_code, bio,
-       avatar_url, avatar_zoom, avatar_position,
+       avatar_url, avatar_zoom, avatar_position, avatar_frame,
        player_card_background_type, player_card_background_id, player_card_background_url,
        player_card_background_position, player_card_background_zoom,
        shirt_number, overall_rating,
@@ -127,11 +129,11 @@ class Player {
        role, status, dressing_room_seat, is_ready,
        club_id, notification_settings, club_roles,
        banner_url, banner_position, banner_zoom)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
     const values = [
       this.id, this.user_id, this.email, this.gamertag, this.position, this.secondary_position, this.platform,
       this.country, this.country_code, this.bio,
-      this.avatar_url, this.avatar_zoom, this.avatar_position,
+      this.avatar_url, this.avatar_zoom, this.avatar_position, this.avatar_frame,
       this.player_card_background_type || 'default', this.player_card_background_id, this.player_card_background_url,
       this.player_card_background_position || '50% 50%', this.player_card_background_zoom || 120,
       this.shirt_number,
@@ -153,7 +155,7 @@ class Player {
   update(id) {
     const sql = `UPDATE players SET
       user_id=?, email=?, gamertag=?, position=?, secondary_position=?, platform=?, country=?, country_code=?,
-      bio=?, avatar_url=?, avatar_zoom=?, avatar_position=?,
+      bio=?, avatar_url=?, avatar_zoom=?, avatar_position=?, avatar_frame=?,
       player_card_background_type=?, player_card_background_id=?, player_card_background_url=?,
       player_card_background_position=?, player_card_background_zoom=?,
       shirt_number=?,
@@ -173,7 +175,7 @@ class Player {
     const values = [
       this.user_id, this.email, this.gamertag, this.position, this.secondary_position, this.platform,
       this.country, this.country_code, this.bio,
-      this.avatar_url, this.avatar_zoom, this.avatar_position,
+      this.avatar_url, this.avatar_zoom, this.avatar_position, this.avatar_frame,
       this.player_card_background_type || 'default', this.player_card_background_id, this.player_card_background_url,
       this.player_card_background_position || '50% 50%', this.player_card_background_zoom || 120,
       this.shirt_number,

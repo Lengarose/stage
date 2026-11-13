@@ -9,11 +9,6 @@
  * Overall rating has minor influence only (~8%).
  */
 
-import {
-  FOUNDER_PLAYER_WEEKLY_SALARY_MAX,
-  FOUNDER_PLAYER_WEEKLY_SALARY_MIN,
-} from "./founderPlayerTerms.js";
-import { FOUNDER_PLAYER_CONTRACT_LABEL } from "./founderDisplay.js";
 
 const DEFAULT_WEIGHTS = {
   base_per_match:           60_000,
@@ -45,7 +40,6 @@ export function calculatePlayerValue(player, W = DEFAULT_WEIGHTS) {
   const motm        = Number(player.man_of_the_match || 0);
   const cleanSheets = Number(player.clean_sheets    || 0);
   const wins        = Number(player.wins_count      || 0);
-  const ovr         = Number(player.overall_rating  || 65);
 
   if (matches === 0) return 250_000;
 
@@ -61,7 +55,7 @@ export function calculatePlayerValue(player, W = DEFAULT_WEIGHTS) {
   const outputBonus   = goalRateBonus + asstRateBonus + csRateBonus;
 
   const achieveBonus  = Math.min(motm * W.motm_bonus, 5_000_000);
-  const ovrBonus      = Math.max(ovr - 60, 0) * 8_000 * W.ovr_weight;
+  const ovrBonus      = 0; // Self-reported EA OVR does not influence economic value.
 
   const winRate = wins / matches;
   const winMult = winRate > 0.7 ? 1 + W.win_rate_boost
@@ -95,51 +89,11 @@ export function formatSTC(value) {
  * Suggest weekly salary range based on contract type and player market value.
  * ~6-18% of market value per week depending on contract tier.
  */
-export function suggestSalaryRange(contractType, overallRating = 70, marketValue = 0) {
-  const type = String(contractType || "").toLowerCase();
-  if (type === "founder_player" || type === "founder") {
-    return {
-      min: FOUNDER_PLAYER_WEEKLY_SALARY_MIN,
-      max: FOUNDER_PLAYER_WEEKLY_SALARY_MAX,
-      label: FOUNDER_PLAYER_CONTRACT_LABEL,
-      based_on_value: false,
-    };
-  }
-
-  const mv = Number(marketValue) || 0;
-
-  if (mv > 0) {
-    const rates = {
-      trial:     { pct: 0.002, label: "Trial" },
-      academy:   { pct: 0.006, label: "Academy" },
-      squad:     { pct: 0.012, label: "Squad" },
-      important: { pct: 0.020, label: "Important" },
-      star:      { pct: 0.035, label: "Star" },
-    };
-    const rate = rates[type] || rates.squad;
-    const suggested = Math.round(mv * rate.pct);
-    const min = Math.max(Math.round(suggested * 0.70 / 10_000) * 10_000, 5_000);
-    const max = Math.round(suggested * 1.30 / 10_000) * 10_000;
-    return { min, max, label: rate.label, based_on_value: true };
-  }
-
-  // OVR-based fallback
-  const ovr = Number(overallRating) || 70;
-  const scale = Math.max(1, (ovr - 50) / 40);
-  const ranges = {
-    trial:     { min: 0,       max: 5_000,   label: "Trial" },
-    academy:   { min: 5_000,   max: 30_000,  label: "Academy" },
-    squad:     { min: 40_000,  max: 80_000,  label: "Squad" },
-    important: { min: 100_000, max: 250_000, label: "Important" },
-    star:      { min: 250_000, max: 500_000, label: "Star" },
-  };
-  const r = ranges[type] || ranges.squad;
-  return {
-    min: Math.round(r.min * scale / 10_000) * 10_000 || r.min,
-    max: Math.round(r.max * scale / 10_000) * 10_000 || r.max,
-    label: r.label,
-    based_on_value: false,
-  };
+export function suggestSalaryRange(contractType, _overallRating = 70, _marketValue = 0, cardLevel = 1) {
+  const level=Math.max(1,Math.min(100,Number(cardLevel)||1));
+  const bands=[[5,5000,15000],[10,10000,25000],[25,15000,40000],[50,25000,70000],[75,40000,100000],[100,60000,150000]];
+  const [,min,max]=bands.find(([to])=>level<=to);
+  return {min,max,label:'STAGE Card Level '+level,based_on_value:false};
 }
 
 export function suggestWeeklySalary(contractType, player) {
@@ -147,13 +101,14 @@ export function suggestWeeklySalary(contractType, player) {
     contractType,
     player?.overall_rating,
     player?.market_value_stc || player?.market_value,
+    player?.card_level || 1,
   );
   const mid = (Number(range.min) + Number(range.max)) / 2;
   return Math.max(0, Math.round(mid / 1000) * 1000);
 }
 
 export function suggestSigningBonus(contractType, weeklySalary) {
-  const weeks = { trial: 1, academy: 2, squad: 4, important: 8, star: 12 };
+  const weeks = { trial: 4, academy: 4, squad: 4, important: 4, star: 4 };
   const weekly = Math.max(0, Number(weeklySalary) || 0);
   const type = String(contractType || "").toLowerCase();
   return Math.round((weekly * (weeks[type] || 4)) / 1000) * 1000;

@@ -1,6 +1,8 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
+import { CardLevelBadge } from "@/components/card/CardProgression";
 import { Link } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
-import { Clock, ExternalLink, FileText, Search, Shield, Star, UserRound } from "lucide-react";
+import { Clock, ExternalLink, FileText, Search, Shield, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import TransferBadge from "./TransferBadge";
 import { calculatePlayerValue, formatSTC, getValueTier } from "@/lib/playerValue";
@@ -11,22 +13,7 @@ import { getCountryShortName } from "@/lib/countryDisplay";
 const PAGE_SIZE = 8;
 
 function PlayerPortrait({ player, className }) {
-  return (
-    <div className={cn("overflow-hidden border border-white/10 bg-black/40", className)}>
-      {player?.avatar_url ? (
-        <img
-          src={player.avatar_url}
-          alt={player.gamertag || ""}
-          className="h-full w-full object-cover"
-          style={{ objectPosition: player.avatar_position || "50% 50%" }}
-        />
-      ) : (
-        <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_45%_20%,rgba(0,229,255,0.18),rgba(5,8,15,0.92)_58%)]">
-          <UserRound className="h-9 w-9 text-white/28" />
-        </div>
-      )}
-    </div>
-  );
+  return <IdentityAvatar src={player?.avatar_url} name={player?.gamertag} className={className} position={player?.avatar_position} zoom={player?.avatar_zoom} />;
 }
 
 function metricValue(value, fallback = "0") {
@@ -35,7 +22,6 @@ function metricValue(value, fallback = "0") {
 
 function TransferScoutCard({ entry, active, onSelect }) {
   const { player, badgeType, days_left } = entry;
-  const ovr = Number(player.overall_rating || 0);
 
   return (
     <button
@@ -53,7 +39,7 @@ function TransferScoutCard({ entry, active, onSelect }) {
       <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_12%,rgba(0,229,255,0.16),transparent_34%),radial-gradient(circle_at_85%_88%,rgba(245,197,66,0.10),transparent_38%)] opacity-80" />
       <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-200/55 to-transparent" />
 
-      <PlayerPortrait player={player} className="relative h-[70px] w-14" />
+      <PlayerPortrait player={player} className="relative h-14 w-14" />
 
       <div className="relative min-w-0 self-center">
         <div className="mb-1 flex min-w-0 items-center gap-1.5">
@@ -73,10 +59,7 @@ function TransferScoutCard({ entry, active, onSelect }) {
       </div>
 
       <div className="relative flex flex-col items-end justify-between">
-        <div className="border border-[#f5c542]/40 bg-[#f5c542] px-2 py-1.5 text-center text-black shadow-[0_0_28px_-14px_rgba(245,197,66,0.9)]">
-          <p className="text-[8px] font-black uppercase leading-none">OVR</p>
-          <p className="font-heading text-lg font-black leading-none">{ovr || "-"}</p>
-        </div>
+        <CardLevelBadge playerId={player?.id} />
         <div className="text-right leading-none">
           <p className="text-[8px] uppercase tracking-[0.14em] text-white/35">Form</p>
           <p className="font-heading text-xs font-black text-white">{metricValue(player.avg_match_rating, "0.0")}</p>
@@ -235,10 +218,7 @@ export default function TransferScoutBoard({
                 {player.gamertag || "Unknown"}
               </h2>
             </div>
-            <div className="min-w-0 self-start border border-[#f5c542]/45 bg-[#f5c542] p-2.5 text-center text-black">
-              <p className="text-[9px] font-black uppercase leading-none">OVR</p>
-              <p className="font-heading text-2xl font-black leading-none">{player.overall_rating || "-"}</p>
-            </div>
+            <CardLevelBadge playerId={player?.id} />
           </div>
         </div>
 

@@ -5,6 +5,7 @@ function isLifecycleOwnedContractType(type) {
 }
 
 function assertContractCanBeDeleted(contract) {
+  if(contract?.compensation_policy_version)throw Object.assign(new Error('Paid agreement evidence cannot be deleted; use a controlled agreement action'),{status:409});
   if (!isLifecycleOwnedContractType(contract?.contract_type || contract?.type)) return;
   const err = new Error('Founder and president contracts cannot be deleted');
   err.status = 403;

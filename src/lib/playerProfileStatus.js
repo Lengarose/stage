@@ -69,7 +69,7 @@ export function getPlayerManagementBadges({ player, club, memberships = [], cont
     });
   }
   if (isCanonicalPresident || presidentMembership) {
-    badges.push({ id: "president", label: "President", tone: "cyan", clubId: club.id, clubName: club.name || "" });
+    badges.push({ id: "president", label: "Manager", tone: "cyan", clubId: club.id, clubName: club.name || "" });
   } else if (isLegacyOwner) {
     badges.push({ id: "owner", label: "Owner", tone: "slate", clubId: club.id, clubName: club.name || "" });
   }

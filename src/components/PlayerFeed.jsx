@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { useState, useEffect, useRef, useId} from "react";
 import { stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
@@ -137,9 +138,9 @@ export default function PlayerFeed({ currentUser, player, isOwner }) {
       {isOwner && (
         <div className="bg-card border border-border rounded-none p-5 space-y-3">
           <div className="flex items-start gap-3">
-            <div className="w-9 h-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 overflow-hidden">
+            <div className="identity-avatar-shell w-9 h-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 overflow-hidden">
               {player?.avatar_url
-                ? <img src={player.avatar_url} className="w-full h-full object-cover" alt="" />
+                ? <IdentityAvatar src={player.avatar_url} className="w-full h-full object-cover" alt=""  zoom={player?.avatar_zoom}  position={player?.avatar_position} />
                 : <span className="text-primary leading-relaxed font-bold text-sm">{(player?.gamertag || "?")[0].toUpperCase()}</span>
               }
             </div>

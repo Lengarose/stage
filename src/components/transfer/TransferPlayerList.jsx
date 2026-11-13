@@ -1,3 +1,5 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
+import { CardLevelBadge } from "@/components/card/CardProgression";
 import { cn } from "@/lib/utils";
 import { Shield, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -36,9 +38,9 @@ export default function TransferPlayerList({ players, selectedId, onSelect, canM
             )}
           >
             <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/35 to-transparent" />
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden border border-white/10 bg-[#071018]">
+            <div className="identity-avatar-shell flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden border border-white/10 bg-[#071018]">
               {player.avatar_url
-                ? <img src={player.avatar_url} alt={player.gamertag} className="h-full w-full object-cover" style={{ objectPosition: player.avatar_position || "50% 50%" }} />
+                ? <IdentityAvatar src={player.avatar_url} alt={player.gamertag} className="h-full w-full object-cover" style={{ objectPosition: player.avatar_position || "50% 50%" }}  zoom={player?.avatar_zoom} />
                 : <span className="font-heading text-sm font-black text-[#f5c542]">{(player.gamertag || "?")[0].toUpperCase()}</span>}
             </div>
 
@@ -55,11 +57,7 @@ export default function TransferPlayerList({ players, selectedId, onSelect, canM
                     {[player.position, player.secondary_position].filter(Boolean).join(" / ")}
                   </span>
                 )}
-                {player.overall_rating && (
-                  <span className="text-[11px] font-medium text-white/50">
-                    {t("commonPages.ovr")} {player.overall_rating}
-                  </span>
-                )}
+                <CardLevelBadge playerId={player?.id} />
                 {player.platform && (
                   <span className="hidden text-[11px] text-white/40 sm:inline">
                     {player.platform}

@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { useState } from "react";
 import AdminStadiumPanel from "@/components/admin/economy/AdminStadiumPanel";
 import PresidentTransferDialog from "@/components/admin/PresidentTransferDialog";
@@ -65,8 +66,8 @@ export default function ClubsTab({
             const presidentContactEmail = getClubPresidentContactEmail({ club: c }) || "-";
             return (
               <div key={c.id} className="bg-card border border-border rounded p-4 flex items-center gap-4">
-                <div className="w-9 h-9 rounded-full bg-secondary border border-border flex items-center justify-center shrink-0 overflow-hidden">
-                  {c.logo_url ? <img src={c.logo_url} alt={c.name} className="w-full h-full object-cover" /> : <Shield className="w-4 h-4 text-primary" />}
+                <div className="identity-avatar-shell w-9 h-9 rounded-full bg-secondary border border-border flex items-center justify-center shrink-0 overflow-hidden">
+                  {c.logo_url ? <IdentityAvatar src={c.logo_url} alt={c.name} className="w-full h-full object-cover"  zoom={c?.logo_zoom}  position={c?.logo_position} /> : <Shield className="w-4 h-4 text-primary" />}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-foreground truncate">{c.name} <span className="text-muted-foreground text-xs">[{c.tag}]</span></p>

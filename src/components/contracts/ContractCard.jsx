@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { cn } from "@/lib/utils";
 import { CONTRACT_TYPES, getContractProgress } from "@/lib/contractTypes";
 import { canRenegotiateFounderPlayerContract, isLifecycleOwnedContract } from "@/lib/lifecycleOwnedContracts";
@@ -72,9 +73,9 @@ export default function ContractCard({ contract: rawContract, player, canManage,
 
       <div className="flex items-start gap-3">
         {/* Player avatar */}
-        <div className="w-10 h-10 bg-secondary border border-border flex items-center justify-center shrink-0 overflow-hidden">
+        <div className="identity-avatar-shell w-10 h-10 bg-secondary border border-border flex items-center justify-center shrink-0 overflow-hidden">
           {player?.avatar_url
-            ? <img src={player.avatar_url} alt={player.gamertag} className="w-full h-full object-cover" />
+            ? <IdentityAvatar src={player.avatar_url} alt={player.gamertag} className="w-full h-full object-cover"  zoom={player?.avatar_zoom}  position={player?.avatar_position} />
             : <span className="text-xs font-bold text-primary">{(player?.gamertag || "?")[0].toUpperCase()}</span>}
         </div>
 
@@ -84,7 +85,7 @@ export default function ContractCard({ contract: rawContract, player, canManage,
               {player?.gamertag || "Unknown Player"}
             </Link>
             <span className={cn("text-[10px] px-2 py-0.5 border font-semibold uppercase tracking-wider", meta.badge)}>
-              {isOwnershipContract ? <span className="flex items-center gap-1"><Building2 className="w-2.5 h-2.5" /> President</span> : meta.label}
+              {isOwnershipContract ? <span className="flex items-center gap-1"><Building2 className="w-2.5 h-2.5" /> Manager</span> : meta.label}
             </span>
             <span className={cn("text-[10px] px-2 py-0.5 border font-semibold uppercase tracking-wider", STATUS_STYLES[contract.status] || STATUS_STYLES.pending)}>
               {contract.status}

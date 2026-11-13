@@ -1,3 +1,7 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
+import PlayerPhotoFramePicker from "@/components/profile/PlayerPhotoFramePicker";
+import { playerPhotoFrame } from "@/lib/playerPhotoFrame";
+import { CardLevelBadge } from "@/components/card/CardProgression";
 import { useState, useEffect } from "react";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import {
@@ -23,7 +27,7 @@ import PlayerLifestyleTab from "@/components/lifestyle/PlayerLifestyleTab";
 import PlayerCareerSummary from "@/components/profile/PlayerCareerSummary";
 import PlayerTransferHistory from "@/components/profile/PlayerTransferHistory";
 import GamerProfileHero from "@/components/profile/gamer/GamerProfileHero";
-import { GamerHeroAction, GamerProfileShell, GamerSectionCard, GamerStatTile, GamerTabNav } from "@/components/profile/gamer/GamerProfileUI";
+import { GamerHeroAction, GamerPlayerPhotoFrame, GamerProfileShell, GamerSectionCard, GamerStatTile, GamerTabNav } from "@/components/profile/gamer/GamerProfileUI";
 import ProfileEditShell from "@/components/profile/ProfileEditShell";
 import ClubProfileEdit from "@/components/club/ClubProfileEdit";
 import { COUNTRIES } from "../lib/countries";
@@ -89,9 +93,9 @@ export default function Profile({
   const [playerContracts, setPlayerContracts] = useState([]);
   const [clubMemberships, setClubMemberships] = useState([]);
 
+  const [playerSaveError, setPlayerSaveError] = useState("");
   const [playerForm, setPlayerForm] = useState({
-    gamertag: "", position: "CM", secondary_position: "none", platform: "PlayStation",
-    overall_rating: 70, country: "", country_code: "", bio: "", shirt_number: "",
+    avatar_frame: "rectangle", gamertag: "", position: "CM", secondary_position: "none", platform: "PlayStation", country: "", country_code: "", bio: "", shirt_number: "",
   });
 
   const [claimForm, setClaimForm] = useState({
@@ -180,11 +184,11 @@ export default function Profile({
             .then(rows => { if (alive) setIdentityClaims(asObjectArray(rows)); })
             .catch(() => { if (alive) setIdentityClaims([]); });
           setPlayerForm({
+            avatar_frame: playerPhotoFrame(p.avatar_frame),
             gamertag: p.gamertag || "",
             position: p.position || "CM",
             secondary_position: p.secondary_position || "none",
             platform: p.platform || "PlayStation",
-            overall_rating: p.overall_rating || 70,
             country: p.country || "",
             country_code: p.country_code || "",
             bio: p.bio || "",
@@ -251,6 +255,8 @@ export default function Profile({
 
   async function savePlayer() {
     setSaving(true);
+    setPlayerSaveError("");
+    try {
     const formToSave = {
       ...playerForm,
       secondary_position: playerForm.secondary_position === "none" ? null : playerForm.secondary_position,
@@ -277,8 +283,12 @@ export default function Profile({
         secondary_position: created?.secondary_position || "none",
       }));
     }
-    setSaving(false);
     setView("profile");
+    } catch (error) {
+      setPlayerSaveError(error?.message || "Your profile could not be saved. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function submitIdentityClaim() {
@@ -467,7 +477,7 @@ export default function Profile({
                 <div className="pt-2 space-y-4">
                   <GamerSectionCard title="Command Overview" className="border-cyan-300/20">
                     <div className="grid gap-3 sm:grid-cols-4">
-                      <GamerStatTile label="OVR" value={Math.round(Number(player?.overall_rating || 70))} accent="gold" sub={player?.position || "Position"} shape="rounded" tinted />
+                      <CardLevelBadge playerId={player?.id} />
                       <GamerStatTile label="Club" value={signedClub?.tag || signedClub?.name || "Free"} accent="cyan" sub={signedClub ? "Signed" : "Agent"} shape="rounded" tinted />
                       <GamerStatTile label="Career" value={career?.club_career?.games || career?.player_career?.games || 0} accent="green" sub="Matches" shape="rounded" tinted />
                       <GamerStatTile label="Next" value={upcomingMatches.length || 0} accent="sky" sub="Fixtures" shape="rounded" tinted />
@@ -532,10 +542,7 @@ export default function Profile({
             <DialogContent className="bg-[#0d1225] border-white/10 max-w-sm p-4">
               <DialogHeader><DialogTitle className="text-white">{player?.gamertag}</DialogTitle></DialogHeader>
               <div className="flex flex-col items-center gap-3">
-                <div
-                  className="w-48 h-48 rounded-full overflow-hidden border-2 border-white/20"
-                  style={{ backgroundImage: `url(${player.avatar_url})`, backgroundSize: player.avatar_zoom ? `${player.avatar_zoom}%` : "cover", backgroundPosition: player.avatar_position || "50% 50%" }}
-                />
+                <GamerPlayerPhotoFrame player={player} className="!w-48 sm:!w-48" />
                 <Button size="sm" variant="outline" onClick={() => { setAvatarLightboxOpen(false); setAvatarEditorOpen(true); }} className="gap-1.5 border-white/20 text-white hover:bg-white/10 bg-transparent">
                   <Move className="w-3.5 h-3.5" /> {t("commonPages.profRepositionPhoto")}
                 </Button>
@@ -691,10 +698,7 @@ export default function Profile({
             </Select>
             {!playerForm.country && <p className="text-[11px] text-destructive mt-1">{t("commonPages.profCountryRequired")}</p>}
           </div>
-          <div>
-            <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.profOverallRating")}</label>
-            <Input type="number" min={1} max={99} value={playerForm.overall_rating} onChange={e => setPlayerForm(f => ({ ...f, overall_rating: parseInt(e.target.value) || 70 }))} className="bg-secondary border-border" />
-          </div>
+
           <div>
             <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.profShirtNumber")}</label>
             <Input
@@ -713,6 +717,7 @@ export default function Profile({
             <Input value={user?.email || ""} disabled className="bg-secondary border-border opacity-50" />
           </div>
         </div>
+        {!player && <PlayerPhotoFramePicker value={playerForm.avatar_frame} onChange={value => setPlayerForm(previous => ({ ...previous, avatar_frame: value }))} disabled={saving} />}
         <div>
           <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("commonPages.bio")}</label>
           <Textarea value={playerForm.bio} onChange={e => setPlayerForm(f => ({ ...f, bio: e.target.value }))} className="bg-secondary border-border resize-none" rows={3} placeholder={t("commonPages.profBioPlaceholder")} />
@@ -750,7 +755,8 @@ export default function Profile({
         bannerUrl={player.banner_url}
         bannerPosition={player.banner_position}
         bannerZoom={player.banner_zoom}
-        photoPreviewPlayer={player}
+        photoPreviewPlayer={{ ...player, avatar_frame: playerForm.avatar_frame }}
+        photoControls={<PlayerPhotoFramePicker value={playerForm.avatar_frame} onChange={value => setPlayerForm(previous => ({ ...previous, avatar_frame: value }))} disabled={saving} />}
         bannerPreview={{ name: player.gamertag || user?.full_name, subtitle: player.position, avatarUrl: player.avatar_url, type: "player" }}
         onPhotoChange={async ({ url, position, zoom }) => {
           await stageClient.entities.Player.update(player.id, { avatar_url: url, avatar_position: position, avatar_zoom: zoom || 150 });
@@ -765,9 +771,12 @@ export default function Profile({
           }
         }}
         footer={(
+          <div className="space-y-3">
+          {playerSaveError && <p role="alert" className="text-sm text-destructive">{playerSaveError}</p>}
           <Button onClick={savePlayer} disabled={saving || !playerForm.gamertag || !playerForm.country} className="bg-primary text-primary-foreground">
             <Save className="w-4 h-4 mr-2" /> {saving ? t("commonPages.profSaving") : t("commonPages.profSaveChanges")}
           </Button>
+          </div>
         )}
       >
         {playerInfoForm}
@@ -790,9 +799,9 @@ export default function Profile({
           <div className="space-y-4">
             <div className="bg-card border border-border rounded-2xl p-6 space-y-5">
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden shrink-0">
+                <div className="identity-avatar-shell w-16 h-16 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden shrink-0">
                   {myClub.logo_url
-                    ? <img src={myClub.logo_url} alt={myClub.name} className="w-full h-full object-cover" />
+                    ? <IdentityAvatar src={myClub.logo_url} alt={myClub.name} className="w-full h-full object-cover"  zoom={myClub?.logo_zoom}  position={myClub?.logo_position} />
                     : <Shield className="w-8 h-8 text-primary" />
                   }
                 </div>

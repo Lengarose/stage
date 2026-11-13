@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Home, Shield, Trophy, BarChart3, User, ArrowLeftRight,
@@ -354,7 +355,7 @@ const MOBILE_WALKTHROUGHS = [
     title: "Tournament clubs",
     steps: [
       "Review registered clubs and tournament teams here.",
-      "Open club profiles to inspect squad, president and tournament context.",
+      "Open club profiles to inspect squad, manager and tournament context.",
       "Use this page before matches to understand opponents and participants.",
     ],
   },
@@ -384,7 +385,7 @@ const MOBILE_WALKTHROUGHS = [
     title: "Club hub",
     steps: [
       "Find clubs, open your club profile, or inspect another team before a match.",
-      "Club presidents manage identity, squad, finance and operations from the club detail page.",
+      "Club managers manage identity, squad, finance and operations from the club detail page.",
       "Players can use club pages to understand rosters, activity and recruitment fit.",
     ],
   },
@@ -414,7 +415,7 @@ const MOBILE_WALKTHROUGHS = [
     title: "Tournaments",
     steps: [
       "Browse available tournaments and open one to inspect rules, teams and schedule.",
-      "Admins and eligible club presidents can create or manage tournaments from tournament controls.",
+      "Admins and eligible club managers can create or manage tournaments from tournament controls.",
       "Players should check registration status and deadlines before match day starts.",
     ],
   },
@@ -454,18 +455,18 @@ const MOBILE_WALKTHROUGHS = [
     title: "Players",
     steps: [
       "Search the player pool and open profiles to inspect stats, role and activity.",
-      "Club presidents can use this page as a scouting starting point.",
+      "Club managers can use this page as a scouting starting point.",
       "Players can compare themselves and discover potential teammates or rivals.",
     ],
   },
   {
     path: "/presidents-list",
-    label: "Presidents",
-    title: "Presidents",
+    label: "Managers",
+    title: "Managers",
     steps: [
-      "Browse club presidents and open their public profiles.",
+      "Browse club managers and open their public profiles.",
       "Check success level, management style and the club they run.",
-      "Use this directory to discover presidents separately from the player list.",
+      "Use this directory to discover managers separately from the player list.",
     ],
   },
   {
@@ -484,8 +485,8 @@ const MOBILE_WALKTHROUGHS = [
     title: "Scouting",
     steps: [
       "File a report on any player your club should look at, backed by video links.",
-      "The squad can vote on a report once the president opens a vote — it's advisory.",
-      "The president decides: send a contract offer from the report, or shelve it.",
+      "The squad can vote on a report once the manager opens a vote — it's advisory.",
+      "The manager decides: send a contract offer from the report, or shelve it.",
     ],
   },
   {
@@ -864,19 +865,6 @@ function HeaderIdentityMenu({
 
   if (!myPlayer && !canUseClubIdentity) return null;
 
-  const avatarPx = 36;
-  const avatarRing = {
-    width: avatarPx,
-    height: avatarPx,
-    outline: "1.5px solid rgba(150,214,255,0.45)",
-    outlineOffset: 1,
-    borderRadius: "9999px",
-  };
-
-  const clubLogoFallback =
-    myClub &&
-    `https://ui-avatars.com/api/?name=${encodeURIComponent(myClub.tag || myClub.name || "?")}&background=1a1a2e&color=fff&size=128&bold=true&font-size=0.4`;
-
   const primaryLine =
     showAsPresident && myClub ? myClub.name : myPlayer?.gamertag || myClub?.name || "";
 
@@ -886,38 +874,19 @@ function HeaderIdentityMenu({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button type="button" className="flex shrink-0 items-center gap-2.5 text-left outline-none transition-opacity hover:opacity-95" style={{ maxWidth: 280 }}>
-          {showAsPresident && myClub ? (
-            <div className="shrink-0 overflow-hidden rounded-full bg-white/10" style={avatarRing}>
-              <img
-                src={myClub.logo_url || clubLogoFallback}
-                alt=""
-                className="h-full w-full object-cover"
-                style={{ objectPosition: myClub.logo_position || "50% 50%" }}
-              />
-            </div>
-          ) : (
-            <div
-              className="shrink-0 rounded-full bg-white/10"
-              style={{
-                ...avatarRing,
-                ...(myPlayer?.avatar_url
-                  ? {
-                      backgroundImage: `url(${myPlayer.avatar_url})`,
-                      backgroundSize: `${myPlayer.avatar_zoom || 150}%`,
-                      backgroundPosition: myPlayer.avatar_position || "50% 50%",
-                      backgroundRepeat: "no-repeat",
-                    }
-                  : {}),
-              }}
-            />
-          )}
+          <IdentityAvatar
+            src={showAsPresident ? myClub?.logo_url : myPlayer?.avatar_url}
+            name={showAsPresident ? myClub?.name : myPlayer?.gamertag}
+            className="h-9 w-9"
+            position={showAsPresident ? myClub?.logo_position : myPlayer?.avatar_position}
+            zoom={showAsPresident ? myClub?.logo_zoom : myPlayer?.avatar_zoom} />
           <div className="min-w-0 flex-1">
             <p className={cn("truncate", isWhiteTheme ? "text-slate-900" : "text-white")} style={{ ...headingFont, fontWeight: 600, fontSize: 14, letterSpacing: "0.1em", textTransform: "uppercase" }}>
               {primaryLine}
             </p>
             <div className="mt-0.5 flex items-center gap-1.5 flex-wrap">
               {showAsPresident && myClub ? (
-                <span style={subLabelStyle}>{myClub.tag ? `[${myClub.tag}]` : "President"}</span>
+                <span style={subLabelStyle}>{myClub.tag ? `[${myClub.tag}]` : "Manager"}</span>
               ) : (
                 subscriptionTier === "stage_plus" && myPlayer ? (
                   <StagePlusMark isWhiteTheme={isWhiteTheme} />
@@ -989,7 +958,7 @@ const MOBILE_MORE_GROUPS_PLAYER = [
     label: "Club",
     items: [
       { path: "/players-list",    icon: UsersRound,    label: "Players"       },
-      { path: "/presidents-list", icon: Crown,         label: "Presidents"    },
+      { path: "/presidents-list", icon: Crown,         label: "Managers"    },
       { path: "/free-agents",     icon: UsersRound,    label: "Free Agents"   },
       { path: "/scouting",        icon: Binoculars,     label: "Scouting"    },
       { path: "/transfer-market", icon: ArrowLeftRight, label: "Transfer Room"   },
@@ -1031,7 +1000,7 @@ function getMobileMoreGroupsPresident(clubPath) {
       items: [
         { path: clubPath || "/clubs", icon: Shield,      label: "My Club" },
         { path: "/players-list",    icon: UsersRound,    label: "Squad"       },
-        { path: "/presidents-list", icon: Crown,         label: "Presidents"  },
+        { path: "/presidents-list", icon: Crown,         label: "Managers"  },
         { path: "/scouting",        icon: Binoculars,     label: "Scouting"    },
         { path: "/transfer-market", icon: ArrowLeftRight, label: "Transfer Room"   },
         { path: "/contracts/create", icon: Handshake,     label: "Contracts"   },
@@ -1841,44 +1810,18 @@ function MobileThemeButton({ theme, setTheme }) {
 
 function MobileHeaderIdentity({ myPlayer, myClub, presidentClub, accountMode }) {
   const showAsPresident = accountMode === "club" && Boolean(presidentClub?.id);
-  const displayClub = showAsPresident ? presidentClub : myClub;
-  const clubLogoFallback =
-    displayClub &&
-    `https://ui-avatars.com/api/?name=${encodeURIComponent(displayClub.tag || displayClub.name || "?")}&background=1a1a2e&color=fff&size=128&bold=true&font-size=0.4`;
-
   const displayName =
     showAsPresident && presidentClub
       ? presidentClub.name
       : myPlayer?.gamertag || myClub?.name || "Player";
 
-  const showPlayerAvatarBg = !showAsPresident && Boolean(myPlayer?.avatar_url);
-
   const identityButton = (
     <div className="flex items-center gap-2.5 min-w-0 text-left">
-      <div
-        className="w-9 h-9 rounded-full flex items-center justify-center overflow-hidden border shrink-0"
-        style={{
-          border: "1.5px solid rgba(255,255,255,0.22)",
-          backgroundColor: "rgba(255,255,255,0.12)",
-          ...(showPlayerAvatarBg && {
-            backgroundImage: `url(${myPlayer.avatar_url})`,
-            backgroundSize: `${myPlayer?.avatar_zoom || 150}%`,
-            backgroundPosition: myPlayer?.avatar_position || "50% 50%",
-            backgroundRepeat: "no-repeat",
-          }),
-        }}
-      >
-        {showAsPresident && presidentClub ? (
-          <img
-            src={presidentClub.logo_url || clubLogoFallback}
-            alt=""
-            className="h-full w-full object-cover"
-            style={{ objectPosition: presidentClub.logo_position || "50% 50%" }}
-          />
-        ) : (
-          !myPlayer?.avatar_url && <User className="w-4 h-4 text-white/50" />
-        )}
-      </div>
+      <IdentityAvatar
+        src={showAsPresident ? presidentClub?.logo_url : myPlayer?.avatar_url}
+        name={displayName} className="h-9 w-9"
+        position={showAsPresident ? presidentClub?.logo_position : myPlayer?.avatar_position}
+        zoom={showAsPresident ? presidentClub?.logo_zoom : myPlayer?.avatar_zoom} />
       <div className="min-w-0">
         <p
           className="truncate text-white"
@@ -2628,7 +2571,7 @@ export default function Layout() {
       <div className={cn("relative flex flex-1 overflow-hidden", isVideoTheme && "z-[1]")}>
         <main
           className={cn(
-            "relative z-[1] flex-1 overflow-x-clip",
+            "relative z-[1] min-w-0 flex-1 overflow-x-clip",
             isBannerStickyFullBleedRoute(location.pathname)
               || isScheduleFullBleedRoute(location.pathname)
               || isNewsFullBleedRoute(location.pathname)

@@ -33,6 +33,13 @@ router.get('/', async (req, res) => {
   }
 });
 
+router.get('/match-squad/:clubId/:fixtureId', async (req,res)=>{
+  try {
+    await requireClubPermission(req,req.params.clubId,'manage_lineup');
+    res.json(await eligibility.matchSquad(req.params.clubId,req.params.fixtureId));
+  } catch(err) {handleError(res,err);}
+});
+
 router.get('/preparation/:clubId/:fixtureId', async (req,res)=>{
   try {
     await requireClubPermission(req,req.params.clubId,'manage_lineup');

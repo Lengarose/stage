@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -156,11 +157,11 @@ export default function BannerPreviewEditor({
             <div className="bg-card rounded-b-xl px-4 pb-3 border border-t-0 border-border">
               <div className="flex items-end gap-3 -mt-7 mb-2">
                 <div className={cn(
-                  "border-4 border-card bg-secondary flex items-center justify-center overflow-hidden shrink-0 shadow-lg rounded-full",
+                  "identity-avatar-shell border border-white/15 bg-secondary flex items-center justify-center overflow-hidden shrink-0 shadow-lg rounded-full",
                   previewSize === "mobile" ? "w-12 h-12" : "w-16 h-16"
                 )}>
                   {previewData.avatarUrl
-                    ? <img src={previewData.avatarUrl} alt="" className="w-full h-full object-cover" />
+                    ? <IdentityAvatar src={previewData.avatarUrl} alt="" className="w-full h-full" />
                     : previewData.type === "club"
                       ? <Shield className="w-6 h-6 text-primary" />
                       : <User className="w-6 h-6 text-muted-foreground" />

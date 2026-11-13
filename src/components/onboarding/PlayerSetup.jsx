@@ -2,6 +2,8 @@ import { useState, useRef, useId } from "react";
 import { stageClient } from "@/api/stageClient";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Camera } from "lucide-react";
+import PlayerPhotoFramePicker from "@/components/profile/PlayerPhotoFramePicker";
+import { playerPhotoFrame, playerPhotoFrameStyle } from "@/lib/playerPhotoFrame";
 import ImagePositionEditor from "@/components/ImagePositionEditor";
 import { GamerPlayerPhotoFrame } from "@/components/profile/gamer/GamerProfileUI";
 import { COUNTRIES } from "@/lib/countries";
@@ -21,6 +23,7 @@ export default function PlayerSetup({ onComplete, user, initialPlayer = null, in
   const [position, setPosition] = useState(initialPlayer?.position || "ST");
   const [secondaryPosition, setSecondaryPosition] = useState(initialPlayer?.secondary_position || "none");
   const [country, setCountry] = useState(initialPlayer?.country || "");
+  const [avatarFrame, setAvatarFrame] = useState(playerPhotoFrame(initialPlayer?.avatar_frame));
   const [avatarUrl, setAvatarUrl] = useState(initialPlayer?.avatar_url || null);
   const [avatarPosition, setAvatarPosition] = useState(initialPlayer?.avatar_position || "50% 50%");
   const [avatarZoom, setAvatarZoom] = useState(Number(initialPlayer?.avatar_zoom) || 150);
@@ -75,6 +78,7 @@ export default function PlayerSetup({ onComplete, user, initialPlayer = null, in
         country,
         country_code: foundCountry?.code || "",
         avatar_url: avatarUrl || undefined,
+        avatar_frame: avatarFrame,
         avatar_position: avatarPosition,
         avatar_zoom: avatarZoom,
         platform: "PlayStation",
@@ -128,8 +132,8 @@ export default function PlayerSetup({ onComplete, user, initialPlayer = null, in
   }
 
   const previewPlayer = {
+    avatar_frame: avatarFrame,
     position,
-    overall_rating: initialPlayer?.overall_rating ?? 0,
     shirt_number: initialPlayer?.shirt_number ?? 6,
   };
   const continueLabel = intent === "both"
@@ -138,6 +142,7 @@ export default function PlayerSetup({ onComplete, user, initialPlayer = null, in
 
   return (
     <div className="space-y-5">
+      <p className="border border-white/15 p-3 text-xs text-white/65">{t("commonPages.boardSignupCard", "Your STAGE Card starts at Level 1 with 0 XP. Confirmed official match participation earns XP; your EA rating is separate.")}</p>
       <div>
         <h2 className="text-xl font-black uppercase tracking-wide text-white mb-1">{t("commonPages.obCreateProfile")}</h2>
         <p className="text-white/40 text-xs">{t("commonPages.obTellWorld")}</p>
@@ -157,12 +162,13 @@ export default function PlayerSetup({ onComplete, user, initialPlayer = null, in
           <label
             htmlFor={avatarInputId}
             className={cn(
-              "absolute inset-0 z-10 bg-black/55 flex items-center justify-center cursor-pointer transition-opacity touch-manipulation [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)]",
+              "absolute inset-0 z-10 bg-black/55 flex items-center justify-center cursor-pointer transition-opacity touch-manipulation",
               uploading && "pointer-events-none opacity-60",
               avatarUrl
                 ? "opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
                 : "opacity-100"
             )}
+            style={playerPhotoFrameStyle(avatarFrame)}
             title={t("commonPages.profUploadPhoto")}
           >
             <span className="p-2.5 rounded-lg bg-white/15 active:bg-white/25 transition-colors">
@@ -230,6 +236,7 @@ export default function PlayerSetup({ onComplete, user, initialPlayer = null, in
         </div>
       </div>
 
+      <PlayerPhotoFramePicker value={avatarFrame} onChange={setAvatarFrame} disabled={saving} />
       {error && (
         <p className="text-red-400 text-xs bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
           {error}

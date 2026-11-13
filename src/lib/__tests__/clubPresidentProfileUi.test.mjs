@@ -68,7 +68,7 @@ test("president onboarding uses the same ImagePositionEditor photo UX as players
   assert.match(presidentSetup, /ImagePositionEditor/);
   assert.match(presidentSetup, /GamerPlayerPhotoFrame/);
   assert.match(presidentSetup, /aspect="card"/);
-  assert.match(presidentSetup, /president-avatar\.jpg/);
+  assert.match(presidentSetup, /manager-avatar\.jpg/);
   assert.match(presidentSetup, /avatar_position/);
   assert.match(presidentSetup, /avatar_zoom/);
   assert.match(playerSetup, /ImagePositionEditor/);
@@ -90,7 +90,7 @@ test("club detail prefers canonical president Player identity", () => {
   assert.doesNotMatch(detail, /PresidentProfileCard/);
   assert.doesNotMatch(detail, /View president profile/);
   assert.match(hero, /infoAside/);
-  assert.match(detail, /president\?\.avatar_url|president\.avatar_url/);
+  assert.match(detail, /president\?\.gamertag/);
   assert.match(app, /path="\/presidents\/:id"/);
   assert.match(app, /PresidentLegacyRedirect/);
   assert.doesNotMatch(app, /pages\/PresidentProfile/);
@@ -110,9 +110,8 @@ test("public president identity is the player profile, not a President page", ()
   assert.match(shell, /profChangeBanner/);
   assert.match(clubEdit, /ProfileEditShell/);
   assert.match(clubEdit, /entities\.Club\.update/);
-  assert.match(layout, /presMyClubMenu/);
-  assert.match(layout, /playerProfileMenu/);
-  assert.match(layout, /accountProfilesLabel/);
+  assert.match(layout, /IdentityLogoutItem/);
+  assert.match(layout, /label: t\("nav.myClub"\)/);
   assert.doesNotMatch(layout, /\/presidents\/\$\{/, "Layout should not route normal identity menus to legacy President profiles");
 });
 

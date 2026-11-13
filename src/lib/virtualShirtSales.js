@@ -21,7 +21,7 @@ function highestTier(purchases) {
 }
 
 function computeSalesCount(stat, player, isMotm, lifestyleTier, hasActiveContract) {
-  const ovr = player.overall_rating || 70;
+  const ovr = 70; // Historical baseline; self-reported ratings are not economic evidence.
   // OVR 70 → ~0.7, OVR 80 → 1.4, OVR 90 → 2.1, OVR 99 → 2.8
   const base = Math.max(0.3, (ovr - 65) / 7);
 

@@ -57,6 +57,11 @@ test('Cup HTTP catalogue, preparation and shared trophy actions are protected an
   const configured=await call('',{...request,apply:true,expected_revision:p.data.revision,reason:'Reviewed Cup'});assert.equal(configured.status,200);const id=configured.data.record.id;
   assert.equal((await call(`/${id}/trophy`)).data.state,'assigned');assert.equal((await call(`/${id}/trophy`,{trophy_item_id:'trophy',revision:'stale',reason:'Review'})).status,409);assert.equal((await call(`/${id}/trophy`,{trophy_item_id:'trophy',revision:'art-v1',reason:'Review'})).status,200);
   const preview=await call('',{action:'prepare',cup_id:id,source_calendar_id:'calendar'});assert.equal(preview.status,200);assert.equal(preview.data.record.participant_ids.length,20);
+  for(const region of Object.keys(cup.policy.names).filter(r=>r!=='uk-ireland'))f.state.editions.push({id:`original-${region}`,region_slug:region,division:1,season_number:1,platform:'Cross-Platform',slug:`${region}-div-1`,status:'registration'});
+  f.state.editions.push({...f.state.editions[0],id:'uk-duplicate',season_number:2,slug:'uk-ireland-div-1-s2',status:'cancelled'});
+  f.state.editions.push({...f.state.editions.find(r=>r.region_slug==='north-america'),id:'na-duplicate',slug:'north-america-div-1-s2'});
+  const listed=await call('');assert.equal(listed.status,200);
+  assert.deepEqual(listed.data.trophy_sources.map(r=>r.name).sort(),Object.values(cup.policy.names).sort());
  } finally {if(server)await new Promise(resolve=>server.close(resolve));if(saved)require.cache[path]=saved;else delete require.cache[path];}
 });
 
@@ -92,6 +97,27 @@ test('trophy targets include an approved regional Cup before configuration witho
  assert.deepEqual(result.definitions,[]);assert.deepEqual(f.state,before);
 });
 
+test('all six Cup trophy targets remain available when UK and North America have duplicate test league editions',async()=>{
+ const f=fixture();
+ f.state.editions=Object.keys(cup.policy.names).map(region=>({id:`original-${region}`,region_slug:region,division:1,season_number:1,platform:'Cross-Platform',slug:`${region}-div-1`,status:'registration'}));
+ f.state.editions.push({...f.state.editions.find(r=>r.region_slug==='uk-ireland'),id:'46dbb09f-8319-4607-ab97-ec941745bfd8',slug:'uk-ireland-div-1-s2',season_number:2,status:'cancelled'});
+ f.state.editions.push({...f.state.editions.find(r=>r.region_slug==='north-america'),id:'e582c55b-1e72-45f5-ab63-137c3420404a',slug:'north-america-div-1-s2'});
+ const before=structuredClone(f.state),result=await f.service.catalogue({id:'admin'});
+ assert.deepEqual(result.trophy_sources.map(r=>r.name).sort(),Object.values(cup.policy.names).sort());
+ assert.equal(new Set(result.trophy_sources.map(r=>r.id)).size,6);
+ assert.deepEqual(f.state,before,'listing targets must not create Cups, rewards, fixtures or payments');
+ const {ensureTrophySource,stableId}=require('../regionalCupSources');
+ const model={records:async()=>structuredClone(f.state.records),editions:async()=>structuredClone(f.state.editions),create:async(type,row)=>f.state.records.push({...row,entity_type:type})};
+ for(const target of result.trophy_sources) {
+   assert.equal(target.id,stableId(['regional_cup',target.region_slug,'cross-platform']));
+   const saved=await ensureTrophySource(target.id,model,null,{id:'admin'});
+   assert.equal(saved.id,target.id);assert.equal(saved.name,target.name);
+   await ensureTrophySource(target.id,model,null,{id:'admin'});
+ }
+ assert.equal(f.state.records.filter(r=>r.entity_type==='regional_cup').length,6);
+ assert.equal(f.state.records.filter(r=>r.entity_type==='regional_cup_edition').length,0);
+});
+
 test('linking materializes the same permanent Cup once, without an edition, and rejects unknown targets',async()=>{
  const {ensureTrophySource,trophySources}=require('../regionalCupSources'),f=fixture();
  const model={records:async()=>structuredClone(f.state.records),editions:async()=>structuredClone(f.state.editions),create:async(type,row,user,reason)=>{f.state.records.push({...row,entity_type:type});f.state.audits.push({type,user,reason});}};
@@ -104,11 +130,11 @@ test('linking materializes the same permanent Cup once, without an edition, and 
  assert.deepEqual((await f.service.catalogue({id:'admin'})).editions,[]);
 });
 
-test('Cup trophy targets normalize platforms, deduplicate seasons and exclude ambiguous regional systems',()=>{
+test('Cup trophy targets normalize platforms and deduplicate regional systems independently of season conflicts',()=>{
  const {trophySources}=require('../regionalCupSources'),f=fixture(),root=f.state.editions[0];
  const next={...root,id:'next-season',permanent_league_id:root.id,season_number:2,status:'draft',slug:'uk-ireland-div-1-s2'};
  assert.equal(trophySources([{...root,status:'completed'},next],[]).length,1);
- assert.equal(trophySources([root,{...root,id:'duplicate'}],[]).length,0);
+ assert.equal(trophySources([root,{...root,id:'duplicate'}],[]).length,1);
  assert.equal(trophySources([{...root,retired:true}],[]).length,0);
  assert.equal(trophySources([{...root,platform:'Cross-Platform'}],[])[0].id,trophySources([root],[])[0].id);
 });

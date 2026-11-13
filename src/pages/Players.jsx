@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { useState, useEffect } from "react";
 import { stageClient } from "@/api/stageClient";
 import { Link } from "react-router-dom";
@@ -165,16 +166,16 @@ export default function Players({ tournamentId } = {}) {
                     <div className="relative z-10 flex items-center gap-4 px-7 py-4 sm:px-8">
                       {/* Avatar */}
                       <div
-                        className="h-11 w-11 shrink-0 overflow-hidden border-2 border-white/15 bg-black/40 transition-colors group-hover:border-white/30"
+                        className="identity-avatar-shell h-11 w-11 shrink-0 overflow-hidden border-2 border-white/15 bg-black/40 transition-colors group-hover:border-white/30"
                         style={{ clipPath: "polygon(14% 0, 100% 0, 86% 100%, 0 100%)" }}
                       >
                         {player.avatar_url ? (
-                          <img
+                          <IdentityAvatar
                             src={player.avatar_url}
                             alt={player.gamertag}
                             className="w-full h-full object-cover"
                             style={{ objectPosition: player.avatar_position || "50% 50%" }}
-                          />
+                           zoom={player?.avatar_zoom} />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-white/40 font-black text-base">
                             {(player.gamertag || "?")[0].toUpperCase()}

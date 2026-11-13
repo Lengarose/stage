@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { Crown, Trophy, Shield } from "lucide-react";
 import { Link } from "react-router-dom";
 import { PAGE_BANNER_HEIGHT_CLASS } from "@/lib/pageBanner";
@@ -51,7 +52,7 @@ export function GamerPresidentPhotoFrame({
           {president?.display_name || "—"}
         </p>
         <p className="text-[10px] font-bold text-white/50 mt-0.5 truncate">
-          {president?.role_title || "President"}
+          {president?.role_title || "Manager"}
         </p>
       </div>
     </Component>
@@ -65,17 +66,7 @@ function ClubChip({ club, label }) {
       to={`/clubs/${club.id}`}
       className="inline-flex items-center gap-2.5 rounded-full border border-white/15 bg-black/45 backdrop-blur-md px-2.5 py-1.5 hover:bg-black/60 hover:border-amber-300/30 transition-colors max-w-[220px]"
     >
-      <span
-        className="w-8 h-8 rounded-full border border-white/20 bg-[#101827] overflow-hidden shrink-0 flex items-center justify-center"
-        style={club.logo_url ? {
-          backgroundImage: `url(${club.logo_url})`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        } : undefined}
-        aria-hidden
-      >
-        {!club.logo_url ? <Shield className="w-3.5 h-3.5 text-white/40" /> : null}
-      </span>
+      <IdentityAvatar src={club.logo_url} name={club.name} className="h-8 w-8" position={club.logo_position} zoom={club.logo_zoom} />
       <span className="font-heading text-sm font-black uppercase tracking-wide text-white truncate">
         {club.name || label || "Club"}
       </span>
@@ -129,7 +120,7 @@ function GamerPresidentProfileHero({
             <div className="min-w-0 space-y-2">
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="font-heading text-3xl sm:text-4xl md:text-5xl font-black uppercase tracking-tight leading-none">
-                  {president?.display_name || "President"}
+                  {president?.display_name || "Manager"}
                 </h1>
                 {president?.role_title ? (
                   <span className="font-heading text-xl font-black text-amber-400/80 border border-amber-400/25 rounded-lg px-2 py-0.5">
@@ -139,7 +130,7 @@ function GamerPresidentProfileHero({
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <GamerMetaPill><Crown className="w-3 h-3 text-amber-400" />President</GamerMetaPill>
+                <GamerMetaPill><Crown className="w-3 h-3 text-amber-400" />Manager</GamerMetaPill>
                 {successLabel ? (
                   <GamerMetaPill className="border-amber-300/30 text-amber-200">{successLabel}</GamerMetaPill>
                 ) : null}

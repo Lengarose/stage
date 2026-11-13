@@ -9,6 +9,7 @@ import { isPersistableMediaUrl } from "@/lib/mediaUrls";
 import { useTranslation } from "@/hooks/useTranslation";
 import { cn } from "@/lib/utils";
 import { GamerPlayerPhotoFrame } from "@/components/profile/gamer/GamerProfileUI";
+import { playerPhotoFrameStyle } from "@/lib/playerPhotoFrame";
 import { GamerClubPhotoFrame } from "@/components/profile/gamer/GamerClubCard";
 
 /**
@@ -31,6 +32,7 @@ export default function ProfileEditShell({
   photoAspect = "avatar",
   photoPreviewPlayer = null,
   photoPreviewClub = null,
+  photoControls = null,
   onPhotoChange,
   onBannerChange,
   children,
@@ -73,8 +75,8 @@ export default function ProfileEditShell({
   }
 
   const photoFrameCls = photoShape === "rounded"
-    ? "w-20 h-24 rounded-none [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)]"
-    : "w-20 h-20 rounded-none [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)]";
+    ? "w-20 h-24 rounded-none"
+    : "w-20 h-20 rounded-none";
   const usesPlayerFrame = Boolean(photoPreviewPlayer);
   const usesClubFrame = !usesPlayerFrame && Boolean(photoPreviewClub);
 
@@ -117,7 +119,7 @@ export default function ProfileEditShell({
                 imagePosition={photoPosition}
                 imageZoom={photoZoom}
                 winRate={photoPreviewClub?.win_rate || 50}
-                className="w-20 pointer-events-none border-4 border-card shadow-none"
+                className="!w-20 sm:!w-20 pointer-events-none"
               />
             ) : (
               <div
@@ -146,12 +148,14 @@ export default function ProfileEditShell({
             <label
               htmlFor={uploading ? undefined : fileInputId}
               className={cn(
-                "absolute inset-0 z-10 bg-black/50 flex items-center justify-center cursor-pointer touch-manipulation transition-opacity [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)]",
+                "absolute inset-0 z-10 bg-black/50 flex items-center justify-center cursor-pointer touch-manipulation transition-opacity",
+                usesClubFrame && "rounded-full",
                 uploading && "pointer-events-none opacity-60",
                 photoUrl
                   ? "opacity-100 md:opacity-0 md:group-hover:opacity-100"
                   : "opacity-100"
               )}
+              style={usesPlayerFrame ? playerPhotoFrameStyle(photoPreviewPlayer?.avatar_frame) : undefined}
               title={t("commonPages.profUploadPhoto")}
             >
               <span className="p-1.5 rounded-lg bg-white/10">
@@ -179,6 +183,7 @@ export default function ProfileEditShell({
             </Button>
           </div>
         </div>
+        {photoControls}
         {uploadError ? (
           <p className="mt-3 text-xs text-destructive">{uploadError}</p>
         ) : null}

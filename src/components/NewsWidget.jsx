@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { stageClient } from "@/api/stageClient";
@@ -95,10 +96,10 @@ export default function NewsWidget() {
                 <div className="flex items-center justify-between mt-4">
                   <div className="flex items-center gap-2">
                     {featured.club_logo_url && (
-                      <img src={featured.club_logo_url} alt={featured.club_name} className="w-5 h-5 rounded-full object-cover border border-border" />
+                      <IdentityAvatar src={featured.club_logo_url} alt={featured.club_name} className="w-5 h-5 rounded-full object-cover border border-border" />
                     )}
                     {featured.player_avatar_url && !featured.club_logo_url && (
-                      <img src={featured.player_avatar_url} alt={featured.player_name} className="w-5 h-5 rounded-full object-cover border border-border" />
+                      <IdentityAvatar src={featured.player_avatar_url} alt={featured.player_name} className="w-5 h-5 rounded-full object-cover border border-border" />
                     )}
                     <span className="text-xs text-muted-foreground">
                       {featured.club_name || featured.player_name || "STAGE"}

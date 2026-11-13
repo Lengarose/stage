@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { useMemo, useState } from "react";
 import RegionalAdminWorkspace from "@/components/admin/RegionalAdminWorkspace";
 import RegionalLeagueManagementPanel from '@/components/admin/RegionalLeagueManagementPanel';
@@ -809,7 +810,7 @@ export default function LeaguesTab({
                   <div key={reg.id} className="bg-card border border-border rounded p-3">
                     <div className="flex items-center gap-3">
                       {reg.club_logo_url
-                        ? <img src={reg.club_logo_url} alt={reg.club_name} className="w-8 h-8 object-contain rounded shrink-0" />
+                        ? <IdentityAvatar src={reg.club_logo_url} alt={reg.club_name} className="w-8 h-8 object-contain rounded shrink-0" />
                         : <Shield className="w-6 h-6 text-muted-foreground/30 shrink-0" />}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold text-foreground truncate">{reg.club_name}</p>
@@ -1586,7 +1587,7 @@ export default function LeaguesTab({
         {qualEntries.map(e => (
           <div key={e.id} className="bg-card border border-border rounded p-3 flex items-center gap-3">
             {e.club_logo_url
-              ? <img src={e.club_logo_url} alt={e.club_name} className="w-8 h-8 object-contain shrink-0" />
+              ? <IdentityAvatar src={e.club_logo_url} alt={e.club_name} className="w-8 h-8 object-contain shrink-0" />
               : <Shield className="w-6 h-6 text-muted-foreground/30 shrink-0" />}
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold text-foreground truncate">{e.club_name}</p>
@@ -1811,7 +1812,7 @@ export default function LeaguesTab({
                         disabled && "cursor-not-allowed opacity-45"
                       )}>
                       {club.logo_url
-                        ? <img src={club.logo_url} alt="" className="h-9 w-9 shrink-0 object-contain" />
+                        ? <IdentityAvatar src={club.logo_url} alt="" className="h-9 w-9 shrink-0 object-contain"  zoom={club?.logo_zoom}  position={club?.logo_position} />
                         : <Shield className="h-8 w-8 shrink-0 text-muted-foreground/35" />}
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-bold text-foreground">{club.name}</span>
@@ -1970,7 +1971,7 @@ export default function LeaguesTab({
                         className="h-4 w-4 accent-primary"
                       />
                       {club.logo_url || club.avatar_url ? (
-                        <img src={club.logo_url || club.avatar_url} alt="" className="h-8 w-8 shrink-0 rounded object-cover" />
+                        <IdentityAvatar src={club.logo_url || club.avatar_url} alt="" className="h-8 w-8 shrink-0 rounded object-cover" />
                       ) : (
                         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-border bg-background text-[10px] font-bold text-muted-foreground">
                           {(club.tag || club.name || "?").slice(0, 2).toUpperCase()}

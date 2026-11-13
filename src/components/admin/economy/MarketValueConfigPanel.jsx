@@ -52,7 +52,6 @@ export default function MarketValueConfigPanel() {
     { key: "form_boost",                label: "Recent form boost (0–1)",      help: "% boost when recent form beats career avg" },
     { key: "form_penalty",              label: "Recent form penalty (0–1)",    help: "% penalty when recent form below career avg" },
     { key: "win_rate_boost",            label: "Win rate boost (0–1)",         help: "% boost for high win rate (>70%)" },
-    { key: "ovr_weight",                label: "OVR rating weight (0–1)",      help: "How much overall_rating contributes (keep low)" },
     { key: "spike_cap_up",              label: "Max value increase / recalc",  help: "Max % a value can rise per recalculation (e.g. 0.5 = 50%)" },
     { key: "spike_cap_down",            label: "Max value decrease / recalc",  help: "Max % a value can drop per recalculation (e.g. 0.35 = 35%)" },
   ];

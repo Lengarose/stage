@@ -26,20 +26,27 @@ class InboxMessage {
   selectAll(page = 1) {
     const pageSize = 25;
     const offset   = (page - 1) * pageSize;
-    return EXECUTESQL('SELECT * FROM inbox_messages ORDER BY created_date DESC LIMIT ? OFFSET ?', [pageSize, offset]);
+    return EXECUTESQL('SELECT * FROM inbox_messages WHERE deleted_at IS NULL ORDER BY created_date DESC LIMIT ? OFFSET ?', [pageSize, offset]);
   }
 
   selectOne(id) {
-    return EXECUTESQL('SELECT * FROM inbox_messages WHERE id = ?', [id]);
+    return EXECUTESQL('SELECT * FROM inbox_messages WHERE deleted_at IS NULL AND id = ?', [id]);
   }
 
   selectByRecipient(email) {
     return EXECUTESQL(
-      'SELECT * FROM inbox_messages WHERE LOWER(recipient_email) = LOWER(?) ORDER BY created_date DESC',
+      'SELECT * FROM inbox_messages WHERE deleted_at IS NULL AND LOWER(recipient_email) = LOWER(?) ORDER BY created_date DESC',
       [email]
     );
   }
 
+  async markAllRead(email) {
+    return EXECUTESQL('UPDATE inbox_messages SET is_read=1 WHERE LOWER(recipient_email)=LOWER(?) AND deleted_at IS NULL AND COALESCE(is_read,0)=0',[email]);
+  }
+  async conversation(record) {
+    if(!record.related_entity_id)return [record];
+    return EXECUTESQL("SELECT * FROM inbox_messages WHERE deleted_at IS NULL AND LOWER(recipient_email)=LOWER(?) AND COALESCE(sender_email,'')=COALESCE(?,'') AND related_entity_id=? AND COALESCE(related_entity_type,'')=COALESCE(?,'')",[record.recipient_email,record.sender_email,record.related_entity_id,record.related_entity_type]);
+  }
   create() {
     this.id = this.id || uuidv4();
     const sql = `INSERT INTO inbox_messages
@@ -72,7 +79,7 @@ class InboxMessage {
   }
 
   delete(id) {
-    return EXECUTESQL('DELETE FROM inbox_messages WHERE id = ?', [id]);
+    return EXECUTESQL('UPDATE inbox_messages SET deleted_at=NOW(),is_read=1 WHERE deleted_at IS NULL AND id = ?', [id]);
   }
 }
 

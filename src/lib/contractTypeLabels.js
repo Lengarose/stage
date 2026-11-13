@@ -3,13 +3,13 @@ import { FOUNDER_CONTRACT_LABEL, FOUNDER_PLAYER_CONTRACT_LABEL } from './founder
 const CONTRACT_TYPE_LABELS = {
   founder_player: FOUNDER_PLAYER_CONTRACT_LABEL,
   founder: FOUNDER_CONTRACT_LABEL,
-  ownership: "Club President",
+  ownership: "Club Manager",
 };
 
 const CONTRACT_TYPE_SENTENCE_LABELS = {
   founder_player: "founder player",
   founder: "founder",
-  ownership: "president",
+  ownership: "manager",
 };
 
 function readableType(type) {

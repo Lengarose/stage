@@ -26,22 +26,10 @@ test("global header does not duplicate role upgrade prompts from settings", () =
   assert.doesNotMatch(source, /myPlayer\s*&&\s*!myClubId[\s\S]{0,320}to="\/clubs"/);
 });
 
-test("header identity menus route public identities to Player and Club surfaces", () => {
-  const source = readText("src/components/Layout.jsx");
-  const desktopIdentityMenu = source.slice(
-    source.indexOf("function HeaderIdentityMenu"),
-    source.indexOf("function MobileBottomBar")
-  );
-  const mobileIdentityMenu = source.slice(
-    source.indexOf("function MobileHeaderIdentity"),
-    source.indexOf("function MobileAppFooter")
-  );
-
-  assert.match(desktopIdentityMenu, /myPlayer\s*\?\s*\([\s\S]{0,360}<Link\s+to="\/profile"/);
-  assert.match(desktopIdentityMenu, /clubMenuId\s*\?\s*\([\s\S]{0,360}<Link\s+to=\{`\/clubs\/\$\{clubMenuId\}`\}/);
-  assert.match(desktopIdentityMenu, /const clubMenuId = showAsPresident \? myClubId : \(playerClubId \|\| myClubId\)/);
-  assert.doesNotMatch(desktopIdentityMenu, /\/presidents\//);
-  assert.match(mobileIdentityMenu, /myPlayer\s*\?\s*\([\s\S]{0,360}<Link\s+to="\/profile"/);
-  assert.match(mobileIdentityMenu, /presidentClub\?\.id\s*\?\s*\([\s\S]{0,360}<Link\s+to=\{`\/clubs\/\$\{presidentClub\.id\}`\}/);
-  assert.doesNotMatch(mobileIdentityMenu, /\/presidents\//);
+test("identity dropdowns contain Logout while Home owns profile navigation",()=>{
+ const source=readText("src/components/Layout.jsx");
+ const desktop=source.slice(source.indexOf("function HeaderIdentityMenu"),source.indexOf("function getMobilePrimary"));
+ const mobile=source.slice(source.indexOf("function MobileHeaderIdentity"),source.indexOf("function AdminMobileTopBar"));
+ for(const menu of [desktop,mobile]){assert.match(menu,/<IdentityLogoutItem \/>/);assert.doesNotMatch(menu,/<Link to=/);}
+ assert.match(source,/path: "\/profile"/);assert.match(source,/nav.myClub/);
 });

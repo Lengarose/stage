@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { fixtureState, submitEditionLifecycle, managementPreviewReady, loadEditionFixtureCount, loadCycleDrawInventory, adminEndpointError, buildLeagueManagementRequest } from '../adminLeagueLifecycle.js';
+import { fixtureState, submitEditionLifecycle, managementPreviewReady, loadEditionFixtureCount, loadCycleDrawInventory, adminEndpointError, buildLeagueManagementRequest, buildDuplicateLeagueRequest, REGIONAL_DUPLICATE_REPAIRS } from '../adminLeagueLifecycle.js';
 
 function cycleInventoryFixture() {
   const cycle={id:'cycle',status:'allocated',region_slug:'uk-ireland',platform:'cross-platform',season_number:1,reset_series:0,allocated_groups:[{id:'group',permanent_league_id:'root',division:1,group_code:'A'}]};
@@ -80,4 +80,15 @@ test('missing endpoint errors do not report success or trigger a legacy mutation
   await assert.rejects(submitEditionLifecycle({ http: { post: async path => { calls.push(path); throw error; } } }, 'regional_league', { id: 'selected' }, 'draw', 'reason', true), e => e === error);
   assert.equal(calls.length, 1);
   assert.match(adminEndpointError(error), /unavailable/);
+});
+
+test('known duplicate repair targets the reviewed original through consolidation, never unused-draft deletion',()=>{
+ const pair=REGIONAL_DUPLICATE_REPAIRS.find(p=>p.source_id==='46dbb09f-8319-4607-ab97-ec941745bfd8');
+ assert.deepEqual(buildDuplicateLeagueRequest(pair.source_id,' reviewed history '),{
+   mode:'consolidate',source_id:pair.source_id,canonical_id:'c2d6e60f-89e0-4813-81a1-967551d8d69f',reason:'reviewed history',
+ });
+ assert.throws(()=>buildDuplicateLeagueRequest('unknown','reason'),/reviewed duplicate/);
+ assert.equal(buildDuplicateLeagueRequest(pair.source_id,'test reset',true).test_history_reset,true);
+ assert.equal(managementPreviewReady({revision:'fresh',blockers:[]}),true);
+ assert.equal(managementPreviewReady({revision:'fresh',blockers:['Conflicting trophy histories']}),false);
 });

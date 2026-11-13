@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -69,9 +70,9 @@ export default function TransferPaymentDialog({ open, onClose, player, targetClu
           <div className="space-y-4 mt-2">
             {/* Flow visualization */}
             <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-secondary border border-border">
-              <div className="w-9 h-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden shrink-0">
+              <div className="identity-avatar-shell w-9 h-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden shrink-0">
                 {myClub?.logo_url
-                  ? <img src={myClub.logo_url} alt={myClub.name} className="w-full h-full object-cover" />
+                  ? <IdentityAvatar src={myClub.logo_url} alt={myClub.name} className="w-full h-full object-cover"  zoom={myClub?.logo_zoom}  position={myClub?.logo_position} />
                   : <span className="text-xs font-bold text-primary">{(myClub?.name || "?")[0]}</span>}
               </div>
               <div className="flex-1 min-w-0">
@@ -85,9 +86,9 @@ export default function TransferPaymentDialog({ open, onClose, player, targetClu
                 <p className="text-sm font-bold text-foreground truncate">{targetClub?.name || t("commonPages.tpdNoClub")}</p>
                 <p className="text-[10px] text-muted-foreground">{t("commonPages.tpdFor", { name: player?.gamertag })}</p>
               </div>
-              <div className="w-9 h-9 rounded-full bg-secondary border border-border flex items-center justify-center overflow-hidden shrink-0">
+              <div className="identity-avatar-shell w-9 h-9 rounded-full bg-secondary border border-border flex items-center justify-center overflow-hidden shrink-0">
                 {player?.avatar_url
-                  ? <img src={player.avatar_url} alt={player.gamertag} className="w-full h-full object-cover" />
+                  ? <IdentityAvatar src={player.avatar_url} alt={player.gamertag} className="w-full h-full object-cover"  zoom={player?.avatar_zoom}  position={player?.avatar_position} />
                   : <span className="text-xs font-bold text-foreground">{(player?.gamertag || "?")[0]}</span>}
               </div>
             </div>

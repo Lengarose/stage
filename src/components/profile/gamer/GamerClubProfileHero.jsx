@@ -1,4 +1,4 @@
-import { Gamepad2, Globe, Users } from "lucide-react";
+import { Gamepad2, Globe } from "lucide-react";
 import PageBannerShell from "@/components/PageBannerShell";
 import AdaptiveBannerBackground from "@/components/profile/AdaptiveBannerBackground";
 import { getCountryFlag } from "@/lib/allCountries";
@@ -8,6 +8,7 @@ import ProfileBannerDivider from "./ProfileBannerDivider";
 import ProfileBannerIdentity, { PROFILE_BANNER_SIZE } from "./ProfileBannerIdentity";
 import { formatProfilePlatform } from "@/lib/profilePlatform";
 import { getCountryShortName } from "@/lib/countryDisplay";
+import { useTranslation } from "@/hooks/useTranslation";
 import { cn } from "@/lib/utils";
 
 function GamerClubProfileHero({
@@ -20,7 +21,6 @@ function GamerClubProfileHero({
   topActions,
   sideActions,
   infoAside,
-  memberCount,
   onBannerClick,
   onLogoClick,
   logoUploadHtmlFor,
@@ -29,18 +29,19 @@ function GamerClubProfileHero({
   stickyLayout = false,
   stickyDockChildren = null,
 }) {
+  const { t } = useTranslation();
   const countryFlag = club?.country_code ? getCountryFlag(club.country_code) : "";
   const card = logoUploadHtmlFor ? (
     <label
       htmlFor={logoUploading ? undefined : logoUploadHtmlFor}
-      className={cn("relative block cursor-pointer touch-manipulation shrink-0", logoUploading && "pointer-events-none opacity-60")}
+      className={cn("relative block pointer-events-auto cursor-pointer touch-manipulation shrink-0", logoUploading && "pointer-events-none opacity-60")}
     >
       <GamerClubPhotoFrame club={club} winRate={winRate} className="pointer-events-none" />
-      <span className="absolute inset-0 z-10 bg-black/45 flex items-center justify-center opacity-100 md:opacity-0 md:hover:opacity-100 transition-opacity [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)]">
-        <span className="text-[10px] font-black uppercase tracking-wider text-white bg-black/50 px-2 py-1 rounded-lg">{logoUploading ? "…" : "Change logo"}</span>
+      <span className="absolute inset-0 z-10 rounded-full bg-black/45 flex items-center justify-center opacity-100 md:opacity-0 md:hover:opacity-100 transition-opacity">
+        <span className="text-[10px] font-black uppercase tracking-wider text-white bg-black/50 px-2 py-1 rounded-none">{logoUploading ? "…" : "Change logo"}</span>
       </span>
     </label>
-  ) : <GamerClubCard club={club} winRate={winRate} onLogoClick={onLogoClick} />;
+  ) : <GamerClubCard club={club} winRate={winRate} onLogoClick={onLogoClick} className="pointer-events-auto" />;
 
   const banner = (
     <div className={cn("relative w-full overflow-hidden", PROFILE_BANNER_SIZE)}>
@@ -60,10 +61,10 @@ function GamerClubProfileHero({
         <div className="absolute inset-0 bg-gradient-to-r from-amber-500/12 via-transparent to-cyan-500/14" />
         <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-[#060912] via-[#060912]/55 to-transparent" />
       </button>
-      <ProfileBannerDivider />
+      <ProfileBannerDivider portrait="club" />
       {topLeftActions ? <div className="absolute top-4 left-4 z-20 flex items-center gap-2">{topLeftActions}</div> : null}
       {topActions ? <div className="absolute top-4 right-4 z-20 flex items-center gap-2">{topActions}</div> : null}
-      <ProfileBannerIdentity>
+      <ProfileBannerIdentity className="pl-[212px] pb-4 pt-20 sm:pl-72 lg:pt-32 xl:pt-40">
         <p className="font-heading text-[10px] font-black uppercase tracking-[0.34em] text-amber-200/55">Club Headquarters</p>
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="min-w-0 [overflow-wrap:anywhere] font-heading text-2xl sm:text-4xl lg:text-6xl font-black uppercase tracking-normal leading-none drop-shadow-[0_8px_28px_rgba(0,0,0,0.85)]">{club?.name || "Club"}</h1>
@@ -73,33 +74,36 @@ function GamerClubProfileHero({
           {club?.platform ? <span className="inline-flex items-center gap-1.5"><Gamepad2 className="w-3 h-3 shrink-0 text-amber-400" />{formatProfilePlatform(club.platform)}</span> : null}
           {club?.region ? <span className="inline-flex items-center gap-1.5"><Globe className="w-3 h-3 shrink-0 text-cyan-400" />{club.region}</span> : null}
           {club?.country || club?.country_code ? <span>{countryFlag} {getCountryShortName(club.country_code, club.country)}</span> : null}
-          <span className="inline-flex items-center gap-1.5"><Users className="w-3 h-3 shrink-0 text-teal-400" />{memberCount ?? "—"}</span>
+          {infoAside}
+        </div>
+        <div className="pointer-events-auto flex flex-wrap items-center gap-4">
+          <GamerRecordStrip wins={wins} draws={draws} losses={losses} />
+          <span className="text-xs font-medium text-white">{t("commonPages.clubWinRate", "Win rate")}: {Math.min(100, Math.max(0, Math.round(Number(winRate) || 0)))}%</span>
         </div>
       </ProfileBannerIdentity>
     </div>
   );
 
   const body = (
-    <div className="max-w-6xl mx-auto px-4 -mt-32 sm:-mt-36 relative z-20">
+    <div className="max-w-6xl mx-auto px-4 -mt-40 sm:-mt-44 relative z-20 pointer-events-none">
       <div className="flex flex-col lg:flex-row gap-5 lg:gap-8 items-start">
         {card}
 
         <div className="flex-1 min-w-0 space-y-3 pt-2 lg:pt-40">
           <div className="flex flex-wrap items-start justify-between gap-3">
-            {(infoAside || sideActions) ? (
-              <div className="flex flex-col items-stretch sm:items-end gap-2 shrink-0">
-                {infoAside}
+            {sideActions ? (
+              <div className="pointer-events-auto flex flex-col items-stretch sm:items-end gap-2 shrink-0">
                 {sideActions ? <div className="flex flex-wrap gap-2 justify-end">{sideActions}</div> : null}
               </div>
             ) : null}
           </div>
 
-          <GamerRecordStrip wins={wins} draws={draws} losses={losses} />
+
 
           {club?.description ? (
-            <p className="text-sm text-white/65 leading-relaxed max-w-2xl">{club.description}</p>
+            <p className="pointer-events-auto text-sm text-white/65 leading-relaxed max-w-2xl">{club.description}</p>
           ) : null}
-          {children}
+          <div className="pointer-events-auto">{children}</div>
         </div>
       </div>
     </div>

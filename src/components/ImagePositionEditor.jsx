@@ -91,7 +91,7 @@ export default function ImagePositionEditor({
     <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose?.(); }}>
       <DialogContent
         hideCloseButton
-        className="max-h-[92dvh] w-[calc(100vw-32px)] max-w-[520px] overflow-y-auto overflow-x-hidden border border-white/15 bg-[#06091a]/95 p-0 text-white shadow-2xl backdrop-blur-xl"
+        className="max-h-[92dvh] w-[calc(100vw-32px)] max-w-[520px] rounded-none sm:rounded-none overflow-y-auto overflow-x-hidden border border-white/15 bg-[#06091a]/95 p-0 text-white shadow-2xl backdrop-blur-xl"
         onPointerDownOutside={e => e.preventDefault()}
         onInteractOutside={e => e.preventDefault()}
       >
@@ -136,7 +136,6 @@ export default function ImagePositionEditor({
                 imagePosition={position}
                 imageZoom={zoom}
                 positionLabel={previewFramePlayer.position || "CDM"}
-                overallRating={previewFramePlayer.overall_rating || 70}
                 shirtNumber={previewFramePlayer.shirt_number ?? 6}
                 className="!w-36 cursor-grab select-none active:cursor-grabbing sm:!w-40"
                 onMouseDown={e => { e.preventDefault(); startDrag(e.clientX, e.clientY); }}
@@ -157,7 +156,6 @@ export default function ImagePositionEditor({
                   imagePosition={position}
                   imageZoom={zoom}
                   positionLabel={previewFramePlayer.position || "CDM"}
-                  overallRating={previewFramePlayer.overall_rating || 70}
                   shirtNumber={previewFramePlayer.shirt_number ?? 6}
                   className="!w-12 shadow-none sm:!w-12"
                 />
@@ -209,14 +207,14 @@ export default function ImagePositionEditor({
           ) : isAvatar ? (
             <div className="flex flex-col items-center gap-4">
               <div
-                className="w-36 aspect-[3/4] cursor-grab active:cursor-grabbing select-none border-2 border-white/20 shadow-xl"
+                className="w-36 aspect-[4/5] cursor-grab active:cursor-grabbing select-none border-2 border-white/20 shadow-xl"
                 style={previewStyle}
                 {...dragHandlers}
               />
               <p className="text-white/25 text-[10px] uppercase tracking-widest">Preview</p>
 
               <div className="grid w-full grid-cols-[auto_auto_1fr] items-center gap-3 border border-white/10 bg-white/5 px-3 py-3">
-                <div className="w-9 aspect-[3/4] shrink-0 border border-white/20" style={previewStyle} />
+                <div className="w-9 aspect-[4/5] shrink-0 border border-white/20" style={previewStyle} />
                 <div className="w-16 h-9 shrink-0 border border-white/20" style={previewStyle} />
                 <p className="min-w-0 text-[10px] uppercase tracking-wider text-white/30">Avatar · Card</p>
               </div>
