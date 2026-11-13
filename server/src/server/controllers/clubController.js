@@ -6,7 +6,7 @@ const President = require('../models/presidentModel');
 const ClubStaffRole = require('../models/clubStaffRoleModel');
 const ClubFixtureLineup = require('../models/clubFixtureLineupModel');
 const { EXECUTESQL } = require('../db/database');
-const { broadcastClub, broadcastClubDeleted } = require('../utils/socketBroadcast');
+const { broadcastClub } = require('../utils/socketBroadcast');
 const {
   ALL_PERMISSIONS,
   ROLE_PERMISSIONS,
@@ -655,9 +655,8 @@ router.delete('/:id', async (req, res) => {
     if (!access?.admin) return res.status(403).json({ error: 'Forbidden' });
     const existing = await new Club().selectOne(id);
     if (!existing.length) return res.status(404).json({ error: 'Not found' });
-    await new Club().delete(id);
-    broadcastClubDeleted(id);
-    res.json({ success: true });
+    const result = await require('../services/clubDissolutionService').dissolveClub({ clubId: id, user: req.user });
+    res.json(result);
   } catch (err) {
     console.error(err);
     res.status(err.status || 500).json({ error: err.message });

@@ -15,7 +15,7 @@ export default function CardProgression({playerId}) {
   const {card,error}=useCardProgression(playerId);
   return <section className="border border-white/15 bg-[#0b1423] p-4 text-white" aria-label="STAGE Card progression">
     <div className="flex items-center justify-between gap-4"><h3 className="font-heading uppercase tracking-widest">STAGE Card Level</h3><strong className="text-2xl">{card?.level ?? "—"}</strong></div>
-    {error ? <p role="alert" className="mt-2 text-sm text-red-200">Progression unavailable. {error}</p> : card ? <>
+    {error ? <p role="alert" className="mt-2 text-sm text-red-200">Progression is temporarily unavailable. Please try again later.</p> : card ? <>
       <progress aria-label="Card XP progress" className="my-3 h-1.5 w-full accent-blue-200" max={card.xp_to_next_level || 1} value={card.level===100 ? 1 : card.xp_in_level}/>
       <p className="text-xs text-white/65">{card.level===100 ? "Maximum level reached" : `${card.xp_in_level} / ${card.xp_to_next_level} XP towards Level ${card.level+1}`} · {card.total_xp.toLocaleString()} total XP</p>
     </> : <p className="my-3 text-sm text-white/50">Loading progression…</p>}

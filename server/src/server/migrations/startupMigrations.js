@@ -2808,6 +2808,7 @@ async function runStartupMigrations() {
   await addCol('club_fixture_lineups','uses_any','TINYINT(1) NOT NULL DEFAULT 0');
   await addCol('player_contracts','compensation_policy_version','VARCHAR(50) NULL');
   await require('./retirePlayerLoans').retirePlayerLoans();
+  await require('../services/clubDissolutionService').repairDeletedClubContracts();
 
 }
 

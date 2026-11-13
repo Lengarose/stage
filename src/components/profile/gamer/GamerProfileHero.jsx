@@ -48,7 +48,7 @@ function GamerProfileHero({
           {player?.position ? <span className="inline-flex items-center gap-1.5"><Target className="w-3 h-3 shrink-0 text-cyan-400" />{formatPositions ? formatPositions(player) : player.position}</span> : null}
           {player?.platform ? <span className="inline-flex items-center gap-1.5"><Gamepad2 className="w-3 h-3 shrink-0 text-amber-400" />{formatProfilePlatform(player.platform)}</span> : null}
           {player?.country || player?.country_code ? <span>{countryFlag} {getCountryShortName(player.country_code, player.country)}</span> : null}
-          {club ? <Link to={`/clubs/${club.id}`}><GamerMetaPill className="hover:border-cyan-400/30 hover:text-cyan-300 transition-colors"><Shield className="w-3 h-3" />{club.name}</GamerMetaPill></Link> : null}
+          {club?.id ? <Link to={`/clubs/${club.id}`} aria-label={`View ${club.name} club profile`} className="group inline-flex cursor-pointer rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-300"><GamerMetaPill className="group-hover:border-cyan-400/40 group-hover:text-cyan-300 group-focus-visible:text-cyan-300 transition-colors"><Shield className="w-3 h-3" />{club.name}</GamerMetaPill></Link> : null}
         </div>
         {verifiedHandle ? <p className="[overflow-wrap:anywhere] text-xs font-medium text-cyan-300/80">{verifiedHandle}</p> : null}
       </>
@@ -73,11 +73,11 @@ function GamerProfileHero({
   );
 
   const body = (
-    <div className="max-w-6xl mx-auto px-4 -mt-32 sm:-mt-36 relative z-20">
+    <div className="max-w-6xl mx-auto px-4 -mt-32 sm:-mt-36 relative z-20 pointer-events-none">
       <div className="flex flex-col lg:flex-row gap-5 lg:gap-8 items-start">
-        <GamerPlayerCard player={player} onAvatarClick={onAvatarClick} />
+        <div className="pointer-events-auto shrink-0"><GamerPlayerCard player={player} onAvatarClick={onAvatarClick} /></div>
 
-        <div className="w-full flex-1 min-w-0 space-y-3 pt-2 lg:pt-40">
+        <div className="w-full flex-1 min-w-0 space-y-3 pt-2 lg:pt-40 [&>*]:pointer-events-auto">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0 space-y-2">
               {roleBadges.length > 0 ? (

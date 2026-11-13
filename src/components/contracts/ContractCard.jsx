@@ -28,13 +28,14 @@ export default function ContractCard({ contract: rawContract, player, canManage,
   const contractType = getContractType(contract);
   const meta = CONTRACT_TYPES[contractType] || CONTRACT_TYPES.squad;
   const progress = getContractProgress(contract);
+  const hasMatchLimit = Number(progress?.maxGames) > 0;
   const isOwnershipContract = contractType === "ownership";
   const lifecycleOwned = isLifecycleOwnedContract(contract);
 
   const isPendingWindow = contract.status === "pending_window";
   const isNegotiating = contract.status === "negotiating";
   const isNearEnd = contract.status === "active" && progress && (
-    progress.gamesLeft <= 10 || progress.daysLeft <= 7
+    (hasMatchLimit && progress.gamesLeft <= 10) || progress.daysLeft <= 7
   );
 
   const isRenewable = canManage && !lifecycleOwned && ["active", "completed", "expired"].includes(contract.status);
@@ -64,8 +65,8 @@ export default function ContractCard({ contract: rawContract, player, canManage,
           <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
           <span>
             Contract expiring soon —{" "}
-            {progress.gamesLeft <= 10 && `${progress.gamesLeft} game${progress.gamesLeft !== 1 ? "s" : ""} left`}
-            {progress.gamesLeft <= 10 && progress.daysLeft <= 7 && " · "}
+            {(hasMatchLimit && progress.gamesLeft <= 10) && `${progress.gamesLeft} game${progress.gamesLeft !== 1 ? "s" : ""} left`}
+            {(hasMatchLimit && progress.gamesLeft <= 10) && progress.daysLeft <= 7 && " · "}
             {progress.daysLeft <= 7 && `${progress.daysLeft} day${progress.daysLeft !== 1 ? "s" : ""} left`}
           </span>
         </div>
@@ -143,6 +144,7 @@ export default function ContractCard({ contract: rawContract, player, canManage,
           {/* Progress bars — only for active contracts */}
           {contract.status === "active" && progress && (
             <div className="mt-3 space-y-1.5">
+              {hasMatchLimit && (
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Gamepad2 className="w-3 h-3 shrink-0" />
                 <div className="flex-1 bg-secondary rounded-full h-1.5 overflow-hidden">
@@ -151,10 +153,11 @@ export default function ContractCard({ contract: rawContract, player, canManage,
                     style={{ width: `${progress.gamesPercent}%` }}
                   />
                 </div>
-                <span className={cn("shrink-0", progress.gamesLeft <= 10 ? "text-warning font-semibold" : "")}>
+                <span className={cn("shrink-0", (hasMatchLimit && progress.gamesLeft <= 10) ? "text-warning font-semibold" : "")}>
                   {progress.gamesPlayed}/{progress.maxGames} games
                 </span>
               </div>
+              )}
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Clock className="w-3 h-3 shrink-0" />
                 <div className="flex-1 bg-secondary rounded-full h-1.5 overflow-hidden">

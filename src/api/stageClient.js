@@ -121,6 +121,15 @@ export const storeTokens = ({ accessToken, refreshToken, userId, playerId, owner
   notifyAuthChanged();
 };
 
+// Clear a dissolved club identity without signing the player out.
+export function clearClubIdentity(clubId) {
+  if ([localStorage.getItem(OWNER_KEY), localStorage.getItem(PRESIDENT_CLUB_KEY)].includes(String(clubId))) {
+    [OWNER_KEY, PRESIDENT_CLUB_KEY, PRESIDENT_ID_KEY].forEach(key => localStorage.removeItem(key));
+    clearAccountIntent(localStorage.getItem(USER_KEY));
+  }
+  notifyAuthChanged();
+}
+
 export const clearTokens = () => {
   const userId = localStorage.getItem(USER_KEY);
   [ACCESS_KEY, REFRESH_KEY, USER_KEY, PLAYER_KEY, OWNER_KEY, PRESIDENT_CLUB_KEY, PRESIDENT_ID_KEY].forEach(k => localStorage.removeItem(k));

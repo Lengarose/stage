@@ -5519,28 +5519,8 @@ const HANDLERS = {
     if (!club_id) throw new Error('club_id required');
 
     if (action === 'delete') {
-      const result = await withTransaction(async (query) => {
-        const rows = await query('SELECT * FROM clubs WHERE id = ? LIMIT 1 FOR UPDATE', [club_id]);
-        if (!rows.length) throw new Error('Club not found');
-        const club = rows[0];
-        await query('UPDATE players SET club_id = NULL, updated_date = NOW() WHERE club_id = ?', [club_id]);
-        await query('DELETE FROM club_memberships WHERE club_id = ?', [club_id]);
-        await query('DELETE FROM clubs WHERE id = ?', [club_id]);
-        await createAuditLog({
-          adminUserId: admin.id,
-          adminEmail: admin.email,
-          action: 'delete_club',
-          entityType: 'club',
-          entityId: club_id,
-          entityName: club.name || null,
-          oldValue: club,
-          newValue: null,
-          reason: reason || null,
-        });
-        return club;
-      });
-
-      return { data: { success: true, club: result } };
+      const result = await require('../services/clubDissolutionService').dissolveClub({ clubId: club_id, user: admin, reason });
+      return { data: result };
     }
 
     throw new Error(`Unknown clubAdminActions action: ${action}`);
@@ -10108,10 +10088,7 @@ const HANDLERS = {
     if (!club_id) throw new Error('club_id required');
     const { user } = await getMe(_auth_user_id);
     await requireClubFunctionAccess(user, club_id, 'manage_staff', 'Only the club president can delete this club');
-    await EXECUTESQL('UPDATE players SET club_id = NULL WHERE club_id = ?', [club_id]);
-    await EXECUTESQL('DELETE FROM club_memberships WHERE club_id = ?', [club_id]).catch(() => {});
-    await EXECUTESQL('DELETE FROM clubs WHERE id = ?', [club_id]);
-    return { success: true };
+    return require('../services/clubDissolutionService').dissolveClub({ clubId: club_id, user });
   },
 
   // ── Player Wallet ─────────────────────────────────────────────────────────

@@ -2,7 +2,7 @@ import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { CardLevelBadge } from "@/components/card/CardProgression";
 import { useState, useEffect, useRef, useId } from "react";
 import { useParams, Link, useLocation } from "react-router-dom";
-import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
+import { stageClient, resolveMyPlayerAndClub, clearClubIdentity } from "@/api/stageClient";
 import { penaltyOutcome } from '@/lib/penaltyOutcome';
 import {
   Shield, Users, ArrowLeft,
@@ -307,6 +307,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
   const [loading, setLoading] = useState(true);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   const location = useLocation();
   const [activeTab, setActiveTab] = useState(() => new URLSearchParams(location.search).get("tab") === "trophies" ? "trophies" : "overview");
   useEffect(() => { if (new URLSearchParams(location.search).get("tab") === "trophies") setActiveTab("trophies"); }, [location.search]);
@@ -700,12 +701,20 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
     e.target.value = "";
   }
 
-  async function handleDeleteClub() {
+  async function handleDeleteClub(event) {
+    event.preventDefault();
     setDeleting(true);
-    await stageClient.functions.invoke("deleteClub", { club_id: id });
-    setDeleting(false);
-    setDeleteDialogOpen(false);
-    navigate(clubsListPath);
+    setDeleteError("");
+    try {
+      await stageClient.functions.invoke("deleteClub", { club_id: id });
+      clearClubIdentity(id);
+      setDeleteDialogOpen(false);
+      navigate("/profile");
+    } catch (error) {
+      setDeleteError(error?.message || "The club could not be deleted. No changes were made.");
+    } finally {
+      setDeleting(false);
+    }
   }
 
   async function saveLogo(localUrl, position, zoom) {
@@ -801,13 +810,18 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
   return (
       <GamerProfileShell>
         <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-          <AlertDialogContent className="bg-[#0d1225] border-white/10">
+          <AlertDialogContent className="rounded-none bg-[#0d1225] border-white/10">
             <AlertDialogHeader>
               <AlertDialogTitle className="text-white">{t("commonPages.cdDeleteClub")}</AlertDialogTitle>
               <AlertDialogDescription className="text-white/50">
-                {t("commonPages.cdDeleteConfirm", { name: club?.name })}
+                Are you sure you want to permanently close {club?.name}?
+                <span className="mt-3 block">• All player and management contracts end. Pending offers are cancelled.</span>
+                <span className="mt-2 block">• Members are released as free agents and receive an Inbox notice.</span>
+                <span className="mt-2 block">• Previous results, achievements and payment history are preserved.</span>
+                <span className="mt-3 block">Active competition entries must be withdrawn through Admin before deletion can proceed.</span>
               </AlertDialogDescription>
             </AlertDialogHeader>
+            {deleteError && <p role="alert" className="text-sm text-red-300">{deleteError}</p>}
             <AlertDialogFooter>
               <AlertDialogCancel className="border-white/20">{t("commonPages.cancel")}</AlertDialogCancel>
               <AlertDialogAction onClick={handleDeleteClub} disabled={deleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
@@ -834,13 +848,18 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
     <GamerProfileShell>
       {/* Dialogs */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent className="bg-[#0d1225] border-white/10">
+        <AlertDialogContent className="rounded-none bg-[#0d1225] border-white/10">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-white">{t("commonPages.cdDeleteClub")}</AlertDialogTitle>
             <AlertDialogDescription className="text-white/50">
-              {t("commonPages.cdDeleteConfirm", { name: club?.name })}
+              Are you sure you want to permanently close {club?.name}?
+                <span className="mt-3 block">• All player and management contracts end. Pending offers are cancelled.</span>
+                <span className="mt-2 block">• Members are released as free agents and receive an Inbox notice.</span>
+                <span className="mt-2 block">• Previous results, achievements and payment history are preserved.</span>
+                <span className="mt-3 block">Active competition entries must be withdrawn through Admin before deletion can proceed.</span>
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {deleteError && <p role="alert" className="text-sm text-red-300">{deleteError}</p>}
           <AlertDialogFooter>
             <AlertDialogCancel className="border-white/20">{t("commonPages.cancel")}</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteClub} disabled={deleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">

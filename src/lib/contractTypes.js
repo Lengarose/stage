@@ -104,6 +104,8 @@ export const CONTRACT_TYPE_OPTIONS = Object.entries(CONTRACT_TYPES)
  */
 export function isContractExpired(contract) {
   if (!contract?.start_date) return false;
+  if (contract.compensation_policy_version) return Boolean(contract.end_date && Date.parse(contract.end_date) <= Date.now());
+  if (["founder", "founder_player", "ownership"].includes(contract.contract_type)) return false;
   const meta = CONTRACT_TYPES[contract?.contract_type];
   if (!meta) return false;
 
@@ -119,7 +121,16 @@ export function isContractExpired(contract) {
  * Returns a human-readable progress string.
  */
 export function getContractProgress(contract) {
-  if (!contract?.start_date) return null;
+  if (!contract?.start_date || ["founder", "founder_player", "ownership"].includes(contract.contract_type)) return null;
+  if (contract.compensation_policy_version) {
+    const start = Date.parse(contract.start_date), end = Date.parse(contract.end_date);
+    if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
+    const day = 86400000, maxDays = Math.max(1, Math.ceil((end - start) / day));
+    const daysSinceStart = Math.max(0, Math.floor((Date.now() - start) / day));
+    return { gamesPlayed: contract.games_played || 0, gamesLeft: 0, gamesPercent: 0, maxGames: 0,
+      daysSinceStart, daysLeft: Math.max(0, Math.ceil((end - Date.now()) / day)),
+      daysPercent: Math.min(100, Math.round(daysSinceStart / maxDays * 100)), maxDays };
+  }
   const meta = CONTRACT_TYPES[contract?.contract_type];
   if (!meta) return null;
 

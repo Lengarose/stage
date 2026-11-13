@@ -4,15 +4,13 @@ import PlayerFeed from "../components/PlayerFeed";
 import { useParams, Link, useLocation } from "react-router-dom";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import {
-  ArrowLeft,
-  Gamepad2, Settings,
-  Coins, FileText, Clock,
+  ArrowLeft, Settings,
+  Coins, FileText,
   CalendarClock, Shield, Star,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { formatSTC } from "@/lib/playerValue";
 import PlayerTrophyCabinet from "@/components/profile/PlayerTrophyCabinet";
 import PlayerAchievementsSection from "@/components/rewards/PlayerAchievementsSection";
@@ -23,7 +21,6 @@ import { formatProfilePlatform } from "@/lib/profilePlatform";
 import { GamerHeroAction, GamerPlayerPhotoFrame, GamerProfileShell, GamerSectionCard, GamerStatTile, GamerTabNav } from "@/components/profile/gamer/GamerProfileUI";
 import PlayerCareerSummary from "@/components/profile/PlayerCareerSummary";
 import PlayerTransferHistory from "@/components/profile/PlayerTransferHistory";
-import { getContractProgress } from "@/lib/contractTypes";
 import OfferContractDialog from "@/components/contracts/OfferContractDialog";
 import TransferPaymentDialog from "@/components/contracts/TransferPaymentDialog";
 import { canShowContractOfferButton, getSignedClubIdForPlayer } from "@/lib/contractOfferVisibility";
@@ -185,7 +182,8 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
           const signedClubId = getSignedClubIdForPlayer(p, safeContracts);
           const playingClubId = signedClubId;
           setPlayerContracts(liveContracts);
-          setActiveContract(safeContracts.find(c => c.status === "active") || null);
+          setActiveContract(null);
+          setClub(null);
           const presidentClubRows = await stageClient.entities.Club
             .filter({ president_player_id: p.id }, null, 1)
             .catch(() => []);
@@ -201,7 +199,12 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
               stageClient.profileMatches.list({ away_club_id: playingClubId, status: "scheduled" }, "round", 20).catch(() => []),
             ]);
             const clubs = asObjectArray(clubsRaw);
-            if (clubs.length > 0) setClub(clubs[0]);
+            if (clubs.length > 0) {
+              setClub(clubs[0]);
+              setActiveContract(safeContracts.find(c => c.status === "active" && String(c.team_id) === String(clubs[0].id) && getContractType(c) !== "ownership") || null);
+            } else {
+              setPlayerContracts([]);
+            }
             setUpcomingMatches(asObjectArray([...asObjectArray(tmHomeRaw), ...asObjectArray(tmAwayRaw)]));
           } else {
             setClub(presidentClub);
@@ -358,7 +361,6 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
         ) : null}
       >
         {activeContract ? (() => {
-          const progress = getContractProgress(activeContract);
           return (
             <div className="flex items-center gap-1.5 flex-wrap">
               {activeContract.weekly_salary_stc > 0 ? (
@@ -369,19 +371,8 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
               <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-white/50 font-medium capitalize">
                 <FileText className="w-2.5 h-2.5" />{getContractType(activeContract)} contract
               </span>
-              {progress && progress.daysLeft > 0 ? (
-                <span className={cn("flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border font-medium",
-                  progress.daysLeft <= 7 ? "bg-amber-500/10 border-amber-500/20 text-amber-400" : "bg-white/5 border-white/10 text-white/50"
-                )}>
-                  <Clock className="w-2.5 h-2.5" />{progress.daysLeft}d left
-                </span>
-              ) : null}
-              {progress && progress.gamesLeft > 0 ? (
-                <span className={cn("flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border font-medium",
-                  progress.gamesLeft <= 10 ? "bg-amber-500/10 border-amber-500/20 text-amber-400" : "bg-white/5 border-white/10 text-white/50"
-                )}>
-                  <Gamepad2 className="w-2.5 h-2.5" />{progress.gamesLeft} games left
-                </span>
+              {activeContract.compensation_policy_version && activeContract.end_date ? (
+                <span className="text-[10px] text-white/50">Ends {new Date(activeContract.end_date).toLocaleDateString()}</span>
               ) : null}
             </div>
           );

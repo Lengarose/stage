@@ -193,7 +193,7 @@ export async function loadPlayerMatchStats(player) {
 }
 
 export async function loadActiveContract(player, club) {
-  if (!player?.id) return null;
+  if (!player?.id || !club?.id) return null;
 
   const contracts = await stageClient.entities.PlayerContract.filter({ user_id: player.id }, "-created_date", 30).catch(() => []);
   const active = normalizePlayerContracts(contracts).find((c) => c.status === "active");
