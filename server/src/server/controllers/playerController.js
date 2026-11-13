@@ -418,6 +418,9 @@ router.patch('/:id', async (req, res) => {
         [record.id, record.user_id]
       );
     }
+    if (admin && Object.hasOwn(body, 'avatar_frame')) {
+      await EXECUTESQL('INSERT INTO admin_audit_log (id, admin_user_id, admin_email, action, entity_type, entity_id, old_value, new_value, reason) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [require('node:crypto').randomUUID(), req.user.id, req.user.email, 'player_photo_frame_changed', 'player', id, JSON.stringify({ avatar_frame: current.avatar_frame }), JSON.stringify({ avatar_frame: record.avatar_frame }), 'Player profile frame updated']);
+    }
     broadcastPlayer(record);
     res.json(record);
   } catch (err) {

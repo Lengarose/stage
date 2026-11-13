@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { format, isToday } from "@/lib/momentDate";
 import { cn } from "@/lib/utils";
 import { inboxMessageIsActioned } from "@/lib/inboxActionTypes";
@@ -37,20 +38,7 @@ function SenderAvatar({ msg, t }) {
       </div>
     );
   }
-  if (msg.sender_avatar_url) {
-    return (
-      <img
-        src={msg.sender_avatar_url}
-        alt={msg.sender_gamertag || ""}
-        className="h-12 w-12 shrink-0 rounded-full object-cover ring-1 ring-white/10"
-      />
-    );
-  }
-  return (
-    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#1c2433] text-sm font-bold text-white/80 ring-1 ring-white/10">
-      {(msg.sender_gamertag || t("matchFlow.unknown") || "?")[0].toUpperCase()}
-    </div>
-  );
+  return <IdentityAvatar src={msg.sender_avatar_url} name={msg.sender_gamertag || t("matchFlow.unknown")} className="h-12 w-12" />;
 }
 
 export default function InboxMessageList({ messages, selectedId, onSelect }) {

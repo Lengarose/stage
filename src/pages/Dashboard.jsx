@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -296,9 +297,9 @@ export default function Dashboard() {
                     {club ? (
                       <>
                         <Link to={`/clubs/${club.id}`} className="flex items-center gap-3 group mb-4">
-                          <div className="w-12 h-12 border border-cyan-300/20 bg-black/30 overflow-hidden flex items-center justify-center shrink-0">
+                          <div className="identity-avatar-shell w-12 h-12 border border-cyan-300/20 bg-black/30 overflow-hidden flex items-center justify-center shrink-0">
                             {club.logo_url ? (
-                              <img src={club.logo_url} alt="" className="w-full h-full object-cover" />
+                              <IdentityAvatar src={club.logo_url} alt="" className="w-full h-full object-cover"  zoom={club?.logo_zoom}  position={club?.logo_position} />
                             ) : (
                               <Shield className="w-5 h-5 text-white/30" />
                             )}

@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { useState, useEffect, useCallback } from "react";
 import { stageClient } from "@/api/stageClient";
 import { ShoppingBag, TrendingUp, Coins, Star, RefreshCw } from "lucide-react";
@@ -160,9 +161,9 @@ export default function ShirtSalesPanel({ club }) {
                   </div>
 
                   {/* Avatar */}
-                  <div className="w-9 h-9 bg-white/10 border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
+                  <div className="identity-avatar-shell w-9 h-9 bg-white/10 border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
                     {entry.avatar_url
-                      ? <img src={entry.avatar_url} alt={entry.gamertag} className="w-full h-full object-cover" />
+                      ? <IdentityAvatar src={entry.avatar_url} alt={entry.gamertag} className="w-full h-full object-cover"  zoom={entry?.avatar_zoom}  position={entry?.avatar_position} />
                       : <span className="text-xs font-bold text-white/60">{(entry.gamertag || "?")[0]?.toUpperCase()}</span>
                     }
                   </div>

@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { useState } from "react";
 import { stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
@@ -144,9 +145,9 @@ export default function InboxTrialRequest({ message, onActioned }) {
     <div className="mt-4 space-y-3">
       {/* Player card */}
       <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-white/5 border border-white/10">
-        <div className="w-9 h-9 rounded-full bg-white/10 overflow-hidden shrink-0 flex items-center justify-center">
+        <div className="identity-avatar-shell w-9 h-9 rounded-full bg-white/10 overflow-hidden shrink-0 flex items-center justify-center">
           {playerAvatar
-            ? <img src={playerAvatar} alt={playerGamertag} className="w-full h-full object-cover" />
+            ? <IdentityAvatar src={playerAvatar} alt={playerGamertag} className="w-full h-full object-cover" />
             : <ClipboardList className="w-4 h-4 text-white/40" />}
         </div>
         <div className="flex-1 min-w-0">

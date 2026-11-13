@@ -69,6 +69,7 @@ CREATE TABLE IF NOT EXISTS players (
   avatar_url            TEXT,
   avatar_zoom           INT          DEFAULT 150,
   avatar_position       VARCHAR(50)  DEFAULT '50% 50%',
+  avatar_frame          VARCHAR(20) NOT NULL DEFAULT 'rectangle',
   player_card_background_type VARCHAR(20) DEFAULT 'default',
   player_card_background_id   VARCHAR(36) NULL,
   player_card_background_url  TEXT NULL,

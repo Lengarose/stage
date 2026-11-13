@@ -9,14 +9,17 @@ function readRepoFile(path) {
   return readFileSync(resolve(root, path), "utf8");
 }
 
-test("player and club profile photos use straight blue portrait frames", () => {
+test("player photos support selectable flat frames while club photos remain circular", () => {
   const playerFrame = readRepoFile("src/components/profile/gamer/GamerProfileUI.jsx");
   const clubFrame = readRepoFile("src/components/profile/gamer/GamerClubCard.jsx");
 
-  assert.match(playerFrame, /w-\[168px\] sm:w-\[208px\] aspect-\[4\/5\] rounded-none/);
+  assert.match(playerFrame, /w-\[168px\] sm:w-\[208px\]/);
+  assert.match(playerFrame, /frame === "circle" \? "aspect-square" : "aspect-\[4\/5\]"/);
+  assert.match(playerFrame, /playerPhotoFrame\(player\?\.avatar_frame\)/);
   assert.doesNotMatch(playerFrame, /clip-path:polygon\(12%_0,100%_0,88%_100%,0_100%\)/);
-  assert.match(clubFrame, /w-\[168px\] sm:w-\[208px\] aspect-\[4\/5\] rounded-none/);
-  assert.match(clubFrame, /border-cyan-300\/40/);
+  assert.match(clubFrame, /w-\[184px\] sm:w-\[240px\] aspect-square/);
+  assert.match(clubFrame, /aspect-square[\s\S]{0,60}rounded-full/);
+  assert.match(clubFrame, /absolute inset-0 rounded-full bg-cover/);
   assert.doesNotMatch(clubFrame, /clip-path:polygon\(12%_0,100%_0,88%_100%,0_100%\)/);
   assert.match(playerFrame, /inline-flex min-w-\[84px\][\s\S]{0,260}border-cyan-200\/45/);
   assert.match(playerFrame, /text-amber-200\/30[\s\S]{0,140}\{resolvedShirtNumber\}/);

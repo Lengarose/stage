@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { useState, useEffect } from "react";
 import { useParams, useSearchParams, Link } from "react-router-dom";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
@@ -91,7 +92,7 @@ function StandingsTable({ standings, directSpots = 8, playoffSpots = 16 }) {
                 <td className="py-2.5">
                   <Link to={`/clubs/${s.club_id}`} className="flex items-center gap-2 hover:opacity-80">
                     {s.club_logo_url
-                      ? <img src={s.club_logo_url} alt={s.club_name} className="w-5 h-5 object-contain shrink-0" />
+                      ? <IdentityAvatar src={s.club_logo_url} alt={s.club_name} className="w-5 h-5 object-contain shrink-0" />
                       : <Shield className="w-4 h-4 text-muted-foreground/30 shrink-0" />}
                     <span className="font-semibold text-foreground text-xs truncate">{s.club_name}</span>
                     {s.club_tag && <span className="text-muted-foreground text-[10px]">[{s.club_tag}]</span>}
@@ -140,8 +141,7 @@ function LoadError({ message, retry }) {
 }
 
 function ClubCrest({ club }) {
-  const [failed, setFailed] = useState(false);
-  return club.logo_url && !failed ? <img src={club.logo_url} onError={() => setFailed(true)} alt="" className="h-11 w-11 shrink-0 object-contain" /> : <Shield aria-hidden="true" className="h-11 w-11 shrink-0 text-muted-foreground/50" />;
+  return <IdentityAvatar src={club.logo_url} name={club.name} className="h-11 w-11" position={club.logo_position} zoom={club.logo_zoom} />;
 }
 
 export function GostClubDirectory({ participants, myClub }) {

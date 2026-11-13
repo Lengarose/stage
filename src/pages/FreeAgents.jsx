@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { CardLevelBadge } from "@/components/card/CardProgression";
 import { useState, useEffect } from "react";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
@@ -111,9 +112,9 @@ export default function FreeAgents() {
         <div className="grid sm:grid-cols-2 gap-3">
           {filtered.map(player => (
             <div key={player.id} className="bg-card border border-border rounded-xl p-4 flex items-center gap-4 hover:border-primary/30 transition-all">
-              <div className="w-12 h-12 rounded-full overflow-hidden bg-secondary shrink-0">
+              <div className="identity-avatar-shell w-12 h-12 rounded-full overflow-hidden bg-secondary shrink-0">
                 {player.avatar_url
-                  ? <img src={player.avatar_url} alt={player.gamertag} className="w-full h-full object-cover" style={{ objectPosition: player.avatar_position || "50% 50%" }} />
+                  ? <IdentityAvatar src={player.avatar_url} alt={player.gamertag} className="w-full h-full object-cover" style={{ objectPosition: player.avatar_position || "50% 50%" }}  zoom={player?.avatar_zoom} />
                   : <div className="w-full h-full flex items-center justify-center"><User className="w-5 h-5 text-muted-foreground" /></div>}
               </div>
               <div className="flex-1 min-w-0">

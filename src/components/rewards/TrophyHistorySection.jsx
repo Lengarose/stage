@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { useState, useEffect } from "react";
 import { stageClient } from "@/api/stageClient";
 import { BADGE_STYLE } from "@/lib/rewardsEngine";
@@ -82,7 +83,7 @@ export default function TrophyHistorySection({ sourceId, trophyImageUrl, classNa
                     <Trophy className="w-5 h-5 text-muted-foreground/30 shrink-0" />
                   )}
                   {item.club_logo_url && (
-                    <img src={item.club_logo_url} alt={item.club_name} className="w-6 h-6 rounded-full object-cover shrink-0" />
+                    <IdentityAvatar src={item.club_logo_url} alt={item.club_name} className="w-6 h-6 rounded-full object-cover shrink-0" />
                   )}
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-bold text-foreground truncate">{item.club_name}</p>

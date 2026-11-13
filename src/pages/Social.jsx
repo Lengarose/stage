@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { useState, useEffect, useRef, useId} from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
@@ -408,9 +409,9 @@ function PostCard({ post, user, onLike, likePending, actionError, onDelete, onPo
     <div className="bg-card border border-border rounded-2xl overflow-hidden">
       {/* Author */}
       <div className="flex items-center gap-3 p-4 pb-3">
-        <div className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center overflow-hidden shrink-0 border border-border">
+        <div className="identity-avatar-shell w-9 h-9 rounded-full bg-secondary flex items-center justify-center overflow-hidden shrink-0 border border-border">
           {post.author_avatar
-            ? <img src={post.author_avatar} alt={post.author_name} className="w-full h-full object-cover" />
+            ? <IdentityAvatar src={post.author_avatar} alt={post.author_name} className="w-full h-full object-cover" />
             : <span className="font-bold text-primary text-sm">{post.author_name?.[0]?.toUpperCase()}</span>
           }
         </div>

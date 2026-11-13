@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
@@ -34,7 +35,7 @@ function RegionalTable({ edition, standings }) {
     const promoted = Number(edition.division) > 1 && (edition.regional_structure_version ? row.is_promoted || position===1 : edition.promoted_slots != null ? position <= edition.promoted_slots : row.is_promoted);
     const playoff = edition.regional_structure_version && Number(edition.division)===2 && !row.is_promoted && position>=2 && position<=5;
     const relegated = row.is_relegated || edition.relegated_slots != null && position > rows.length - edition.relegated_slots;
-    return <tr key={row.id || row.club_id} className="border-b border-border"><td className="px-3 py-3 text-center">{excluded ? '—' : position}</td><td className="px-3 py-3"><Link to={`/clubs/${encodeURIComponent(row.club_id)}`} className="flex min-h-10 items-center gap-3 font-semibold">{row.club_logo_url && <img src={row.club_logo_url} alt="" className="h-7 w-7 object-contain" />}{row.club_name || 'Club unavailable'}</Link></td>{[row.played,row.wins,row.draws,row.losses,row.goals_for,row.goals_against,row.goal_difference,row.points].map((v,j)=><td key={j} className={`px-3 py-3 text-center tabular-nums ${j===7?'font-bold text-foreground':'text-muted-foreground'}`}>{v ?? 0}</td>)}<td className="px-3 py-3 text-xs text-muted-foreground">{excluded ? 'Withdrawn — ineligible' : zone?.competitionName || (promoted ? 'Promotion' : playoff ? 'Promotion play-off' : relegated ? 'Relegation' : '—')}</td></tr>;
+    return <tr key={row.id || row.club_id} className="border-b border-border"><td className="px-3 py-3 text-center">{excluded ? '—' : position}</td><td className="px-3 py-3"><Link to={`/clubs/${encodeURIComponent(row.club_id)}`} className="flex min-h-10 items-center gap-3 font-semibold">{row.club_logo_url && <IdentityAvatar src={row.club_logo_url} alt="" className="h-7 w-7 object-contain" />}{row.club_name || 'Club unavailable'}</Link></td>{[row.played,row.wins,row.draws,row.losses,row.goals_for,row.goals_against,row.goal_difference,row.points].map((v,j)=><td key={j} className={`px-3 py-3 text-center tabular-nums ${j===7?'font-bold text-foreground':'text-muted-foreground'}`}>{v ?? 0}</td>)}<td className="px-3 py-3 text-xs text-muted-foreground">{excluded ? 'Withdrawn — ineligible' : zone?.competitionName || (promoted ? 'Promotion' : playoff ? 'Promotion play-off' : relegated ? 'Relegation' : '—')}</td></tr>;
   })}</tbody></table></div>;
 }
 

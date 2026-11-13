@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -116,7 +117,7 @@ export default function ScoutingVideoModal({
                     className="flex min-w-0 items-center gap-3 text-foreground transition-colors hover:text-primary"
                   >
                     {video.avatar_url ? (
-                      <img src={video.avatar_url} alt="" className="h-10 w-10 rounded-full object-cover" />
+                      <IdentityAvatar src={video.avatar_url} alt="" className="h-10 w-10 rounded-full object-cover"  zoom={video?.avatar_zoom}  position={video?.avatar_position} />
                     ) : (
                       <span className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary text-muted-foreground">
                         <User className="h-5 w-5" />
@@ -168,7 +169,7 @@ export default function ScoutingVideoModal({
                           >
                             <div className="mb-1 flex items-center gap-2">
                               {comment.author_avatar_url ? (
-                                <img src={comment.author_avatar_url} alt="" className="h-6 w-6 rounded-full object-cover" />
+                                <IdentityAvatar src={comment.author_avatar_url} alt="" className="h-6 w-6 rounded-full object-cover" />
                               ) : (
                                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-secondary text-muted-foreground">
                                   <User className="h-3 w-3" />

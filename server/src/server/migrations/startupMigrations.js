@@ -147,6 +147,7 @@ async function runStartupMigrations() {
   `).catch((err) => console.error('[migration] post_likes backfill:', err.message));
 
   await addCol('players', 'stc', 'DECIMAL(12,2) DEFAULT 0');
+  await addCol('players', 'avatar_frame', "VARCHAR(20) NOT NULL DEFAULT 'rectangle'");
   const playerMoneyColumns = await EXECUTESQL("SELECT DATA_TYPE,NUMERIC_SCALE FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='players' AND column_name='stc'");
   if (playerMoneyColumns.some(c=>c.DATA_TYPE !== 'decimal' || Number(c.NUMERIC_SCALE) !== 2)) await EXECUTESQL('ALTER TABLE players MODIFY COLUMN stc DECIMAL(12,2) NULL DEFAULT 0');
   await EXECUTESQL("ALTER TABLE players ALTER COLUMN subscription SET DEFAULT 'free'")

@@ -1,3 +1,4 @@
+import MatchupBackdrop from "./MatchupBackdrop";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { format, parseISO, isValid } from "@/lib/momentDate";
@@ -105,9 +106,10 @@ function MatchRow({ event, selected, onClick }) {
   const status = statusKeys[event.status];
   return (
     <button type="button" onClick={onClick} aria-pressed={selected}
-      className={cn("grid min-h-24 w-full grid-cols-[54px_minmax(0,1fr)] items-center gap-2 rounded-none border border-transparent border-b-border px-2 py-4 text-left transition-colors sm:grid-cols-[76px_minmax(0,1fr)_90px] sm:gap-4 sm:px-4 hover:bg-secondary/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary", selected && "bg-primary/10 shadow-[inset_2px_0_0_hsl(var(--primary))]")}
+      className={cn("agenda-match-row relative isolate overflow-hidden grid min-h-24 w-full grid-cols-[54px_minmax(0,1fr)] items-center gap-2 rounded-none border border-transparent border-b-border px-2 py-4 text-left transition-colors sm:grid-cols-[76px_minmax(0,1fr)_90px] sm:gap-4 sm:px-4 hover:bg-secondary/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary", selected && "bg-primary/10 shadow-[inset_2px_0_0_hsl(var(--primary))]")}
     >
-      <span className="whitespace-nowrap font-sans text-base font-semibold tabular-nums text-foreground sm:text-xl">{date ? format(date, "HH:mm") : "—"}</span>
+      <MatchupBackdrop event={event} />
+      <span className="agenda-match-time whitespace-nowrap font-sans text-sm font-bold tabular-nums text-foreground sm:text-lg">{date ? format(date, "HH:mm") : "—"}</span>
       <span className="col-span-2 row-start-2 min-w-0 space-y-2 sm:col-span-1 sm:row-auto">
         <span className="flex min-w-0 flex-col items-start gap-x-3 gap-y-2 text-base font-medium text-foreground sm:flex-row sm:flex-wrap sm:items-center sm:text-lg">
           <Team name={event.homeName || t("matchFlow.tbd")} image={event.homeAvatarUrl} photo={event.homePhoto} />
@@ -130,6 +132,6 @@ function MatchRow({ event, selected, onClick }) {
 function Team({ name, image, photo }) {
   return <span className="inline-flex min-w-0 items-center gap-2">
     <SchedulePortrait image={image} photo={photo} className="w-9 sm:w-10" />
-    <span className="min-w-0 break-words">{name}</span>
+    <span className="min-w-0 break-words font-heading font-bold uppercase tracking-wider">{name}</span>
   </span>;
 }

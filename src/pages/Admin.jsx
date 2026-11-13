@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import {resolveReviewedForfeit} from '@/lib/adminForfeitReview';
 // @ts-nocheck — shadcn/ui primitives are untyped forwardRefs under checkJs; substantive admin logic stays typed elsewhere.
 import { useState, useEffect, useRef, useMemo } from "react";
@@ -2453,7 +2454,7 @@ export default function Admin(props) {
             <div className="space-y-4 mt-2">
               <div className="bg-secondary/40 border border-border rounded-lg p-3 flex items-center gap-3">
                 {approveRegDialog.club_logo_url
-                  ? <img src={approveRegDialog.club_logo_url} alt={approveRegDialog.club_name} className="w-8 h-8 object-contain rounded shrink-0" />
+                  ? <IdentityAvatar src={approveRegDialog.club_logo_url} alt={approveRegDialog.club_name} className="w-8 h-8 object-contain rounded shrink-0" />
                   : <Shield className="w-6 h-6 text-muted-foreground/30 shrink-0" />}
                 <div>
                   <p className="text-sm font-bold text-foreground">{approveRegDialog.club_name}</p>

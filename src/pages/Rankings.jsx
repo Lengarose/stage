@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { stageClient } from "@/api/stageClient";
@@ -56,8 +57,8 @@ function ClubRow({ club, rank, limited = false }) {
         <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/40 to-black/90" />
         <div className="relative flex items-center gap-4 px-4 py-4 sm:px-5">
           <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-black", rankBadge(rank))}>{rank}</div>
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/20 bg-black/50">
-            {club.logo_url ? <img src={club.logo_url} alt={club.name} className="h-full w-full object-cover" /> : <Shield className="h-5 w-5 text-white/35" />}
+          <div className="identity-avatar-shell flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/20 bg-black/50">
+            {club.logo_url ? <IdentityAvatar src={club.logo_url} alt={club.name} className="h-full w-full object-cover"  zoom={club?.logo_zoom}  position={club?.logo_position} /> : <Shield className="h-5 w-5 text-white/35" />}
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
@@ -90,8 +91,8 @@ function PlayerRow({ player, rank, limited = false }) {
       <div className="grid gap-3 rounded-xl border border-white/10 bg-[#07111f] px-4 py-4 transition-colors group-hover:border-cyan-300/35 md:grid-cols-[auto_auto_1fr_auto] md:items-center">
         <div className={cn("flex h-10 w-10 items-center justify-center rounded-lg text-sm font-black", rankBadge(rank))}>{rank}</div>
         <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-white/5">
-            {player.avatar_url ? <img src={player.avatar_url} alt={player.gamertag} className="h-full w-full object-cover" /> : <Users className="h-5 w-5 text-white/35" />}
+          <div className="identity-avatar-shell flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-white/5">
+            {player.avatar_url ? <IdentityAvatar src={player.avatar_url} alt={player.gamertag} className="h-full w-full object-cover"  zoom={player?.avatar_zoom}  position={player?.avatar_position} /> : <Users className="h-5 w-5 text-white/35" />}
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2">

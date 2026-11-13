@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import React, { useState, useEffect, useRef, Fragment } from "react";
 import { Link } from "react-router-dom";
 import { stageClient } from "@/api/stageClient";
@@ -408,10 +409,10 @@ function NewsMosaic({ items }) {
                 {(featured.club_name || featured.player_name) && (
                   <div className="flex items-center gap-2 mt-auto">
                     {featured.club_logo_url && (
-                      <img src={featured.club_logo_url} alt="" className="w-5 h-5 rounded-full object-cover border border-border" />
+                      <IdentityAvatar src={featured.club_logo_url} alt="" className="w-5 h-5 rounded-full object-cover border border-border" />
                     )}
                     {featured.player_avatar_url && (
-                      <img src={featured.player_avatar_url} alt="" className="w-5 h-5 rounded-full object-cover border border-border" />
+                      <IdentityAvatar src={featured.player_avatar_url} alt="" className="w-5 h-5 rounded-full object-cover border border-border" />
                     )}
                     <span className="text-[11px] text-muted-foreground">
                       {featured.club_name || featured.player_name}
@@ -585,9 +586,9 @@ function InboxPanel({ messages, user }) {
             {messages.slice(0, 5).map((msg) => (
               <Link key={msg.id} to={`/inbox?id=${msg.id}`} className="flex items-center gap-4 px-5 py-4 hover:bg-secondary/40 transition-colors group">
                 {/* Avatar */}
-                <div className="w-9 h-9 rounded-full border border-border overflow-hidden bg-secondary shrink-0 flex items-center justify-center">
+                <div className="identity-avatar-shell w-9 h-9 rounded-full border border-border overflow-hidden bg-secondary shrink-0 flex items-center justify-center">
                   {msg.sender_avatar_url ? (
-                    <img src={msg.sender_avatar_url} alt="" className="w-full h-full object-cover" />
+                    <IdentityAvatar src={msg.sender_avatar_url} alt="" className="w-full h-full object-cover" />
                   ) : (
                     <span className="text-xs font-bold text-muted-foreground">
                       {msg.is_system ? "S" : (msg.sender_gamertag || "?")[0].toUpperCase()}
@@ -672,12 +673,7 @@ function MobileHomeDashboard({
           )}
         </Link>
         {player?.avatar_url && (
-          <div
-            className="w-11 h-11 rounded-full border border-border shrink-0 bg-cover bg-center"
-            style={{ backgroundImage: `url(${player.avatar_url})` }}
-            role="img"
-            aria-label={displayName || "Player"}
-          />
+          <IdentityAvatar src={player.avatar_url} name={displayName} className="h-11 w-11" position={player.avatar_position} zoom={player.avatar_zoom} />
         )}
       </header>
 

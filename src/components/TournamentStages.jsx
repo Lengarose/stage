@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { useRef, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight, Shield, Trophy } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -30,7 +31,7 @@ export default function TournamentStages({ tournament, matches, clubs, user, pla
     const club = clubs.find(c => String(c.id) === String(match[`${side}_club_id`]));
     const name = (isPlayer ? match[`${side}_player_name`] : match[`${side}_club_name`]) || match[`${side}_club_name`] || "TBD";
     const image = match[`${side}_avatar_url`] || match[`${side}_player_avatar_url`] || match[`${side}_club_logo_url`] || club?.logo_url;
-    return <span className="flex min-w-0 items-center gap-2"><span className="flex h-7 w-7 shrink-0 items-center justify-center">{image ? <img src={image} alt="" className="h-full w-full object-contain" /> : <Shield className="h-4 w-4 text-muted-foreground" />}</span><span className="min-w-0 break-words">{name}</span></span>;
+    return <span className="flex min-w-0 items-center gap-2"><span className="identity-avatar-shell flex h-7 w-7 shrink-0 items-center justify-center">{image ? <IdentityAvatar src={image} alt="" className="h-full w-full object-contain" /> : <Shield className="h-4 w-4 text-muted-foreground" />}</span><span className="min-w-0 break-words">{name}</span></span>;
   };
   function score(match) {
     return isStageResult(match) && match.home_score != null && match.away_score != null ? `${match.home_score} – ${match.away_score}` : match.status === "bye" ? "Bye" : "vs";

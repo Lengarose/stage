@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, ChevronDown, Check, ArrowRight, AlertTriangle, RefreshCw } from 'lucide-react';
@@ -122,7 +123,7 @@ export default function ScheduleCalendar({ tournamentId }) {
           <div className="space-y-3 xl:max-h-[560px] xl:overflow-y-auto xl:pr-1">{selectedEvents.map(event=>{const category=categoryStyle(event);return <article key={event.id} className="min-w-0 border border-border p-3" style={category.style}>
             <div className="flex items-start justify-between gap-2"><p className="min-w-0 break-words text-xs font-bold uppercase">{event.competition}</p><time className="shrink-0 text-sm tabular-nums" dateTime={event.startsAt}>{calendarTime(event.startsAt,displayTimezone)}</time></div>
             <p className="mt-1 text-[10px] text-muted-foreground">{category.label}{event.stage?` · ${event.stage}`:''}{event.matchday?` · Matchday ${event.matchday}`:event.round?` · Round ${event.round}`:''}{event.leg?` · Leg ${event.leg}`:''}</p>
-            <div className="mt-2 flex items-start gap-2">{event.homeAvatarUrl?<img src={event.homeAvatarUrl} alt="" className="h-6 w-6 shrink-0 object-contain"/>:null}<h3 className="min-w-0 break-words font-heading text-lg font-bold">{event.homeName} vs {event.awayName}</h3>{event.awayAvatarUrl?<img src={event.awayAvatarUrl} alt="" className="h-6 w-6 shrink-0 object-contain"/>:null}</div>
+            <div className="mt-2 flex items-start gap-2">{event.homeAvatarUrl?<IdentityAvatar src={event.homeAvatarUrl} alt="" className="h-6 w-6 shrink-0 object-contain"/>:null}<h3 className="min-w-0 break-words font-heading text-lg font-bold">{event.homeName} vs {event.awayName}</h3>{event.awayAvatarUrl?<IdentityAvatar src={event.awayAvatarUrl} alt="" className="h-6 w-6 shrink-0 object-contain"/>:null}</div>
             {event.score?<p className="mt-1 font-bold">{event.score} · Completed</p>:<p className="mt-1 text-xs text-muted-foreground">{event.status==='in_progress'?'In progress':event.status==='disputed'?'Result disputed':event.status==='awaiting_confirmation'?'Result awaiting confirmation':'Confirmed schedule'}</p>}
             {penaltyOutcome(event)&&<p className="mt-1 break-words text-xs text-primary">{penaltyOutcome(event)}</p>}
             {conflicts.has(event.id)?<p className="mt-1 text-xs text-amber-600 dark:text-amber-300">Same-time kickoff</p>:null}

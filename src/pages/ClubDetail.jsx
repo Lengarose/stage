@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { CardLevelBadge } from "@/components/card/CardProgression";
 import { useState, useEffect, useRef, useId } from "react";
 import { useParams, Link, useLocation } from "react-router-dom";
@@ -258,37 +259,14 @@ function ClubPresidentChip({ club, president }) {
   const { t } = useTranslation();
   const playerId = president?.player_id || club?.president_player_id;
   if (!playerId && !president?.id) return null;
-  const name = t("commonPages.cdPresident");
+  const name = president?.gamertag || president?.display_name || president?.username || club?.president_name || t("matchFlow.tbd");
   const profilePath = president?.profile_path || (playerId ? `/players/${playerId}` : null);
-  const chipClassName = "inline-flex max-w-[240px] items-center gap-3 border border-cyan-200/25 bg-black/24 px-4 py-2 text-cyan-50/95 backdrop-blur-md transition-all hover:border-cyan-200/55 hover:bg-cyan-300/10 hover:shadow-[0_0_24px_-10px_rgba(0,229,255,0.9)]";
-  const ChipTag = profilePath ? Link : "span";
-  const chipProps = profilePath
-    ? { to: profilePath, className: chipClassName, title: t("commonPages.presProfileMenu") }
-    : { className: chipClassName, title: t("commonPages.presProfileMenu") };
   return (
-    <ChipTag
-      {...chipProps}
-      style={{ clipPath: "polygon(10% 0, 100% 0, 90% 100%, 0 100%)" }}
-    >
-      <span
-        className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden border border-cyan-200/25 bg-[#101827]"
-        style={{
-          clipPath: "polygon(16% 0, 100% 0, 84% 100%, 0 100%)",
-          ...(president?.avatar_url ? {
-          backgroundImage: `url(${president.avatar_url})`,
-          backgroundSize: `${president.avatar_zoom || 150}%`,
-          backgroundPosition: president.avatar_position || "50% 50%",
-          backgroundRepeat: "no-repeat",
-          } : {}),
-        }}
-        aria-hidden
-      >
-        {!president?.avatar_url ? <Shield className="w-3.5 h-3.5 text-amber-300/80" /> : null}
-      </span>
-      <span className="truncate font-heading text-sm font-black uppercase tracking-[0.08em] text-white">
-        {name}
-      </span>
-    </ChipTag>
+    <span className="inline-flex min-w-0 flex-wrap items-baseline gap-1.5 text-xs">
+      <span className="text-white/55">{t("commonPages.cdPresident")}: </span>
+      {profilePath ? <Link to={profilePath} className="pointer-events-auto cursor-pointer break-words font-semibold text-cyan-100 transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300">{name}</Link>
+        : <span className="break-words font-semibold text-white/85">{name}</span>}
+    </span>
   );
 }
 
@@ -879,7 +857,6 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
         draws={draws}
         losses={losses}
         winRate={winRate}
-        memberCount={safePlayers.length}
         onBannerClick={() => canEdit && setBannerDialogOpen(true)}
         onLogoClick={() => {
           if (club.logo_url) setLogoPreviewOpen(true);
@@ -1700,10 +1677,10 @@ function ClubLeaderboardTable({
                   <td className="min-w-0 px-2 py-3">
                     <div className="flex items-center gap-2">
                       <div
-                        className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden border border-cyan-200/20 bg-black/35"
+                        className="identity-avatar-shell flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden border border-cyan-200/20 bg-black/35"
                       >
                         {player.avatar_url ? (
-                          <img src={player.avatar_url} alt={player.gamertag} className="h-full w-full object-cover" style={{ objectPosition: player.avatar_position || "50% 50%" }} />
+                          <IdentityAvatar src={player.avatar_url} alt={player.gamertag} className="h-full w-full object-cover" style={{ objectPosition: player.avatar_position || "50% 50%" }}  zoom={player?.avatar_zoom} />
                         ) : (
                           <span className="font-heading text-xs font-black text-[#f5c542]">
                             {String(player.gamertag || "?").slice(0, 2).toUpperCase()}
@@ -3934,16 +3911,16 @@ function PlayerCard({
         <div className="relative z-[1] flex items-start justify-between gap-2 pl-1 pr-2 sm:pl-2">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <div
-              className="relative h-[58px] w-[58px] shrink-0 overflow-hidden border border-[#f5c542]/35 bg-black/35 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]"
+              className="identity-avatar-shell relative h-[58px] w-[58px] shrink-0 overflow-hidden border border-[#f5c542]/35 bg-black/35 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]"
               style={{ clipPath: "polygon(14% 0, 100% 0, 86% 100%, 0 100%)" }}
             >
               {player.avatar_url ? (
-                <img
+                <IdentityAvatar
                   src={player.avatar_url}
                   alt={player.gamertag}
                   className="h-full w-full object-cover"
                   style={{ objectPosition: player.avatar_position || "50% 50%" }}
-                />
+                 zoom={player?.avatar_zoom} />
               ) : (
                 <div className="flex h-full w-full items-center justify-center bg-[#101827] font-heading text-base font-black text-[#f5c542]">
                   {initials}

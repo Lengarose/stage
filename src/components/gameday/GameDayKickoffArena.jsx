@@ -204,7 +204,7 @@ function ClockCell({ value, label }) {
 function Side({ name, logo, you, youLabel, align, onCustomBg = false }) {
   return (
     <div className={cn("flex min-w-0 flex-col items-center gap-3", align === "right" ? "sm:items-end" : "sm:items-start")}>
-      <GameDayCrest name={name} imageUrl={logo} size="lg" glow={you} className="max-w-full max-sm:aspect-[9/8] max-sm:!h-auto" />
+      <GameDayCrest name={name} imageUrl={logo} size="lg" glow={you} className="max-w-full" />
       <div className={cn("min-w-0 text-center", align === "right" ? "sm:text-right" : "sm:text-left")}>
         <p className={cn(
           "font-heading text-xl font-black uppercase leading-none tracking-tight sm:text-3xl md:text-4xl",

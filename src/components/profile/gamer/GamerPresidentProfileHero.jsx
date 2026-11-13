@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { Crown, Trophy, Shield } from "lucide-react";
 import { Link } from "react-router-dom";
 import { PAGE_BANNER_HEIGHT_CLASS } from "@/lib/pageBanner";
@@ -65,17 +66,7 @@ function ClubChip({ club, label }) {
       to={`/clubs/${club.id}`}
       className="inline-flex items-center gap-2.5 rounded-full border border-white/15 bg-black/45 backdrop-blur-md px-2.5 py-1.5 hover:bg-black/60 hover:border-amber-300/30 transition-colors max-w-[220px]"
     >
-      <span
-        className="w-8 h-8 rounded-full border border-white/20 bg-[#101827] overflow-hidden shrink-0 flex items-center justify-center"
-        style={club.logo_url ? {
-          backgroundImage: `url(${club.logo_url})`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        } : undefined}
-        aria-hidden
-      >
-        {!club.logo_url ? <Shield className="w-3.5 h-3.5 text-white/40" /> : null}
-      </span>
+      <IdentityAvatar src={club.logo_url} name={club.name} className="h-8 w-8" position={club.logo_position} zoom={club.logo_zoom} />
       <span className="font-heading text-sm font-black uppercase tracking-wide text-white truncate">
         {club.name || label || "Club"}
       </span>

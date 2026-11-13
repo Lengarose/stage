@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { useEffect, useState } from "react";
 import { stageClient } from "@/api/stageClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -368,9 +369,9 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
                     onClick={() => selectOpponent(r, matchType)}
                     className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-secondary/60 transition-colors text-left"
                   >
-                    <div className="w-8 h-8 rounded-full bg-secondary border border-border flex items-center justify-center shrink-0 overflow-hidden">
+                    <div className="identity-avatar-shell w-8 h-8 rounded-full bg-secondary border border-border flex items-center justify-center shrink-0 overflow-hidden">
                       {r.logo_url || r.avatar_url
-                        ? <img src={r.logo_url || r.avatar_url} alt={r.name || r.gamertag} className="w-full h-full object-cover" />
+                        ? <IdentityAvatar src={r.logo_url || r.avatar_url} alt={r.name || r.gamertag} className="w-full h-full object-cover" />
                         : (isPresidentMode ? "club" : searchType) === "club" ? <Shield className="w-4 h-4 text-muted-foreground" /> : <User className="w-4 h-4 text-muted-foreground" />}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -396,9 +397,9 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
 
             {/* Selected opponent */}
             <div className="flex items-center gap-3 p-3 bg-secondary/60 rounded-lg border border-border">
-              <div className="w-9 h-9 rounded-full bg-secondary border border-border flex items-center justify-center shrink-0 overflow-hidden">
+              <div className="identity-avatar-shell w-9 h-9 rounded-full bg-secondary border border-border flex items-center justify-center shrink-0 overflow-hidden">
                 {opponentImageUrl(selected, recipientKind)
-                  ? <img src={opponentImageUrl(selected, recipientKind)} alt={formatOpponentLabel(selected, recipientKind)} className="w-full h-full object-cover" />
+                  ? <IdentityAvatar src={opponentImageUrl(selected, recipientKind)} alt={formatOpponentLabel(selected, recipientKind)} className="w-full h-full object-cover" />
                   : recipientKind === "club" ? <Shield className="w-4 h-4 text-muted-foreground" /> : <User className="w-4 h-4 text-muted-foreground" />}
               </div>
               <div>

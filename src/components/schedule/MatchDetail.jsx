@@ -1,3 +1,4 @@
+import MatchupBackdrop from "./MatchupBackdrop";
 import { cn } from "@/lib/utils";
 import { format, parseISO, isValid } from "@/lib/momentDate";
 import { Trophy, AlertTriangle, FileText } from "lucide-react";
@@ -52,13 +53,14 @@ export default function MatchDetail({ event, myPlayer, myClub }) {
       </div>
 
       {/* Large portraits, followed by the stacked fixture names. */}
-      <div className="px-5 py-8 sm:px-6">
+      <div className="agenda-matchup-panel relative isolate overflow-hidden px-5 py-8 sm:px-6">
+        <MatchupBackdrop event={event} detail />
         <div className="flex items-center justify-between gap-3">
           <SchedulePortrait image={event.homeAvatarUrl} photo={event.homePhoto} className="w-16 sm:w-20" />
           <div className="flex min-w-0 flex-col items-center gap-2">
             {completed ? <>
-              <div className="font-heading text-4xl font-bold tracking-wide text-foreground">
-                {homeScore}-{awayScore}
+              <div aria-label={`${homeScore} – ${awayScore}`} className="flex items-center gap-2 font-heading text-4xl font-bold tracking-wide text-foreground">
+                <span className="font-heading">{homeScore}</span><span aria-hidden="true" className="h-[3px] w-4 shrink-0 bg-current opacity-80" /><span className="font-heading">{awayScore}</span>
               </div>
               {event.result && <span className={cn("rounded-none border px-2 py-1 text-xs font-bold", OUTCOME_STYLE[event.result.outcome])}>
                 {event.result.outcome === "W" ? t("matchFlow.win") : event.result.outcome === "L" ? t("matchFlow.loss") : t("matchFlow.draw")}

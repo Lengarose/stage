@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { FileText, ExternalLink, Clock, Users, Shield, Star, TrendingUp } from "lucide-react";
@@ -37,9 +38,9 @@ export default function TransferDetailPanel({ entry, canManage, canOffer, getOff
 
       <div className="px-5 pb-5">
         <div className="mb-1 -mt-5 flex items-end gap-4">
-          <div className="relative z-10 h-14 w-14 shrink-0 overflow-hidden rounded-full border-4 border-card bg-secondary shadow-xl">
+          <div className="identity-avatar-shell relative z-10 h-14 w-14 shrink-0 overflow-hidden rounded-full border border-white/15 bg-secondary shadow-xl">
             {player.avatar_url
-              ? <img src={player.avatar_url} alt={player.gamertag} className="w-full h-full object-cover" style={{ objectPosition: player.avatar_position || "50% 50%" }} />
+              ? <IdentityAvatar src={player.avatar_url} alt={player.gamertag} className="w-full h-full object-cover" style={{ objectPosition: player.avatar_position || "50% 50%" }}  zoom={player?.avatar_zoom} />
               : <div className="w-full h-full flex items-center justify-center bg-primary/10">
                   <span className="text-xl font-black text-primary">{(player.gamertag || "?")[0].toUpperCase()}</span>
                 </div>}

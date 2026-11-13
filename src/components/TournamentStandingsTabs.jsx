@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { Link } from 'react-router-dom';
 import { isStageResult } from '@/lib/tournamentStages';
 import { cn } from "@/lib/utils";
@@ -71,7 +72,7 @@ export default function TournamentStandingsTabs({ tournament, matches, registere
                     <td className="px-2 py-2 font-medium text-foreground">
                       <div className="flex items-center gap-1.5">
                         {isChamp && <Trophy className="w-3 h-3 text-warning shrink-0" />}
-                        {row.avatar_url && <img src={row.avatar_url} alt="" className="h-6 w-6 object-cover" />}
+                        {row.avatar_url && <IdentityAvatar src={row.avatar_url} alt="" className="h-6 w-6 object-cover"  zoom={row?.avatar_zoom}  position={row?.avatar_position} />}
                         <Link to={`/${player ? 'players' : 'clubs'}/${encodeURIComponent(row.id)}`} className="min-h-10 py-2 font-semibold">{row.name}</Link>
                       </div>
                     </td>
@@ -151,7 +152,7 @@ export default function TournamentStandingsTabs({ tournament, matches, registere
                           <td className="px-2 py-2 font-medium text-foreground max-w-[90px] truncate">
                             <div className="flex items-center gap-1.5">
                               {qualifies && <span className="w-1.5 h-1.5 rounded-full bg-success shrink-0" />}
-                              {(profile?.avatar_url || profile?.logo_url) && <img src={profile.avatar_url || profile.logo_url} alt="" className="h-6 w-6 shrink-0 object-contain" />}
+                              {(profile?.avatar_url || profile?.logo_url) && <IdentityAvatar src={profile.avatar_url || profile.logo_url} alt="" className="h-6 w-6 shrink-0 object-contain" />}
                               <Link to={`/${player ? 'players' : 'clubs'}/${encodeURIComponent(row.id)}`} className="min-h-10 py-2 font-semibold">{row.name}</Link>
                             </div>
                           </td>

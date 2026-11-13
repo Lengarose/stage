@@ -90,7 +90,7 @@ test("club detail prefers canonical president Player identity", () => {
   assert.doesNotMatch(detail, /PresidentProfileCard/);
   assert.doesNotMatch(detail, /View president profile/);
   assert.match(hero, /infoAside/);
-  assert.match(detail, /president\?\.avatar_url|president\.avatar_url/);
+  assert.match(detail, /president\?\.gamertag/);
   assert.match(app, /path="\/presidents\/:id"/);
   assert.match(app, /PresidentLegacyRedirect/);
   assert.doesNotMatch(app, /pages\/PresidentProfile/);

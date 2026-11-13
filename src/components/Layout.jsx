@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Home, Shield, Trophy, BarChart3, User, ArrowLeftRight,
@@ -864,19 +865,6 @@ function HeaderIdentityMenu({
 
   if (!myPlayer && !canUseClubIdentity) return null;
 
-  const avatarPx = 36;
-  const avatarRing = {
-    width: avatarPx,
-    height: avatarPx,
-    outline: "1.5px solid rgba(150,214,255,0.45)",
-    outlineOffset: 1,
-    borderRadius: "9999px",
-  };
-
-  const clubLogoFallback =
-    myClub &&
-    `https://ui-avatars.com/api/?name=${encodeURIComponent(myClub.tag || myClub.name || "?")}&background=1a1a2e&color=fff&size=128&bold=true&font-size=0.4`;
-
   const primaryLine =
     showAsPresident && myClub ? myClub.name : myPlayer?.gamertag || myClub?.name || "";
 
@@ -886,31 +874,12 @@ function HeaderIdentityMenu({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button type="button" className="flex shrink-0 items-center gap-2.5 text-left outline-none transition-opacity hover:opacity-95" style={{ maxWidth: 280 }}>
-          {showAsPresident && myClub ? (
-            <div className="shrink-0 overflow-hidden rounded-full bg-white/10" style={avatarRing}>
-              <img
-                src={myClub.logo_url || clubLogoFallback}
-                alt=""
-                className="h-full w-full object-cover"
-                style={{ objectPosition: myClub.logo_position || "50% 50%" }}
-              />
-            </div>
-          ) : (
-            <div
-              className="shrink-0 rounded-full bg-white/10"
-              style={{
-                ...avatarRing,
-                ...(myPlayer?.avatar_url
-                  ? {
-                      backgroundImage: `url(${myPlayer.avatar_url})`,
-                      backgroundSize: `${myPlayer.avatar_zoom || 150}%`,
-                      backgroundPosition: myPlayer.avatar_position || "50% 50%",
-                      backgroundRepeat: "no-repeat",
-                    }
-                  : {}),
-              }}
-            />
-          )}
+          <IdentityAvatar
+            src={showAsPresident ? myClub?.logo_url : myPlayer?.avatar_url}
+            name={showAsPresident ? myClub?.name : myPlayer?.gamertag}
+            className="h-9 w-9"
+            position={showAsPresident ? myClub?.logo_position : myPlayer?.avatar_position}
+            zoom={showAsPresident ? myClub?.logo_zoom : myPlayer?.avatar_zoom} />
           <div className="min-w-0 flex-1">
             <p className={cn("truncate", isWhiteTheme ? "text-slate-900" : "text-white")} style={{ ...headingFont, fontWeight: 600, fontSize: 14, letterSpacing: "0.1em", textTransform: "uppercase" }}>
               {primaryLine}
@@ -1841,44 +1810,18 @@ function MobileThemeButton({ theme, setTheme }) {
 
 function MobileHeaderIdentity({ myPlayer, myClub, presidentClub, accountMode }) {
   const showAsPresident = accountMode === "club" && Boolean(presidentClub?.id);
-  const displayClub = showAsPresident ? presidentClub : myClub;
-  const clubLogoFallback =
-    displayClub &&
-    `https://ui-avatars.com/api/?name=${encodeURIComponent(displayClub.tag || displayClub.name || "?")}&background=1a1a2e&color=fff&size=128&bold=true&font-size=0.4`;
-
   const displayName =
     showAsPresident && presidentClub
       ? presidentClub.name
       : myPlayer?.gamertag || myClub?.name || "Player";
 
-  const showPlayerAvatarBg = !showAsPresident && Boolean(myPlayer?.avatar_url);
-
   const identityButton = (
     <div className="flex items-center gap-2.5 min-w-0 text-left">
-      <div
-        className="w-9 h-9 rounded-full flex items-center justify-center overflow-hidden border shrink-0"
-        style={{
-          border: "1.5px solid rgba(255,255,255,0.22)",
-          backgroundColor: "rgba(255,255,255,0.12)",
-          ...(showPlayerAvatarBg && {
-            backgroundImage: `url(${myPlayer.avatar_url})`,
-            backgroundSize: `${myPlayer?.avatar_zoom || 150}%`,
-            backgroundPosition: myPlayer?.avatar_position || "50% 50%",
-            backgroundRepeat: "no-repeat",
-          }),
-        }}
-      >
-        {showAsPresident && presidentClub ? (
-          <img
-            src={presidentClub.logo_url || clubLogoFallback}
-            alt=""
-            className="h-full w-full object-cover"
-            style={{ objectPosition: presidentClub.logo_position || "50% 50%" }}
-          />
-        ) : (
-          !myPlayer?.avatar_url && <User className="w-4 h-4 text-white/50" />
-        )}
-      </div>
+      <IdentityAvatar
+        src={showAsPresident ? presidentClub?.logo_url : myPlayer?.avatar_url}
+        name={displayName} className="h-9 w-9"
+        position={showAsPresident ? presidentClub?.logo_position : myPlayer?.avatar_position}
+        zoom={showAsPresident ? presidentClub?.logo_zoom : myPlayer?.avatar_zoom} />
       <div className="min-w-0">
         <p
           className="truncate text-white"

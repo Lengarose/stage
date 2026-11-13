@@ -1,16 +1,15 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Shield, User, ChevronRight } from 'lucide-react';
+import { Search, ChevronRight } from 'lucide-react';
 import { formatProfilePlatform } from '@/lib/profilePlatform';
 
 export function participantRows(rows, query = '', order = 'asc', platform = '') {
   return [...new Map(rows.map(p => [String(p.id), p])).values()].filter(p => (!query.trim() || String(p.gamertag || p.name || '').toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())) && (!platform || p.platform === platform))
     .sort((a, b) => (order === 'desc' ? -1 : 1) * (String(a.gamertag || a.name).localeCompare(String(b.gamertag || b.name)) || String(a.id).localeCompare(String(b.id))));
 }
-function Portrait({ participant, player }) {
-  const [failed, setFailed] = useState(false);
-  const url = participant.avatar_url || participant.logo_url;
-  return url && !failed ? <img src={url} alt="" onError={() => setFailed(true)} className="h-12 w-12 shrink-0 object-contain" /> : player ? <User className="h-10 w-10 shrink-0 text-muted-foreground" /> : <Shield className="h-10 w-10 shrink-0 text-muted-foreground" />;
+function Portrait({ participant }) {
+  return <IdentityAvatar src={participant.avatar_url || participant.logo_url} name={participant.gamertag || participant.name} className="h-12 w-12" position={participant.avatar_position || participant.logo_position} zoom={participant.avatar_zoom || participant.logo_zoom} />;
 }
 export default function ParticipantDirectory({ participants, player = false, myId, title }) {
   const [search, setSearch] = useState('');

@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { stageClient } from "@/api/stageClient";
@@ -94,7 +95,7 @@ export default function HomeInboxPanel() {
             {msg.is_system ? (
               <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-sm">⚡</div>
             ) : msg.sender_avatar_url ? (
-              <img src={msg.sender_avatar_url} alt={msg.sender_gamertag} className="w-8 h-8 rounded-full object-cover border border-border" />
+              <IdentityAvatar src={msg.sender_avatar_url} alt={msg.sender_gamertag} className="w-8 h-8 rounded-full object-cover border border-border" />
             ) : (
               <div className="w-8 h-8 rounded-full bg-secondary border border-border flex items-center justify-center text-xs font-bold text-foreground">
                 {(msg.sender_gamertag || "?")[0].toUpperCase()}

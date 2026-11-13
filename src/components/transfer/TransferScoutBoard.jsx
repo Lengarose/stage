@@ -1,7 +1,8 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { CardLevelBadge } from "@/components/card/CardProgression";
 import { Link } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
-import { Clock, ExternalLink, FileText, Search, Shield, Star, UserRound } from "lucide-react";
+import { Clock, ExternalLink, FileText, Search, Shield, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import TransferBadge from "./TransferBadge";
 import { calculatePlayerValue, formatSTC, getValueTier } from "@/lib/playerValue";
@@ -12,22 +13,7 @@ import { getCountryShortName } from "@/lib/countryDisplay";
 const PAGE_SIZE = 8;
 
 function PlayerPortrait({ player, className }) {
-  return (
-    <div className={cn("overflow-hidden border border-white/10 bg-black/40", className)}>
-      {player?.avatar_url ? (
-        <img
-          src={player.avatar_url}
-          alt={player.gamertag || ""}
-          className="h-full w-full object-cover"
-          style={{ objectPosition: player.avatar_position || "50% 50%" }}
-        />
-      ) : (
-        <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_45%_20%,rgba(0,229,255,0.18),rgba(5,8,15,0.92)_58%)]">
-          <UserRound className="h-9 w-9 text-white/28" />
-        </div>
-      )}
-    </div>
-  );
+  return <IdentityAvatar src={player?.avatar_url} name={player?.gamertag} className={className} position={player?.avatar_position} zoom={player?.avatar_zoom} />;
 }
 
 function metricValue(value, fallback = "0") {
@@ -53,7 +39,7 @@ function TransferScoutCard({ entry, active, onSelect }) {
       <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_12%,rgba(0,229,255,0.16),transparent_34%),radial-gradient(circle_at_85%_88%,rgba(245,197,66,0.10),transparent_38%)] opacity-80" />
       <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-200/55 to-transparent" />
 
-      <PlayerPortrait player={player} className="relative h-[70px] w-14" />
+      <PlayerPortrait player={player} className="relative h-14 w-14" />
 
       <div className="relative min-w-0 self-center">
         <div className="mb-1 flex min-w-0 items-center gap-1.5">

@@ -1,3 +1,4 @@
+import { playerPhotoFrame, playerPhotoFrameStyle } from "@/lib/playerPhotoFrame";
 import { CardLevelBadge } from "@/components/card/CardProgression";
 import { Children, cloneElement, isValidElement } from "react";
 import { cn } from "@/lib/utils";
@@ -92,6 +93,8 @@ export function GamerPlayerPhotoFrame({
   children,
   ...props
 }) {
+  const frame = playerPhotoFrame(player?.avatar_frame);
+  const frameStyle = playerPhotoFrameStyle(frame);
   const position = positionLabel || player?.position || "—";
   const resolvedImageUrl = imageUrl || resolvePlayerAvatarUrl(player);
   const resolvedZoom = imageZoom ?? player?.avatar_zoom;
@@ -109,13 +112,15 @@ export function GamerPlayerPhotoFrame({
   return (
     <Component
       className={cn(
-        "relative w-[168px] sm:w-[208px] aspect-[4/5] rounded-none overflow-hidden shrink-0 text-left",
-        "border border-cyan-300/40 shadow-[0_0_50px_-8px_rgba(0,229,255,0.7),0_0_90px_-42px_rgba(245,197,66,0.85)]",
-        "bg-gradient-to-br from-cyan-500/10 via-[#0d1528] to-amber-500/10",
+        "relative w-[168px] sm:w-[208px] shrink-0 border border-transparent text-left",
+        frame === "circle" ? "aspect-square" : "aspect-[4/5]",
+
         className
       )}
       {...props}
     >
+      <div className="pointer-events-none absolute inset-0 bg-cyan-200/50" style={frameStyle} />
+      <div className="absolute inset-px overflow-hidden bg-[#0d1528]" style={frameStyle}>
       {resolvedImageUrl && !imageFailed ? (
         <img
           src={resolvedImageUrl}
@@ -134,8 +139,9 @@ export function GamerPlayerPhotoFrame({
         </div>
       )}
       <div className="absolute inset-0 z-[1] bg-gradient-to-t from-black/82 via-black/20 to-transparent pointer-events-none" />
-      <CardLevelBadge playerId={player?.id} className="absolute right-3 top-3 z-[2]" />
-      <div className="absolute bottom-0 inset-x-0 z-[2] px-4 pb-3 pt-10">
+      </div>
+      <CardLevelBadge playerId={player?.id} className={cn("absolute z-[2]", frame === "rectangle" ? "right-3 top-3" : frame === "triangle" ? "left-1/2 top-[23%] -translate-x-1/2" : "right-[18%] top-[12%]")} />
+      <div className={cn("absolute inset-x-0 z-[2] px-4 pt-10", frame === "rectangle" || frame === "parallelogram" ? "bottom-0 pb-3" : "bottom-[10%] text-center")}>
         <div className="relative inline-flex min-w-[84px] items-center overflow-hidden border border-cyan-200/45 bg-gradient-to-r from-cyan-300/22 via-black/48 to-amber-300/18 px-3 py-1.5 pr-5 shadow-[0_0_22px_-9px_rgba(0,229,255,0.9)] [clip-path:polygon(13%_0,100%_0,87%_100%,0_100%)]">
           <span className="pointer-events-none absolute inset-0 bg-[linear-gradient(115deg,transparent_0%,rgba(255,255,255,0.18)_42%,transparent_62%)] opacity-70" />
           {resolvedShirtNumber != null && resolvedShirtNumber !== "" ? (

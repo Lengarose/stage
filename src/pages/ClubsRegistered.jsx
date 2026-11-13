@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { stageClient } from "@/api/stageClient";
@@ -208,9 +209,9 @@ export default function ClubsRegistered({ overrideTournamentId } = {}) {
               return (
                 <div key={clubId} className="flex flex-col gap-3 rounded-xl border border-border/70 bg-card/70 p-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-primary/25 bg-primary/10">
+                    <div className="identity-avatar-shell flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-primary/25 bg-primary/10">
                       {club?.logo_url
-                        ? <img src={club.logo_url} alt={club.name} className="h-full w-full object-cover" style={{ objectPosition: club.logo_position || "50% 50%" }} />
+                        ? <IdentityAvatar src={club.logo_url} alt={club.name} className="h-full w-full object-cover" style={{ objectPosition: club.logo_position || "50% 50%" }}  zoom={club?.logo_zoom} />
                         : <Shield className="h-4 w-4 text-primary" />}
                     </div>
                     <div className="min-w-0">
@@ -304,9 +305,9 @@ export default function ClubsRegistered({ overrideTournamentId } = {}) {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 overflow-hidden">
+                      <div className="identity-avatar-shell w-9 h-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 overflow-hidden">
                         {club.logo_url
-                          ? <img src={club.logo_url} alt={club.name} className="w-full h-full object-cover" style={{ objectPosition: club.logo_position || "50% 50%" }} />
+                          ? <IdentityAvatar src={club.logo_url} alt={club.name} className="w-full h-full object-cover" style={{ objectPosition: club.logo_position || "50% 50%" }}  zoom={club?.logo_zoom} />
                           : <Shield className="w-4 h-4 text-primary" />}
                       </div>
                       <div>

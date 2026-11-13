@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { useState, useEffect, useRef, useId} from "react";
 import { stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
@@ -138,9 +139,9 @@ export default function ClubFeed({ club, currentUser, myPlayer, isMember }) {
       {isMember && (
         <div className="bg-card border border-border rounded-none p-5 space-y-3">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 overflow-hidden">
+            <div className="identity-avatar-shell w-9 h-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 overflow-hidden">
               {club.logo_url
-                ? <img src={club.logo_url} className="w-full h-full object-cover" alt="" style={{ objectPosition: club.logo_position || "50% 50%" }} />
+                ? <IdentityAvatar src={club.logo_url} className="w-full h-full object-cover" alt="" style={{ objectPosition: club.logo_position || "50% 50%" }}  zoom={club?.logo_zoom} />
                 : <span className="text-primary leading-relaxed font-bold text-sm">{(club.name || "?")[0].toUpperCase()}</span>
               }
             </div>

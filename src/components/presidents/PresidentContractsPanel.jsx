@@ -1,6 +1,7 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Loader2, User } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { stageClient } from "@/api/stageClient";
 import ContractCard from "@/components/contracts/ContractCard";
 import { CONTRACT_TYPES } from "@/lib/contractTypes";
@@ -35,24 +36,7 @@ function SignedPlayerRow({ contract, player }) {
       )}
       style={{ clipPath: "polygon(3% 0, 100% 0, 97% 100%, 0 100%)" }}
     >
-      <span
-        className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden border border-white/15 bg-white/5"
-        style={{ clipPath: "polygon(14% 0, 100% 0, 86% 100%, 0 100%)" }}
-      >
-        {player?.avatar_url ? (
-          <span
-            className="w-full h-full block"
-            style={{
-              backgroundImage: `url(${player.avatar_url})`,
-              backgroundSize: "cover",
-              backgroundPosition: player.avatar_position || "50% 50%",
-            }}
-            aria-hidden
-          />
-        ) : (
-          <User className="w-4 h-4 text-white/40" />
-        )}
-      </span>
+      <IdentityAvatar src={player?.avatar_url} name={name} className="h-10 w-10" position={player?.avatar_position} zoom={player?.avatar_zoom} />
       <div className="min-w-0 flex-1">
         <p className="text-sm font-bold text-white truncate">{name}</p>
         <p className="text-xs text-white/45 mt-0.5 truncate">

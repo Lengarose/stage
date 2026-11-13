@@ -1,3 +1,4 @@
+import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { useState, useEffect } from "react";
 import { stageClient } from "@/api/stageClient";
 import { Users, AlertTriangle, CheckCircle2, Lock } from "lucide-react";
@@ -234,9 +235,9 @@ export default function GameDayDressingRoom({ game, myClub, myPlayer, user, onSe
                   )} />
                 </div>
                 <div className="flex items-end justify-between gap-3">
-                  <div className="h-12 w-12 overflow-hidden border border-white/15 bg-black/45 [clip-path:polygon(8px_0,100%_0,calc(100%_-_8px)_100%,0_100%)]">
+                  <div className="identity-avatar-shell h-12 w-12 overflow-hidden border border-white/15 bg-black/45 [clip-path:polygon(8px_0,100%_0,calc(100%_-_8px)_100%,0_100%)]">
                     {player.avatar_url ? (
-                      <img src={player.avatar_url} alt="" className="h-full w-full object-cover" />
+                      <IdentityAvatar src={player.avatar_url} alt="" className="h-full w-full object-cover"  zoom={player?.avatar_zoom}  position={player?.avatar_position} />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center font-heading text-sm font-black text-white/55">
                         {getInitials(player.gamertag)}
