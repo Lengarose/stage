@@ -242,6 +242,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
 
   async function loadGames(playerId, clubIds) {
     const version=++loadVersion.current;
+    await stageClient.functions.invoke("reconcileArrangedGames",{}).catch(error=>console.error("[GameDay] Arranged match recovery failed",error));
     const ids = [...new Set((Array.isArray(clubIds) ? clubIds : [clubIds]).filter(Boolean).map(String))];
     await Promise.all(ids.map(clubId =>
       stageClient.functions.invoke("matchKickoff", { action: "settle_club_matches", club_id: clubId }).catch(() => null)

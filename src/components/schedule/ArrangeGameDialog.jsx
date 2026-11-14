@@ -270,6 +270,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
         is_read:              false,
         metadata: {
           invitation_type:      invitationType,
+          timezone:             kickoffTimezone,
           scheduled_date:       scheduledDate,
           challenger_name:      senderName,
           opponent_name:        opponentName,

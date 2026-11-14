@@ -139,7 +139,7 @@ const CONTRACT_TYPE_DURATION = {
   ownership: { max_games: 999, max_days: 3650 },
 };
 
-const { toMysqlDateTime } = require('../utils/datetime');
+const { toMysqlDateTime, resolveTimeZone } = require('../utils/datetime');
 const { notifyAnnouncement } = require('../services/notifications');
 const { ensureMatchStreamsFromPlayers } = require('../utils/matchStream');
 const {
@@ -1522,12 +1522,12 @@ function buildLeagueMatchContext(fixture, fixtureType) {
   return `${fixture.competition_name || 'Competition'} · ${phaseLabel}`;
 }
 
-async function enrichMatchParticipantSnapshots(payload) {
+async function enrichMatchParticipantSnapshots(payload, query = EXECUTESQL) {
   const next = { ...payload };
   const clubIds = [next.home_club_id, next.away_club_id].filter(Boolean);
   if (clubIds.length) {
     const placeholders = clubIds.map(() => '?').join(',');
-    const clubRows = await EXECUTESQL(
+    const clubRows = await query(
       `SELECT id, name, owner_email FROM clubs WHERE id IN (${placeholders})`,
       clubIds
     ).catch(() => []);
@@ -1546,7 +1546,7 @@ async function enrichMatchParticipantSnapshots(payload) {
   const playerIds = [next.home_player_id, next.away_player_id].filter(Boolean);
   if (playerIds.length) {
     const placeholders = playerIds.map(() => '?').join(',');
-    const playerRows = await EXECUTESQL(
+    const playerRows = await query(
       `SELECT id, gamertag, email FROM players WHERE id IN (${placeholders})`,
       playerIds
     ).catch(() => []);
@@ -1564,7 +1564,7 @@ async function enrichMatchParticipantSnapshots(payload) {
   return next;
 }
 
-async function createRankedMatchFromInviteMetadata(meta, { homeSide = 'challenger', scheduledDate } = {}) {
+async function createRankedMatchFromInviteMetadata(meta, { homeSide = 'challenger', scheduledDate, query = EXECUTESQL, emit = true } = {}) {
   const isClubMatch = (meta.invitation_type || 'player_vs_player') === 'club_vs_club';
   const homePrefix = homeSide === 'opponent' ? 'opponent' : 'challenger';
   const awayPrefix = homeSide === 'opponent' ? 'challenger' : 'opponent';
@@ -1575,6 +1575,9 @@ async function createRankedMatchFromInviteMetadata(meta, { homeSide = 'challenge
     mode: isClubMatch ? 'club' : 'solo',
     type: 'ranked',
     scheduled_date: scheduledDate,
+    confirmed_date: scheduledDate,
+    scheduling_status: 'confirmed',
+    timezone: meta.timezone || 'Europe/Brussels',
     stats_processed: 0,
     home_club_id: isClubMatch ? (meta[`${homePrefix}_club_id`] || null) : null,
     away_club_id: isClubMatch ? (meta[`${awayPrefix}_club_id`] || null) : null,
@@ -1588,34 +1591,21 @@ async function createRankedMatchFromInviteMetadata(meta, { homeSide = 'challenge
     wager_status: Number(meta.wager_stc || 0) > 0 ? 'pending_acceptance' : null,
     wager_home_locked: false,
     wager_away_locked: false,
-  });
+  }, query);
   if (!payload.home_player_id && !payload.away_player_id && !payload.home_club_id && !payload.away_club_id) {
     throw new Error('Cannot schedule match: invitation is missing challenger/opponent ids.');
   }
   const match = new Match(payload);
-  await match.create();
-  await Promise.resolve(broadcastMatch(payload)).catch(() => {});
+  await match.create(query);
+  if (emit) await Promise.resolve(broadcastMatch(payload)).catch(() => {});
   return payload;
 }
 
 async function createMatchInviteResponseMessage({ originalMessage, meta, senderEmail, subject, body, matchId = null }) {
   if (!originalMessage?.sender_email) return null;
-  let senderGamertag = meta.opponent_name || null;
-  let senderAvatar = null;
-  let senderClubName = null;
-  if (senderEmail) {
-    const playerRows = await EXECUTESQL(
-      'SELECT id, gamertag, avatar_url, club_id FROM players WHERE LOWER(email)=LOWER(?) LIMIT 1',
-      [senderEmail]
-    ).catch(() => []);
-    const player = playerRows[0] || null;
-    senderGamertag = senderGamertag || player?.gamertag || senderEmail;
-    senderAvatar = player?.avatar_url || null;
-    if (player?.club_id) {
-      const clubRows = await EXECUTESQL('SELECT name FROM clubs WHERE id = ? LIMIT 1', [player.club_id]).catch(() => []);
-      senderClubName = clubRows[0]?.name || null;
-    }
-  }
+  const correspondence = require('../services/matchInviteCorrespondenceService');
+  const identity = await correspondence.identity(await correspondence.context(originalMessage, EXECUTESQL), senderEmail, EXECUTESQL);
+  const senderGamertag=identity.name, senderAvatar=identity.avatar, senderClubName=identity.club_name;
   const relatedId = matchId || originalMessage.related_entity_id || null;
   const result = await sendActionMessage({
     recipientEmail: originalMessage.sender_email,
@@ -1629,7 +1619,7 @@ async function createMatchInviteResponseMessage({ originalMessage, meta, senderE
     actionType: 'none',
     relatedEntityId: relatedId || originalMessage.id,
     relatedEntityType: matchId ? 'match' : (originalMessage.related_entity_type || 'inbox_message'),
-    idempotencyKey: `match_invite_response:${originalMessage.id}:${String(subject || '').toLowerCase().includes('accepted') ? 'accepted' : 'responded'}:${relatedId || originalMessage.id}`,
+    idempotencyKey: `match_invite_response:${originalMessage.id}:${/accepted|confirmed/i.test(String(subject || '')) ? 'accepted' : 'responded'}:${relatedId || originalMessage.id}`,
     notify: false,
     metadata: { ...meta, response_to_message_id: originalMessage.id, created_match_id: matchId || meta.created_match_id || null },
   });
@@ -6558,7 +6548,15 @@ const HANDLERS = {
     });
   },
 
-  async respondInboxMessage({ message_id, action, new_date, new_time, _auth_user_id }) {
+  async reconcileArrangedGames({_auth_user_id}) {
+    const {user}=await getMe(_auth_user_id);
+    const service=require('../services/arrangedMatchAcceptanceService');
+    const result=await service.reconcile({user,query:EXECUTESQL,transaction:withTransaction,createMatch:createRankedMatchFromInviteMetadata});
+    for(const match of result.matches) await Promise.resolve(broadcastMatch(match)).catch(()=>{});
+    return {success:true,repaired:result.matches.length,review_required:result.review_required};
+  },
+
+  async respondInboxMessage({ message_id, action, new_date, new_time, new_timezone, _auth_user_id }) {
     const VALID_ACTIONS = ['accepted', 'declined', 'confirmed', 'date_change_requested'];
     if (!message_id || !action) throw new Error('Missing required fields: message_id, action');
     if (!VALID_ACTIONS.includes(action)) throw new Error(`Invalid action. Must be one of: ${VALID_ACTIONS.join(', ')}`);
@@ -6568,7 +6566,7 @@ const HANDLERS = {
     if (!message) throw new Error('Message not found');
     if (String(message.recipient_email || '').toLowerCase() !== String(user.email || '').toLowerCase()) throw new Error('Forbidden');
     if (message.status && String(message.status) !== 'pending') {
-      throw new Error('This action is no longer valid');
+      throw Object.assign(new Error('This action is no longer valid'),{status:409});
     }
 
     const finishResponded = async (payload) => {
@@ -6760,97 +6758,20 @@ const HANDLERS = {
       }
     }
 
-    // Accepting a reschedule request confirms date on existing match if available.
-    if (action === 'accepted' && isMatchInvite && meta.reschedule_request) {
-      const existingMatchId = meta.created_match_id || message.related_entity_id;
-      const nextDate = toMysqlDateTime(meta.scheduled_date);
-      if (existingMatchId && nextDate) {
-        await require('../services/officialScheduleService').assertLegacyMatchWrite(existingMatchId,EXECUTESQL,nextDate);
-        await EXECUTESQL('UPDATE matches SET scheduled_date = ?, updated_date = NOW() WHERE id = ?', [nextDate, existingMatchId]);
-        await broadcastMatchById(existingMatchId);
-      }
-      const rescheduleAccepted = { success: true, message: { id: message_id, status: action } };
-      await finishResponded(rescheduleAccepted);
-      if (message.sender_email) {
-        await notifySafely(async () => {
-          await createMatchInviteResponseMessage({
-            originalMessage: message,
-            meta,
-            senderEmail: user.email,
-            subject: `Match Accepted: ${meta.challenger_name || 'Challenger'} vs ${meta.opponent_name || 'Opponent'}`,
-            body: `${meta.opponent_name || user.email} accepted your reschedule request.\n\nMatch date: ${nextDate || 'TBD'}`,
-            matchId: existingMatchId || null,
-          });
-          await createNotificationIfEnabled({
-            recipientEmail: message.sender_email,
-            type: 'match_scheduled',
-            title: `${user.email} accepted the reschedule`,
-            body: nextDate ? `Match confirmed for ${nextDate}` : 'Reschedule accepted.',
-            link: '/schedule',
-            relatedId: existingMatchId || message_id,
-          });
-        });
-      }
-      return rescheduleAccepted;
-    }
-
-    if (action === 'accepted' && isMatchInvite) {
-      // Prevent duplicate match creation if already linked.
-      if (meta.created_match_id) {
-        return finishResponded({ success: true, message: { id: message_id, status: action }, match: { id: meta.created_match_id } });
-      }
-      const scheduledDate = toMysqlDateTime(meta.scheduled_date);
-      const payload = await createRankedMatchFromInviteMetadata(meta, { homeSide: 'challenger', scheduledDate });
-      await EXECUTESQL(
-        'UPDATE inbox_messages SET related_entity_id = ?, related_entity_type = ?, metadata = ? WHERE id = ?',
-        [payload.id, 'match', JSON.stringify({ ...meta, created_match_id: payload.id }), message_id]
-      );
-      if (Number(meta.wager_stc || 0) > 0) {
-        await HANDLERS.wagerMatchActions({ action: 'accept_wager', match_id: payload.id });
-      }
-      const inviteAccepted = { success: true, message: { id: message_id, status: action }, match: { id: payload.id } };
-      await finishResponded(inviteAccepted);
-      if (message.sender_email) {
-        await notifySafely(async () => {
-          await createMatchInviteResponseMessage({
-            originalMessage: message,
-            meta,
-            senderEmail: user.email,
-            subject: `Match Accepted: ${meta.challenger_name || 'Challenger'} vs ${meta.opponent_name || 'Opponent'}`,
-            body: `${meta.opponent_name || user.email} accepted your match invitation.\n\nMatch date: ${scheduledDate || 'TBD'}`,
-            matchId: payload.id,
-          });
-          await createNotificationIfEnabled({
-            recipientEmail: message.sender_email,
-            type: 'match_scheduled',
-            title: `${user.email} accepted your invite`,
-            body: 'Match created and scheduled.',
-            link: '/schedule',
-            relatedId: payload.id,
-          });
-        });
-      }
-      return inviteAccepted;
-    }
-
-    if (action === 'confirmed' && isMatchInvite) {
-      const existingMatchId = meta.created_match_id || message.related_entity_id;
-      const targetDate = toMysqlDateTime(meta.scheduled_date);
-      if (existingMatchId && targetDate) {
-        await require('../services/officialScheduleService').assertLegacyMatchWrite(existingMatchId,EXECUTESQL,targetDate);
-        await EXECUTESQL(
-          'UPDATE matches SET scheduled_date = ?, updated_date = NOW() WHERE id = ?',
-          [targetDate, existingMatchId]
-        );
-        await broadcastMatchById(existingMatchId);
-      } else if (!existingMatchId) {
-        // Confirming a date proposal before match exists -> create now.
-        const created = await createRankedMatchFromInviteMetadata(meta, { homeSide: 'opponent', scheduledDate: targetDate });
-        await EXECUTESQL(
-          'UPDATE inbox_messages SET related_entity_id = ?, related_entity_type = ?, metadata = ? WHERE id = ?',
-          [created.id, 'match', JSON.stringify({ ...meta, created_match_id: created.id }), message_id]
-        );
-      }
+    // Club/player invitation IDs are not Match IDs. Resolve the negotiation root
+    // and create or update the one real match atomically before reporting success.
+    if (isMatchInvite && ['accepted','confirmed'].includes(action)) {
+      const accepted=await require('../services/arrangedMatchAcceptanceService').accept({message,userEmail:user.email,action,createMatch:createRankedMatchFromInviteMetadata,transaction:withTransaction,actor:user});
+      const payload=accepted.match;
+      await Promise.resolve(broadcastMatch(payload)).catch(()=>{});
+      if (accepted.created && Number(meta.wager_stc || 0)>0) await HANDLERS.wagerMatchActions({action:'accept_wager',match_id:payload.id});
+      await notifySafely(async()=>{
+        const correspondence=require('../services/matchInviteCorrespondenceService');
+        const sender=await correspondence.identity(accepted.meta,user.email,EXECUTESQL);
+        await createMatchInviteResponseMessage({originalMessage:message,meta:accepted.meta,senderEmail:user.email,subject:`Kickoff confirmed — ${sender.names.challenger} vs ${sender.names.opponent}`,body:`Dear ${sender.recipient_name}${meta.invitation_type==='club_vs_club'?' team':''},\n\n${sender.name} has accepted the proposed kickoff time. Your match is now confirmed.\n\n${sender.names.challenger} vs ${sender.names.opponent}\n${correspondence.kickoffLabel(accepted.meta.scheduled_date,accepted.meta.timezone)}\n\nYou can find this fixture in GameDay and Schedule, including Fixtures and Calendar.\n\nKind regards,\n${sender.name}`,matchId:payload.id});
+        await createNotificationIfEnabled({recipientEmail:message.sender_email,type:'match_scheduled',title:`${sender.name} confirmed the kickoff`,body:'Your confirmed fixture is available in GameDay and Schedule.',link:`/game-day?match=${payload.id}`,relatedId:payload.id});
+      });
+      return {success:true,message:{id:message_id,status:action},match:{id:payload.id,scheduled_date:payload.scheduled_date}};
     }
 
     const finished = await finishResponded({ success: true, message: { id: message_id, status: action } });
@@ -6858,27 +6779,28 @@ const HANDLERS = {
     await notifySafely(async () => {
       if (action === 'date_change_requested' && isMatchInvite && message.sender_email) {
         const proposedMysql = (new_date && new_time) ? toMysqlDateTime(`${new_date} ${new_time.length === 5 ? `${new_time}:00` : new_time}`) : null;
-        const proposalBody = `${user.email} would like to reschedule.\nProposed: ${proposedMysql || 'Please discuss a new time.'}`;
+        const correspondence=require('../services/matchInviteCorrespondenceService');
+        const proposalMeta={...await correspondence.context(message,EXECUTESQL),scheduled_date:proposedMysql||meta.scheduled_date,timezone:resolveTimeZone(new_timezone||meta.timezone||user.timezone),reschedule_request:true,original_message_id:message_id};
+        const sender=await correspondence.identity(proposalMeta,user.email,EXECUTESQL);
+        const content=correspondence.rescheduleContent(sender,proposalMeta);
         await sendActionMessage({
           recipientEmail: message.sender_email,
           senderEmail: user.email,
-          subject: `Reschedule Proposal: ${message.subject || 'Match Invite'}`,
-          body: proposalBody,
+          senderGamertag:sender.name,
+          senderAvatarUrl:sender.avatar,
+          senderClubName:sender.club_name,
+          subject:content.subject,
+          body:content.body,
           messageType: 'match_invite',
           actionType: 'accept_decline_date',
-          relatedEntityId: meta.created_match_id || message.related_entity_id || message_id,
-          relatedEntityType: meta.created_match_id || message.related_entity_id ? 'match' : 'inbox_message',
+          relatedEntityId: meta.created_match_id || (message.related_entity_type==='match'?message.related_entity_id:proposalMeta.root_invitation_id),
+          relatedEntityType: meta.created_match_id || message.related_entity_type==='match' ? 'match' : 'inbox_message',
           idempotencyKey: `match_reschedule:${message_id}:${new_date || 'open'}:${new_time || 'open'}`,
           reuseByRelated: false,
-          metadata: {
-            ...meta,
-            scheduled_date: proposedMysql || meta.scheduled_date,
-            reschedule_request: true,
-            original_message_id: message_id,
-          },
+          metadata: proposalMeta,
           notification: {
             type: 'match_reminder',
-            title: `${user.email} wants to reschedule`,
+            title: `${sender.name} proposes a new kickoff`,
             body: proposedMysql ? `New proposed date: ${proposedMysql}` : 'A new date was requested.',
           },
         });

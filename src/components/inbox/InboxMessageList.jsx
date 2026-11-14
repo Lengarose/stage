@@ -38,7 +38,7 @@ function SenderAvatar({ msg, t }) {
       </div>
     );
   }
-  return <IdentityAvatar src={msg.sender_avatar_url} name={msg.sender_gamertag || t("matchFlow.unknown")} className="h-12 w-12" />;
+  return <IdentityAvatar src={msg.sender_avatar_url} name={msg.sender_gamertag || msg.sender_club_name || t("matchFlow.unknown")} className="h-12 w-12" />;
 }
 
 export default function InboxMessageList({ messages, selectedId, onSelect }) {
@@ -59,7 +59,7 @@ export default function InboxMessageList({ messages, selectedId, onSelect }) {
         const unread = !msg.is_read;
         const needsAction = false;
         const isActioned = inboxMessageIsActioned(msg);
-        const name = msg.sender_gamertag || (msg.is_system ? t("matchFlow.stageSystem") : t("matchFlow.unknown"));
+        const name = msg.sender_gamertag || msg.sender_club_name || (msg.is_system ? t("matchFlow.stageSystem") : t("matchFlow.unknown"));
         const preview = previewText(msg);
         const time = listTimestamp(msg.created_date, t);
 

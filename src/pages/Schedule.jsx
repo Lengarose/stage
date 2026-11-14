@@ -50,6 +50,7 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
   async function load() {
     setLoading(true);
     const { user: u, player, club } = await resolveMyPlayerAndClub();
+    if(u)await stageClient.functions.invoke("reconcileArrangedGames",{}).catch(error=>console.error("[Schedule] Arranged match recovery failed",error));
     setMyPlayer(player || null);
     if (club) setMyClub(club);
     else setMyClub(null);

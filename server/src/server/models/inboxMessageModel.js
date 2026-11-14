@@ -29,15 +29,16 @@ class InboxMessage {
     return EXECUTESQL('SELECT * FROM inbox_messages WHERE deleted_at IS NULL ORDER BY created_date DESC LIMIT ? OFFSET ?', [pageSize, offset]);
   }
 
-  selectOne(id) {
-    return EXECUTESQL('SELECT * FROM inbox_messages WHERE deleted_at IS NULL AND id = ?', [id]);
+  async selectOne(id) {
+    return require('../services/matchInviteCorrespondenceService').enrich(await EXECUTESQL('SELECT * FROM inbox_messages WHERE deleted_at IS NULL AND id = ?', [id]),EXECUTESQL);
   }
 
-  selectByRecipient(email) {
-    return EXECUTESQL(
+  async selectByRecipient(email) {
+    const rows = await EXECUTESQL(
       'SELECT * FROM inbox_messages WHERE deleted_at IS NULL AND LOWER(recipient_email) = LOWER(?) ORDER BY created_date DESC',
       [email]
     );
+    return require('../services/matchInviteCorrespondenceService').enrich(rows,EXECUTESQL);
   }
 
   async markAllRead(email) {

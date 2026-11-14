@@ -744,7 +744,7 @@ test('respondInboxMessage creates invite match with player email snapshots serve
     if (/SELECT \* FROM players WHERE user_id = \? LIMIT 1/.test(sql)) return [];
     if (/SELECT \* FROM clubs WHERE/.test(sql)) return [];
     if (/SELECT \* FROM inbox_messages WHERE id = \? LIMIT 1/.test(sql)) return [message];
-    if (/UPDATE inbox_messages SET status = \?/.test(sql)) {
+    if (/UPDATE inbox_messages SET metadata=/.test(sql) || /UPDATE inbox_messages SET status = \?/.test(sql)) {
       inboxUpdates.push({ sql, params });
       return { affectedRows: 1 };
     }
@@ -951,6 +951,9 @@ test('respondInboxMessage sends reschedule proposals through the central action 
   assert.equal(deliveries[0].relatedEntityId, 'match-1');
   assert.equal(deliveries[0].idempotencyKey, 'match_reschedule:message-1:2026-06-02:21:30');
   assert.equal(deliveries[0].notification.type, 'match_reminder');
+  assert.equal(deliveries[0].senderGamertag, 'AwayTag');
+  assert.doesNotMatch(deliveries[0].body, /away@example\.test would like/);
+  assert.match(deliveries[0].body, /Kind regards/);
 });
 
 test('respondInboxMessage only cancels an arranged match after the opponent confirms', async () => {
@@ -1388,7 +1391,7 @@ test('respondInboxMessage rejects a stale tournament action', async () => {
     response,
   );
 
-  assert.equal(response.statusCode, 500);
+  assert.equal(response.statusCode, 409);
   assert.match(String(response.body?.error || ''), /no longer valid/i);
 });
 
