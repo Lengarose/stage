@@ -3,6 +3,10 @@ const path = require('node:path');
 const test = require('node:test');
 
 function loadFunctionsRouterWithDbMock(executesql, options = {}) {
+  // Reserve lifecycle and schedule cutoffs are exercised by the isolated HTTP acceptance script.
+  const reserveReads = sql => sql === 'SELECT * FROM matches WHERE tournament_id=?' || sql.includes("entity_type='tournament_reserve'");
+  const sourceExecute = executesql;
+  executesql = (sql, params) => reserveReads(sql) ? Promise.resolve([]) : sourceExecute(sql, params);
   // These legacy contract fixtures have no captured regional participation.
   // New captured-policy enforcement is covered by the player integration suite.
   const originalExecute = executesql;
@@ -12,7 +16,7 @@ function loadFunctionsRouterWithDbMock(executesql, options = {}) {
     options = { ...options, pool: { promise: () => ({ getConnection: async () => {
       const connection = await sourcePool.promise().getConnection();
       const originalQuery = connection.query.bind(connection);
-      connection.query = (sql, params) => sql.includes('SELECT DISTINCT w.* FROM league_entities w') ? Promise.resolve([[], []]) : originalQuery(sql, params);
+      connection.query = (sql, params) => (reserveReads(sql) || sql.includes('SELECT DISTINCT w.* FROM league_entities w')) ? Promise.resolve([[], []]) : originalQuery(sql, params);
       return connection;
     } }) } };
   }
@@ -40,6 +44,8 @@ function loadFunctionsRouterWithDbMock(executesql, options = {}) {
 
   delete require.cache[controllerPath];
   delete require.cache[legacyFunctionsPath];
+  for (const file of ['services/tournamentReserveService.js','models/tournamentReserveModel.js']) delete require.cache[path.resolve(__dirname, '../..', file)];
+  delete require.cache[path.resolve(__dirname, '../../services/tournamentWithdrawalService.js')];
   delete require.cache[path.resolve(__dirname, '../../services/matchResultNegotiationService.js')];
   delete require.cache[identityServicePath];
   delete require.cache[clubOperationsServicePath];
@@ -4107,6 +4113,8 @@ test('tournamentRegistration stores club EA FC name for admin verification witho
             async rollback() {},
             release() {},
             async query(sql, params = []) {
+              if (sql.startsWith('SELECT p.* FROM players p WHERE p.club_id=')) return [[{ id: 'squad-1', user_id: 'u1' }, { id: 'squad-2', user_id: 'u2' }], []];
+              if (sql.includes("entity_type='tournament_schedule'") || sql.startsWith('SELECT name,president_user_id')) return [[], []];
               if (/SELECT \* FROM tournaments WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[tournament], []];
               if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[club], []];
               if (/SELECT credits FROM users WHERE id = \? LIMIT 1/.test(sql)) return [[{ credits: 150 }], []];
@@ -4202,6 +4210,8 @@ test('tournamentRegistration allows canonical president user to submit their clu
             async rollback() {},
             release() {},
             async query(sql, params = []) {
+              if (sql.startsWith('SELECT p.* FROM players p WHERE p.club_id=')) return [[{ id: 'squad-1', user_id: 'u1' }, { id: 'squad-2', user_id: 'u2' }], []];
+              if (sql.includes("entity_type='tournament_schedule'") || sql.startsWith('SELECT name,president_user_id')) return [[], []];
               if (/SELECT \* FROM tournaments WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[tournament], []];
               if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[club], []];
               if (/SELECT credits FROM users WHERE id = \? LIMIT 1/.test(sql)) return [[{ credits: 150 }], []];
@@ -4292,6 +4302,8 @@ test('tournamentRegistration registers player tournaments without an Ultimate Te
             async rollback() {},
             release() {},
             async query(sql, params = []) {
+              if (sql.startsWith('SELECT p.* FROM players p WHERE p.club_id=')) return [[{ id: 'squad-1', user_id: 'u1' }, { id: 'squad-2', user_id: 'u2' }], []];
+              if (sql.includes("entity_type='tournament_schedule'") || sql.startsWith('SELECT name,president_user_id')) return [[], []];
               if (/SELECT \* FROM tournaments WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[tournament], []];
               if (/SELECT \* FROM players WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[player], []];
               if (/SELECT credits FROM users WHERE id = \? LIMIT 1/.test(sql)) return [[{ credits: 150 }], []];
@@ -4363,6 +4375,8 @@ function tournamentRegistrationHarness({ tournament, club, body }) {
             async rollback() {},
             release() {},
             async query(sql, params = []) {
+              if (sql.startsWith('SELECT p.* FROM players p WHERE p.club_id=')) return [[{ id: 'squad-1', user_id: 'u1' }, { id: 'squad-2', user_id: 'u2' }], []];
+              if (sql.includes("entity_type='tournament_schedule'") || sql.startsWith('SELECT name,president_user_id')) return [[], []];
               if (/SELECT \* FROM tournaments WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[tournament], []];
               if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[club], []];
               if (/SELECT credits FROM users WHERE id = \? LIMIT 1/.test(sql)) return [[{ credits: 150 }], []];
@@ -4559,6 +4573,8 @@ test('tournamentRulesAccept saves player rules acceptance without registering', 
             async rollback() {},
             release() {},
             async query(sql, params = []) {
+              if (sql.startsWith('SELECT p.* FROM players p WHERE p.club_id=')) return [[{ id: 'squad-1', user_id: 'u1' }, { id: 'squad-2', user_id: 'u2' }], []];
+              if (sql.includes("entity_type='tournament_schedule'") || sql.startsWith('SELECT name,president_user_id')) return [[], []];
               if (/SELECT \* FROM tournaments WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[tournament], []];
               if (/SELECT \* FROM players WHERE id = \? LIMIT 1/.test(sql)) return [[player], []];
               if (/UPDATE tournaments SET registration_proofs = \?/.test(sql)) {
@@ -4619,6 +4635,7 @@ test('tournamentWithdrawal allows canonical president user to withdraw their clu
     registered_clubs: JSON.stringify(['club-1']),
     entry_credits: 50,
     entry_fee_stc: 0,
+    registration_proofs: { club: { 'club-1': { status: 'approved', credits_spent: 50, stc_locked: 0, submitted_by_user_id: 'president-user' } } },
   };
   const club = {
     id: 'club-1',
@@ -4638,6 +4655,7 @@ test('tournamentWithdrawal allows canonical president user to withdraw their clu
             async rollback() {},
             release() {},
             async query(sql, params = []) {
+              if (sql.includes("entity_type='tournament_schedule'") || sql.startsWith('SELECT name,president_user_id')) return [[], []];
               if (/SELECT \* FROM tournaments WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[tournament], []];
               if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[club], []];
               if (/SELECT credits FROM users WHERE id = \? LIMIT 1/.test(sql)) return [[{ credits: 100 }], []];
@@ -4657,10 +4675,12 @@ test('tournamentWithdrawal allows canonical president user to withdraw their clu
     },
   };
   const executesql = async (sql, params = []) => {
-    if (/SELECT id, email, role_id FROM users WHERE id = \? LIMIT 1/.test(sql)) {
-      return [{ id: params[0], email: 'president@example.test', role_id: 1 }];
-    }
-    throw new Error(`Unexpected SQL: ${sql}`);
+    if (sql.startsWith('SELECT id,email') && sql.includes('FROM users WHERE id=?')) return [{ id: params[0], email: 'president@example.test', role_id: 1 }];
+    if (sql.startsWith('SELECT * FROM tournaments')) return [tournament];
+    if (sql.startsWith('SELECT * FROM clubs')) return [club];
+    if (sql.startsWith('SELECT credits')) return [{ credits: 100 }];
+    if (sql.startsWith('SELECT')) return [];
+    updates.push({ sql, params }); return { affectedRows: 1 };
   };
   const router = loadFunctionsRouterWithDbMock(executesql, { pool });
   const handle = postFunctionHandler(router);
@@ -4714,4 +4734,21 @@ test('adminMatchActions guarded forfeit decisions reject changed evidence before
  match={...original,updated_date:'operational change'};
  const response=makeJsonResponse();await handle({params:{name:'adminMatchActions'},body:{action:'resolve_forfeit',match_id:'guarded',approve:false,expected_forfeit_snapshot:forfeitSnapshot(original)},user:{id:'admin'}},response);
  assert.equal(response.statusCode,200,response.body?.error);assert.equal(match.forfeit_status,'rejected');assert.equal(writes,2);
+});
+
+test('startTournament refuses a full field with no saved draw and never creates fixtures', async () => {
+  let writes = 0;
+  const tournament = { id: 'event', status: 'registration', participant_type: 'club', max_teams: 2, registered_clubs: '["one","two"]' };
+  const router = loadFunctionsRouterWithDbMock(async sql => {
+    if (sql.includes('FROM users')) return [{ id: 'admin', email: 'admin@test.local', role_id: 0 }];
+    if (sql.includes('FROM tournaments')) return [tournament];
+    if (sql.includes('FROM matches')) return [];
+    if (/^(INSERT|UPDATE|DELETE)/.test(sql.trim())) { writes++; return { affectedRows: 1 }; }
+    return [];
+  });
+  const response = makeJsonResponse();
+  await postFunctionHandler(router)({ params: { name: 'startTournament' }, body: { tournament_id: 'event' }, user: { id: 'admin' } }, response);
+  assert.equal(response.statusCode, 409, JSON.stringify(response.body));
+  assert.match(response.body.error, /draw.*fixtures/i);
+  assert.equal(writes, 0);
 });

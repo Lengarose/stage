@@ -24,3 +24,12 @@ export function isTournamentOwner(tournament, user, player) {
 
   return false;
 }
+
+// Older schedule responses omit participation capabilities. Club membership is
+// never sufficient; fallback only to the club's stored Manager identity.
+export function canManageTournamentClubEntry({ user, club, participation } = {}) {
+  if (!user?.id || !club?.id) return false;
+  if (typeof participation?.can_act === 'boolean') return participation.can_act;
+  return [club.president_user_id, club.user_id].filter(Boolean).map(String).includes(String(user.id))
+    || emailsMatch(club.owner_email, user.email);
+}

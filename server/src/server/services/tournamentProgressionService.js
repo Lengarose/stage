@@ -120,6 +120,8 @@ async function assertTournamentMatchAction(match, { schedule, timezone, result =
   const [t] = await query('SELECT * FROM tournaments WHERE id = ? LIMIT 1', [match.tournament_id]);
   if (!t) return;
   if(schedule && t.schedule_policy_version)await require('./tournamentScheduleService').assertMatch(t,{...match,...(timezone?{timezone}:{})},schedule,query);
+  const withdrawalProofs = parse(t.registration_proofs, {}).club || {};
+  if (!correction && [match.home_club_id, match.away_club_id].some(id => withdrawalProofs[id]?.status === 'withdrawn')) throw conflict('This club has withdrawn. The organizer/Admin must resolve this fixture explicitly.');
   if(t.status==='archived')throw conflict('Archived tournament results and schedules are read-only.');
   if (result && ['draft', 'setup', 'registration', 'open', 'cancelled', 'canceled'].includes(t.status)) throw conflict('Start the tournament before reporting an official result. Registration/draw previews cannot produce standings.');
   const rows = await query('SELECT * FROM matches WHERE tournament_id = ? ORDER BY round, created_date', [t.id]);

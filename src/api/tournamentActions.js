@@ -195,33 +195,11 @@ export async function clearTournamentDraw(matches) {
   await Promise.all(matches.map(match => stageClient.entities.Match.delete(match.id)));
 }
 
-export async function initializeTournamentDraw(tournamentId, tournament, registeredClubs) {
-  try {
-    const result = await stageClient.functions.invoke("startTournament", { tournament_id: tournamentId });
-    const updatedTournament = result?.data?.tournament || null;
-    return {
-      matches: result?.data?.matches || await fetchTournamentMatches(tournamentId),
-      tournamentPatch: updatedTournament || { status: "in_progress", current_round: 1 },
-      tournament: updatedTournament,
-      notified: result?.data?.notified || 0,
-    };
-  } catch (error) {
-    if (!isMissingFunctionError(error, "startTournament")) throw error;
-    const existingMatches = await fetchTournamentMatches(tournamentId);
-    if (existingMatches.length === 0) {
-      await generateTournamentDraw(tournamentId, tournament, registeredClubs);
-    }
-    await stageClient.entities.Tournament.update(tournamentId, {
-      status: "in_progress",
-      current_round: 1,
-    });
-    return {
-      matches: await fetchTournamentMatches(tournamentId),
-      tournamentPatch: { status: "in_progress", current_round: 1 },
-      tournament: { ...tournament, status: "in_progress", current_round: 1 },
-      notified: 0,
-    };
-  }
+export async function initializeTournamentDraw(tournamentId) {
+  // Starting never creates fixtures, including on an older/missing server action.
+  const result = await stageClient.functions.invoke("startTournament", { tournament_id: tournamentId });
+  const tournament = result?.data?.tournament || null;
+  return { matches: result?.data?.matches || await fetchTournamentMatches(tournamentId), tournamentPatch: tournament || { status: "in_progress", current_round: 1 }, tournament, notified: result?.data?.notified || 0 };
 }
 
 export async function withdrawTournamentClub(tournamentId, clubId) {

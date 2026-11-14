@@ -277,6 +277,7 @@ app.use(errorHandler);
 const { runStartupMigrations } = require('./server/migrations/startupMigrations');
 
 runStartupMigrations()
+  .then(() => require('./server/services/tournamentReserveService').startJob())
   .then(() => require('./server/services/tournamentReconciliationJob').startTournamentReconciliationJob())
   .then(() => require('./server/services/competitionPrizeService').startPrizeSettlementJob())
   .then(() => require('./server/services/regionalCupRecoveryService').start())

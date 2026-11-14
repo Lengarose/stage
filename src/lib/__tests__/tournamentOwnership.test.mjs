@@ -51,3 +51,13 @@ test("isGostOfficialTournament is only STAGE branded tournaments without a commu
   assert.equal(isGostOfficialTournament({ name: "TEST", creator_email: "player@stage.test" }), false);
   assert.equal(isGostOfficialTournament({ name: "By STAGE · Cup", creator_gamertag: "PlayerOne" }), false);
 });
+
+test('a club Manager retains entry controls with a legacy schedule response, while players do not', async () => {
+  const { canManageTournamentClubEntry } = await import('../tournamentOwnership.js');
+  const club = { id: 'club', president_user_id: 'manager', owner_email: 'manager@stage.test' };
+  assert.equal(canManageTournamentClubEntry({ club, user: { id: 'manager' }, participation: {} }), true);
+  assert.equal(canManageTournamentClubEntry({ club, user: { id: 'player', email: 'player@stage.test', club_id: 'club' }, participation: {} }), false);
+  assert.equal(canManageTournamentClubEntry({ club, user: { id: 'manager' }, participation: { can_act: false } }), false);
+  assert.equal(canManageTournamentClubEntry({ club, user: { id: 'manager' }, participation: { can_act: true } }), true);
+  assert.equal(canManageTournamentClubEntry({ club: {}, user: {}, participation: {} }), false);
+});

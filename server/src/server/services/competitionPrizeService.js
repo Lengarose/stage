@@ -32,6 +32,7 @@ async function loadPlan(kind, id, query, lock) {
   const recipientIds = scope.participants.map(p => p.id);
   const ledgers = recipientIds.length ? await query(`SELECT * FROM ${table} WHERE ${player ? 'player' : 'club'}_id IN (${recipientIds.map(() => '?').join(',')}) AND category IN ('tournament_prize','competition_reward','competition_prize','regional_league_prize')`, recipientIds) : [];
   const plan = planPrizes(scope, config, payments, ledgers);
+  if (kind === 'tournament' && Object.values(parse(scope.root.registration_proofs, {}).club || {}).some(proof => proof.withdrawal_resolution_required)) plan.blocking_reasons.push('Resolve approved tournament withdrawals before settling prizes.');
   const [instance] = await query('SELECT id FROM competition_instances WHERE legacy_source_type=? AND legacy_source_id=? LIMIT 1',[kind,id]);
   return { scope, plan, config, stateId, saved, payments, instanceId:instance?.id || null };
 }

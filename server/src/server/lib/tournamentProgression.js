@@ -47,7 +47,7 @@ function shuffled(list) {
   return out;
 }
 const { knockoutType } = require('./tournamentSchedulePlan');
-function planTournamentProgression(t, matches, shuffle = shuffled) {
+function planTournamentProgressionCore(t, matches, shuffle = shuffled) {
   const player = t.participant_type === 'player';
   const plan = { fixtures: [], remove: [], conflicts: [], completed: false };
   if (!['in_progress', 'completed'].includes(t.status)) return plan;
@@ -251,6 +251,16 @@ function planTournamentProgression(t, matches, shuffle = shuffled) {
     if (isSemi && results.every(r => r?.loser) && eligibleThird(t) && !rows.some(m => thirds.has(m.type))) add(results[0].loser, results[1].loser, nextRound, 'third_place', 0, stage.map(m => m.id));
     if (plan.fixtures.length) return plan;
   }
+  return plan;
+}
+// A withdrawal never invents forfeits or erases sporting history. The organizer
+// must resolve affected fixtures before automatic qualification can continue.
+function planTournamentProgression(t, matches, shuffle = shuffled) {
+  const proofs = Object.entries(parse(t.registration_proofs, {}).club || {});
+  const withdrawn = new Set(proofs.filter(([, proof]) => proof.status === 'withdrawn').map(([id]) => id));
+  if (proofs.some(([, proof]) => proof.withdrawal_resolution_required)) return { fixtures: [], remove: [], completed: false, conflicts: ['An approved tournament withdrawal needs an organizer/Admin sporting resolution.'] };
+  const plan = planTournamentProgressionCore(t, matches, shuffle);
+  if (withdrawn.has(plan.winner?.id) || plan.fixtures.some(f => withdrawn.has(f.home?.id) || withdrawn.has(f.away?.id))) return { fixtures: [], remove: [], completed: false, conflicts: ['A withdrawn club would qualify or win. Resolve its tournament qualification explicitly.'] };
   return plan;
 }
 module.exports = { planTournamentProgression, resolvedTie, eligibleThird, hasActivity, standings, parse, shuffled };

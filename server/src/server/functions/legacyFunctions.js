@@ -2451,7 +2451,7 @@ async function deliverTournamentRegistrationReviewMessage({ tournament, club, pr
     body: tournamentRegistrationMessageBody({ tournament, club, status, reason }),
     messageType: 'tournament_registration',
     actionType: 'none',
-    relatedEntityId: `${tournament.id}:${club.id}:${status}`,
+    relatedEntityId: tournament.id,
     relatedEntityType: 'tournament',
     metadata: {
       tournament_id: tournament.id,
@@ -2474,62 +2474,6 @@ async function deliverTournamentRegistrationReviewMessage({ tournament, club, pr
       link: `/inbox`,
     },
   });
-}
-
-async function deliverTournamentApprovedClubMessages({ tournament, club }) {
-  const emails = await listActiveClubPlayerEmails(club.id);
-  const uniqueEmails = [...new Set(emails.map((email) => String(email || '').trim().toLowerCase()).filter(Boolean))];
-  const tournamentName = tournament?.name || 'Tournament';
-  const clubName = club?.name || 'Your club';
-  const prizeLine = Number(tournament?.prize_pool_stc || 0) > 0
-    ? `Prize money: ${Number(tournament.prize_pool_stc).toLocaleString()} STC\n`
-    : '';
-  const trophyLine = tournament?.trophy_url ? `Trophy: ${tournament.trophy_url}\n` : '';
-  let delivered = 0;
-
-  for (const recipientEmail of uniqueEmails) {
-    const result = await sendActionMessage({
-      recipientEmail,
-      senderEmail: 'system@stage.com',
-      subject: `${clubName} is in ${tournamentName}`,
-      body: [
-        `${clubName} has been approved and officially registered for ${tournamentName}.`,
-        '',
-        tournament?.banner_url ? `Banner: ${tournament.banner_url}` : null,
-        `Tournament: ${tournamentName}`,
-        prizeLine.trim() || null,
-        trophyLine.trim() || null,
-        '',
-        'Open your club profile and go to Fixtures. You can now mark yourself Available for the tournament preparation card. You can cancel before the deadline if you made a mistake.',
-        'Selecting Available confirms you want to be part of this tournament squad. Tournament match availability opens again once fixtures are generated.',
-      ].filter(Boolean).join('\n'),
-      messageType: 'tournament_registration',
-      actionType: 'none',
-      relatedEntityId: `${tournament.id}:${club.id}:club_members_approved`,
-      relatedEntityType: 'tournament',
-      metadata: {
-        tournament_id: tournament.id,
-        tournament_name: tournamentName,
-        tournament_banner_url: tournament.banner_url || null,
-        tournament_trophy_url: tournament.trophy_url || null,
-        club_id: club.id,
-        club_name: clubName,
-        target_tab: 'fixtures',
-      },
-      idempotencyKey: `tournament_registration_club_member:${tournament.id}:${club.id}:${recipientEmail}`,
-      isSystem: true,
-      notify: true,
-      notification: {
-        type: 'tournament_start',
-        title: `${clubName} approved for ${tournamentName}`,
-        body: 'Set your tournament availability from the Fixtures tab.',
-        link: `/clubs/${club.id}`,
-      },
-    }).catch(() => null);
-    if (result?.success) delivered++;
-  }
-
-  return delivered;
 }
 
 function regionalLeagueRegistrationMessageBody({ league, club, status, reason, entryCost }) {
@@ -3503,10 +3447,7 @@ async function requireEntranceLinkManager(userId, tournamentId) {
 
 async function getTournamentEntries(tournament) {
   const participantType = String(tournament.participant_type || 'club').toLowerCase();
-  const ids = participantType === 'player'
-    ? parseMaybeJson(tournament.registered_players, [])
-    : parseMaybeJson(tournament.registered_clubs, []);
-  const normalizedIds = Array.isArray(ids) ? ids.map(String).filter(Boolean) : [];
+  const normalizedIds = require('../lib/tournamentStartPolicy').activeParticipants(tournament);
   if (normalizedIds.length < 2) throw new Error('Need at least 2 registered participants');
   const inIds = placeholders(normalizedIds);
   if (participantType === 'player') {
@@ -3550,7 +3491,9 @@ async function notifyTournamentStarted(tournament) {
   return notified;
 }
 
-async function createTournamentDraw(tournament) {
+async function createTournamentDraw(tournament, actor) {
+  if (tournament.status !== 'registration') throw Object.assign(new Error('Draw fixtures during registration, before the tournament starts.'), { status: 409 });
+  require('../lib/tournamentStartPolicy').assertFullField(tournament);
   const existing = await EXECUTESQL('SELECT id FROM matches WHERE tournament_id = ? LIMIT 1', [tournament.id]);
   if (existing.length) {
     const seeded = await seedAdminSelectedTournamentMatchPreparation(tournament).catch(() => ({ availability: 0, dressing_rooms: 0 }));
@@ -3565,26 +3508,19 @@ async function createTournamentDraw(tournament) {
   const { matches, numGroups } = buildTournamentDrawMatches(tournament, entries);
   if (!matches.length) throw new Error('Could not generate a draw with the registered participants');
 
-  if(tournament.schedule_policy_version) {
-    await withTransaction(async query => {
+  await withTransaction(async query => {
       const [current]=await query('SELECT * FROM tournaments WHERE id=? FOR UPDATE',[tournament.id]);
       if(!current || current.status!=='registration' || String(current.registered_clubs)!==String(tournament.registered_clubs) || String(current.registered_players)!==String(tournament.registered_players))throw Object.assign(Error('Tournament participation changed. Refresh before drawing.'),{status:409});
+      require('../lib/tournamentStartPolicy').assertFullField(current);
       const existing=await query('SELECT id FROM matches WHERE tournament_id=? LIMIT 1',[tournament.id]);
       if(existing.length)throw Object.assign(Error('The draw already exists. Refresh its fixtures.'),{status:409});
       const planned=[];
-      for(const payload of matches)planned.push(await require('../services/tournamentScheduleService').forMatch(current,payload,query));
-      require('../services/tournamentScheduleService').assertDraw(planned);
+      for(const payload of matches)planned.push(current.schedule_policy_version ? await require('../services/tournamentScheduleService').forMatch(current,payload,query) : payload);
+      if(current.schedule_policy_version)require('../services/tournamentScheduleService').assertDraw(planned);
       for(const payload of planned)await new Match({...payload,tournament_id:tournament.id}).create(query);
+      if(numGroups)await query('UPDATE tournaments SET num_groups = ?, updated_date = NOW() WHERE id = ?', [numGroups, tournament.id]);
+      if(actor?.isAdmin)await require('../services/rewardConfigurationService').audit(query,actor.user,'draw_tournament_fixtures','tournament',tournament.id,{fixture_count:0},{fixture_count:planned.length},'Full confirmed field drawn before start');
     });
-  } else {
-    for (const payload of matches) {
-      const match = new Match({ ...payload, tournament_id: tournament.id });
-      await match.create();
-    }
-  }
-  if (numGroups) {
-    await EXECUTESQL('UPDATE tournaments SET num_groups = ?, updated_date = NOW() WHERE id = ?', [numGroups, tournament.id]);
-  }
   const seeded = await seedAdminSelectedTournamentMatchPreparation(tournament).catch(() => ({ availability: 0, dressing_rooms: 0 }));
   return {
     created: matches.length,
@@ -4762,74 +4698,8 @@ const HANDLERS = {
     return { data: { success: true, ...result } };
   },
 
-  async tournamentWithdrawal({ _auth_user_id, tournament_id, club_id }) {
-    if (!_auth_user_id) throw new Error('not authenticated');
-    if (!tournament_id) throw new Error('tournament_id required');
-    if (!club_id) throw new Error('club_id required');
-
-    const userRows = await EXECUTESQL('SELECT id, email, role_id FROM users WHERE id = ? LIMIT 1', [_auth_user_id]);
-    if (!userRows.length) throw new Error('User not found');
-    const user = userRows[0];
-
-    const result = await withTransaction(async (query) => {
-      const tournamentRows = await query('SELECT * FROM tournaments WHERE id = ? LIMIT 1 FOR UPDATE', [tournament_id]);
-      if (!tournamentRows.length) throw new Error('Tournament not found');
-      const tournament = tournamentRows[0];
-      if (String(tournament.status || '') !== 'registration') throw new Error('Tournament registration is closed');
-
-      const clubRows = await query('SELECT * FROM clubs WHERE id = ? LIMIT 1 FOR UPDATE', [club_id]);
-      if (!clubRows.length) throw new Error('Club not found');
-      const club = clubRows[0];
-      const isAdmin = Number(user.role_id) === 0;
-      const ownerOk = isAdmin
-        || String(club.president_user_id || '') === String(_auth_user_id)
-        || String(club.owner_email || '').toLowerCase() === String(user.email || '').toLowerCase()
-        || String(club.user_id || '') === String(_auth_user_id);
-      if (!ownerOk) throw new Error('Only the club president can withdraw this club');
-
-      const registered = normalizeIdList(tournament.registered_clubs);
-      if (!registered.includes(String(club_id))) throw new Error('Club is not registered for this tournament');
-      const updatedRegistered = registered.filter((id) => String(id) !== String(club_id));
-      await query(
-        'UPDATE tournaments SET registered_clubs = ?, updated_date = NOW() WHERE id = ?',
-        [JSON.stringify(updatedRegistered), tournament_id]
-      );
-
-      const entryCredits = Number(tournament.entry_credits ?? 50);
-      const entryFee = Number(tournament.entry_fee_stc || 0);
-      let nextUserCredits = await getUserCredits(_auth_user_id, query);
-      if (entryCredits > 0) {
-        const refunded = await addUserCredits(_auth_user_id, entryCredits, query);
-        nextUserCredits = refunded.credits_after;
-      }
-
-      let nextStc = Number(club.stc || 0);
-      let transactionId = null;
-      if (entryFee > 0) {
-        const tx = await recordClubTransaction(query, {
-          clubId: club_id,
-          amount: entryFee,
-          type: 'tournament_refund',
-          category: 'tournament_refund',
-          description: `Tournament withdrawal refund: ${tournament.name}`,
-          referenceId: tournament_id,
-        });
-        nextStc = tx.new_balance;
-        transactionId = tx.transaction_id;
-      }
-
-      return {
-        registered_clubs: updatedRegistered,
-        club_id,
-        club_stc: nextStc,
-        user_credits: nextUserCredits,
-        refunded_stc: entryFee,
-        refunded_credits: entryCredits,
-        transaction_id: transactionId,
-      };
-    });
-
-    return { data: { success: true, ...result } };
+  async tournamentWithdrawal({ _auth_user_id, tournament_id, club_id, reason }) {
+    return { data: await require('../services/tournamentWithdrawalService').withdraw(tournament_id, { club_id, reason }, { id: _auth_user_id }) };
   },
 
   async assignGroups({ _auth_user_id, tournamentId, tournament_id, groupAssignments }) {
@@ -4919,9 +4789,9 @@ const HANDLERS = {
     const rows = await EXECUTESQL('SELECT * FROM tournaments WHERE id = ? LIMIT 1', [id]);
     if (!rows.length) throw new Error('Tournament not found');
     const tournament = rows[0];
-    await assertTournamentOrganizer(_auth_user_id, tournament);
+    const actor = await assertTournamentOrganizer(_auth_user_id, tournament);
 
-    const result = await createTournamentDraw(tournament);
+    const result = await createTournamentDraw(tournament, actor);
     const updatedRows = await EXECUTESQL('SELECT * FROM tournaments WHERE id = ? LIMIT 1', [id]);
     return {
       data: {
@@ -4939,27 +4809,21 @@ const HANDLERS = {
     if (!_auth_user_id) throw new Error('not authenticated');
     const id = tournamentId || tournament_id;
     if (!id) throw new Error('tournament_id required');
-
-    const rows = await EXECUTESQL('SELECT * FROM tournaments WHERE id = ? LIMIT 1', [id]);
-    if (!rows.length) throw new Error('Tournament not found');
-    const tournament = rows[0];
-    await assertTournamentOrganizer(_auth_user_id, tournament);
-
-    if (String(tournament.status || '') === 'completed') throw new Error('Tournament is already completed');
-    if (String(tournament.status || '') === 'cancelled') throw new Error('Cancelled tournament cannot be started');
-
-    const draw = await createTournamentDraw(tournament);
-    await EXECUTESQL(
-      `UPDATE tournaments
-          SET status = 'in_progress',
-              current_round = COALESCE(NULLIF(current_round, 0), 1),
-              num_groups = COALESCE(?, num_groups),
-              updated_date = NOW()
-        WHERE id = ?`,
-      [draw.numGroups || null, id]
-    );
-    const updatedRows = await EXECUTESQL('SELECT * FROM tournaments WHERE id = ? LIMIT 1', [id]);
-    const updated = updatedRows[0] || { ...tournament, status: 'in_progress', current_round: 1 };
+    const start = await withTransaction(async query => {
+      const [tournament] = await query('SELECT * FROM tournaments WHERE id = ? LIMIT 1 FOR UPDATE', [id]);
+      if (!tournament) throw new Error('Tournament not found');
+      const actor = await assertTournamentOrganizer(_auth_user_id, tournament);
+      const matches = await query('SELECT * FROM matches WHERE tournament_id = ? ORDER BY round ASC, created_date ASC FOR UPDATE', [id]);
+      if (tournament.status === 'in_progress') return { tournament, matches, already_started: true };
+      if (tournament.status !== 'registration') throw Object.assign(new Error('Only a tournament in registration can be started.'), { status: 409 });
+      require('../lib/tournamentStartPolicy').assertSavedDraw(tournament, matches);
+      const updated = { ...tournament, status: 'in_progress', current_round: Number(tournament.current_round) || 1 };
+      await query("UPDATE tournaments SET status='in_progress',current_round=?,updated_date=NOW() WHERE id=?", [updated.current_round, id]);
+      if (actor.isAdmin) await require('../services/rewardConfigurationService').audit(query, actor.user, 'start_tournament', 'tournament', id, { status: tournament.status }, { status: updated.status, fixture_count: matches.length }, 'Started only after the confirmed field and saved fixture draw were verified');
+      return { tournament: updated, matches, already_started: false };
+    });
+    const updated = start.tournament;
+    if (start.already_started) return { data: { success: true, already_started: true, created_matches: 0, notified: 0, matches: start.matches, tournament: updated } };
     const notified = await notifyTournamentStarted(updated).catch(() => 0);
     const facts = await tournamentFieldFacts(updated);
     await publishTournamentStory(updated, {
@@ -4971,23 +4835,14 @@ const HANDLERS = {
       }),
     });
 
-    await createAuditLog({
-      adminUserId: _auth_user_id,
-      action: 'start_tournament',
-      entityType: 'tournament',
-      entityId: id,
-      newValue: { status: 'in_progress', notified },
-      reason: 'Tournament officially started',
-    }).catch(() => {});
-
     return {
       data: {
         success: true,
         notified,
-        created_matches: draw.created,
-        seeded_match_availability: draw.seeded?.availability || 0,
-        seeded_dressing_rooms: draw.seeded?.dressing_rooms || 0,
-        matches: draw.matches,
+        created_matches: 0,
+        seeded_match_availability: 0,
+        seeded_dressing_rooms: 0,
+        matches: start.matches,
         tournament: updated,
       },
     };
@@ -5271,6 +5126,7 @@ const HANDLERS = {
       if (!tournaments.length) throw new Error('Tournament not found');
       const tournament = tournaments[0];
       const actor = await assertTournamentOrganizer(_auth_user_id, tournament);
+      if (Object.values(parseTournamentRegistrationProofs(tournament.registration_proofs).club).some(proof => proof.withdrawal_resolution_required)) throw new Error('Resolve approved tournament withdrawals before officializing results or awards.');
 
       const matches = await query('SELECT * FROM matches WHERE tournament_id = ? ORDER BY round ASC, created_date ASC FOR UPDATE', [id]);
       const finalMatch = matches.find((match) => String(match.type || '').toLowerCase() === 'final');
@@ -11083,7 +10939,7 @@ const HANDLERS = {
     );
     if (!users.length) return fail('User not found');
     const user = users[0];
-    const isAdmin = [0, 2].includes(Number(user.role_id));
+    const isAdmin = user.role_id != null && [0, 2].includes(Number(user.role_id));
 
     const parseProofs = (raw) => {
       if (!raw) return { club: {}, player: {} };
@@ -11108,7 +10964,7 @@ const HANDLERS = {
       if (String(tournament.status || '') !== 'registration') {
         return fail('Tournament registration is closed');
       }
-      if (isWallClockPast(tournament.start_date)) {
+      if (!(await require('../services/tournamentReserveService').windowFor(tournament, query)).open) {
         return fail('Tournament registration is closed');
       }
 
@@ -11197,7 +11053,7 @@ const HANDLERS = {
     );
     if (!users.length) return fail('User not found');
     const user = users[0];
-    const isAdmin = [0, 2].includes(Number(user.role_id));
+    const isAdmin = user.role_id != null && [0, 2].includes(Number(user.role_id));
     const userEmail = String(user.email || '').toLowerCase();
 
     const parseIds = (raw) => {
@@ -11236,7 +11092,7 @@ const HANDLERS = {
       if (String(tournament.status || '') !== 'registration') {
         return fail('Tournament registration is closed');
       }
-      if (isWallClockPast(tournament.start_date)) {
+      if (!(await require('../services/tournamentReserveService').windowFor(tournament, query)).open) {
         return fail('Tournament registration is closed');
       }
 
@@ -11323,12 +11179,13 @@ const HANDLERS = {
           || String(club.owner_email || '').toLowerCase() === String(user.email || '').toLowerCase()
           || String(club.user_id || '') === String(_auth_user_id);
 
-        if (!ownerOk) return fail('Only the club president can register this club');
+        if (!ownerOk) return fail('Only the club manager can register this club');
 
         if (tournament.country_code && club.country_code !== tournament.country_code) {
           return fail('This tournament is restricted to clubs from another country');
         }
 
+        await require('../services/tournamentReserveService').assertEntry(tournament, String(club_id), query);
         let registered = parseIds(tournament.registered_clubs);
         const proofs = parseProofs(tournament.registration_proofs);
         const existingProof = proofs.club[String(club_id)] || null;
@@ -11344,7 +11201,7 @@ const HANDLERS = {
         const maxTeams = Number(tournament.max_teams || 0);
         const pendingClubCount = Object.values(proofs.club)
           .filter((proof) => String(proof?.status || '').toLowerCase() === 'pending').length;
-        if (maxTeams > 0 && registered.length + pendingClubCount >= maxTeams) {
+        if (maxTeams > 0 && require('../lib/tournamentStartPolicy').activeParticipants(tournament).length + pendingClubCount >= maxTeams) {
           return fail('Tournament is full');
         }
 
@@ -11415,6 +11272,9 @@ const HANDLERS = {
           'UPDATE tournaments SET registered_clubs = ?, registration_proofs = ?, updated_date = NOW() WHERE id = ?',
           [JSON.stringify(registered), JSON.stringify(proofs), tournament_id],
         );
+
+        await require('../services/tournamentReserveService').registrationChanged({ ...tournament, registered_clubs: registered, registration_proofs: proofs }, String(club_id), query);
+        await require('../services/boardTournamentNotices').deliver(tournament, club_id, proofs.club[String(club_id)], query);
 
         return {
           data: {
@@ -11582,7 +11442,7 @@ const HANDLERS = {
 
       if (reviewAction === 'approve') {
         const maxTeams = Number(tournament.max_teams || 0);
-        if (maxTeams > 0 && !registered.includes(String(club_id)) && registered.length >= maxTeams) {
+        if (maxTeams > 0 && !registered.includes(String(club_id)) && require('../lib/tournamentStartPolicy').activeParticipants(tournament).length >= maxTeams) {
           throw new Error('Tournament is full');
         }
         nextRegistered = registered.includes(String(club_id))
@@ -11651,6 +11511,9 @@ const HANDLERS = {
         reason: reason || null,
       });
 
+      await require('../services/tournamentReserveService').registrationChanged({ ...tournament, registered_clubs: nextRegistered, registration_proofs: proofs }, String(club_id), query);
+      await require('../services/boardTournamentNotices').deliver(tournament, club_id, proofs.club[String(club_id)], query);
+
       return {
         tournament: { ...tournament, registered_clubs: JSON.stringify(nextRegistered), registration_proofs: JSON.stringify(proofs) },
         club,
@@ -11669,12 +11532,6 @@ const HANDLERS = {
       status: txResult.status,
       reason,
     }).catch((err) => console.error('[tournamentRegistrationReview inbox]', err.message));
-    if (txResult.status === 'approved') {
-      await deliverTournamentApprovedClubMessages({
-        tournament: txResult.tournament,
-        club: txResult.club,
-      }).catch((err) => console.error('[tournamentRegistrationReview club inbox]', err.message));
-    }
 
     return {
       data: {
