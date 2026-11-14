@@ -37,22 +37,39 @@ async function tickClub(clubId, now = new Date()) {
     if (!club) return;
     const records = await model.selectAll('club_agreement', clubId, q);
     for (const a of records.filter(a => a.status === 'scheduled' && Date.parse(a.starts_at) <= now.getTime())) {
-      a.status = 'active';
-      if (a.player_contract_id) {
-        const player=await model.player(a.player_id,q);
-        if(player.club_id&&player.club_id!==club.id){a.status='activation_review';await model.update('club_agreement',a,q);continue;}
-        await q("UPDATE players SET club_id=?,status='active' WHERE id=?",[club.id,player.id]);
-        await require('./clubMembershipService').upsertActiveMembership({clubId:club.id,playerId:player.id,userId:player.user_id,source:'agreement_renewal',query:q});
-        await q("UPDATE player_contracts SET status='active' WHERE id=?", [a.player_contract_id]);
-        await require('./contractRulesService').closeAcceptedContractConflicts({
-          acceptedContract: {
-            id: a.player_contract_id,
-            user_id: a.player_id,
-            team_id: club.id,
-            contract_type: a.squad_role
-          },
-          query: q
-        });
+      await q('SAVEPOINT scheduled_agreement_activation');
+      try {
+        if (a.player_contract_id) {
+          const player=await model.player(a.player_id,q);
+          if (!player) throw Object.assign(new Error('Player identity is unavailable'),{status:409});
+          let releasedSource = false;
+          if(player.club_id && player.club_id!==club.id) {
+            if (!a.precontract_source_club_id || player.club_id!==a.precontract_source_club_id) throw Object.assign(new Error('Current club changed; review the future agreement'),{status:409});
+            const data=await require('./transferMarketService').load(q,player.id);
+            const state=require('./transferMarketService').playingState(player,data.contracts.filter(row=>row.id!==a.player_contract_id),data.agreements.filter(row=>row.id!==a.id),now);
+            if(state.active.length || state.future.length) throw Object.assign(new Error('Another player agreement is still in force'),{status:409});
+            const source=await model.club(player.club_id,q);
+            for(const old of data.agreements.filter(row=>row.club_id===player.club_id && row.kind==='player' && row.status==='active')) {
+              await agreements.accrue(old,source,player,q,now);
+            }
+            await q("UPDATE player_contracts SET status='expired',updated_date=NOW() WHERE user_id=? AND team_id=? AND status='active' AND contract_type<>'ownership' AND end_date<=?",[player.id,player.club_id,now]);
+            releasedSource=true;
+          }
+          await require('./officialPlayerTransferService').assertMove({player:releasedSource?{...player,club_id:null}:player,targetClubId:club.id,referenceId:a.id},q,now);
+          if (releasedSource) await q("UPDATE club_memberships SET status='inactive',updated_date=NOW() WHERE player_id=? AND club_id=? AND status='active'",[player.id,player.club_id]);
+          await q("UPDATE players SET club_id=?,status='active' WHERE id=?",[club.id,player.id]);
+          await require('./clubMembershipService').upsertActiveMembership({clubId:club.id,playerId:player.id,userId:player.user_id,source:'agreement_activation',query:q});
+          await q("UPDATE player_contracts SET status='active' WHERE id=?",[a.player_contract_id]);
+          await require('./contractRulesService').closeAcceptedContractConflicts({acceptedContract:{id:a.player_contract_id,user_id:a.player_id,team_id:club.id,contract_type:a.squad_role},query:q});
+        }
+        a.status='active';
+        await q('RELEASE SAVEPOINT scheduled_agreement_activation');
+      } catch(error) {
+        await q('ROLLBACK TO SAVEPOINT scheduled_agreement_activation');
+        await q('RELEASE SAVEPOINT scheduled_agreement_activation');
+        if(![400,403,404,409,422].includes(error.status)) throw error;
+        a.status='activation_review';
+        a.activation_review_reason=error.message;
       }
       await model.update('club_agreement', a, q);
     }

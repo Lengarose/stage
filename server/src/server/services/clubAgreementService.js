@@ -135,7 +135,7 @@ function createService({
     const recipient = clubTurn ? (await q('SELECT email FROM users WHERE id=? LIMIT 1', [club.president_user_id || club.user_id]))[0]?.email || club.owner_email : player.email || (await q('SELECT email FROM users WHERE id=? LIMIT 1', [player.user_id]))[0]?.email;
     if (!recipient) fail('The recipient needs a linked Inbox account');
     const id = stableId(['board_notice', proposal.id, proposal.version, recipient]);
-    const body = `Dear ${clubTurn ? 'Manager' : player.gamertag || 'Manager'},\n\n${clubTurn ? 'The player' : proposal.origin === 'board' ? 'The Club Board' : 'Your club'} would like you to review a ${proposal.kind === 'management' ? 'management' : 'player'} agreement with ${club.name}.\n\nThe proposed weekly salary is ${proposal.weekly_salary_stc.toLocaleString()} STC. The signing bonus is ${proposal.signing_bonus_stc.toLocaleString()} STC. Payments are weekly and begin only after accepted service has accrued.\n\n${proposal.explanation}\n\nPlease review the proposed terms to accept, decline or negotiate. Your existing accepted agreement remains unchanged while this proposal is pending.\n\n${proposal.origin === 'board' ? 'The Club Board' : `${club.name} Management`}`;
+    const body = `Dear ${clubTurn ? 'Manager' : player.gamertag || 'Manager'},\n\n${clubTurn ? 'The player' : proposal.origin === 'board' ? 'The Club Board' : 'Your club'} would like you to review a ${proposal.kind === 'management' ? 'management' : 'player'} agreement with ${club.name}.\n\nThe proposed weekly salary is ${proposal.weekly_salary_stc.toLocaleString()} STC. The signing bonus is ${proposal.signing_bonus_stc.toLocaleString()} STC. Payments are weekly and begin only after accepted service has accrued.\n\n${proposal.not_before ? `This is a future agreement starting no earlier than ${proposal.not_before}. Your current club membership remains unchanged until then; official eligibility is checked again before activation.\n\n` : ''}${proposal.explanation}\n\nPlease review the proposed terms to accept, decline or negotiate. Your existing accepted agreement remains unchanged while this proposal is pending.\n\n${proposal.origin === 'board' ? 'The Club Board' : `${club.name} Management`}`;
     await q(`INSERT INTO inbox_messages (id,recipient_email,sender_email,sender_gamertag,sender_club_name,subject,body,message_type,action_type,related_entity_id,related_entity_type,metadata,idempotency_key,is_read,status,is_system) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,0,'pending',1) ON DUPLICATE KEY UPDATE id=id`, [id, recipient, 'system@stage.com', proposal.origin === 'board' ? 'Club Board' : club.name, club.name, `${proposal.kind === 'management' ? 'Management' : 'Player'} contract proposal — ${club.name}`, body, 'contract_offer', 'contract_offer', proposal.id, 'club_contract_proposal', JSON.stringify({
       proposal_id: proposal.id,
       proposal_version: proposal.version,
@@ -212,12 +212,13 @@ function createService({
   async function contractOptions(clubId,playerId,actor) {return transaction(async q=>{
     const {club}=await assertAccess(clubId,actor,q);
     const player=await model.player(playerId,q);if(!player)fail('Player not found',404);
+    const context=player.club_id&&player.club_id!==clubId?await require('./transferMarketService').signingContext(player,clubId,q,clock()):{};
     const card=await require('./cardProgressionService').read(player.id,q),band=policy.salaryBand(card.total_xp),options=[];
     const calendars=await q("SELECT * FROM league_entities WHERE entity_type='regional_calendar' AND status='published' ORDER BY id");
-    for(const row of calendars){const c=parse(row.data_json),type=Date.parse(`${c.start_monday}T00:00:00Z`)>clock().getTime()?'next_season':'current_season';try{const d=await duration({duration_type:type,calendar_id:row.id},'player',clubId,q);options.push({...d,label:`${type==='next_season'?'Next':'Current'} published season — ends ${d.ends_at.slice(0,10)}`});}catch(e){if(e.status!==422)throw e;}}
+    for(const row of calendars){const c=parse(row.data_json),type=Date.parse(`${c.start_monday}T00:00:00Z`)>clock().getTime()?'next_season':'current_season';try{const d=await duration({duration_type:type,calendar_id:row.id},'player',clubId,q,context.not_before?new Date(context.not_before):clock());options.push({...d,label:`${type==='next_season'?'Next':'Current'} published season — ends ${d.ends_at.slice(0,10)}`});}catch(e){if(e.status!==422)throw e;}}
     if(!options.length)options.push({duration_type:'fixed_12_weeks',label:'12 weeks — no applicable published season'});
     const report=await finance(club,q),current=report.agreements.find(a=>a.kind==='player'&&a.player_id===player.id&&a.status==='active');
-    return {player_id:player.id,card,band,durations:options,trial_days:14,management_limit_stc:policy.managementOffer({wageBudget:club.wage_budget_stc}).management_ceiling_stc,remaining_weekly_stc:report.remaining_weekly_stc+Number(current?.weekly_salary_stc||0),cash_stc:report.balance_stc};
+    return {player_id:player.id,not_before:context.not_before||null,card,band,durations:options,trial_days:14,management_limit_stc:policy.managementOffer({wageBudget:club.wage_budget_stc}).management_ceiling_stc,remaining_weekly_stc:report.remaining_weekly_stc+Number(current?.weekly_salary_stc||0),cash_stc:report.balance_stc};
   });}
   async function dashboard(clubId, actor) {
     return transaction(async q => {
@@ -252,6 +253,7 @@ function createService({
       const own = manager(club,{id:player.user_id,email:player.email}) || player.id === club.president_player_id || player.user_id === club.president_user_id || player.user_id === club.user_id;
       const kind = body.kind || 'player';
       if (kind !== 'player') fail('Management offers are created by the Club Board', 403);
+      if (Number(body.transfer_fee_stc || 0) !== 0) fail('Player purchases are unavailable; transfer fees must be zero', 422);
       const report = await finance(club, q),
         purpose = body.purpose || 'signing';
       const existing = report.proposals.find(p => p.kind === 'player' && p.player_id === player.id && p.status === 'pending');
@@ -263,13 +265,14 @@ function createService({
       const [legacy] = await q("SELECT * FROM player_contracts WHERE team_id=? AND user_id=? AND contract_type<>'ownership' AND status='active' ORDER BY id LIMIT 1 FOR UPDATE", [club.id, player.id]);
       if (purpose === 'signing' && (current || legacy)) fail('This player already has an active agreement; propose an amendment or renewal');
       if (purpose !== 'signing' && !current && !legacy) fail('An amendment or renewal requires an existing agreement');
-      if(purpose==='signing'||purpose==='renewal')await require('./contractRulesService').assertCanCreateContractOffer({playerId:player.id,teamId:club.id,contractType:body.squad_role||body.contract_type||'squad',allowedActiveContractId:current?.player_contract_id||legacy?.id||null,query:q});
+      const signing = purpose === 'signing' ? await require('./transferMarketService').signingContext(player,club.id,q,clock()) : {};
+      if(purpose==='signing'||purpose==='renewal')await require('./contractRulesService').assertCanCreateContractOffer({playerId:player.id,teamId:club.id,contractType:body.squad_role||body.contract_type||'squad',allowedActiveContractId:current?.player_contract_id||legacy?.id||null,deferMove:Boolean(signing.not_before),query:q});
       const terms = policy.playerTerms({
         squad_role: body.squad_role || body.contract_type || 'squad',
         weekly_salary_stc: body.weekly_salary_stc,
         signing_bonus_stc: body.signing_bonus_stc || 0
       }, await xp(player.id, q), purpose);
-      const notBefore = purpose === 'renewal' ? current?.ends_at || legacy?.end_date : null;
+      const notBefore = purpose === 'renewal' ? current?.ends_at || legacy?.end_date : signing.not_before;
       const starts = new Date(Math.max(clock().getTime(), notBefore ? Date.parse(notBefore) : 0));
       const dates = await duration({
         ...body,
@@ -298,6 +301,8 @@ function createService({
           agreement_id: current?.id || null,
           source_player_contract_id: legacy?.id || null,
           not_before: notBefore,
+          precontract_source_club_id: signing.source_club_id || null,
+          precontract_source_contract_id: signing.source_contract_id || null,
           previous_weekly_salary_stc: current?.weekly_salary_stc ?? Number(legacy?.weekly_salary_stc || 0),
           transfer_fee_stc: purpose === 'signing' ? money(body.transfer_fee_stc || 0) : 0,
           performance_targets: Array.isArray(body.performance_targets) ? body.performance_targets : parse(legacy?.performance_targets || '[]'),
@@ -421,7 +426,16 @@ function createService({
         if (!recipient && p.last_proposed_by !== 'player') fail('Only the player may accept the club’s offer', 403);
         if (recipient && p.origin !== 'board' && p.last_proposed_by === 'player') fail('Your counter-offer awaits the club’s response', 409);
         if (!player || player.user_id !== p.recipient_user_id) fail('The recipient’s linked player identity changed', 409);
-        if (p.kind === 'player') policy.playerTerms(p, await xp(player.id, q), p.purpose);
+        if (Number(p.transfer_fee_stc || 0) !== 0) fail('Player purchases are unavailable; request a new agreement without a transfer fee',422);
+        if (p.kind === 'player') {
+          policy.playerTerms(p, await xp(player.id, q), p.purpose);
+          const initialFounder = p.origin === 'board' && p.id === stableId(['initial_board_offer',club.id,'player',player.id]) && manager(club,{id:player.user_id,email:player.email});
+          if(p.purpose === 'signing' && !initialFounder) {
+            const signing = await require('./transferMarketService').signingContext(player,club.id,q,clock());
+            if(p.not_before && signing.not_before && (Date.parse(p.not_before)!==Date.parse(signing.not_before) || p.precontract_source_club_id!==signing.source_club_id || p.precontract_source_contract_id!==signing.source_contract_id)) fail('The current agreement changed; request a new proposal',409);
+            if(!p.not_before && signing.not_before) fail('The player is now contracted; request a future agreement',409);
+          }
+        }
         if (p.kind === 'management' && p.weekly_salary_stc > policy.managementOffer({
           wageBudget: club.wage_budget_stc
         }).management_ceiling_stc) fail('Management salary exceeds the current Board ceiling');
@@ -446,7 +460,7 @@ function createService({
           payroll_generation: p.id
         };
         if (p.kind === 'player') {
-          await require('./officialPlayerTransferService').assertMove({
+          if(a.status !== 'scheduled') await require('./officialPlayerTransferService').assertMove({
             player,
             targetClubId: club.id,
             referenceId: p.id,
@@ -469,6 +483,7 @@ function createService({
             },
             query: q
           });
+          if (a.status !== 'scheduled') {
           await q("UPDATE players SET club_id=?,status='active',updated_date=NOW() WHERE id=?", [club.id, player.id]);
           await require('./clubMembershipService').upsertActiveMembership({
             clubId: club.id,
@@ -478,13 +493,7 @@ function createService({
             source: 'contract_acceptance',
             query: q
           });
-        }
-        if (p.transfer_fee_stc) {
-          // Transfer payments retain the existing sender-side spending semantics.
-          if (Number(club.stc) < p.transfer_fee_stc + p.signing_bonus_stc) fail('Club cash changed; review signing costs');
-          await q('UPDATE clubs SET stc=stc-? WHERE id=?', [p.transfer_fee_stc, club.id]);
-          await q('INSERT INTO stc_transactions (id,club_id,amount,balance_after,type,category,description,reference_id) VALUES (?,?,?,?,?,?,?,?)', [crypto.randomUUID(), club.id, -p.transfer_fee_stc, Number(club.stc) - p.transfer_fee_stc, 'expense', 'transfer_spending', 'Player transfer fee', p.id]);
-          club.stc = Number(club.stc) - p.transfer_fee_stc;
+          }
         }
         a.bonus_payment = await pay(club, player, p.signing_bonus_stc, p.id, 'signing_bonus', q);
         if (a.bonus_payment.status === 'arrears') fail('Signing bonus could not be funded; agreement was not activated', 409);

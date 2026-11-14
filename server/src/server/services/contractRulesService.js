@@ -36,9 +36,10 @@ async function assertCanCreateContractOffer({
   contractType = 'squad',
   allowedActiveContractId = null,
   query = null,
+  deferMove = false,
 }) {
   if (!playerId || !teamId) return;
-  const official = await require('./officialPlayerTransferService').assertOfferWindow({ playerId, teamId }, query || EXECUTESQL);
+  const official = deferMove || await require('./officialPlayerTransferService').assertOfferWindow({ playerId, teamId }, query || EXECUTESQL);
   if (!official) await assertTransferWindowOpenForContractOffer();
   const group = contractGroup(contractType);
   const params = [playerId, teamId, ...LIVE_CONTRACT_STATUSES];

@@ -22,7 +22,6 @@ import { GamerHeroAction, GamerPlayerPhotoFrame, GamerProfileShell, GamerSection
 import PlayerCareerSummary from "@/components/profile/PlayerCareerSummary";
 import PlayerTransferHistory from "@/components/profile/PlayerTransferHistory";
 import OfferContractDialog from "@/components/contracts/OfferContractDialog";
-import TransferPaymentDialog from "@/components/contracts/TransferPaymentDialog";
 import { canShowContractOfferButton, getSignedClubIdForPlayer } from "@/lib/contractOfferVisibility";
 import { getContractType, normalizePlayerContracts } from "@/lib/playerContractFields";
 import { canCreateContractOffer } from "@/lib/transferWindowAccess";
@@ -140,7 +139,6 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
   const [playerContracts, setPlayerContracts] = useState([]);
   const [viewerClub, setViewerClub] = useState(null);
   const [offerDialogOpen, setOfferDialogOpen] = useState(false);
-  const [transferPayOpen, setTransferPayOpen] = useState(false);
   const navigate = useNavigate();
   const visibleClubRole = getVisibleFootballRole(player);
 
@@ -458,16 +456,6 @@ export default function PlayerProfile({ overridePlayerId, tournamentId = null, e
         officialRecruitment={officialRecruitment}
         windowOpen={windowOpen}
         club={viewerClub}
-      />
-
-      {/* Transfer Payment Dialog */}
-      <TransferPaymentDialog
-        open={transferPayOpen}
-        onClose={() => setTransferPayOpen(false)}
-        player={player}
-        targetClub={club}
-        myClub={viewerClub}
-        onPaid={() => {}}
       />
 
       {/* Lightbox */}

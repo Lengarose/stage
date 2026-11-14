@@ -1,0 +1,47 @@
+'use strict';
+// Disposable local database only: exercise real JWT/HTTP contract-only recruitment.
+const {configure,bootstrap}=require('./bootstrap.cjs');
+const assert=require('node:assert/strict'),{randomUUID:id}=require('node:crypto');
+const config=configure();let db,server;
+(async()=>{
+ db=await bootstrap(config);const q=db.EXECUTESQL;
+ const express=require('express'),jwt=require('jsonwebtoken'),app=express();app.use(express.json());app.use('/api/stage',require('../../src/server/authMiddleware').verifyToken);
+ app.use('/api/stage/functions',require('../../src/server/controllers/functionsController'));
+ app.use('/api/stage/club-board',require('../../src/server/controllers/clubBoardController'));
+ const manager=id(),recipient=id(),player=id(),oldClub=id(),newClub=id(),thirdClub=id(),mirror=id(),agreement=id();
+ for(const uid of [manager,recipient]) await q('INSERT INTO users (id,email,role_id) VALUES (?,?,1)',[uid,`${uid}@market.acceptance.test`]);
+ for(const cid of [oldClub,newClub,thirdClub])await q('INSERT INTO clubs (id,name,user_id,president_user_id,owner_email,stc,wage_budget_stc) VALUES (?,?,?,?,?,1000000,100000)',[cid,cid===oldClub?'Old FC':cid===newClub?'New FC':'Third FC',manager,manager,`${manager}@market.acceptance.test`]);
+ await q("INSERT INTO players (id,user_id,email,gamertag,club_id,status,stc) VALUES (?,?,?,?,?,'active',0)",[player,recipient,`${recipient}@market.acceptance.test`,'Expiring test player',oldClub]);
+ const seededMember=id();
+ await q("INSERT INTO players (id,email,gamertag,club_id,status,bio) VALUES (?,?,'Seeded club member',?,'active','[STAGE TEST PACK]')",[seededMember,`${seededMember}@market.acceptance.test`,oldClub]);
+ const now=new Date(),end=new Date(now.getTime()+7*86400000),start=new Date(now.getTime()-7*86400000);
+ await q("INSERT INTO player_contracts (id,user_id,team_id,contract_type,status,start_date,end_date,weekly_salary_stc,compensation_policy_version) VALUES (?,?,?,'squad','active',?,?,5000,'club_board_v1')",[mirror,player,oldClub,start,end]);
+ const source={id:agreement,player_id:player,club_id:oldClub,kind:'player',status:'active',squad_role:'squad',player_contract_id:mirror,weekly_salary_stc:5000,starts_at:start.toISOString(),ends_at:end.toISOString(),payroll_through:start.toISOString(),payroll_generation:agreement,accepted_at:start.toISOString()};
+ await q("INSERT INTO league_entities (id,entity_type,club_id,status,data_json) VALUES (?,'club_agreement',?,'active',?)",[agreement,oldClub,JSON.stringify(source)]);
+ server=app.listen(0,'127.0.0.1');await new Promise((resolve,reject)=>{server.once('listening',resolve);server.once('error',reject);});
+ async function call(uid,path,body,expected=200){const r=await fetch(`http://127.0.0.1:${server.address().port}/api/stage/${path}`,{method:body?'POST':'GET',headers:{'content-type':'application/json',authorization:`Bearer ${jwt.sign({id:uid},process.env.ACCESS_TOKEN_SECRET,{expiresIn:'1h'})}`},...(body?{body:JSON.stringify(body)}:{})});const data=await r.json();assert.equal(r.status,expected,JSON.stringify(data));return data;}
+ const market=await call(manager,'functions/getTransferMarket',{});assert(!market.data.free_agents.some(p=>p.id===seededMember),'A club-linked seeded player without a contract must not be listed as a free agent');assert.equal(market.data.expiring_players.length,1);assert.equal(market.data.expiring_players[0].contract.current_club_name,'Old FC');
+ await call(manager,'functions/playerMarketValue',{action:'recalculate_all'},410);await call(manager,'functions/transferPayment',{player_id:player,amount:100},410);
+ const options=await call(manager,`club-board/clubs/${newClub}/contract-options?player_id=${player}`);assert.equal(options.not_before,end.toISOString());
+ const body={club_id:newClub,player_id:player,purpose:'signing',squad_role:'squad',duration_type:'fixed_12_weeks',weekly_salary_stc:5000,signing_bonus_stc:0};
+ await call(manager,'club-board/proposals',{...body,transfer_fee_stc:1},422);
+ const proposal=await call(manager,'club-board/proposals',body);
+ await call(recipient,`club-board/proposals/${proposal.id}/respond`,{action:'accept',expected_version:proposal.version,request_id:id()});
+ assert.equal((await q('SELECT club_id FROM players WHERE id=?',[player]))[0].club_id,oldClub,'acceptance must not move the player');
+ assert.equal((await q('SELECT status FROM player_contracts WHERE id=?',[mirror]))[0].status,'active');
+ assert.equal(Number((await q('SELECT stc FROM players WHERE id=?',[player]))[0].stc),0,'no salary paid in advance');
+ assert.equal((await call(manager,'functions/getTransferMarket',{})).data.expiring_players.length,0,'accepted future agreement removes listing');
+ await call(manager,'club-board/proposals',{...body,club_id:thirdClub},409);
+ const worker=require('../../src/server/services/clubBoardWorker');
+ await worker.tickClub(newClub,new Date(end.getTime()-1));assert.equal((await q('SELECT club_id FROM players WHERE id=?',[player]))[0].club_id,oldClub);
+ await worker.tickClub(newClub,new Date(end.getTime()+1000));assert.equal((await q('SELECT club_id FROM players WHERE id=?',[player]))[0].club_id,newClub);
+ const membership=await q("SELECT club_id FROM club_memberships WHERE player_id=? AND status='active'",[player]);assert.deepEqual(membership.map(m=>m.club_id),[newClub]);
+ await worker.tickClub(newClub,new Date(end.getTime()+1000));assert.equal((await q("SELECT COUNT(*) AS n FROM player_contracts WHERE user_id=? AND status='active'",[player]))[0].n,1);
+ const managerPlayer=id();
+ await q("INSERT INTO players (id,user_id,email,gamertag,status,stc) VALUES (?,?,?,'New founder','active',0)",[managerPlayer,manager,`${manager}@market.acceptance.test`]);
+ const founder=await require('../../src/server/services/founderContractLifecycleService').createFounderContractLifecycle({user:{id:manager,email:`${manager}@market.acceptance.test`},playerId:managerPlayer,club:{name:'Founder recruitment regression',tag:'FRR',platform:'Cross-Platform'},playerContract:{},idempotencyKey:id()});
+ const first=founder.boardOffers.find(p=>p.kind==='player');
+ await call(manager,`club-board/proposals/${first.id}/respond`,{action:'accept',expected_version:first.version,request_id:id()});
+ assert.equal((await q('SELECT club_id FROM players WHERE id=?',[managerPlayer]))[0].club_id,founder.club.id);
+ console.log('PASS real JWT/HTTP: 14-day listing and options, retired valuation/purchase endpoints, fee rejection, scheduled acceptance preserving current membership, duplicate future signing rejection, activation only at expiry, one active playing contract after retry, and initial founder Board offer acceptance.');
+})().catch(e=>{console.error(e);process.exitCode=1;}).finally(async()=>{if(server)await new Promise(r=>server.close(r));if(db)await db.pool.promise().end();});

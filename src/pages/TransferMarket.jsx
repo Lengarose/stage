@@ -1,26 +1,22 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { LayoutGrid, LayoutList, SlidersHorizontal } from "lucide-react";
+import { LayoutGrid, LayoutList, Search } from "lucide-react";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import OfferContractDialog from "@/components/contracts/OfferContractDialog";
 import TransferWindowBanner from "@/components/transfer/TransferWindowBanner";
-import TransferFilters from "@/components/transfer/TransferFilters";
-import TransferPlayerList from "@/components/transfer/TransferPlayerList";
-import TransferScoutBoard from "@/components/transfer/TransferScoutBoard";
-import TransferDetailPanel from "@/components/transfer/TransferDetailPanel";
+import TransferRoomHero from "@/components/transfer/TransferRoomHero";
+import TransferTalentBoard from "@/components/transfer/TransferTalentBoard";
+import TransferRecruitmentPanel from "@/components/transfer/TransferRecruitmentPanel";
+import { transferRoomPresentation, TRANSFER_ROOM_ACCENTS } from "@/lib/transferRoomPresentation";
+import "@/components/transfer/transfer-room.css";
 import { getContractTargetPlayerId, normalizePlayerContracts } from "@/lib/playerContractFields";
 import { canShowContractOfferButton, getContractOfferBlockReason } from "@/lib/contractOfferVisibility";
 import { buildTransferMarketEntries, normalizeTransferMarketPlayers } from "@/lib/transferMarketEntries";
-import { PAGE_BANNER_HEIGHT_CLASS } from "@/lib/pageBanner";
-import { cn } from "@/lib/utils";
 import { canManageClubIdentity } from "@/lib/clubPresidentAccess";
 import { canCreateContractOffer } from "@/lib/transferWindowAccess";
 import { useTransferWindowStatus } from "@/lib/useTransferWindowStatus";
-import { useTranslation } from "@/hooks/useTranslation";
-import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export default function TransferMarket() {
-  const { t } = useTranslation();
   const { currentWindow, windowOpen, offersAvailable, officialRecruitment } = useTransferWindowStatus();
   const [loading, setLoading] = useState(true);
   const [freeAgents, setFreeAgents] = useState([]);
@@ -37,14 +33,16 @@ export default function TransferMarket() {
   const [positionFilter, setPositionFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("all"); // "all" | "free_agent" | "expiring"
   const [platformFilter, setPlatformFilter] = useState("");
-  const [viewMode, setViewMode] = useState("cards"); // "cards" | "list"
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [viewMode, setViewMode] = useState(null); // "cards" | "list"
+  const [sort, setSort] = useState(null);
+  const [loadError, setLoadError] = useState("");
   const [detailsOpen, setDetailsOpen] = useState(false);
 
   useEffect(() => { load(); }, []);
 
   async function load() {
     setLoading(true);
+    setLoadError("");
     try {
       const { user, player, club: resolvedClub, presidentClub, activeRoles = [] } = await resolveMyPlayerAndClub();
 
@@ -57,11 +55,11 @@ export default function TransferMarket() {
       // carries another id, and the server rightly refuses.
       const club = presidentClub || resolvedClub;
 
-      const marketRes = await stageClient.functions.invoke("getTransferMarket", {}).catch(() => ({ data: {} }));
+      const [marketRes, configRows] = await Promise.all([
+        stageClient.functions.invoke("getTransferMarket", {}),
+        stageClient.entities.TransferRoomConfig.filter({ key: "main" }, "-updated_date", 1).catch(() => []),
+      ]);
       const normalizedMarket = normalizeTransferMarketPlayers(marketRes?.data || {});
-      const configRows = await stageClient.entities.TransferRoomConfig
-        .filter({ key: "main" }, "-updated_date", 1)
-        .catch(() => []);
 
       setFreeAgents(normalizedMarket.freeAgents);
       setExpiringPlayers(normalizedMarket.expiringPlayers);
@@ -76,6 +74,7 @@ export default function TransferMarket() {
       }
     } catch (err) {
       console.error("[TransferMarket] load failed:", err);
+      setLoadError("The player market could not be loaded. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -88,7 +87,8 @@ export default function TransferMarket() {
 
   function canOfferPlayer(player, entryContract = null) {
     const contracts = entryContract ? [entryContract, ...myContracts] : myContracts;
-    return canManage && canCreateContractOffer(offersAvailable) && canShowContractOfferButton({ player, viewerClub: myClub, playerContracts: contracts });
+    const futureOffer = entryContract && expiringPlayers.some(entry=>entry.player.id===player.id);
+    return canManage && (futureOffer || canCreateContractOffer(offersAvailable)) && canShowContractOfferButton({ player, viewerClub: myClub, playerContracts: contracts });
   }
 
 
@@ -98,17 +98,25 @@ export default function TransferMarket() {
     return buildTransferMarketEntries(freeAgents, expiringPlayers);
   }, [freeAgents, expiringPlayers]);
 
+  const presentation = transferRoomPresentation(roomConfig || {});
+  const activeSort = sort || presentation.default_sort;
+  const activeView = viewMode || presentation.default_view;
+
   // Filtered list
   const filteredEntries = useMemo(() => {
     return allEntries.filter(({ player, badgeType }) => {
       if (search && !player.gamertag?.toLowerCase().includes(search.toLowerCase())) return false;
       if (positionFilter && player.position !== positionFilter && player.secondary_position !== positionFilter) return false;
-      if (platformFilter && player.platform !== platformFilter) return false;
+      if (platformFilter) {
+        const value=String(player.platform || '').toLowerCase();
+        const matches=platformFilter==='PlayStation' ? /playstation|ps[45]/.test(value) : platformFilter==='Xbox' ? /xbox/.test(value) : value==='pc';
+        if(!matches)return false;
+      }
       if (statusFilter === "free_agent" && badgeType !== "free_agent") return false;
       if (statusFilter === "expiring" && badgeType !== "expiring" && badgeType !== "expiring_soon") return false;
       return true;
-    });
-  }, [allEntries, search, positionFilter, statusFilter, platformFilter]);
+    }).sort((a,b) => activeSort === "name" ? String(a.player.gamertag || "").localeCompare(String(b.player.gamertag || "")) : activeSort === "form" ? Number(b.player.avg_match_rating || 0)-Number(a.player.avg_match_rating || 0) : (Date.parse(b.player.created_date) || 0)-(Date.parse(a.player.created_date) || 0));
+  }, [allEntries, search, positionFilter, statusFilter, platformFilter, activeSort]);
 
   useEffect(() => {
     if (filteredEntries.length === 0) {
@@ -126,162 +134,18 @@ export default function TransferMarket() {
     if (openDetails) setDetailsOpen(true);
   }, []);
 
-  const filterCount = [search, positionFilter, platformFilter].filter(Boolean).length
-    + (statusFilter !== "all" ? 1 : 0);
-
-  const headerBtn = "h-9 gap-2 border-0 bg-transparent px-2 font-heading text-xs font-black uppercase tracking-[0.16em] shadow-none transition-all hover:bg-transparent hover:text-white hover:drop-shadow-[0_0_18px_rgba(0,229,255,0.55)] focus-visible:ring-2 focus-visible:ring-cyan-300/40";
-  const bannerStyle = roomConfig?.background_url
-    ? {
-      backgroundImage: `linear-gradient(90deg,rgba(2,7,12,0.18),rgba(2,7,12,0.02),rgba(2,7,12,0.24)), url(${roomConfig.background_url})`,
-      backgroundPosition: roomConfig.background_position || "50% 50%",
-      backgroundSize: roomConfig.background_zoom ? `${roomConfig.background_zoom}%` : "cover",
-      backgroundRepeat: "no-repeat",
-    }
-    : undefined;
-
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col overflow-x-clip overflow-y-auto bg-[radial-gradient(circle_at_18%_16%,rgba(0,229,255,0.10),transparent_32%),linear-gradient(120deg,#050b12,#02070c_58%,#05070d)] text-white">
-      {/* Banner scrolls away first */}
-      <div
-        className={cn(
-          "relative w-full shrink-0 overflow-hidden bg-[radial-gradient(circle_at_18%_20%,rgba(0,229,255,0.14),transparent_36%),linear-gradient(120deg,rgba(7,16,24,0.86),rgba(1,7,12,0.92))] shadow-[0_24px_90px_-62px_rgba(0,229,255,0.95)]",
-          PAGE_BANNER_HEIGHT_CLASS
-        )}
-        style={bannerStyle}
-      >
-        <div aria-hidden className="absolute inset-0 bg-[linear-gradient(180deg,transparent,rgba(2,7,12,0.22))]" />
-        {!roomConfig?.background_url ? (
-          <div className="absolute inset-0 grid place-items-center">
-            <p className="font-heading text-sm font-black uppercase tracking-[0.3em] text-white/25">Transfer Room Banner</p>
-          </div>
-        ) : null}
-      </div>
-
-      {/* Sticky dock: once the banner is gone, this fills the viewport under the nav.
-          Further scroll happens inside the scout/list pane; scroll-up at top brings the banner back. */}
-      <div className="sticky top-0 z-10 flex h-full min-h-0 shrink-0 flex-col border-b border-[#f5c542]/20 bg-[linear-gradient(120deg,rgba(7,16,24,0.96),rgba(1,7,12,0.94))] backdrop-blur-md">
-        <div className="flex shrink-0 flex-col gap-3 px-4 py-3 md:flex-row md:items-center md:justify-between sm:px-6">
-          <div className="text-xs text-white/45">
-            {t("commonPages.playersFound", { count: filteredEntries.length, plural: filteredEntries.length !== 1 ? "s" : "" })}
-            <span className="mx-2 text-white/20">·</span>
-            <span className="text-[#7cff6b]">{t("commonPages.freeShort", { count: freeAgents.length })}</span>
-            <span className="mx-2 text-white/20">·</span>
-            <span className="text-[#f5c542]">{t("commonPages.expiringShort", { count: expiringPlayers.length })}</span>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
-            <Button
-              type="button"
-              onClick={() => setViewMode("cards")}
-              className={cn(
-                headerBtn,
-                viewMode === "cards"
-                  ? "text-[#f5c542]"
-                  : "text-cyan-100/65"
-              )}
-            >
-              <LayoutGrid className="h-4 w-4" />
-              Cards
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setViewMode("list")}
-              className={cn(
-                headerBtn,
-                viewMode === "list"
-                  ? "text-[#f5c542]"
-                  : "text-cyan-100/65"
-              )}
-            >
-              <LayoutList className="h-4 w-4" />
-              {t("commonPages.transferList")}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setFiltersOpen(true)}
-              className={cn(headerBtn, "relative text-cyan-100/75")}
-            >
-              <SlidersHorizontal className="h-4 w-4" />
-              {t("commonPages.transferFilters")}
-              {filterCount > 0 ? (
-                <span className="absolute -right-1.5 -top-1.5 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#00e5ff] px-1 text-[10px] font-semibold leading-none text-black">
-                  {filterCount}
-                </span>
-              ) : null}
-            </Button>
-          </div>
-        </div>
-
-        {loading ? (
-          <div className="flex min-h-0 flex-1 items-center justify-center py-24">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#f5c542]/20 border-t-[#f5c542]" />
-          </div>
-        ) : viewMode === "list" ? (
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 sm:px-6">
-            <TransferPlayerList
-              players={filteredEntries}
-              selectedId={selected?.player?.id}
-              onSelect={(entry) => selectEntry(entry, { openDetails: true })}
-              canManage={canManage}
-              canOffer={canOfferPlayer}
-              getOfferBlockReason={getOfferBlockReason}
-              onOffer={setOfferTarget}
-            />
-          </div>
-        ) : (
-          <TransferScoutBoard
-            entries={filteredEntries}
-            selected={selected}
-            onSelect={selectEntry}
-            canManage={canManage}
-            canOffer={canOfferPlayer}
-            getOfferBlockReason={getOfferBlockReason}
-            onOffer={setOfferTarget}
-            officialRecruitment={officialRecruitment}
-            windowOpen={windowOpen}
-          />
-        )}
-      </div>
-
-      <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
-        <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto border-[#f5c542]/20 bg-[#071018] p-0 text-white">
-          <DialogHeader className="px-5 pt-5">
-            <DialogTitle className="font-heading text-sm font-black uppercase tracking-[0.18em] text-[#00e5ff]">
-              {t("commonPages.transferFilters")}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 px-5 pb-5">
-            <TransferWindowBanner officialRecruitment={officialRecruitment} window={currentWindow} />
-            <TransferFilters
-              search={search} onSearch={setSearch}
-              position={positionFilter} onPosition={setPositionFilter}
-              statusFilter={statusFilter} onStatus={setStatusFilter}
-              platform={platformFilter} onPlatform={setPlatformFilter}
-            />
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
-        <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto border-[#f5c542]/20 bg-[#071018] p-0 text-white">
-          <DialogHeader className="px-5 pt-5">
-            <DialogTitle className="font-heading text-sm font-black uppercase tracking-[0.18em] text-[#f5c542]">
-              {t("commonPages.playerDetails")}
-            </DialogTitle>
-          </DialogHeader>
-          <TransferDetailPanel
-            entry={selected}
-            canManage={canManage}
-            canOffer={canOfferPlayer}
-            getOfferBlockReason={getOfferBlockReason}
-            onOffer={(target) => { setDetailsOpen(false); setOfferTarget(target); }}
-            officialRecruitment={officialRecruitment}
-            windowOpen={windowOpen}
-          />
-        </DialogContent>
-      </Dialog>
+    <div className="transfer-room" style={{'--tr-accent':TRANSFER_ROOM_ACCENTS[presentation.accent],'--tr-button-ink':presentation.accent==='gold'?'#071020':'#fff'}}>
+      <TransferRoomHero presentation={presentation} freeCount={freeAgents.length} expiringCount={expiringPlayers.length} canManage={canManage} clubName={myClub?.name} windowOpen={windowOpen}/>
+      <section id="transfer-talent" className="tr-market-wrap" aria-label="Transfer player market">
+        <div className="tr-market-heading"><div><p className="tr-kicker">SCOUT. CONNECT. SIGN.</p><h2>Find your next game changer.</h2></div><span className="tr-rule-note">{loading?'Loading players…':`${filteredEntries.length} player${filteredEntries.length===1?'':'s'} in your search`}</span></div>
+        <div className="tr-toolbar"><div className="tr-categories" aria-label="Player availability">{[{key:'all',label:'All players',count:allEntries.length},{key:'free_agent',label:'Free agents',count:freeAgents.length},{key:'expiring',label:'Expiring · final 14 days',count:expiringPlayers.length}].map(item=><button type="button" key={item.key} className={statusFilter===item.key?'is-active':''} aria-pressed={statusFilter===item.key} onClick={()=>setStatusFilter(item.key)}>{item.label}<small>{item.count}</small></button>)}</div><div className="tr-view-modes" aria-label="Player presentation"><button type="button" className={activeView==='cards'?'is-active':''} aria-pressed={activeView==='cards'} onClick={()=>setViewMode('cards')}><LayoutGrid size={16}/> Showcase</button><button type="button" className={activeView==='list'?'is-active':''} aria-pressed={activeView==='list'} onClick={()=>setViewMode('list')}><LayoutList size={16}/> Directory</button></div></div>
+        <div className="tr-filters"><label className="tr-search"><Search size={17}/><input aria-label="Search players by name" placeholder="Find a player by name…" value={search} onChange={e=>setSearch(e.target.value)}/></label><select aria-label="Player position" value={positionFilter} onChange={e=>setPositionFilter(e.target.value)}><option value="">All positions</option>{['GK','CB','LB','RB','CDM','CM','CAM','LM','RM','LW','RW','ST','CF'].map(p=><option key={p}>{p}</option>)}</select><select aria-label="Player platform" value={platformFilter} onChange={e=>setPlatformFilter(e.target.value)}><option value="">All platforms</option>{['PlayStation','Xbox','PC'].map(p=><option key={p}>{p}</option>)}</select><select aria-label="Sort players" value={activeSort} onChange={e=>setSort(e.target.value)}><option value="recent">Newest profiles</option><option value="name">Name: A–Z</option><option value="form">Match rating</option></select></div>
+        {loadError?<div className="tr-error" role="alert">{loadError}<button type="button" className="ml-4 underline" onClick={load}>Retry</button></div>:null}
+        {loading?<div className="tr-market-loading" role="status">Opening the recruitment desk…</div>:!loadError&&<div className="tr-market-layout"><div><TransferTalentBoard entries={filteredEntries} viewMode={activeView} selected={selected} onSelect={entry=>selectEntry(entry,{openDetails:window.matchMedia('(max-width: 900px)').matches})}/></div><aside aria-label="Selected player"><TransferRecruitmentPanel entry={selected} canManage={canManage} canOffer={canOfferPlayer} getOfferBlockReason={getOfferBlockReason} onOffer={setOfferTarget} officialRecruitment={officialRecruitment} windowOpen={windowOpen}/></aside></div>}
+        <details className="mt-7 border-t border-white/10 pt-4"><summary className="cursor-pointer py-2 text-sm text-slate-300">How recruitment works</summary><div className="mt-4 max-w-3xl space-y-4"><p className="tr-rule-note">Explore the market, open a player dossier and review their profile. Managers send offers on behalf of their club. The player reviews and negotiates the proposed terms in their inbox. Recruitment is contract-only: there is no purchase price or transfer fee. Expiring players appear only in their final 14 days. Accepted future agreements start after the current agreement ends.</p><TransferWindowBanner officialRecruitment={officialRecruitment} window={currentWindow}/></div></details>
+      </section>
+      <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}><DialogContent className="max-h-[85svh] max-w-lg overflow-y-auto rounded-none border-white/20 bg-[#080e20] p-0 text-white"><DialogHeader className="px-6 pt-6"><DialogTitle>Player dossier</DialogTitle></DialogHeader><div className="transfer-room" style={{'--tr-accent':TRANSFER_ROOM_ACCENTS[presentation.accent],'--tr-button-ink':presentation.accent==='gold'?'#071020':'#fff'}}><TransferRecruitmentPanel entry={selected} canManage={canManage} canOffer={canOfferPlayer} getOfferBlockReason={getOfferBlockReason} onOffer={target=>{setDetailsOpen(false);setOfferTarget(target);}} officialRecruitment={officialRecruitment} windowOpen={windowOpen}/></div></DialogContent></Dialog>
 
       <OfferContractDialog
         open={!!offerTarget}

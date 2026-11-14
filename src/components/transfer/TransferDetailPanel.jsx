@@ -1,10 +1,8 @@
 import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { FileText, ExternalLink, Clock, Users, Shield, Star, TrendingUp } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { FileText, ExternalLink, Clock, Users, Shield, Star } from "lucide-react";
 import TransferBadge from "./TransferBadge";
-import { calculatePlayerValue, formatSTC, getValueTier } from "@/lib/playerValue";
 import { useTranslation } from "@/hooks/useTranslation";
 
 export default function TransferDetailPanel({ entry, canManage, canOffer, getOfferBlockReason, onOffer, windowOpen, officialRecruitment = false }) {
@@ -26,8 +24,6 @@ export default function TransferDetailPanel({ entry, canManage, canOffer, getOff
   const { player, badgeType, contract, days_left } = entry;
   const blockReason = getOfferBlockReason?.(player, contract) || null;
   const canOfferPlayer = canManage && !blockReason && (canOffer ? canOffer(player, contract) : true);
-  const marketValue = calculatePlayerValue(player);
-  const valueTier = getValueTier(marketValue);
 
   return (
     <div className="overflow-hidden border border-[#f5c542]/20 bg-[#05080f]">
@@ -71,18 +67,6 @@ export default function TransferDetailPanel({ entry, canManage, canOffer, getOff
               <p className="font-bold text-foreground text-sm mt-0.5">{s.value}</p>
             </div>
           ))}
-        </div>
-
-        {/* Market Value */}
-        <div className="flex items-center justify-between bg-secondary/60 rounded-xl px-4 py-2.5 mb-4">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="w-3.5 h-3.5 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground uppercase tracking-wider">{t("commonPages.marketValue")}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className={cn("text-xs font-semibold", valueTier.color)}>{valueTier.label}</span>
-            <span className="font-light text-foreground text-sm tracking-tight">{formatSTC(marketValue)}</span>
-          </div>
         </div>
 
         {/* Club / contract info */}

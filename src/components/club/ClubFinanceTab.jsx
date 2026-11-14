@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { stageClient } from "@/api/stageClient";
-import { formatSTC, calculatePlayerValue } from "@/lib/playerValue";
+import { formatSTC } from "@/lib/playerValue";
 import { getContractType, normalizePlayerContracts } from "@/lib/playerContractFields";
 import { cn } from "@/lib/utils";
 import { swalAlert, swalConfirm } from "@/lib/swal";
@@ -136,14 +136,10 @@ export default function ClubFinanceTab({ club, isAdmin = false }) {
     if (!club?.id) return;
     setLoading(true);
     try {
-      const [overviewRes, squadPlayers] = await Promise.all([
-        stageClient.functions.invoke("clubFinance", { action: "get_overview", club_id: club.id }),
-        stageClient.entities.Player.filter({ club_id: club.id }, null, 100),
-      ]);
+      const overviewRes = await stageClient.functions.invoke("clubFinance", { action: "get_overview", club_id: club.id });
 
       const overview = overviewRes?.data || {};
       const safeContracts = normalizePlayerContracts(overview.contracts || []);
-      const squadValue   = (squadPlayers || []).reduce((s, p) => s + calculatePlayerValue(p), 0);
 
       setData({
         balance:          Number(overview.balance ?? club.stc ?? 0),
@@ -161,8 +157,6 @@ export default function ClubFinanceTab({ club, isAdmin = false }) {
         stadium_capacity: Number(overview.stadium_capacity ?? club.stadium_capacity ?? 5000),
         contracts:        safeContracts,
         allTransactions:  overview.transactions || [],
-        squadPlayers:     squadPlayers || [],
-        squad_value:      squadValue,
         income_30d: Number(overview.income_30d || 0),
         expenses_30d: Number(overview.expenses_30d || 0),
       });
@@ -204,7 +198,7 @@ export default function ClubFinanceTab({ club, isAdmin = false }) {
     pending_weekly_wages, committed_weekly_wages, wage_room,
     transfer_locked, transfer_remaining, available_balance,
     monthly_operating_cost_estimate, stadium_tier, stadium_capacity,
-    contracts, allTransactions, squad_value, income_30d, expenses_30d,
+    contracts, allTransactions, income_30d, expenses_30d,
   } = data;
 
   const net30 = income_30d - expenses_30d;
@@ -224,7 +218,6 @@ export default function ClubFinanceTab({ club, isAdmin = false }) {
       {/* Balance + Budget Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-2.5">
         <StatCard icon={Wallet}  label={t("commonPages.cfinClubBalance")}     value={formatSTC(balance)}          color="text-success"  sub={`Available: ${formatSTC(available_balance)}`} />
-        <StatCard icon={TrendingUp} label={t("commonPages.cfinSquadValue")}   value={formatSTC(squad_value || 0)} color="text-purple-400" sub={t("commonPages.cfinCombinedPlayerValue")} />
         <StatCard icon={Users}   label="Weekly wage cap"      value={`${formatSTC(wage_budget)}/wk`}       color="text-warning"  sub={`Room: ${formatSTC(wage_room)}/wk`} />
         <StatCard icon={Coins}   label="Transfer cap"  value={formatSTC(transfer_budget)}   color="text-primary"  sub={`Remaining: ${formatSTC(transfer_remaining)}`} />
         <StatCard icon={Building2} label="Stadium tier" value={stadium_tier?.name || "Local Ground"} color="text-cyan-300" sub={`${Number(stadium_capacity || 0).toLocaleString()} capacity`} />

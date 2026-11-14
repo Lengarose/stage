@@ -1,4 +1,3 @@
-import { calculatePlayerValue, getValueTier } from "./playerValue.js";
 import { parseJsonArray } from "./safeData.js";
 
 function number(value, fallback = 0) {
@@ -47,12 +46,9 @@ export function buildPlayerProfileStats({ player = {}, clubStats = null, pvpMatc
     clean_sheets: number(player?.clean_sheets),
     man_of_the_match: number(player?.man_of_the_match),
   };
-  const marketValue = calculatePlayerValue(playerFields);
 
   return {
     playerFields,
-    marketValue,
-    valueTier: getValueTier(marketValue),
     recentForm: parseJsonArray(player?.form_last10 || "[]")
       .map((rating) => Number(rating))
       .filter((rating) => Number.isFinite(rating)),

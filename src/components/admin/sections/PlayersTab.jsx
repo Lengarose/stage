@@ -3,7 +3,6 @@ import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import BackfillStcButton from "@/components/admin/economy/BackfillStcButton";
-import MarketValueConfigPanel from "@/components/admin/economy/MarketValueConfigPanel";
 import AdminContractsPanel from "@/components/admin/economy/AdminContractsPanel";
 import AdminShirtSalesPanel from "@/components/admin/economy/AdminShirtSalesPanel";
 import { Button } from "@/components/ui/button";
@@ -85,7 +84,6 @@ export default function PlayersTab({
   return (
     <>
       <BackfillStcButton />
-      <MarketValueConfigPanel />
       <AdminContractsPanel />
       <AdminShirtSalesPanel />
       <div className="mb-4 rounded border border-primary/20 bg-primary/5 p-4">
@@ -231,9 +229,6 @@ export default function PlayersTab({
             </Link>
             <div className="hidden sm:flex flex-col items-end gap-0.5 shrink-0 text-xs">
               <span className="font-semibold text-success">{((p.stc || 0) / 1000).toFixed(0)}K STC</span>
-              {p.market_value_stc > 0 && (
-                <span className="text-purple-400 font-medium">{((p.market_value_stc || 0) / 1_000_000).toFixed(1)}M {t("admin.players.val")}</span>
-              )}
             </div>
             <div className="flex gap-2 shrink-0 flex-wrap">
               <Link to={`/players/${p.id}`}>
