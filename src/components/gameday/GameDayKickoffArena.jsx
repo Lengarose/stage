@@ -24,6 +24,7 @@ export default function GameDayKickoffArena({
   status,
   statusLabel,
   competitionLabel,
+  scorePending = false,
   homeScore,
   awayScore,
   wagerStc = 0,
@@ -33,10 +34,10 @@ export default function GameDayKickoffArena({
   children,
 }) {
   const [now, setNow] = useState(() => new Date());
-  const isLive = status === "in_progress";
+  const isLive = status === "in_progress" && !scorePending && !["Admin review", "Disputed result", "Result overdue"].includes(statusLabel);
   const isFinished = status === "completed" || status === "forfeit";
-  const showScore = isLive || isFinished;
-  const countdown = !isLive && !isFinished ? getKickoffCountdownParts(date, now) : null;
+  const showScore = isLive || isFinished || scorePending;
+  const countdown = !showScore ? getKickoffCountdownParts(date, now) : null;
   const hasCustomBackground = Boolean(backgroundStyle?.backgroundImage);
 
   useEffect(() => {
@@ -65,7 +66,7 @@ export default function GameDayKickoffArena({
       ) : null}
 
       <div className="relative z-[1] px-4 pb-5 pt-4 sm:px-8 sm:pb-6 sm:pt-5">
-        <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3 sm:flex-nowrap">
           <div>
             <p className={cn("font-heading text-[11px] font-black uppercase tracking-[0.28em]", hasCustomBackground ? gameDayTextOnBg : "text-[#f8fbff]")}>
               {competitionLabel}
@@ -79,7 +80,7 @@ export default function GameDayKickoffArena({
           <div className="flex items-center gap-2">
             <span
               className={cn(
-                "rounded-sm px-2.5 py-1 font-heading text-[10px] font-black uppercase tracking-[0.22em]",
+                "whitespace-nowrap rounded-none px-2.5 py-1 font-heading text-[10px] font-black uppercase tracking-[0.22em]",
                 isLive && "bg-[#00e5ff] text-black motion-safe:animate-pulse",
                 isFinished && "bg-white/10 text-white/80",
                 !isLive && !isFinished && "bg-white/12 text-[#eef3fb] ring-1 ring-white/35",
@@ -125,6 +126,7 @@ export default function GameDayKickoffArena({
                 <span className="font-heading text-sm font-black tracking-widest text-white/85 sm:text-base">VS</span>
               </div>
             )}
+            {scorePending && <p className="text-center text-xs text-cyan-200">Proposed score</p>}
           </div>
 
           <Side

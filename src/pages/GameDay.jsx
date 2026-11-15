@@ -59,7 +59,9 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
   const [refreshTick, setRefreshTick] = useState(0);
   const [gameDayConfig, setGameDayConfig] = useState(null);
   const [tileBackgroundDialog, setTileBackgroundDialog] = useState(null);
-  const { getUnreadCount } = useChatNotifications();
+  const { getUnreadCount, registerChannel } = useChatNotifications();
+  const scoreboardRef = useRef(null);
+  useEffect(() => { games.forEach(game => registerChannel(game.id)); }, [games, registerChannel]);
   const chatUnread = selectedGame?.id ? getUnreadCount(selectedGame.id) : 0;
   const [loadError,setLoadError]=useState('');
   const [backendNotice,setBackendNotice]=useState('');
@@ -422,6 +424,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
 
   const detail = selectedGame ? (
     <GameDayDetail
+      key={selectedGame.id}
       game={selectedGame}
       myClub={selectedMatchClub}
       myPlayer={myPlayer}
@@ -535,7 +538,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
                   </button>
                 ) : null}
               </div>
-              <div className="mb-3 space-y-2 px-2"><input aria-label="Search matches" placeholder="Search matches" value={search} onChange={e=>setSearch(e.target.value)} className="h-11 w-full border border-white/20 bg-black/25 px-3 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"/><select aria-label="Match competition scope" value={scopeFilter} onChange={e=>setScopeFilter(e.target.value)} className="h-11 w-full border border-white/20 bg-[#0b1019] px-3 text-xs text-white"><option value="general">General - All games</option><option value="gost">GOST</option><option value="regional">Regional</option><option value="tournament">Tournament</option><option value="friendly">Friendly</option></select><div className="grid grid-cols-4 gap-1" aria-label="Match status">{['all','upcoming','live','completed'].map(status=><button type="button" key={status} aria-pressed={statusFilter===status} onClick={()=>setStatusFilter(status)} className={cn('gd-filter min-h-11 min-w-0 px-0 text-[10px] sm:text-xs tracking-normal capitalize focus-visible:ring-2 focus-visible:ring-cyan-400',statusFilter===status?'is-active text-white':'text-white/55')}>{status}</button>)}</div></div>
+              <div className="mb-3 space-y-2 px-2"><input aria-label="Search matches" placeholder="Search matches" value={search} onChange={e=>setSearch(e.target.value)} className="h-11 w-full border border-white/20 bg-black/25 px-3 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"/><select aria-label="Match competition scope" value={scopeFilter} onChange={e=>setScopeFilter(e.target.value)} className="h-11 w-full border border-white/20 bg-[#0b1019] px-3 text-xs text-white"><option value="general">General - All games</option><option value="gost">GOST</option><option value="regional">Regional</option><option value="regional_cup">Regional Cups</option><option value="tournament">Tournament</option><option value="friendly">Friendly</option></select><div className="grid grid-cols-4 gap-1" aria-label="Match status">{['all','upcoming','live','completed'].map(status=><button type="button" key={status} aria-pressed={statusFilter===status} onClick={()=>setStatusFilter(status)} className={cn('gd-filter min-h-11 min-w-0 px-0 text-[10px] sm:text-xs tracking-normal capitalize focus-visible:ring-2 focus-visible:ring-cyan-400',statusFilter===status?'is-active text-white':'text-white/55')}>{status}</button>)}</div></div>
               {backendNotice&&<p role="status" className="p-2 text-sm text-amber-200">{backendNotice}</p>}
               {loadError&&<p role="alert" className="p-2 text-sm text-red-300">{loadError}<button type="button" onClick={()=>setRefreshTick(n=>n+1)} className="ml-2 min-h-11 text-cyan-300">Retry</button></p>}
               {pendingScheduleFixtures.length > 0 && !scopedTournamentId && ['all','upcoming'].includes(statusFilter) && ['general','gost'].includes(scopeFilter) ? (
@@ -595,7 +598,8 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
                       key={game.id}
                       game={game}
                       selected={selectedGame?.id === game.id}
-                      onClick={() => setSelectedGame(game)}
+                      unreadCount={getUnreadCount(game.id)}
+                      onClick={() => { setSelectedGame(game); if (window.matchMedia("(max-width: 1023px)").matches) requestAnimationFrame(() => scoreboardRef.current?.scrollIntoView({behavior:"smooth", block:"start"})); }}
                       myClub={pickMyClubForMatch(game, identityClubs)}
                       myPlayer={myPlayer}
                       tournament={tournamentMap[game.tournament_id]}
@@ -605,9 +609,10 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
                 </div>
               )}
             </div>
+          <a href="/schedule?view=fixtures&filter=results" className="block px-4 py-3 text-sm text-white hover:text-cyan-200">Older matches · Schedule results →</a>
           </aside>
 
-          <div className="min-h-0 min-w-0">
+          <div ref={scoreboardRef} className="min-h-0 min-w-0 scroll-mt-4">
             {detail}
           </div>
         </div>

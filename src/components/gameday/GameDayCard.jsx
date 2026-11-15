@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 import { format, parseISO, isValid } from "@/lib/momentDate";
-import { Radio } from "lucide-react";
+import {gameDayStatus} from "@/lib/gameDayWorkspace";
+import { Radio, MessageSquare } from "lucide-react";
 import { useTranslation } from "@/hooks/useTranslation";
 import { getMatchSideNames } from "@/lib/gameDayPresentation";
 import MatchupBackdrop from "@/components/schedule/MatchupBackdrop";
@@ -13,16 +14,10 @@ function parseDate(d) {
   return isValid(p) ? p : null;
 }
 
-const STATUS_BADGE = {
-  scheduled: { key: "scheduled" },
-  in_progress: { key: "live" },
-  awaiting_confirmation: { key: "pending" },
-};
-
-export default function GameDayCard({ game, selected, onClick, myClub, _myPlayer, tournament, glass = false }) {
+export default function GameDayCard({ game, selected, onClick, myClub, _myPlayer, tournament, glass = false, unreadCount = 0 }) {
   const { t } = useTranslation();
   const date = parseDate(game.scheduled_date);
-  const status = STATUS_BADGE[game.status] || { label: game.status };
+  const status = gameDayStatus(game);
   const { home, away, isClub } = getMatchSideNames(game, t("matchFlow.tbd"));
   const isMyClubInvolved = myClub && (game.home_club_id === myClub.id || game.away_club_id === myClub.id);
   const homeLogo = game.home_avatar_url || (isClub && myClub && game.home_club_id === myClub.id ? myClub.logo_url : null);
@@ -39,7 +34,7 @@ export default function GameDayCard({ game, selected, onClick, myClub, _myPlayer
     return tournament.name || t("matchFlow.tournament");
   }
   const competition = game.competition_name || game.competition_context || deriveCompetition(game, tournament);
-  const live = game.status === "in_progress";
+  const live = status === "Live";
 
   return (
     <button
@@ -72,7 +67,7 @@ export default function GameDayCard({ game, selected, onClick, myClub, _myPlayer
           glass ? "text-white/90" : "text-white/45",
         )}>
           {date ? `${format(date, "EEE HH:mm")} · ` : ""}
-          {status.key ? t(`matchFlow.${status.key}`) : status.label}
+          {status}
         </p>
         <p className="mt-0.5 truncate text-[10px] text-white/55" title={competition}>{competition}{game.matchday?` · Matchday ${game.matchday}`:game.round?` · Round ${game.round}`:''}{game.leg?` · Leg ${game.leg}`:''}</p>
       </div>
@@ -80,6 +75,7 @@ export default function GameDayCard({ game, selected, onClick, myClub, _myPlayer
         {live || game.home_stream_url || game.away_stream_url ? (
           <Radio className="h-3 w-3 text-[#8eeeff] motion-safe:animate-pulse" />
         ) : null}
+        {unreadCount > 0 && <span aria-label={`${unreadCount} unread chat messages`} className="inline-flex items-center gap-1 bg-cyan-300 px-2 py-1 text-xs font-bold text-black"><MessageSquare size={12}/>{unreadCount}</span>}
         {isMyClubInvolved ? (
           <span className="text-[8px] font-black uppercase tracking-widest text-[#f8fbff]">{t("matchFlow.yourClub")}</span>
         ) : null}

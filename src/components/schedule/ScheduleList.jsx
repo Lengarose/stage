@@ -21,9 +21,9 @@ const competitionColors = {
   regional_cup: "bg-orange-400", regional: "bg-rose-400", tournament: "bg-purple-400",
 };
 
-export default function ScheduleList({ events, selectedId, onSelect }) {
+export default function ScheduleList({ events, selectedId, onSelect, initialMode = "all" }) {
   const { t } = useTranslation();
-  const [mode, setMode] = useState("all");
+  const [mode, setMode] = useState(initialMode);
   const [competition, setCompetition] = useState("");
   const matches = events.filter(event => event.type === "match");
   const reminders = events.filter(event => event.type === "contract_end" || event.type === "contract_reminder");

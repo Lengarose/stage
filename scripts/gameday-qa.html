@@ -22,7 +22,10 @@ if(params.has('confirm')){
 }
 if(params.has('club')){player.club_id='qa-club';Object.assign(games[0],{mode:'club',home_club_id:'qa-club',away_club_id:'qa-other',home_club_name:'QA Home FC',away_club_name:'QA Away FC',home_owner_email:player.email});}
 stageClient.auth.isAuthenticated=async()=>true;
-stageClient.auth.hasToken=()=>false;
+// Optional authenticated fixture: no credentials or location requests leave this QA page.
+if(params.has('unread'))localStorage.setItem('stage_location_sync_at', String(Date.now()));
+stageClient.auth.hasToken=()=>params.has('unread');
+stageClient.auth.updateTimezone=async()=>({});
 stageClient.auth.me=async()=>({id:'qa-user',email:player.email,player_id:player.id});
 for(const entity of Object.values(stageClient.entities)){entity.list=async()=>[];entity.filter=async()=>[];entity.get=async()=>null;entity.subscribe=()=>()=>{};}
 stageClient.entities.Player.get=async id=>id===player.id?player:{id,gamertag:id==='qa-home'?'Test Home':'Test Away',avatar_url:id==='qa-home'?'/src/assets/landing/penalty.webp':'/src/assets/landing/dribble.webp'};
@@ -32,7 +35,7 @@ stageClient.entities.Player.filter=async()=>params.has('club')?Array.from({lengt
 stageClient.entities.Club.get=async id=>({id,name:id==='qa-club'?'QA Home FC':'QA Away FC',owner_email:player.email});
 stageClient.entities.Match.filter=async()=>games;
 stageClient.entities.Match.update=async(id,body)=>{Object.assign(match(id),body);return {...match(id)};};
-stageClient.entities.Match.get=async id=>{const game=structuredClone(match(id));if(params.has('confirm')&&game.home_submission)game.home_submission=Object.fromEntries(Object.entries(JSON.parse(game.home_submission)).reverse());return {...game,updated_date:'unrelated presentation update'};};
+stageClient.entities.Match.get=async id=>{const game=structuredClone(match(id));if(params.has('confirm')&&game.home_submission)game.home_submission=Object.fromEntries(Object.entries(JSON.parse(game.home_submission)).reverse());return {...game,updated_date:new Date().toISOString()};};
 stageClient.entities.Tournament.filter=async()=>[{id:'qa-cup',name:'QA Cup',participant_type:'player',type:'knockout'}];
 stageClient.entities.GameDayConfig.filter=async()=>[{banner_slides:[{url:'/src/assets/landing/gamers.webp',position:'50% 30%',zoom:100},{url:'/src/assets/landing/dribble.webp',position:'50% 30%',zoom:100}],accent:'blue'}];
 const chatRows=[{id:'qa-chat-1',match_id:'qa-0',sender_email:'away@example.test',sender_name:'Test Away',sender_avatar:'/src/assets/landing/dribble.webp',content:'We are ready. Good luck for the match!',created_date:new Date().toISOString()}];
@@ -56,8 +59,11 @@ stageClient.http.get=async(path,query={})=>{
 };
 stageClient.http.delete=async()=>({success:true});
 stageClient.http.upload=async()=>{throw Error('Controlled upload failure');};
+stageClient.chatReads.getUnreadCounts=async()=>({counts:{'qa-0':3,'qa-1':1}});
+stageClient.chatReads.markRead=async()=>({success:true});
+const {ChatNotificationsProvider}=await import('/src/lib/ChatNotificationsContext.jsx');
 const {AuthProvider}=await import('/src/lib/AuthContext.jsx');
 const {TranslationProvider}=await import('/src/lib/TranslationContext.jsx');
 const {default:GameDay}=await import('/src/pages/GameDay.jsx');
-ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(AuthProvider,null,React.createElement(TranslationProvider,null,React.createElement(MemoryRouter,{initialEntries:['/game-day'+location.search]},React.createElement('div',{className:'h-screen bg-background'},React.createElement(GameDay))))));
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(AuthProvider,null,React.createElement(TranslationProvider,null,React.createElement(MemoryRouter,{initialEntries:['/game-day'+location.search]},React.createElement(ChatNotificationsProvider,null,React.createElement('div',{className:'h-screen bg-background'},React.createElement(GameDay)))))));
 </script></body></html>

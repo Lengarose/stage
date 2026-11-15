@@ -1,3 +1,5 @@
+import {gameDayStatus, gameDayNextStep, gameDayCompetitionHref} from "@/lib/gameDayWorkspace";
+import {resolveTournamentRules} from "@/lib/tournamentRuleTemplates";
 import MatchSquad from "./MatchSquad";
 import OfficialReschedulePanel from './OfficialReschedulePanel';
 import { useState, useEffect, useRef } from "react";
@@ -46,15 +48,6 @@ function asJsonArray(value) {
   return [];
 }
 
-const STATUS_LABEL_KEYS = {
-  scheduled: "scheduled",
-  in_progress: "live",
-  awaiting_confirmation: "pending",
-  disputed: "disputed",
-  completed: "fullTime",
-  forfeit: "forfeit",
-};
-
 export default function GameDayDetail({
   game: initialGame,
   myClub,
@@ -72,6 +65,8 @@ export default function GameDayDetail({
 }) {
   const { t } = useTranslation();
   const [game, setGame] = useState(initialGame);
+  const [rulesOpen, setRulesOpen] = useState(false);
+  const workspaceRef = useRef(null);
   const [tournament, setTournament] = useState(null);
   const [stats, setStats] = useState([]);
   const [preparationState, setPreparationState] = useState(null);
@@ -281,7 +276,17 @@ export default function GameDayDetail({
     }
   }
 
-  const statusLabel = STATUS_LABEL_KEYS[game.status] ? t(`matchFlow.${STATUS_LABEL_KEYS[game.status]}`) : game.status;
+  const statusLabel = gameDayStatus(game);
+  const nextStep = gameDayNextStep({game, result: resultControls, preparation: preparationState, clubMatch: isClubMatch, home: amIHomeTeam});
+  const rules = tournament ? resolveTournamentRules(tournament) : null;
+  const competitionHref = gameDayCompetitionHref(game);
+  function goToStep(target) {
+    const section = workspaceRef.current?.querySelector(`[data-step="${target}"]`);
+    section?.scrollIntoView({behavior:"smooth", block:"center"});
+    const button = section?.matches("button") ? section : section?.querySelector("button");
+    if (target === "squad" && button?.getAttribute("aria-expanded") === "false") button.click();
+    button?.focus({preventScroll:true});
+  }
   const competitionLabel = game.competition_context
     || tournament?.name
     || (game.tournament_id === "ranked" ? t("matchFlow.rankedMatch") : t("matchFlow.matchDetails"));
@@ -301,7 +306,7 @@ export default function GameDayDetail({
   const pendingScore = pendingFixtureScore(game);
   const showKickoffDock = isMyMatch && !isCompleted && !isDisputed
     && (kickoffControls.showHomeKickoff || kickoffControls.showAwayWaiting);
-  const showResultDock = isMyMatch && !isCompleted && !isDisputed && (
+  const showResultDock = isMyMatch && !isCompleted && !isDisputed && ["Live", "Awaiting confirmation"].includes(statusLabel) && (
     resultControls.showHomeSubmit
     || resultControls.showAwayWaitingForHome
     || resultControls.showAwaySubmit
@@ -315,7 +320,8 @@ export default function GameDayDetail({
   const matchDetailsBackgroundStyle = getGameDayTileBackgroundStyle(matchDetailsBackgroundConfig);
   const hasMatchDetailsBg = hasCustomGameDayTileBackground(matchDetailsBackgroundConfig);
   return (
-    <div className="min-w-0 w-full space-y-5">
+    <div ref={workspaceRef} className="min-w-0 w-full space-y-5">
+      {isMyMatch && <section aria-label="Your next step" className="border border-white/20 bg-black/50 p-4"><p className="font-heading text-lg uppercase text-white">{statusLabel}</p><p role="status" className="mt-1 text-sm text-white/70">{nextStep.text}</p>{nextStep.target && <button type="button" className="mt-3 min-h-11 border border-white/30 px-4 text-sm text-white hover:bg-white/10" onClick={()=>nextStep.target === "report" ? openResultForm(true) : nextStep.target === "result" ? openResultForm() : goToStep(nextStep.target)}>{nextStep.label} →</button>}</section>}
       <GameDayKickoffArena
         homeName={home}
         awayName={away}
@@ -328,6 +334,7 @@ export default function GameDayDetail({
         date={date}
         status={game.status}
         statusLabel={statusLabel}
+        scorePending={statusLabel === "Awaiting confirmation"}
         competitionLabel={competitionLabel}
         homeScore={pendingScore.home}
         awayScore={pendingScore.away}
@@ -338,13 +345,13 @@ export default function GameDayDetail({
       >
       </GameDayKickoffArena>
       {penaltyOutcome(game)&&<p className="px-4 text-sm text-cyan-200">{penaltyOutcome(game)}</p>}
-      {game.competition_href&&<a href={game.competition_href} className="inline-flex min-h-11 items-center px-4 text-sm text-cyan-300">View competition</a>}
-      {isCompleted&&<button type="button" onClick={()=>openResultForm(true)} className="min-h-11 border border-white/15 px-4 text-sm text-cyan-300">View Match Report</button>}
-      {isClubMatch && isMyMatch && !isCompleted && ['scheduled', 'confirmed', 'in_progress'].includes(game.status) && <div className="px-4">
+      {competitionHref&&<a href={competitionHref} className="inline-flex min-h-11 items-center px-4 text-sm text-cyan-300">View competition</a>}
+      {isCompleted&&!isMyMatch&&<button data-step="report" type="button" onClick={()=>openResultForm(true)} className="min-h-11 border border-white/15 px-4 text-sm text-cyan-300">View Match Report</button>}
+      {isClubMatch && isMyMatch && !isCompleted && ['scheduled', 'confirmed', 'in_progress'].includes(game.status) && <div data-step="squad" className="px-4">
         <MatchSquad clubId={myClub.id} matchId={game.id} />
         <OfficialMatchPreparation key={`${myClub.id}:${game.id}:${game.confirmed_date || game.scheduled_date}`} clubId={myClub.id} fixtureId={game.id} onState={setPreparationState} onChanged={async () => {}} hideForbidden />
       </div>}
-      <section className="px-4" aria-label="Kickoff actions">
+      <section data-step="kickoff" className="px-4" aria-label="Kickoff actions">
         {showKickoffDock ? (
           <div className="space-y-2">
             {isSoloMatch && (
@@ -387,10 +394,16 @@ export default function GameDayDetail({
         ) : null}
       </section>
 
-      <OfficialResultPolicyNotice game={game} policy={preparationState?.result_policy} />
+      <button type="button" onClick={()=>setRulesOpen(true)} className="min-h-11 px-4 text-sm text-white hover:text-cyan-200">Match rules & result conditions →</button>
+      <Dialog open={rulesOpen} onOpenChange={setRulesOpen}><DialogContent className="max-h-[85dvh] overflow-y-auto rounded-none"><DialogHeader><DialogTitle>Match rules & result conditions</DialogTitle></DialogHeader>
+      <OfficialResultPolicyNotice game={game} policy={preparationState?.result_policy}/>
+      {rules && <><p className="whitespace-pre-wrap text-sm">{rules.body}</p>{rules.rulesFileUrl && <a href={rules.rulesFileUrl} target="_blank" rel="noreferrer" className="text-cyan-300">Open rules file</a>}</>}
+      {!rules && <p className="text-sm">{competitionHref ? "Check the competition’s published edition rules for squad, scheduling and match requirements." : "For arranged matches, review the agreed playing time and any wager terms before kickoff. Report the score after full time and use the result review to respond to your opponent."}</p>}
+      {competitionHref && <a href={competitionHref} className="text-cyan-300">Open competition rules and details →</a>}
+      </DialogContent></Dialog>
       {isMyMatch && preparationState?.official && preparationState.match_id===game.id && myClub?.id && ['scheduled','confirmed'].includes(game.status) && <OfficialReschedulePanel key={`${game.id}:${myClub.id}`} game={game} clubId={myClub.id} onGameUpdate={onGameUpdate} />}
-      {showResultDock && (
-        <section className="border-t border-[#d8dee8]/15 bg-black/45 px-4 py-4 sm:px-6">
+      {showResultDock && nextStep.target !== "result" && (
+        <section data-step="result" className="border-t border-[#d8dee8]/15 bg-black/45 px-4 py-4 sm:px-6">
           <div className="mx-auto max-w-3xl space-y-3">
             {resultControls.showHomeSubmit && (
               <button

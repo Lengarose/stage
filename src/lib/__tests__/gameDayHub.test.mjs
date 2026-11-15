@@ -34,8 +34,8 @@ test('search, five competition scopes and four statuses compose without modifyin
   assert.equal(filterGameDayMatches([{id:'scheduled',status:'scheduled'}],{status:'upcoming'}).length,1);
   assert.equal(filterGameDayMatches(games,{search:'missing'}).length,0);
 });
-test('permanent completed history remains selectable without reviving voided matches',()=>{
-  assert.equal(isHubMatch({...games[0],updated_date:'2001-01-01'}),true);
+test('old completed history moves to Schedule without reviving voided matches',()=>{
+  assert.equal(isHubMatch({...games[0],updated_date:'2001-01-01'}),false);
   assert.equal(isHubMatch({...games[0],status:'voided'}),false);
 });
 test('penalty labels preserve ordinary score and mark proposals, never invent shootout goals',()=>{

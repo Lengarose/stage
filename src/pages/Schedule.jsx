@@ -1,3 +1,4 @@
+import {useSearchParams} from "react-router-dom";
 import { useState, useEffect } from "react";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { cn } from "@/lib/utils";
@@ -13,6 +14,7 @@ import { scheduleResult as getResult } from '@/lib/scheduleResult';
 
 export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
   const { t } = useTranslation();
+  const [params] = useSearchParams();
   const [myPlayer, setMyPlayer] = useState(null);
   const [myClub, setMyClub] = useState(null);
   const [events, setEvents] = useState([]);
@@ -25,7 +27,7 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
     media.addEventListener("change", update);
     return () => media.removeEventListener("change", update);
   }, []);
-  const [view, setView] = useState("calendar"); // "fixtures" | "calendar"
+  const [view, setView] = useState(() => params.get("view") === "fixtures" ? "fixtures" : "calendar"); // "fixtures" | "calendar"
 
   useEffect(() => {
     if (view === 'fixtures') load();
@@ -392,7 +394,7 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
           <div className="flex justify-center py-32"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary/20 border-t-primary" /></div>
         ) : (
           <div className="mt-6 grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_360px]">
-            <ScheduleList events={events.filter(e => e.type !== "tournament_start")} selectedId={selectedEvent?.id} onSelect={setSelectedEvent} />
+            <ScheduleList initialMode={params.get("filter") === "results" ? "results" : "all"} events={events.filter(e => e.type !== "tournament_start")} selectedId={selectedEvent?.id} onSelect={setSelectedEvent} />
             <aside className="hidden min-w-0 self-start lg:sticky lg:top-6 lg:block">
               <MatchDetail event={selectedEvent} myPlayer={myPlayer} myClub={myClub} />
             </aside>
