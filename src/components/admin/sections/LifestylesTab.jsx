@@ -1,3 +1,4 @@
+import LifestylePresentationEditor from '@/components/admin/LifestylePresentationEditor';
 import EmptyState from "@/components/admin/shared/EmptyState";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,7 @@ export default function LifestylesTab({
 
   return (
     <>
+<LifestylePresentationEditor />
 <div className="space-y-4">
   {/* Header row */}
   <div className="flex items-center justify-between gap-3 flex-wrap">

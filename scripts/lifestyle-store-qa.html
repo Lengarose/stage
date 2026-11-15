@@ -4,12 +4,14 @@ RefreshRuntime.injectIntoGlobalHook(window);window.$RefreshReg$=()=>{};window.$R
 await import('/src/index.css');await import('/node_modules/@fontsource/anton/index.css');document.documentElement.className='theme-dark dark';
 const {stageClient}=await import('/src/api/stageClient.js');
 for(const entity of Object.values(stageClient.entities)){entity.filter=async()=>[];entity.list=async()=>[];entity.get=async()=>null;entity.subscribe=()=>()=>{};}
+let config={id:'qa-presentation',key:'main',accent:new URLSearchParams(location.search).has('custom')?'gold':'ice',banner_slides:new URLSearchParams(location.search).has('custom')?[{url:'/src/assets/landing/team.webp',position:'50% 30%',zoom:120}]:[]};
+stageClient.entities.LifestylePageConfig.filter=async()=>[config];stageClient.entities.LifestylePageConfig.update=async(id,body)=>{config={...config,...body,id};return config;};stageClient.entities.LifestylePageConfig.create=async body=>{config={...body,id:'qa-presentation'};return config;};
 const user={id:'qa-user',email:'shop@example.test',player_id:'qa-player'};
 stageClient.auth.me=async()=>user;stageClient.auth.hasToken=()=>false;
 stageClient.entities.Player.get=async()=>({id:'qa-player',name:'QA Shopper',stc:2000000});
 const {ASSET_FALLBACK_IMAGES}=await import('/src/lib/lifestyleItems.js');
 const categories=['houses','houses','cars','watches','fashion','vip_experiences'];
 stageClient.entities.LifestyleItem.filter=async()=>categories.map((category,i)=>({id:`asset-${i}`,name:['The Riviera Hotel','City Penthouse','Grand Touring Coupe','Signature Timepiece','Matchday Essentials','The VIP Experience'][i],category,image_url:ASSET_FALLBACK_IMAGES[category === 'houses' ? 'real_estate' : category],description:'Discover a new side of your STAGE life.',price_stc:100000*(i+1),rent_price_stc:10000,can_buy:true,can_rent:i<3,tier:i<2?'luxury':'premium',rent_duration_days:7}));
-const {TranslationProvider}=await import('/src/lib/TranslationContext.jsx');const {default:Page}=await import('/src/pages/Lifestyle.jsx');
+const {TranslationProvider}=await import('/src/lib/TranslationContext.jsx');const {default:Page}=await import(new URLSearchParams(location.search).has('admin') ? '/src/components/admin/LifestylePresentationEditor.jsx' : '/src/pages/Lifestyle.jsx');
 ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(TranslationProvider,null,React.createElement(MemoryRouter,null,React.createElement(Page))));
 </script></body></html>

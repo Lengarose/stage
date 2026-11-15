@@ -1,4 +1,5 @@
 .lifestyle-store {
+  --ls-accent:#c2edfa;
   --font-heading: 'Anton', sans-serif;
   --font-display: 'Anton', sans-serif;
   --font-body: 'Chakra Petch', system-ui, sans-serif;
@@ -18,7 +19,7 @@
 .ls-hero h1 {font-size:clamp(60px,6.8vw,110px);line-height:1.05;letter-spacing:.01em;margin:26px 0}
 .ls-hero h1 span {display:block;font-size:.62em;color:#fff}
 .ls-hero-copy>p:not(.ls-eyebrow) {max-width:430px;font-size:17px;line-height:1.7;color:#d0dbe5}
-.ls-primary {display:inline-flex;align-items:center;gap:30px;background:#c2edfa;color:#08131d;padding:17px 22px;margin-top:26px;font-weight:700;text-transform:uppercase;font-size:13px;letter-spacing:.06em;clip-path:polygon(0 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%)}
+.ls-primary {display:inline-flex;align-items:center;gap:30px;background:var(--ls-accent);color:#08131d;padding:17px 22px;margin-top:26px;font-weight:700;text-transform:uppercase;font-size:13px;letter-spacing:.06em;clip-path:polygon(0 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%)}
 .ls-primary:hover {background:white}
 .ls-hero-note {display:block;font-size:12px;color:#becbd6;margin-top:15px}
 .ls-hero-feature {position:absolute;bottom:80px;right:5%;max-width:40%;text-align:right}
@@ -42,7 +43,7 @@
 .ls-store-tools select {max-width:100%}
 .ls-category-list {display:flex;gap:8px;flex-wrap:wrap}
 .ls-category-list button {min-height:44px;padding:10px 16px;background:transparent;border:1px solid hsl(var(--border));font-size:13px;color:hsl(var(--foreground))}
-.ls-category-list button[aria-pressed=true] {background:#bce8f5;color:#071321;border-color:#bce8f5}
+.ls-category-list button[aria-pressed=true] {background:var(--ls-accent);color:#071321;border-color:var(--ls-accent)}
 .ls-store-grid {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px}
 .ls-store-grid>.group {background:hsl(var(--card));border-color:hsl(var(--border))}
 .ls-store-grid>.group>.relative {height:260px}
@@ -52,7 +53,7 @@
 .lifestyle-store [role=tab] {flex:none;min-height:48px;padding:12px 18px;border:0;color:hsl(var(--muted-foreground));font-size:13px;letter-spacing:.08em}
 .lifestyle-store [role=tab] span {display:inline}
 .lifestyle-store [role=tab][data-state=active] {color:hsl(var(--foreground));background:hsl(var(--foreground)/.06);text-shadow:0 0 15px #add9ed80}
-.lifestyle-store button:focus-visible {outline:2px solid #83d5f0;outline-offset:4px}
+.lifestyle-store button:focus-visible {outline:2px solid var(--ls-accent);outline-offset:4px}
 body:has(.lifestyle-store) :is([role=dialog],[role=alertdialog]) {font-family:'Chakra Petch',system-ui,sans-serif}
 body:has(.lifestyle-store) [role=dialog] :is(h2,h3) {font-family:'Anton',sans-serif;font-weight:400}
 @media(min-width:1600px) {.ls-store-grid {grid-template-columns:repeat(4,minmax(0,1fr))}}
@@ -60,3 +61,5 @@ body:has(.lifestyle-store) [role=dialog] :is(h2,h3) {font-family:'Anton',sans-se
 @media(max-width:600px) {.ls-hero {min-height:710px}.ls-hero-copy {padding:58px 24px 220px}.ls-hero h1 {font-size:64px}.ls-hero-shade {background:linear-gradient(90deg,#040a12cc,#040a1230),linear-gradient(0deg,#060d16,transparent 85%)}.ls-hero-feature {left:24px;right:24px;bottom:88px;max-width:none;text-align:left}.ls-hero-feature button {justify-content:flex-start;text-align:left;font-size:26px}.ls-shopping-strip {align-items:flex-start;flex-direction:column}.ls-store-grid {grid-template-columns:minmax(0,1fr)}.ls-section-heading {align-items:flex-start;flex-direction:column}.lifestyle-store [role=tab] {padding:10px;font-size:11px}.ls-content {padding-inline:20px}}
 @media(prefers-reduced-motion:reduce) {.ls-hero-art img {transition:none}}
 .lifestyle-store .ls-category-list button {border-radius:0 !important}
+
+.lifestyle-store .ls-eyebrow,.lifestyle-store .ls-wallet svg {color:var(--ls-accent)}

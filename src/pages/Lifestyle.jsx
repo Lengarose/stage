@@ -9,6 +9,7 @@ import {
   Coins, TrendingUp, ShoppingBag, Package, CalendarClock, Zap, Tag, Check,
   Clock, ArrowUpRight,
 } from 'lucide-react';
+import { lifestylePresentation, LIFESTYLE_ACCENTS } from '@/lib/lifestylePresentation';
 import LifestyleStoreHero from '@/components/lifestyle/LifestyleStoreHero';
 import '@/components/lifestyle/lifestyleStore.css';
 import LifestyleAssetCard from '@/components/lifestyle/LifestyleAssetCard';
@@ -22,6 +23,8 @@ export default function Lifestyle() {
   const { t } = useTranslation();
   const { toast } = useToast();
 
+  const [presentation, setPresentation] = useState(() => lifestylePresentation());
+  const [presentationError, setPresentationError] = useState('');
   const [player, setPlayer]         = useState(null);
   const [items, setItems]           = useState([]);
   const [purchases, setPurchases]   = useState([]);
@@ -53,6 +56,13 @@ export default function Lifestyle() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    let active = true;
+    stageClient.entities.LifestylePageConfig.filter({ key: 'main' }, '-updated_date', 1)
+      .then(rows => { if (active) setPresentation(lifestylePresentation(rows[0] || {})); })
+      .catch(() => { if (active) setPresentationError('Custom presentation could not be loaded. Showing the default collection.'); });
+    return () => { active = false; };
+  }, []);
 
   async function reloadPurchases() {
     if (!player) return;
@@ -155,8 +165,8 @@ export default function Lifestyle() {
   );
 
   return (
-    <div className="lifestyle-store min-h-screen">
-      <LifestyleStoreHero items={items} onExplore={explore} />
+    <div className="lifestyle-store min-h-screen" style={{ '--ls-accent': LIFESTYLE_ACCENTS[presentation.accent] }}>
+      <LifestyleStoreHero items={items} presentation={presentation} onExplore={explore} />
       <div className="ls-shopping-strip">
         <div><h2>Your game. Your lifestyle.</h2><p>Buy, rent or invest in your next move. Explore the details before you commit.</p></div>
         <div className="flex items-center gap-4 flex-wrap">
@@ -165,6 +175,7 @@ export default function Lifestyle() {
         </div>
       </div>
       <div id="lifestyle-shop" className="ls-content">
+        {presentationError && <p role="status" className="mb-4 text-sm text-muted-foreground">{presentationError}</p>}
         {loadError && <div role="alert" className="p-4 border border-destructive mb-6">{loadError} <button type="button" onClick={load} className="ml-4 underline">Retry</button></div>}
 
         {/* Portfolio stats strip */}
