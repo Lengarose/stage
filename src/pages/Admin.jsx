@@ -189,11 +189,6 @@ export default function Admin(props) {
   const [adminTrophyItemId, setAdminTrophyItemId] = useState("");
   const [adminModalStep, setAdminModalStep] = useState(1);
 
-  // News creation
-  const [newsForm, setNewsForm] = useState({ title: "", body: "", type: "app_update", image_url: "" });
-  const [newsImageFile, setNewsImageFile] = useState(null);
-  const [uploadingNews, setUploadingNews] = useState(false);
-
   // Competitions / Leagues tab
   const [competitions, setCompetitions] = useState([]);
   const [compSeasons, setCompSeasons] = useState([]);
@@ -1291,27 +1286,6 @@ export default function Admin(props) {
     }
   }
 
-  async function postNews() {
-    setUploadingNews(true);
-    let image_url = newsForm.image_url;
-    if (newsImageFile) {
-      const res = await stageClient.integrations.Core.UploadFile({ file: newsImageFile });
-      image_url = res.file_url;
-    }
-    await stageClient.entities.NewsItem.create({
-      title: newsForm.title,
-      body: newsForm.body,
-      type: newsForm.type,
-      image_url,
-      published_at: new Date().toISOString(),
-      is_featured: false,
-    });
-    setNewsForm({ title: "", body: "", type: "app_update", image_url: "" });
-    setNewsImageFile(null);
-    setUploadingNews(false);
-    await swalAlert(t("admin.alerts.newsPosted"));
-  }
-
   async function grantCredits() {
     if (!creditsDialog) return;
     setSaving(true);
@@ -1774,14 +1748,7 @@ export default function Admin(props) {
           )}
 
           {adminTab === "news" && (
-            <NewsTab
-              newsForm={newsForm}
-              setNewsForm={setNewsForm}
-              newsImageFile={newsImageFile}
-              setNewsImageFile={setNewsImageFile}
-              uploadingNews={uploadingNews}
-              postNews={postNews}
-            />
+            <NewsTab />
           )}
 
           {adminTab === "lifestyles" && (

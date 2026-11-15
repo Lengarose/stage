@@ -1,54 +1,37 @@
-import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { useTranslation } from "@/hooks/useTranslation";
-import { Newspaper, Upload } from "lucide-react";
-
-export default function NewsTab({
-  newsForm,
-  setNewsForm,
-  newsImageFile,
-  setNewsImageFile,
-  uploadingNews,
-  postNews,
-}) {
-  const { t } = useTranslation();
-
-  return (
-    <div className="bg-card border border-border rounded p-6 max-w-2xl space-y-4">
-      <h3 className="font-heading text-lg uppercase tracking-tight text-foreground flex items-center gap-2"><Newspaper className="w-4 h-4 text-primary" /> {t("admin.news.postTitle")}</h3>
-      <div>
-        <label className="label-xs">{t("admin.news.category")}</label>
-        <Select value={newsForm.type} onValueChange={v => setNewsForm(f => ({ ...f, type: v }))}>
-          <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="app_update">{t("admin.news.categories.appUpdate")}</SelectItem>
-            <SelectItem value="announcement">{t("admin.news.categories.announcement")}</SelectItem>
-            <SelectItem value="tournament">{t("admin.news.categories.tournament")}</SelectItem>
-            <SelectItem value="achievement">{t("admin.news.categories.achievement")}</SelectItem>
-            <SelectItem value="ranking">{t("admin.news.categories.ranking")}</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div>
-        <label className="label-xs">{t("admin.news.titleLabel")}</label>
-        <input value={newsForm.title} onChange={e => setNewsForm(f => ({ ...f, title: e.target.value }))}
-          className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50"
-          placeholder={t("admin.news.titlePlaceholder")} />
-      </div>
-      <div>
-        <label className="label-xs">{t("admin.news.bodyLabel")}</label>
-        <Textarea value={newsForm.body} onChange={e => setNewsForm(f => ({ ...f, body: e.target.value }))}
-          className="bg-secondary border-border min-h-[80px]" placeholder={t("admin.news.bodyPlaceholder")} />
-      </div>
-      <div>
-        <label className="label-xs">{t("admin.news.imageOptional")}</label>
-        <input type="file" accept="image/*" onChange={e => setNewsImageFile(e.target.files[0])} className="text-xs text-muted-foreground" />
-        {newsImageFile && <p className="text-xs text-primary mt-1">{t("admin.news.selectedFile", { name: newsImageFile.name })}</p>}
-      </div>
-      <Button onClick={postNews} disabled={!newsForm.title || uploadingNews} className="bg-primary text-primary-foreground gap-2">
-        <Upload className="w-4 h-4" /> {uploadingNews ? t("admin.news.posting") : t("admin.news.postButton")}
-      </Button>
-    </div>
-  );
+import { useEffect, useState } from 'react';
+import { stageClient } from '@/api/stageClient';
+import PositionedImageUploadField from '@/components/admin/shared/PositionedImageUploadField';
+import { NEWS_ARTWORK, parseNewsJson } from '@/lib/stageTimes';
+const field='mt-2 block w-full border border-white/20 bg-[#0a1426] p-3 text-sm text-white rounded-none';
+const empty=()=>({title:'',body:'',type:'app_update',category:'app_update',image_url:'',link:'',is_featured:false,publication_status:'draft',published_at:'',expires_at:'',visible_to_club_ids:[],visible_to_player_ids:[],editorial:{section:'updates',kind:'app_update',placement:'standard',image_position:'50% 50%',image_zoom:100,action_label:'Explore story'}});
+const dateInput=value=>value?String(value).slice(0,16).replace(' ','T'):'';
+export default function NewsTab(){
+  const [form,setForm]=useState(empty),[items,setItems]=useState([]),[sources,setSources]=useState([]),[config,setConfig]=useState(null),[artwork,setArtwork]=useState({}),[slides,setSlides]=useState([]),[interval,setIntervalSeconds]=useState(7),[page,setPage]=useState(1),[reload,setReload]=useState(0),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[audience,setAudience]=useState('everyone');
+  useEffect(()=>{let active=true;setLoading(true);setError('');Promise.all([stageClient.http.get(`/news-items/editorial?page=${page}`),stageClient.http.get('/news-items/sources'),stageClient.entities.NewsPageConfig.filter({key:'main'},'-updated_date',1)]).then(([news,choices,settings])=>{if(active){setItems(news);setSources(choices);setConfig(settings[0]||null);setArtwork(settings[0]?.artwork||{});setSlides(settings[0]?.hero_slides||[]);setIntervalSeconds(settings[0]?.hero_interval_seconds||7);}}).catch(e=>{if(active)setError(e.message);}).finally(()=>{if(active)setLoading(false);});return()=>{active=false;};},[page,reload]);
+  function set(key,value){setForm(f=>({...f,[key]:value}));}
+  function editorial(key,value){setForm(f=>({...f,editorial:{...f.editorial,[key]:value}}));}
+  function selectSource(value){const s=sources.find(r=>`${r.kind}:${r.id}`===value);if(!s)return;setForm(f=>({...f,link:s.link,club_id:s.kind==='club'?s.id:null,player_id:s.kind==='player'?s.id:null,tournament_id:s.kind==='tournament'?s.id:null,editorial:{...f.editorial,source_kind:s.kind,source_id:s.id,match_id:s.kind==='match'?s.id:null}}));}
+  function edit(row){const clubs=parseNewsJson(row.visible_to_club_ids),players=parseNewsJson(row.visible_to_player_ids);setForm({...empty(),...row,published_at:dateInput(row.published_at),expires_at:dateInput(row.expires_at),editorial:{...empty().editorial,...parseNewsJson(row.editorial)},visible_to_club_ids:Array.isArray(clubs)?clubs:[],visible_to_player_ids:Array.isArray(players)?players:[]});setAudience(Array.isArray(clubs)&&clubs.length?'clubs':Array.isArray(players)&&players.length?'players':'everyone');setNotice('');}
+  async function save(){setBusy(true);setError('');setNotice('');try{const payload={...form,category:form.type,is_global:audience==='everyone',visible_to_club_ids:audience==='clubs'?form.visible_to_club_ids:[],visible_to_player_ids:audience==='players'?form.visible_to_player_ids:[],published_at:form.published_at?`${form.published_at}:00`:new Date().toISOString(),expires_at:form.expires_at?`${form.expires_at}:00`:null,is_featured:form.editorial.placement!=='standard'};if(audience!=='everyone'&&!payload[audience==='clubs'?'visible_to_club_ids':'visible_to_player_ids']?.length)throw Error('Select at least one recipient.');if(form.id)await stageClient.entities.NewsItem.update(form.id,payload);else await stageClient.entities.NewsItem.create(payload);setForm(empty());setAudience('everyone');setNotice('Story saved. Published stories appear for their selected audience; drafts remain in Admin.');setReload(n=>n+1);}catch(e){setError(e.message);}finally{setBusy(false);}}
+  async function archive(row){setBusy(true);setError('');try{await stageClient.entities.NewsItem.update(row.id,{publication_status:'draft'});setReload(n=>n+1);setNotice('Story unpublished.');}catch(e){setError(e.message);}finally{setBusy(false);}}
+  async function saveArt(){setBusy(true);setError('');try{const payload={key:'main',artwork,hero_slides:slides,hero_interval_seconds:interval,reason:'Update STAGE Times default artwork library'};const row=config?await stageClient.entities.NewsPageConfig.update(config.id,payload):await stageClient.entities.NewsPageConfig.create(payload);setConfig(row);setNotice('Artwork library saved. Empty slots keep the text-only treatment.');}catch(e){setError(e.message);}finally{setBusy(false);}}
+  return <div className="space-y-8 text-white"><header><h2 className="font-heading text-3xl uppercase">STAGE Times / Newsroom</h2><p className="mt-2 max-w-3xl text-sm text-slate-400">Publish announcements and curate community coverage. Matches, official season updates and completed signings connect automatically for participating users. Player milestones are not enabled.</p></header>
+    {error&&<div role="alert" className="border border-red-300/30 p-4 text-red-200">{error}<button type="button" onClick={()=>setReload(n=>n+1)} className="ml-4 underline">Retry loading</button></div>}{notice&&<p role="status" className="sticky top-2 z-10 border border-blue-300/30 bg-[#0a172b] p-3 text-blue-200">{notice}</p>}
+    <section className="border border-white/15 bg-[#081121] p-5"><h3 className="font-heading text-2xl">{form.id?'Edit story':'Create story'}</h3><fieldset disabled={busy||loading} className="mt-5 grid min-w-0 gap-5 md:grid-cols-2 disabled:opacity-50">
+      <label>Headline<input className={field} value={form.title} maxLength={220} onChange={e=>set('title',e.target.value)}/></label><label>Story category<select className={field} value={form.type} onChange={e=>{set('type',e.target.value);editorial('kind',e.target.value);}}>{NEWS_ARTWORK.map(([id,label])=><option key={id} value={id}>{label}</option>)}</select></label>
+      <label className="md:col-span-2">Article<textarea className={field} rows={6} value={form.body} onChange={e=>set('body',e.target.value)}/></label>
+      <label>Section<select className={field} value={form.editorial.section} onChange={e=>editorial('section',e.target.value)}><option value="updates">STAGE Updates</option><option value="club">Club news</option><option value="competitions">Competitions</option><option value="community">Community</option></select></label>
+      <label>Audience<select className={field} value={audience} onChange={e=>setAudience(e.target.value)}><option value="everyone">Everyone</option><option value="clubs">Selected clubs</option><option value="players">Selected players</option></select></label>
+      {audience!=='everyone'&&<label className="md:col-span-2">Recipients (hold Ctrl / Cmd to choose several)<select multiple className={field} value={Array.isArray(form[audience==='clubs'?'visible_to_club_ids':'visible_to_player_ids'])?form[audience==='clubs'?'visible_to_club_ids':'visible_to_player_ids']:[]} onChange={e=>set(audience==='clubs'?'visible_to_club_ids':'visible_to_player_ids',Array.from(e.target.selectedOptions,o=>o.value))}>{sources.filter(s=>s.kind===(audience==='clubs'?'club':'player')).map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>}
+      <label>Linked destination<select className={field} value={form.editorial.source_id?`${form.editorial.source_kind}:${form.editorial.source_id}`:''} onChange={e=>selectSource(e.target.value)}><option value="">Choose a real STAGE record</option>{sources.map(s=><option value={`${s.kind}:${s.id}`} key={`${s.kind}:${s.id}`}>{s.kind.replaceAll('_',' ')} · {s.name}</option>)}</select></label>
+      <label>Action destination / internal URL<input className={field} value={form.link||''} placeholder="/transfer-room" onChange={e=>set('link',e.target.value)}/></label><label>Action label<input className={field} value={form.editorial.action_label} onChange={e=>editorial('action_label',e.target.value)}/></label>
+      <label>Placement<select className={field} value={form.editorial.placement} onChange={e=>editorial('placement',e.target.value)}><option value="standard">Standard feed</option><option value="lead">Lead headline</option><option value="secondary">Secondary headline</option></select></label>
+      <label>Publication<select className={field} value={form.publication_status} onChange={e=>set('publication_status',e.target.value)}><option value="draft">Draft / unpublished</option><option value="published">Published (at the time below)</option></select></label><label>Publish at (UTC)<input type="datetime-local" className={field} value={dateInput(form.published_at)} onChange={e=>set('published_at',e.target.value)}/></label><label>Expires at (optional, UTC)<input type="datetime-local" className={field} value={dateInput(form.expires_at)} onChange={e=>set('expires_at',e.target.value)}/></label>
+      <div className="md:col-span-2"><PositionedImageUploadField label="Article image (optional)" value={form.image_url||''} onChange={v=>set('image_url',v)} position={form.editorial.image_position} onPositionChange={v=>editorial('image_position',v)} zoom={form.editorial.image_zoom} onZoomChange={v=>editorial('image_zoom',v)} preview="hero" title={form.title} subtitle="STAGE Times"/></div>
+      <div className="flex flex-wrap gap-3 md:col-span-2"><button type="button" disabled={!form.title.trim()} onClick={save} className="min-h-11 bg-blue-500 px-5 font-semibold disabled:opacity-40">{busy?'Saving…':'Save story'}</button><button type="button" onClick={()=>{setForm(empty());setAudience('everyone');}} className="min-h-11 border border-white/25 px-5">New story</button></div>
+    </fieldset></section>
+    <section className="border border-white/15 p-5"><h3 className="font-heading text-2xl">Manage stories</h3>{loading?<p className="py-5 text-slate-400">Loading newsroom…</p>:items.map(row=><div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 py-4" key={row.id}><div><strong>{row.title}</strong><p className="text-xs text-slate-400">{row.publication_status||'published'} · {row.category||row.type}</p></div><div className="flex gap-4"><button type="button" disabled={busy} onClick={()=>edit(row)}>Edit</button><button type="button" disabled={busy} onClick={()=>archive(row)}>Unpublish</button></div></div>)}<div className="mt-5 flex items-center gap-5"><button type="button" disabled={page===1||loading} onClick={()=>setPage(p=>p-1)}>Previous</button><span>Page {page}</span><button type="button" disabled={items.length<25||loading} onClick={()=>setPage(p=>p+1)}>Next</button></div></section>
+    <section className="border border-white/15 bg-[#081121] p-5"><div className="flex flex-wrap items-center justify-between gap-5"><div><h3 className="font-heading text-2xl">Landing-style introduction / six-image slideshow</h3><p className="mt-2 text-sm text-slate-400">Upload up to six images. Empty slots stay empty; no default images are supplied. The title stays readable above the changing background.</p></div><button type="button" disabled={busy||loading} onClick={saveArt} className="min-h-11 bg-blue-500 px-5">Save slideshow & artwork</button></div><fieldset disabled={busy||loading} className="mt-6 min-w-0"><label>Seconds per slide<input type="number" min={3} max={30} className={field} value={interval} onChange={e=>setIntervalSeconds(Number(e.target.value))}/></label><div className="mt-6 grid gap-6 lg:grid-cols-2">{Array.from({length:6},(_,index)=>{const slide=slides[index]||{url:'',position:'50% 50%',zoom:100};const change=(key,value)=>setSlides(old=>Array.from({length:6},(_,i)=>i===index?{...(old[i]||slide),[key]:value}:old[i]||{url:'',position:'50% 50%',zoom:100}));function move(direction){setSlides(old=>{const next=Array.from({length:6},(_,i)=>old[i]||{url:'',position:'50% 50%',zoom:100});[next[index],next[index+direction]]=[next[index+direction],next[index]];return next;});}return <div key={index} className="min-w-0 border border-white/10 p-4"><div className="mb-4 flex justify-between gap-4"><strong>Slide {index+1}</strong><div className="flex gap-4"><button type="button" disabled={index===0} onClick={()=>move(-1)}>Move up</button><button type="button" disabled={index===5} onClick={()=>move(1)}>Move down</button></div></div><PositionedImageUploadField label={`News hero image ${index+1}`} value={slide.url} onChange={v=>change('url',v)} position={slide.position} onPositionChange={v=>change('position',v)} zoom={slide.zoom} onZoomChange={v=>change('zoom',v)} preview="hero" title="THE STAGE TIMES" subtitle="Full-width introduction"/></div>;})}</div></fieldset></section>
+    <section className="border border-white/15 bg-[#081121] p-5"><div className="flex flex-wrap items-center justify-between gap-5"><div><h3 className="font-heading text-2xl">Default artwork library</h3><p className="mt-2 text-sm text-slate-400">These slots start empty. Upload illustrations later. Actual match previews use the participants’ pictures with the Fixtures diagonal split.</p></div><button type="button" disabled={busy||loading} onClick={saveArt} className="min-h-11 bg-blue-500 px-5">Save artwork library</button></div><fieldset disabled={busy||loading} className="mt-6 grid min-w-0 gap-6 lg:grid-cols-2">{NEWS_ARTWORK.map(([key,label])=>{const art=artwork[key]||{};const change=(name,value)=>setArtwork(a=>({...a,[key]:{...(a[key]||{}),[name]:value}}));return <div key={key} className="min-w-0 border border-white/10 p-4"><PositionedImageUploadField label={label} value={art.url||''} onChange={v=>change('url',v)} position={art.position||'50% 50%'} onPositionChange={v=>change('position',v)} zoom={art.zoom||100} onZoomChange={v=>change('zoom',v)} preview="hero" title={label} subtitle="Default illustration"/></div>;})}</fieldset></section>
+  </div>;
 }

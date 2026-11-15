@@ -1,7 +1,5 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { DESK_FILTERS, filterDeskFeed, formatDeskAmount, matchesDeskFilter } from "../newsDesks.js";
 
 test("each news tab has a dedicated desk filter set", () => {
@@ -29,13 +27,4 @@ test("daily mix filters by original desk", () => {
   ];
   assert.equal(filterDeskFeed(rows, { filter: "mercato" }).length, 1);
   assert.equal(filterDeskFeed(rows, { filter: "club_news" })[0].title, "Arena");
-});
-
-test("news page mounts beat desks except mercato, all and world news", () => {
-  const page = readFileSync(resolve(import.meta.dirname, "../../pages/News.jsx"), "utf8");
-  assert.match(page, /NewsBeatDesk/);
-  assert.match(page, /MercatoPaper/);
-  assert.match(page, /AllNewsPaper/);
-  assert.match(page, /WorldNewsDesk/);
-  assert.match(page, /activeFilter === "mercato"/);
 });

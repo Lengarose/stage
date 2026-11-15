@@ -1,0 +1,3 @@
+export const NEWS_SECTIONS = [['for-you','For You'],['club','My Club'],['competitions','Competitions'],['updates','STAGE Updates'],['community','Community']];
+export const NEWS_ARTWORK = [['match_preview','Match previews'],['result','Match results'],['signing','Completed signings'],['regional_league','Regional Leagues'],['regional_cup','Regional Cups'],['gost','GOST announcements'],['champions','Champions & trophies'],['promotion','Promotion'],['app_update','STAGE updates'],['maintenance','Maintenance'],['tournament','Tournaments'],['announcement','Announcements']];
+export const parseNewsJson = value => { try { return typeof value==='string'?JSON.parse(value):value||{}; } catch {return {};} };

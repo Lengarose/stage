@@ -2135,6 +2135,10 @@ async function runStartupMigrations() {
   await addCol('lifestyle_purchases', 'last_passive_collected',  'DATETIME NULL');
   await addCol('lifestyle_purchases', 'base_upgrade_cost_stc',   'BIGINT DEFAULT 0');
 
+  await addCol('news_items', 'editorial', 'JSON NULL');
+  await addCol('news_items', 'expires_at', 'DATETIME NULL');
+  await addCol('news_items', 'publication_status', "VARCHAR(20) NOT NULL DEFAULT 'published'");
+  await EXECUTESQL('CREATE INDEX idx_news_publication_published ON news_items (publication_status,published_at)').catch(() => {});
   // news_items — feed rows (contracts, transfers, etc.); older DBs only had title/body/link.
   await addCol('news_items', 'type', "VARCHAR(30) NULL DEFAULT 'announcement'");
   await addCol('news_items', 'category', "VARCHAR(30) NULL DEFAULT 'general'");

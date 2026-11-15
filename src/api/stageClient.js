@@ -433,7 +433,8 @@ const ENTITY_NAMES = [
   'DirectMessage', 'STCTransaction', 'ShirtSale', 'DressingRoom',
   'JoinRequest', 'Follow', 'LifestyleItem', 'LifestylePurchase',
   'UserPurchase', 'TrophyItem', 'TrophyPlacement', 'TrophyAward', 'ChatMessage', 'ChatRead',
-  'NewsItem', 'LiveMatch',
+  'NewsItem',
+  'NewsPageConfig', 'LiveMatch',
   // Competition & league stack used by frontend pages
   'Competition', 'CompetitionSeason', 'CompetitionFixture', 'CompetitionStanding',
   'RegionalLeague', 'RegionalLeagueFixture', 'RegionalLeagueStanding',

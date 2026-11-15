@@ -1196,6 +1196,11 @@ CREATE TABLE IF NOT EXISTS processed_stripe_sessions (
 
 -- ── news_items ────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS news_items (
+  INDEX idx_news_publication_published (publication_status,published_at),
+  transfer_id VARCHAR(36) NULL,
+  editorial JSON NULL,
+  expires_at DATETIME NULL,
+  publication_status VARCHAR(20) NOT NULL DEFAULT 'published',
   id                    VARCHAR(36)   PRIMARY KEY,
   type                  VARCHAR(30)   NULL DEFAULT 'announcement',
   category              VARCHAR(30)   NULL DEFAULT 'general',

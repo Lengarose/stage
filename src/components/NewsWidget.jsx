@@ -64,7 +64,7 @@ export default function NewsWidget() {
         const cfg = TYPE_CONFIG[featured.type] || TYPE_CONFIG.announcement;
         const Icon = cfg.icon;
         return (
-          <Link to={featured.link || "/news"} className="block group">
+          <Link to={`/news?article=${encodeURIComponent(featured.id)}`} className="block group">
             <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-card via-card to-secondary hover:border-primary/30 transition-all duration-300">
               {/* Decorative glow */}
               <div className={cn("absolute top-0 right-0 w-40 h-40 rounded-full blur-3xl opacity-20", cfg.dot)} />
@@ -128,7 +128,7 @@ export default function NewsWidget() {
             const cfg = TYPE_CONFIG[item.type] || TYPE_CONFIG.announcement;
             const Icon = cfg.icon;
             return (
-              <Link key={item.id} to={item.link || "/news"} className="block group">
+              <Link key={item.id} to={`/news?article=${encodeURIComponent(item.id)}`} className="block group">
                 <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-secondary/60 border border-border hover:border-primary/30 hover:bg-secondary transition-all">
                   <div className={cn("w-8 h-8 rounded-lg border flex items-center justify-center shrink-0", cfg.bg)}>
                     <Icon className={cn("w-4 h-4", cfg.color)} />

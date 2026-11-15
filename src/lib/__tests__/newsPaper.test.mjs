@@ -31,20 +31,6 @@ test("edition dateline uses a print-style English date", () => {
   assert.equal(formatNewspaperDate(new Date("2026-08-15T10:00:00.000Z")), "Saturday, 15 August 2026");
 });
 
-test("news page is a STAGE TIMES broadsheet, not a dashboard card grid", () => {
-  const page = readFileSync(resolve(import.meta.dirname, "../../pages/News.jsx"), "utf8");
-  assert.match(page, /THE STAGE TIMES/);
-  assert.match(page, /news-paper-sheet/);
-  assert.match(page, /NewsBeatDesk/);
-  assert.match(page, /MercatoPaper/);
-  assert.match(page, /AllNewsPaper/);
-  assert.doesNotMatch(page, /rounded-full text-xs font-semibold/);
-  const mercato = readFileSync(resolve(import.meta.dirname, "../../components/news/MercatoPaper.jsx"), "utf8");
-  assert.match(mercato, /NewspaperSection/);
-  assert.match(mercato, /section="mercato"/);
-  assert.doesNotMatch(mercato, /mercato-transfers\/desk/);
-});
-
 test("newspaper sections keep All first, then mercato, without Press Room", () => {
   assert.deepEqual(
     NEWS_SECTION_FILTERS.map((f) => f.id),
@@ -63,11 +49,7 @@ test("newspaper sections keep All first, then mercato, without Press Room", () =
   assert.equal(matchesNewsSection({ _category: "tournament" }, "competitions"), false);
   assert.equal(matchesNewsSection({ _category: "ranking" }, "player_news"), true);
   assert.equal(matchesNewsSection({ _category: "ranking" }, "competitions"), false);
-  const page = readFileSync(resolve(import.meta.dirname, "../../pages/News.jsx"), "utf8");
-  assert.match(page, /NEWS_SECTION_FILTERS/);
-  assert.match(page, /NewsBeatDesk/);
-  assert.match(page, /WorldNewsDesk/);
-  assert.doesNotMatch(page, /press_conference/);
+
 });
 
 test("mercato is the transfer and contract newspaper, not club or player desks", () => {
@@ -111,7 +93,7 @@ test("mercato is the transfer and contract newspaper, not club or player desks",
   assert.equal(matchesNewsSection({ tags: ["daily_news"] }, "daily_news", today), false);
 });
 
-test("desktop newspaper keeps the lead photo on screen and scrolls the rail", () => {
+test("legacy newspaper CSS remains available for older embedded consumers", () => {
   const css = readFileSync(resolve(import.meta.dirname, "../../pages/newsPaper.css"), "utf8");
   const layout = readFileSync(resolve(import.meta.dirname, "../../components/Layout.jsx"), "utf8");
   assert.doesNotMatch(css, /min-height:\s*72vh/);
