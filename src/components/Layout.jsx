@@ -1257,7 +1257,7 @@ function MobileArenaBottomBar({ pathname, myPlayer, myClub, accountMode, notifCo
   const { t } = useTranslation();
   const [openGroup, setOpenGroup] = useState(null);
   const [tutorialOpen, setTutorialOpen] = useState(false);
-  const { totalUnread: chatUnreadTotal, markAllRead: markAllChatsRead } = useChatNotifications();
+  const { totalUnread: chatUnreadTotal } = useChatNotifications();
   const clubPath = myClub?.id ? `/clubs/${myClub.id}` : null;
   const source = accountMode === "club" ? getPresidentGroups(t, clubPath, Boolean(myPlayer)) : getPlayerGroups(t, clubPath);
   const itemsFor = path => source.find(group => group.items.some(item => item.path === path))?.items || [];
@@ -1280,9 +1280,7 @@ function MobileArenaBottomBar({ pathname, myPlayer, myClub, accountMode, notifCo
   const activeGroup = findActiveInGroups(groups, pathname)?.group.id;
 
   useEffect(() => { setOpenGroup(null); }, [pathname]);
-  useEffect(() => {
-    if ((pathname === "/game-day" || pathname.startsWith("/game-day/")) && chatUnreadTotal > 0) markAllChatsRead();
-  }, [pathname, chatUnreadTotal, markAllChatsRead]);
+
 
   function showGuide() {
     setOpenGroup(null);
@@ -1331,14 +1329,10 @@ function MobileArenaBottomBar({ pathname, myPlayer, myClub, accountMode, notifCo
 function TournamentMobileBottomBar({ pathname, myPlayer: _myPlayer, myClub, accountMode, notifCount, isTournamentLimited, tournamentId, participantType, transferWindowOpen }) {
   const { t } = useTranslation();
   const [moreOpen, setMoreOpen] = useState(false);
-  const { totalUnread: chatUnreadTotal, markAllRead: markAllChatsRead } = useChatNotifications();
+  const { totalUnread: chatUnreadTotal } = useChatNotifications();
 
-  // Opening the GameDay page clears the unread-chat badge.
-  const onGameDay = pathname === "/game-day" || pathname.startsWith("/game-day/");
-  useEffect(() => {
-    if (onGameDay && chatUnreadTotal > 0) markAllChatsRead();
-  }, [onGameDay, chatUnreadTotal, markAllChatsRead]);
-
+  // Visiting GameDay is not reading every conversation. The open chat marks
+  // only its own channel read, so opponent messages remain discoverable.
   const clubPath = myClub?.id ? `/clubs/${myClub.id}` : null;
   const primaryTabs = getMobilePrimary(accountMode, clubPath, isTournamentLimited, tournamentId);
   const moreGroups = filterTransferWindowNavGroups(

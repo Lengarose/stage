@@ -1093,6 +1093,7 @@ function liveChatSqlMock({
     if (/SELECT email FROM players WHERE club_id = \?/.test(sql)) {
       return squadByClub[params[0]] || [];
     }
+    if (sql.includes('president_user.email AS president_user_email')) return ownerByClub[params[0]] || [];
     if (/SELECT owner_email FROM clubs WHERE id = \?/.test(sql)) {
       return ownerByClub[params[0]] || [];
     }
@@ -1135,7 +1136,7 @@ test('liveChatChannelMeta distinguishes club chat from match chat', () => {
     channelId: 'match-1',
     kind: 'match',
     matchId: 'match-1',
-    link: '/game-day?match=match-1',
+    link: '/game-day?match=match-1&chat=1',
     titleSuffix: 'match chat',
   });
 });

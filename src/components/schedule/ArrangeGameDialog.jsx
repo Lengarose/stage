@@ -1,3 +1,4 @@
+import "@/components/gameday/gameDay.css";
 import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { useEffect, useState } from "react";
 import { stageClient } from "@/api/stageClient";
@@ -6,19 +7,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, ChevronRight, User, Shield, CalendarDays, Clock, Send, ArrowLeft, Coins } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getClubPresidentContactEmail } from "@/lib/clubPresidentAccess";
+import { getClubPresidentContactEmail, canManageClubIdentity } from "@/lib/clubPresidentAccess";
 import { combineDateTimeToMysql } from "@/lib/momentDate";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useAuth } from "@/lib/AuthContext";
 import { createInboxEventId } from "@/lib/inboxEventId";
 
-export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onSent }) {
+export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onSent, user: actorUser, accent = "#4d8dff" }) {
   const { t } = useTranslation();
-  const { user } = useAuth();
+  const { user: authUser } = useAuth();
+  const user = actorUser || authUser;
   const kickoffTimezone = user?.timezone || "Europe/Brussels";
   const accountMode = localStorage.getItem("stage-account-mode") || "player";
   const isPresidentMode = accountMode === "club";
-  const forcedSearchType = isPresidentMode ? "club" : "player";
+  const canArrangeClub = Boolean(myClub) && canManageClubIdentity({user,club:myClub});
+  const forcedSearchType = isPresidentMode && canArrangeClub ? "club" : "player";
   const [step, setStep] = useState("search");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchType, setSearchType] = useState(forcedSearchType); // "club" | "player"
@@ -43,7 +46,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
 
   const MIN_BET = 10_000;
   const MAX_BET = 2_000_000;
-  const matchType = isPresidentMode ? "club" : searchType;
+  const matchType = searchType;
   const activeSearchType = matchType;
   const availableWagerBalance = activeSearchType === "club"
     ? Number(myClub?.stc || 0)
@@ -77,13 +80,14 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
   async function handleSearch() {
     if (!searchQuery.trim()) return;
     setSearching(true);
+    setSendError("");
     try {
-      if ((isPresidentMode ? "club" : searchType) === "club") {
+      if (searchType === "club") {
         const all = await stageClient.entities.Club.list("-rating", 2000);
         const q = searchQuery.toLowerCase();
         setResults(all.filter(c =>
           c.id !== myClub?.id &&
-          (c.name.toLowerCase().includes(q) || c.tag?.toLowerCase().includes(q))
+          ((c.name || "").toLowerCase().includes(q) || c.tag?.toLowerCase().includes(q))
         ).slice(0, 10));
       } else {
         const all = await stageClient.entities.Player.list("-created_date", 2000);
@@ -93,6 +97,8 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
           (p.gamertag || "").toLowerCase().includes(q)
         ).slice(0, 10));
       }
+    } catch(error) {
+      setSendError(error.message || 'Opponent search failed. Please try again.');
     } finally {
       setSearching(false);
     }
@@ -194,7 +200,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
   }
 
   async function handleSend() {
-    if (!selected || !date || !time) return;
+    if (!selected || !date || !time || sending) return;
     setSending(true);
     setSendError("");
 
@@ -204,7 +210,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
       const senderIsClub = matchType === "club" && Boolean(myClub);
       const recipientIsClub = recipientKind === "club";
 
-      const senderName   = senderIsClub ? `${myClub?.name} [${myClub?.tag}]` : myPlayer?.gamertag || "Unknown";
+      const senderName   = senderIsClub ? `${myClub?.name}${myClub?.tag ? ` [${myClub.tag}]` : ""}` : myPlayer?.gamertag || "Unknown";
       const senderClubId = senderIsClub ? (myClub?.id || null) : null;
       const opponentName = formatOpponentLabel(selected, recipientKind);
       const invitationType = matchType === "club" ? "club_vs_club" : "player_vs_player";
@@ -297,7 +303,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
 
   return (
     <Dialog open={open} onOpenChange={() => { reset(); onClose(); }}>
-      <DialogContent className="bg-card border-border max-w-md">
+      <DialogContent style={{"--gd-accent":accent}} className="gd-action-modal landing-v2 max-h-[90dvh] w-[calc(100%-24px)] max-w-xl overflow-y-auto rounded-none border border-white/20 bg-[#08111e] p-6 text-white">
         <DialogHeader>
           <DialogTitle className="font-heading text-xl uppercase tracking-wide flex items-center gap-2">
             <CalendarDays className="w-5 h-5 text-primary" />
@@ -305,6 +311,9 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
           </DialogTitle>
         </DialogHeader>
 
+        <p className="gd-modal-intro">Choose an opponent, propose a kickoff and review your invitation. The match appears in GameDay and Schedule once accepted.</p>
+        <ol className="gd-modal-steps" aria-label="Arrange Game progress">{['Opponent','Kickoff & stake','Review'].map((label,i)=><li key={label} aria-current={(step==='search'?0:step==='details'?1:2)===i?'step':undefined}><span>0{i+1}</span>{label}</li>)}</ol>
+        {sendError && step==='search' && <p role="alert" className="text-sm text-red-300">{sendError}</p>}
         {sent ? (
           <div className="py-8 text-center space-y-2">
             <div className="w-12 h-12 rounded-full bg-success/20 flex items-center justify-center mx-auto mb-3">
@@ -316,8 +325,8 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
         ) : step === "search" ? (
           <div className="space-y-4">
             {/* Type toggle — only when user can truly switch context */}
-            {!isPresidentMode && myClub && (
-              <div className="flex rounded-lg border border-border overflow-hidden">
+            {myPlayer && canArrangeClub && (
+              <div className="flex rounded-none border border-border overflow-hidden">
                 <button
                   type="button"
                   onClick={() => { setSearchType("player"); setResults([]); setSearchQuery(""); setSelected(null); setRecipientKind(null); }}
@@ -338,8 +347,8 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
             )}
 
             {/* Context hint */}
-            <p className="text-[11px] text-muted-foreground bg-secondary/50 rounded-lg px-3 py-2 border border-border">
-              {(isPresidentMode ? "club" : searchType) === "player"
+            <p className="text-[11px] text-muted-foreground bg-secondary/50 rounded-none px-3 py-2 border border-border">
+              {searchType === "player"
                 ? <><span className="text-primary font-semibold">{t("commonPages.agdPlayerMatch")}</span> — {t("commonPages.agdPlayerMatchHint", { gamertag: myPlayer?.gamertag })}</>
                 : <><span className="text-primary font-semibold">{t("commonPages.agdClubMatch")}</span> — {t("commonPages.agdClubMatchHint", { clubName: myClub?.name })}</>
               }
@@ -352,17 +361,17 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   onKeyDown={e => e.key === "Enter" && handleSearch()}
-                  placeholder={(isPresidentMode ? "club" : searchType) === "club" ? t("commonPages.agdSearchClubs") : t("commonPages.agdSearchPlayers")}
+                  placeholder={searchType === "club" ? t("commonPages.agdSearchClubs") : t("commonPages.agdSearchPlayers")}
                   className="pl-9 bg-secondary border-border text-sm"
                 />
               </div>
-              <Button onClick={handleSearch} disabled={searching} size="sm" className="bg-primary text-primary-foreground">
+              <Button type="button" onClick={handleSearch} disabled={searching} size="sm" className="bg-primary text-primary-foreground">
                 {searching ? <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" /> : t("commonPages.searchCta")}
               </Button>
             </div>
 
             {results.length > 0 && (
-              <div className="border border-border rounded-lg divide-y divide-border max-h-52 overflow-y-auto">
+              <div className="border border-border rounded-none divide-y divide-border max-h-52 overflow-y-auto">
                 {results.map(r => (
                   <button
                     type="button"
@@ -373,7 +382,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
                     <div className="identity-avatar-shell w-8 h-8 rounded-full bg-secondary border border-border flex items-center justify-center shrink-0 overflow-hidden">
                       {r.logo_url || r.avatar_url
                         ? <IdentityAvatar src={r.logo_url || r.avatar_url} alt={r.name || r.gamertag} className="w-full h-full object-cover" />
-                        : (isPresidentMode ? "club" : searchType) === "club" ? <Shield className="w-4 h-4 text-muted-foreground" /> : <User className="w-4 h-4 text-muted-foreground" />}
+                        : searchType === "club" ? <Shield className="w-4 h-4 text-muted-foreground" /> : <User className="w-4 h-4 text-muted-foreground" />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">
@@ -397,7 +406,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
             </button>
 
             {/* Selected opponent */}
-            <div className="flex items-center gap-3 p-3 bg-secondary/60 rounded-lg border border-border">
+            <div className="flex items-center gap-3 p-3 bg-secondary/60 rounded-none border border-border">
               <div className="identity-avatar-shell w-9 h-9 rounded-full bg-secondary border border-border flex items-center justify-center shrink-0 overflow-hidden">
                 {opponentImageUrl(selected, recipientKind)
                   ? <IdentityAvatar src={opponentImageUrl(selected, recipientKind)} alt={formatOpponentLabel(selected, recipientKind)} className="w-full h-full object-cover" />
@@ -422,6 +431,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
                 <div className="relative">
                   <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
+                    aria-label="Kickoff date"
                     type="date"
                     value={date}
                     onChange={e => setDate(e.target.value)}
@@ -435,6 +445,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
                 <div className="relative">
                   <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
+                    aria-label="Kickoff time"
                     type="time"
                     value={time}
                     onChange={e => setTime(e.target.value)}
@@ -456,10 +467,11 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
                   value={wagerStc}
                   onChange={e => setWagerStc(e.target.value)}
                   placeholder={`Min ${(MIN_BET/1_000).toFixed(0)}K — Max ${(MAX_BET/1_000_000).toFixed(1)}M STC`}
+                  aria-label="Optional STC wager per side"
                   min={MIN_BET}
                   max={MAX_BET}
                   step={1000}
-                  className="w-full pl-9 pr-3 py-2 rounded-md bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-warning"
+                  className="w-full pl-9 pr-3 py-2 rounded-none bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-warning"
                 />
               </div>
               {wagerStc && (
@@ -483,7 +495,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
               <ArrowLeft className="w-3.5 h-3.5" /> {t("commonPages.agdBack")}
             </button>
 
-            <div className="bg-secondary/60 rounded-lg border border-border p-4 space-y-2 text-sm">
+            <div className="bg-secondary/60 rounded-none border border-border p-4 space-y-2 text-sm">
               <div className="flex justify-between text-xs">
                 <span className="text-muted-foreground">{t("commonPages.agdMatchType")}</span>
                 <span className={cn("font-semibold", searchType === "player" ? "text-primary" : "text-accent")}>
@@ -519,7 +531,7 @@ export default function ArrangeGameDialog({ open, onClose, myPlayer, myClub, onS
             </p>
 
             {sendError && (
-              <div className="bg-destructive/10 border border-destructive/30 rounded-lg px-3 py-2 text-xs text-destructive font-medium">
+              <div className="bg-destructive/10 border border-destructive/30 rounded-none px-3 py-2 text-xs text-destructive font-medium">
                 {sendError}
               </div>
             )}

@@ -229,7 +229,7 @@ function liveChatChannelMeta(record) {
     channelId,
     kind: 'match',
     matchId: channelId,
-    link: channelId ? `/game-day?match=${encodeURIComponent(channelId)}` : '/game-day',
+    link: channelId ? `/game-day?match=${encodeURIComponent(channelId)}&chat=1` : '/game-day',
     titleSuffix: 'match chat',
   };
 }
@@ -273,6 +273,11 @@ async function resolveLiveChatRecipientEmails(record) {
       }
       const clubIds = [match.home_club_id, match.away_club_id].filter(Boolean);
       if (clubIds.length) {
+        // Managers are not necessarily squad players; resolve current club contacts.
+        for (const clubId of clubIds) {
+          const contact = await resolveClubPresidentContact({ clubId });
+          if (contact.email) emails.add(normalizeEmail(contact.email));
+        }
         const placeholders = clubIds.map(() => '?').join(',');
         const squad = await EXECUTESQL(
           `SELECT email FROM players WHERE club_id IN (${placeholders}) AND email IS NOT NULL AND TRIM(email) != ""`,

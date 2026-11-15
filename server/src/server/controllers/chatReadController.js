@@ -1,5 +1,6 @@
 const express  = require('express');
 const router   = express.Router();
+const matchChat = require('../services/matchChatService');
 const ChatRead = require('../models/chatReadModel');
 
 function getEmail(req) {
@@ -25,7 +26,7 @@ router.get('/', async (req, res) => {
     res.json(rows);
   } catch (err) {
     console.error('[chat-reads] GET /', err);
-    res.status(500).json({ error: err.message });
+    res.status(err.status || 500).json({ error: err.message });
   }
 });
 
@@ -39,15 +40,16 @@ router.get('/unread-counts', async (req, res) => {
 
     const { channel_id } = req.query;
     if (channel_id) {
+      await matchChat.access(req.user, channel_id);
       const count = await ChatRead.unreadCountForChannel(email, channel_id);
       return res.json({ counts: { [channel_id]: count }, total: count });
     }
-    const counts = await ChatRead.unreadCountsForUser(email);
+    const counts = await matchChat.visibleCounts(req.user, await ChatRead.unreadCountsForUser(email));
     const total  = Object.values(counts).reduce((s, n) => s + (Number(n) || 0), 0);
     res.json({ counts, total });
   } catch (err) {
     console.error('[chat-reads] GET /unread-counts', err);
-    res.status(500).json({ error: err.message });
+    res.status(err.status || 500).json({ error: err.message });
   }
 });
 
@@ -61,6 +63,8 @@ router.post('/mark-read', async (req, res) => {
 
     const channel_id = String(req.body?.channel_id || '').trim();
     if (!channel_id) return res.status(400).json({ error: 'channel_id required' });
+
+    await matchChat.access(req.user, channel_id);
 
     // Accept ISO strings; let the DB layer coerce. Default to now.
     const last_read_at = req.body?.last_read_at
@@ -76,7 +80,7 @@ router.post('/mark-read', async (req, res) => {
     res.json(row || { user_email: email, channel_id, last_read_at });
   } catch (err) {
     console.error('[chat-reads] POST /mark-read', err);
-    res.status(500).json({ error: err.message });
+    res.status(err.status || 500).json({ error: err.message });
   }
 });
 

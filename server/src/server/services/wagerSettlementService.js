@@ -4,8 +4,8 @@ const { withTransaction } = require('../db/database');
 const { cents, stc } = require('../lib/competitionPrizes');
 const { isConfirmedResult } = require('../lib/tournamentStatistics');
 
-async function settle(matchId, action = 'settle', actorId = null, { winner: forcedWinner, reason } = {}) {
-  return withTransaction(async query => {
+async function settle(matchId, action = 'settle', actorId = null, { winner: forcedWinner, reason, query: existingQuery } = {}) {
+  const execute = async query => {
     const [match] = await query('SELECT * FROM matches WHERE id=? FOR UPDATE', [matchId]);
     if (!match) throw new Error('Match not found');
     const kind = match.mode === 'club' ? 'club' : 'player';
@@ -81,6 +81,7 @@ async function settle(matchId, action = 'settle', actorId = null, { winner: forc
     else await query('UPDATE matches SET wager_status=?,updated_date=NOW() WHERE id=?', [status,matchId]);
     if (admin) await query(`INSERT INTO admin_audit_log (id,admin_user_id,admin_email,action,entity_type,entity_id,old_value,new_value,reason) VALUES (?,?,?,?,'match',?,?,?,?)`,[crypto.randomUUID(),admin.id,admin.email,action,matchId,JSON.stringify({wager_status:match.wager_status,wager_stc:match.wager_stc}),JSON.stringify({wager_status:status,winner,amount:stc(amount)}),reason || 'Admin wager resolution']);
     return { result: status };
-  });
+  };
+  return existingQuery ? execute(existingQuery) : withTransaction(execute);
 }
 module.exports = { settle };

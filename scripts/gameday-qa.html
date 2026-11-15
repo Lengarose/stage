@@ -1,5 +1,5 @@
 <!doctype html>
-<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>GameDay local QA</title></head>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>GameDay local QA</title><link href="https://fonts.googleapis.com/css2?family=Anton&family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet"></head>
 <body style="margin:0"><div id="root"></div><script type="module">
 import React from 'react';
 import ReactDOM from 'react-dom/client';
@@ -12,7 +12,7 @@ await import('/node_modules/@fontsource/anton/index.css');
 document.documentElement.className='theme-dark dark';
 const params=new URLSearchParams(location.search);
 const {stageClient}=await import('/src/api/stageClient.js');
-const player={id:'qa-home',gamertag:'Test Home',email:'qa@example.test',position:'ST'};
+const player={id:'qa-home',gamertag:'Test Home',email:'qa@example.test',position:'ST',stc:50000,avatar_url:'/src/assets/landing/player.webp'};
 const games=['tournament','supreme','elite','challenger','regional','friendly'].map((category,i)=>({id:`qa-${i}`,home_player_id:player.id,home_player_name:player.gamertag,away_player_id:'qa-away',away_player_name:`Test Away ${i+1}`,home_player_email:player.email,mode:'solo',type:category==='tournament'?'knockout':category==='friendly'?'friendly':'ranked',category,competition_name:`QA ${category}`,competition_key:`edition-${category}`,tournament_id:category==='tournament'?'qa-cup':null,status:i===0?'in_progress':i===1?'scheduled':'completed',result_state:i<2?'AWAITING_RESULT':'CONFIRMED',home_score:i===0?0:2,away_score:i===0?0:1,stats_processed:i<2?0:1,scheduled_date:'2026-10-27T19:00:00Z',display_date:'2026-10-27T19:00:00Z',scheduling_status:'confirmed',updated_date:'2026-10-27T19:00:00Z'}));
 const match=id=>games.find(g=>g.id===id)||games[0];
 if(params.has('friendlyReport'))Object.assign(games[0],{type:'friendly',tournament_id:null,competition_name:'QA friendly'});
@@ -25,13 +25,19 @@ stageClient.auth.isAuthenticated=async()=>true;
 stageClient.auth.hasToken=()=>false;
 stageClient.auth.me=async()=>({id:'qa-user',email:player.email,player_id:player.id});
 for(const entity of Object.values(stageClient.entities)){entity.list=async()=>[];entity.filter=async()=>[];entity.get=async()=>null;entity.subscribe=()=>()=>{};}
-stageClient.entities.Player.get=async id=>id===player.id?player:{id,gamertag:id==='qa-home'?'Test Home':'Test Away'};
+stageClient.entities.Player.get=async id=>id===player.id?player:{id,gamertag:id==='qa-home'?'Test Home':'Test Away',avatar_url:id==='qa-home'?'/src/assets/landing/penalty.webp':'/src/assets/landing/dribble.webp'};
+stageClient.entities.Player.list=async()=>[{id:'qa-away',gamertag:'Test Away',email:'away@example.test',avatar_url:'/src/assets/landing/dribble.webp',platform:'PlayStation'}];
+stageClient.entities.Club.list=async()=>[{id:'qa-other',name:'QA Away FC',owner_email:'away@example.test',logo_url:'/src/assets/landing/team.webp'}];
 stageClient.entities.Player.filter=async()=>params.has('club')?Array.from({length:11},(_,i)=>({id:`qa-squad-${i}`,gamertag:`QA Player ${i+1}`,position:i?'ST':'GK'})):[];
 stageClient.entities.Club.get=async id=>({id,name:id==='qa-club'?'QA Home FC':'QA Away FC',owner_email:player.email});
 stageClient.entities.Match.filter=async()=>games;
+stageClient.entities.Match.update=async(id,body)=>{Object.assign(match(id),body);return {...match(id)};};
 stageClient.entities.Match.get=async id=>{const game=structuredClone(match(id));if(params.has('confirm')&&game.home_submission)game.home_submission=Object.fromEntries(Object.entries(JSON.parse(game.home_submission)).reverse());return {...game,updated_date:'unrelated presentation update'};};
 stageClient.entities.Tournament.filter=async()=>[{id:'qa-cup',name:'QA Cup',participant_type:'player',type:'knockout'}];
-stageClient.entities.GameDayConfig.filter=async()=>[{banner_url:'/src/assets/Banner.jpg'}];
+stageClient.entities.GameDayConfig.filter=async()=>[{banner_slides:[{url:'/src/assets/landing/gamers.webp',position:'50% 30%',zoom:100},{url:'/src/assets/landing/dribble.webp',position:'50% 30%',zoom:100}],accent:'blue'}];
+const chatRows=[{id:'qa-chat-1',match_id:'qa-0',sender_email:'away@example.test',sender_name:'Test Away',sender_avatar:'/src/assets/landing/dribble.webp',content:'We are ready. Good luck for the match!',created_date:new Date().toISOString()}];
+stageClient.entities.ChatMessage.filter=async()=>chatRows;
+stageClient.entities.ChatMessage.create=async body=>{const row={...body,id:crypto.randomUUID(),sender_email:player.email,sender_name:player.gamertag,sender_avatar:player.avatar_url,created_date:new Date().toISOString()};chatRows.push(row);return row;};
 let changed=false;
 stageClient.functions.invoke=async(name,args)=>{
   if(args.action==='confirm_result'&&params.has('confirm')){
@@ -53,5 +59,5 @@ stageClient.http.upload=async()=>{throw Error('Controlled upload failure');};
 const {AuthProvider}=await import('/src/lib/AuthContext.jsx');
 const {TranslationProvider}=await import('/src/lib/TranslationContext.jsx');
 const {default:GameDay}=await import('/src/pages/GameDay.jsx');
-ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(AuthProvider,null,React.createElement(TranslationProvider,null,React.createElement(MemoryRouter,null,React.createElement('div',{className:'h-screen bg-background'},React.createElement(GameDay))))));
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(AuthProvider,null,React.createElement(TranslationProvider,null,React.createElement(MemoryRouter,{initialEntries:['/game-day'+location.search]},React.createElement('div',{className:'h-screen bg-background'},React.createElement(GameDay))))));
 </script></body></html>

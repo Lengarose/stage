@@ -3,6 +3,7 @@ import { format, parseISO, isValid } from "@/lib/momentDate";
 import { Radio } from "lucide-react";
 import { useTranslation } from "@/hooks/useTranslation";
 import { getMatchSideNames } from "@/lib/gameDayPresentation";
+import MatchupBackdrop from "@/components/schedule/MatchupBackdrop";
 import GameDayCrest from "./GameDayCrest";
 import {CALENDAR_CATEGORIES} from '@/lib/scheduleCalendar';
 
@@ -24,8 +25,8 @@ export default function GameDayCard({ game, selected, onClick, myClub, _myPlayer
   const status = STATUS_BADGE[game.status] || { label: game.status };
   const { home, away, isClub } = getMatchSideNames(game, t("matchFlow.tbd"));
   const isMyClubInvolved = myClub && (game.home_club_id === myClub.id || game.away_club_id === myClub.id);
-  const homeLogo = isClub && myClub && game.home_club_id === myClub.id ? myClub.logo_url : null;
-  const awayLogo = isClub && myClub && game.away_club_id === myClub.id ? myClub.logo_url : null;
+  const homeLogo = game.home_avatar_url || (isClub && myClub && game.home_club_id === myClub.id ? myClub.logo_url : null);
+  const awayLogo = game.away_avatar_url || (isClub && myClub && game.away_club_id === myClub.id ? myClub.logo_url : null);
 
   function deriveCompetition(match, tournament) {
     if (!match.tournament_id || match.tournament_id === "ranked") return t("matchFlow.rankedMatch");
@@ -44,9 +45,10 @@ export default function GameDayCard({ game, selected, onClick, myClub, _myPlayer
     <button
       type="button"
       onClick={onClick}
+      aria-pressed={selected}
       style={{borderInlineStart:`${selected?4:2}px solid ${CALENDAR_CATEGORIES[game.category]?.color||'#67e8f9'}`}}
       className={cn(
-        "flex w-full min-w-[246px] max-w-none shrink-0 items-center gap-3 border px-4 py-2.5 text-left transition-all",
+        "gd-match-card relative flex w-full min-w-0 max-w-none shrink-0 items-center gap-3 border px-4 py-2.5 text-left transition-all",
         glass
           ? selected
             ? "border-[#f8fbff] bg-black/70 shadow-[0_0_24px_rgba(238,243,251,0.24)] backdrop-blur-md"
@@ -56,12 +58,13 @@ export default function GameDayCard({ game, selected, onClick, myClub, _myPlayer
             : "border-white/12 bg-gradient-to-r from-[#151b25]/76 via-black/45 to-[#101723]/80 hover:border-[#f8fbff]/55 hover:bg-white/10",
       )}
     >
+      {!glass && <MatchupBackdrop event={{homeAvatarUrl:homeLogo,awayAvatarUrl:awayLogo}}/>}
       <div className="flex items-center -space-x-2">
         <GameDayCrest name={home} imageUrl={homeLogo} size="sm" />
         <GameDayCrest name={away} imageUrl={awayLogo} size="sm" />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate font-heading text-[11px] font-black uppercase tracking-wide text-white">
+        <p className="truncate font-heading text-sm font-black uppercase tracking-wide text-white">
           {home} <span className="text-[#f8fbff]">vs</span> {away}
         </p>
         <p className={cn(

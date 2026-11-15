@@ -28,6 +28,12 @@ async function accept({message,userEmail,action='accepted',createMatch,transacti
   }else{
    match=await createMatch(meta,{homeSide:'challenger',scheduledDate:date,query,emit:false});matchId=match.id;created=true;
   }
+  if(created && Number(meta.wager_stc || 0)>0) {
+   try {
+    await require('./wagerSettlementService').settle(matchId,'reserve',actor?.id || null,{query});
+    match={...match,wager_home_locked:1,wager_away_locked:1,wager_status:'active'};
+   } catch(error) { throw Object.assign(error,{status:error.status||409}); }
+  }
   const updated={...meta,root_invitation_id:root.id,created_match_id:matchId,scheduled_date:date};
   for(const item of root.id===current.id?[current]:[root,current])await query("UPDATE inbox_messages SET metadata=?,related_entity_id=?,related_entity_type='match',status=?,is_read=1 WHERE id=?",[JSON.stringify({...parse(item.metadata),...updated}),matchId,action,item.id]);
   if(actor && [0,2].includes(Number(actor.role_id)))await require('./rewardConfigurationService').audit(query,actor,repair?'repair_arranged_match':'accept_arranged_match','match',match.id,{invitation_id:message.id},{match_id:match.id,scheduled_date:date},repair?'Restore accepted legacy reschedule with missing match':'Accept arranged game proposal');

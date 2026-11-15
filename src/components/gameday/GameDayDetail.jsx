@@ -65,6 +65,7 @@ export default function GameDayDetail({
   chatOpen = false,
   onOpsOpenChange,
   onChatOpenChange,
+  accent = "#4d8dff",
   matchDetailsBackgroundConfig,
   onOpenTileBackgroundDialog,
   onOpenReport,
@@ -362,7 +363,7 @@ export default function GameDayDetail({
                 <Button
                   onClick={handleKickoff}
                   disabled={kickoffLoading || !kickoffControls.canPressKickoff || preparationState?.unavailable || (preparationState?.official && (!preparationState.can_kickoff || !preparationState.ready_at || !preparationState.opponent_ready || preparationState.eligible === false))}
-                  className="h-14 w-full gap-2 rounded-sm bg-gradient-to-r from-white via-[#eef3fb] to-[#aeb8c6] font-heading text-xl font-black uppercase tracking-[0.28em] text-[#111827] shadow-[0_0_42px_rgba(238,243,251,0.34)] hover:brightness-110 disabled:from-[#1f2430] disabled:via-[#161b24] disabled:to-[#111827] disabled:text-white/25 disabled:shadow-none"
+                  className="gd-kickoff h-12 gap-2 rounded-none px-8 font-heading text-lg uppercase tracking-wide hover:brightness-110 disabled:opacity-40"
                 >
                   {kickoffLoading
                     ? <div className="h-5 w-5 animate-spin rounded-full border-2 border-black/20 border-t-black" />
@@ -468,12 +469,13 @@ export default function GameDayDetail({
       )}
 
       <Dialog open={opsOpen} onOpenChange={onOpsOpenChange}>
-        <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto border-[#d8dee8]/20 bg-[#111827] p-0 text-white">
+        <DialogContent style={{"--gd-accent":accent}} className="gd-action-modal gd-stream-modal landing-v2 max-h-[90dvh] w-[calc(100%-24px)] max-w-2xl overflow-y-auto rounded-none border border-white/20 bg-[#08111e] p-0 text-white">
           <DialogHeader className="px-5 pt-5">
             <DialogTitle className="font-heading text-sm font-black uppercase tracking-[0.18em] text-[#00e5ff]">
               {t("matchFlow.liveStream")}
             </DialogTitle>
           </DialogHeader>
+          <p className="gd-modal-intro px-5">Broadcast your match. Share your channel with your opponent and spectators in The Stands.</p>
           <StreamLinkSection
             game={game}
             isMyMatch={isMyMatch}
@@ -544,7 +546,7 @@ export default function GameDayDetail({
       </Dialog>
 
       <Dialog open={chatOpen} onOpenChange={onChatOpenChange}>
-        <DialogContent className="flex max-h-[85vh] max-w-lg flex-col overflow-hidden border-[#d8dee8]/20 bg-[#111827] p-0 text-white">
+        <DialogContent style={{"--gd-accent":accent}} className="gd-chat-modal flex max-h-[85dvh] w-[calc(100%-24px)] max-w-xl flex-col overflow-hidden rounded-none border-[#d8dee8]/20 bg-[#08111e] p-0 text-white">
           <DialogHeader className="px-5 pt-5">
             <DialogTitle className="font-heading text-sm font-black uppercase tracking-[0.18em] text-[#f8fbff]">
               {t("matchFlow.chat")}
@@ -558,7 +560,7 @@ export default function GameDayDetail({
                 className="border-0"
               >
                 <TabsList className="h-auto w-full justify-start overflow-x-auto rounded-none border-b border-white/10 bg-black/30 p-0">
-                  <TabsTrigger value="chat" className="rounded-none font-heading text-[11px] uppercase tracking-[0.16em] data-[state=active]:border-b-2 data-[state=active]:border-[#f8fbff] data-[state=active]:text-[#f8fbff] flex items-center gap-1.5 whitespace-nowrap">
+                  <TabsTrigger value="chat" className="rounded-none font-heading text-[11px] uppercase tracking-[0.16em] data-[state=active]:drop-shadow-[0_0_8px_#9bd6ff80] data-[state=active]:text-[#f8fbff] flex items-center gap-1.5 whitespace-nowrap">
                     <MessageSquare className="w-3.5 h-3.5" /> {t("matchFlow.chat")}
                     {chatUnread > 0 && (
                       <span
@@ -570,7 +572,7 @@ export default function GameDayDetail({
                     )}
                   </TabsTrigger>
                   {isCompleted && (stats.length > 0 || hasGoalTimeline) && (
-                    <TabsTrigger value="stats" className="rounded-none font-heading text-[11px] uppercase tracking-[0.16em] data-[state=active]:border-b-2 data-[state=active]:border-[#f8fbff] data-[state=active]:text-[#f8fbff] flex items-center gap-1.5 whitespace-nowrap">
+                    <TabsTrigger value="stats" className="rounded-none font-heading text-[11px] uppercase tracking-[0.16em] data-[state=active]:drop-shadow-[0_0_8px_#9bd6ff80] data-[state=active]:text-[#f8fbff] flex items-center gap-1.5 whitespace-nowrap">
                       <Target className="w-3.5 h-3.5" /> {t("matchFlow.stats")}
                     </TabsTrigger>
                   )}

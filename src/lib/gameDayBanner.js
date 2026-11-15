@@ -18,3 +18,8 @@ export function getGameDayBannerInterval(config) {
   const seconds = Number(config?.banner_interval_seconds);
   return (Number.isFinite(seconds) && seconds >= 3 && seconds <= 30 ? seconds : 6) * 1000;
 }
+
+export const GAME_DAY_ACCENTS = { blue: '#4d8dff', cyan: '#00d4ff', white: '#eef3fb', gold: '#f5c542' };
+export function getGameDayAccent(config) {
+  return GAME_DAY_ACCENTS[config?.accent] || GAME_DAY_ACCENTS.blue;
+}

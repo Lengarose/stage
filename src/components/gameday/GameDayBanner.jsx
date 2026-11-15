@@ -39,32 +39,33 @@ export default function GameDayBanner({ config, children }) {
       onMouseLeave={() => setHovered(false)}
       onFocusCapture={() => setFocused(true)}
       onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false); }}
-      className="relative flex min-h-[248px] w-full shrink-0 flex-col overflow-hidden border-b border-[#d8dee8]/30 bg-[#07070b] sm:min-h-[298px] xl:min-h-[328px]"
+      className="gd-intro"
     >
-      <div aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(110deg,#171c25_0%,#10141d_45%,#252b36_100%)]">
+      <div aria-hidden="true" className="gd-page-art">
         {slides.map((slide, index) => (
           <div
             key={`${index}:${slide.url}`}
             data-banner-slide={index}
             className={`absolute inset-0 transition-opacity duration-1000 motion-reduce:transition-none ${index === currentIndex ? "opacity-100" : "opacity-0"}`}
             style={{
-              backgroundImage: `url(${slide.url})`,
+              backgroundImage: `url(${JSON.stringify(slide.url)})`,
               backgroundPosition: slide.position,
-              backgroundSize: slide.zoom ? `${slide.zoom}%` : "cover",
+              backgroundSize: "cover",
+              transform: `scale(${Math.max(1, Number(slide.zoom || 100) / 100)})`,
+              transformOrigin: slide.position,
               backgroundRepeat: "no-repeat",
             }}
           />
         ))}
       </div>
-      <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/25 to-black/40" />
-      <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-transparent" />
-      <div className="relative z-10 min-h-[180px] flex-1 px-4 py-6 sm:min-h-[230px] sm:px-6 sm:py-8 lg:px-8 xl:min-h-[260px]">
-        <h1 id="gameday-title" className="font-heading text-3xl font-black tracking-wide text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)] sm:text-4xl">GameDay</h1>
-        <p className="mt-3 max-w-[260px] text-sm leading-relaxed text-white/80 drop-shadow-md sm:max-w-sm sm:text-base">
-          {GAME_DAY_BANNER_DESCRIPTION}
-        </p>
+
+
+      <div className="gd-intro-copy">
+        <p className="gd-eyebrow">STAGE / YOUR MATCHDAY HQ</p>
+        <h1 id="gameday-title">GameDay<span>.</span></h1>
+        <p>{GAME_DAY_BANNER_DESCRIPTION}</p>
       </div>
-      <div className="relative z-10 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 pb-3 sm:px-6 lg:px-8">
+      <div className="gd-intro-tools">
         {slides.length > 1 ? (
           <div className="flex items-center" role="group" aria-label="Banner slideshow controls">
             {slides.map((slide, index) => (

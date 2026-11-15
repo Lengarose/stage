@@ -3,13 +3,14 @@ import PositionedImageUploadField from "@/components/admin/shared/PositionedImag
 import { stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
 import { ArrowDown, ArrowUp, Check, Plus, Save, Trash2 } from "lucide-react";
-import { GAME_DAY_BANNER_DESCRIPTION, getGameDayBannerInterval, getGameDayBannerSlides } from "@/lib/gameDayBanner";
+import { GAME_DAY_ACCENTS, GAME_DAY_BANNER_DESCRIPTION, getGameDayBannerInterval, getGameDayBannerSlides } from "@/lib/gameDayBanner";
 
 const emptySlide = () => ({ url: "", position: "50% 50%", zoom: 120 });
 
 export default function GameDayBannerEditor() {
   const [record, setRecord] = useState(null);
   const [slides, setSlides] = useState([emptySlide()]);
+  const [accent,setAccent]=useState("blue");
   const [intervalSeconds, setIntervalSeconds] = useState(6);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -25,6 +26,7 @@ export default function GameDayBannerEditor() {
         const row = rows?.[0] || null;
         const existing = getGameDayBannerSlides(row);
         setRecord(row);
+        setAccent(Object.hasOwn(GAME_DAY_ACCENTS,row?.accent)?row.accent:"blue");
         setSlides(existing.length ? existing : [emptySlide()]);
         setIntervalSeconds(getGameDayBannerInterval(row) / 1000);
       } catch (err) {
@@ -51,6 +53,7 @@ export default function GameDayBannerEditor() {
       const first = banners[0];
       const payload = {
         key: "main",
+        accent,
         banner_slides: banners,
         banner_interval_seconds: getGameDayBannerInterval({ banner_interval_seconds: intervalSeconds }) / 1000,
         // Preserve compatibility with clients that still display a single banner.
@@ -89,9 +92,9 @@ export default function GameDayBannerEditor() {
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.28em] text-cyan-300">GameDay</p>
-          <h3 className="font-heading text-lg font-black uppercase text-white">Banner Slideshow</h3>
+          <h3 className="font-heading text-lg font-black uppercase text-white">Background Slideshow &amp; Accent</h3>
           <p className="mt-1 max-w-xl text-xs text-slate-400">
-            Add and reorder banner photos. Multiple photos rotate automatically; visitors can also select a photo using the dots. The page title and introduction appear over every photo.
+            Manage the full-page fading slideshow and action colour. Existing photos, their order and crops are preserved.
           </p>
         </div>
         <Button type="button" size="sm" onClick={saveGameDayConfig} disabled={saving || loading || Boolean(loadError)} className="gap-2 bg-cyan-300 font-heading text-xs font-black uppercase tracking-[0.14em] text-slate-950 hover:bg-cyan-200">
@@ -105,6 +108,9 @@ export default function GameDayBannerEditor() {
         <p role="alert" className="text-sm text-red-300">{loadError}</p>
       ) : (
         <fieldset disabled={saving} className="min-w-0 space-y-5 disabled:opacity-60">
+          <label className="block text-sm text-slate-300">Action accent
+            <select aria-label="GameDay action accent" value={accent} onChange={e=>{setAccent(e.target.value);setSaved(false);}} className="ml-3 border border-white/20 bg-slate-900 p-2 text-white">{Object.keys(GAME_DAY_ACCENTS).map(key=><option key={key} value={key}>{key}</option>)}</select>
+          </label>
           <label className="flex flex-wrap items-center gap-3 text-sm text-slate-300">
             Seconds per photo
             <input aria-label="Seconds per photo" type="number" min="3" max="30" value={intervalSeconds} onChange={event => { setSaved(false); setIntervalSeconds(event.target.value); }} className="w-20 rounded border border-white/20 bg-slate-900 px-3 py-2 text-white" />

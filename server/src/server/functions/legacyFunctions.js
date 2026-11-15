@@ -6764,7 +6764,6 @@ const HANDLERS = {
       const accepted=await require('../services/arrangedMatchAcceptanceService').accept({message,userEmail:user.email,action,createMatch:createRankedMatchFromInviteMetadata,transaction:withTransaction,actor:user});
       const payload=accepted.match;
       await Promise.resolve(broadcastMatch(payload)).catch(()=>{});
-      if (accepted.created && Number(meta.wager_stc || 0)>0) await HANDLERS.wagerMatchActions({action:'accept_wager',match_id:payload.id});
       await notifySafely(async()=>{
         const correspondence=require('../services/matchInviteCorrespondenceService');
         const sender=await correspondence.identity(accepted.meta,user.email,EXECUTESQL);

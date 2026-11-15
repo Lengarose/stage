@@ -4,6 +4,8 @@ import { useSearchParams } from "react-router-dom";
 import { MessageSquare, MoreHorizontal, Plus, Radio, RefreshCw, Zap } from "lucide-react";
 import { useChatNotifications } from "@/lib/ChatNotificationsContext";
 import GameDayCard from "@/components/gameday/GameDayCard";
+import { getGameDayAccent } from "@/lib/gameDayBanner";
+import "@/components/gameday/gameDay.css";
 import GameDayBanner from "@/components/gameday/GameDayBanner";
 import GameDayDetail from "@/components/gameday/GameDayDetail";
 import GameDayTileBackgroundDialog, {
@@ -358,6 +360,21 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
       relevantGames = relevantGames.filter(m => m.tournament_id === scopedTournamentId);
     }
 
+    // Resolve each participant once for queue portraits and the split artwork.
+    const participants = new Map();
+    for (const match of relevantGames) for (const side of ['home','away']) {
+      const club = Boolean(match.home_club_id || match.away_club_id);
+      const id = match[`${side}_${club?'club':'player'}_id`];
+      if (id) participants.set(`${club?'Club':'Player'}:${id}`, {id,entity:club?'Club':'Player'});
+    }
+    const portraits = new Map(await Promise.all([...participants].map(async([key,{id,entity}])=>{
+      const record = await stageClient.entities[entity].get(id).catch(()=>null);
+      return [key,record?.logo_url || record?.avatar_url || ''];
+    })));
+    relevantGames = relevantGames.map(match=>{
+      const entity = match.home_club_id || match.away_club_id ? 'Club':'Player';
+      return {...match,home_avatar_url:portraits.get(`${entity}:${match[entity==='Club'?'home_club_id':'home_player_id']}`),away_avatar_url:portraits.get(`${entity}:${match[entity==='Club'?'away_club_id':'away_player_id']}`)};
+    });
     if(version!==loadVersion.current)return;
     setGames(relevantGames);
     if (requestedMatchId) {
@@ -384,6 +401,10 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
     }
   }
 
+  useEffect(() => {
+    if (selectedGame?.id === searchParams.get("match") && searchParams.get("chat") === "1") setChatOpen(true);
+  }, [selectedGame?.id, searchParams]);
+
   if (loading) {
     return (
       <div className="flex h-full min-h-[60vh] items-center justify-center bg-[#07070b]">
@@ -405,6 +426,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
       myClub={selectedMatchClub}
       myPlayer={myPlayer}
       user={user}
+      accent={getGameDayAccent(gameDayConfig)}
       onOpenReport={setReport}
       opsOpen={opsOpen}
       chatOpen={chatOpen}
@@ -447,12 +469,13 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
   );
 
   return (
-    <div className="flex h-full min-h-0 min-w-0 w-full flex-1 flex-col overflow-x-clip overflow-y-auto bg-[#07070b] text-white">
+    <div className="gameday-page landing-v2" style={{"--gd-accent":getGameDayAccent(gameDayConfig)}}>
       <GameDayBanner config={gameDayConfig}>
           {!scopedTournamentId && (
             <ActionTab
               onClick={() => setArrangeOpen(true)}
               tone="silver"
+              className="gd-arrange"
             >
               <Plus className="h-3.5 w-3.5" />
               {t("matchFlow.arrangeGame")}
@@ -481,10 +504,10 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
           </ActionTab>
       </GameDayBanner>
 
-      <div className="relative z-10 flex shrink-0 flex-col bg-[#07070b]">
-        <div className="mx-auto grid min-w-0 w-full grid-cols-1 max-w-[1600px] items-start gap-4 px-4 py-5 sm:px-6 lg:grid-cols-[380px_minmax(0,1fr)] lg:px-8">
+      <div className="gd-workspace">
+        <div className="gd-workspace-grid">
           <aside className={cn(
-            "relative flex min-h-0 min-w-0 w-full flex-col overflow-hidden border border-[#eef3fb]/22 p-3 shadow-[0_0_42px_-24px_rgba(238,243,251,0.85)]",
+            "gd-queue relative flex min-h-0 min-w-0 w-full flex-col overflow-hidden border border-white/15 p-3",
             hasMatchScreensBg ? "bg-black/40" : "bg-gradient-to-b from-[#1b212c]/90 via-[#111827]/95 to-black/82",
           )}
           >
@@ -493,7 +516,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
             <div className="relative z-[1] flex min-h-0 min-w-0 flex-1 flex-col">
               <div className="mb-3 flex shrink-0 items-center justify-between gap-3 px-2 pt-2">
                 <div>
-                  <p className="font-heading text-xs font-black uppercase tracking-[0.2em] text-[#f8fbff]">Match Screens</p>
+                  <p className="font-heading text-xs font-black uppercase tracking-[0.2em] text-[#f8fbff]">Match queue</p>
                   <p className={cn(
                     "mt-1 text-[10px] uppercase tracking-[0.16em]",
                     hasMatchScreensBg ? "text-white/85" : "text-white/35",
@@ -512,7 +535,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
                   </button>
                 ) : null}
               </div>
-              <div className="mb-3 space-y-2 px-2"><input aria-label="Search matches" placeholder="Search matches" value={search} onChange={e=>setSearch(e.target.value)} className="h-11 w-full border border-white/20 bg-black/25 px-3 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"/><select aria-label="Match competition scope" value={scopeFilter} onChange={e=>setScopeFilter(e.target.value)} className="h-11 w-full border border-white/20 bg-[#0b1019] px-3 text-xs text-white"><option value="general">General - All games</option><option value="gost">GOST</option><option value="regional">Regional</option><option value="tournament">Tournament</option><option value="friendly">Friendly</option></select><div className="grid grid-cols-4 gap-1" aria-label="Match status">{['all','upcoming','live','completed'].map(status=><button type="button" key={status} aria-pressed={statusFilter===status} onClick={()=>setStatusFilter(status)} className={cn('min-h-11 min-w-0 border-b-2 px-0 text-[10px] sm:text-xs tracking-normal capitalize focus-visible:ring-2 focus-visible:ring-cyan-400',statusFilter===status?'border-cyan-400 text-white':'border-transparent text-white/55')}>{status}</button>)}</div></div>
+              <div className="mb-3 space-y-2 px-2"><input aria-label="Search matches" placeholder="Search matches" value={search} onChange={e=>setSearch(e.target.value)} className="h-11 w-full border border-white/20 bg-black/25 px-3 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"/><select aria-label="Match competition scope" value={scopeFilter} onChange={e=>setScopeFilter(e.target.value)} className="h-11 w-full border border-white/20 bg-[#0b1019] px-3 text-xs text-white"><option value="general">General - All games</option><option value="gost">GOST</option><option value="regional">Regional</option><option value="tournament">Tournament</option><option value="friendly">Friendly</option></select><div className="grid grid-cols-4 gap-1" aria-label="Match status">{['all','upcoming','live','completed'].map(status=><button type="button" key={status} aria-pressed={statusFilter===status} onClick={()=>setStatusFilter(status)} className={cn('gd-filter min-h-11 min-w-0 px-0 text-[10px] sm:text-xs tracking-normal capitalize focus-visible:ring-2 focus-visible:ring-cyan-400',statusFilter===status?'is-active text-white':'text-white/55')}>{status}</button>)}</div></div>
               {backendNotice&&<p role="status" className="p-2 text-sm text-amber-200">{backendNotice}</p>}
               {loadError&&<p role="alert" className="p-2 text-sm text-red-300">{loadError}<button type="button" onClick={()=>setRefreshTick(n=>n+1)} className="ml-2 min-h-11 text-cyan-300">Retry</button></p>}
               {pendingScheduleFixtures.length > 0 && !scopedTournamentId && ['all','upcoming'].includes(statusFilter) && ['general','gost'].includes(scopeFilter) ? (
@@ -566,7 +589,7 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
                   </p>
                 </div>
               ) : (
-                <div className="flex max-h-[240px] min-h-0 flex-col gap-1 overflow-y-auto overscroll-contain pb-1 lg:max-h-[300px] lg:pr-1">
+                <div className="gd-queue-list">
                   {visibleGames.map(game => (
                     <GameDayCard
                       key={game.id}
@@ -594,10 +617,12 @@ export default function GameDay({ tournamentId: scopedTournamentId } = {}) {
       {report&&<GameDayResultDialog key={`report:${report.game.id}`} report={report} onClose={()=>{report.onClose?.();setReport(null);}}/>}
 
       <ArrangeGameDialog
+        user={user}
         open={arrangeOpen}
         onClose={() => setArrangeOpen(false)}
         myPlayer={myPlayer}
-        myClub={myClub}
+        myClub={presidentClub || myClub}
+        accent={getGameDayAccent(gameDayConfig)}
         onSent={() => {
           setArrangeOpen(false);
           setRefreshTick(value => value + 1);

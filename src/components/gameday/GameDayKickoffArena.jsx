@@ -7,6 +7,7 @@ import {
   formatBroadcastUnit,
   getKickoffCountdownParts,
 } from "@/lib/gameDayPresentation";
+import MatchupBackdrop from "@/components/schedule/MatchupBackdrop";
 import GameDayCrest from "./GameDayCrest";
 import { GameDayTileBackgroundLayers, gameDayMutedOnBg, gameDayTextOnBg } from "./GameDayTileBackgroundDialog";
 
@@ -46,34 +47,12 @@ export default function GameDayKickoffArena({
 
   return (
     <section className={cn(
-      "relative overflow-hidden border border-[#d8dee8]/22 text-white shadow-[0_0_88px_-28px_rgba(238,243,251,0.38)]",
+      "gd-scoreboard relative overflow-hidden border border-[#d8dee8]/22 text-white shadow-[0_0_88px_-28px_rgba(238,243,251,0.38)]",
       hasCustomBackground ? "bg-black/35" : "bg-[#080b10]",
     )}>
       <GameDayTileBackgroundLayers style={backgroundStyle} variant="arena" />
 
-      {!hasCustomBackground ? (
-        <>
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0"
-            style={{
-              background: [
-                "radial-gradient(ellipse 90% 55% at 50% -8%, rgba(238,243,251,0.30), transparent 52%)",
-                "radial-gradient(ellipse 42% 58% at 12% 48%, rgba(255,255,255,0.18), transparent 58%)",
-                "radial-gradient(ellipse 42% 58% at 88% 48%, rgba(142,238,255,0.12), transparent 58%)",
-                "linear-gradient(110deg, #151b25 0%, #0a0d13 48%, #242b36 100%)",
-                "repeating-linear-gradient(90deg, rgba(255,255,255,0.035) 0px, rgba(255,255,255,0.035) 1px, transparent 1px, transparent 72px)",
-              ].join(", "),
-            }}
-          />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute left-1/2 top-[42%] h-[220px] w-[220px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10 sm:h-[280px] sm:w-[280px]"
-          />
-          <div aria-hidden className="pointer-events-none absolute inset-x-[12%] top-[42%] h-px bg-white/10" />
-          <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/35 via-transparent to-black/70" />
-        </>
-      ) : null}
+      {!hasCustomBackground && <MatchupBackdrop detail event={{homeAvatarUrl:homeLogo,awayAvatarUrl:awayLogo}}/>}
 
       {hasCustomBackground ? (
         <>
@@ -121,7 +100,7 @@ export default function GameDayKickoffArena({
           </div>
         </div>
 
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-6">
+        <div className="gd-scoreboard-versus grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-6">
           <Side
             name={homeName}
             logo={homeLogo}
