@@ -1,3 +1,4 @@
+import TournamentHubEditor from "@/components/admin/TournamentHubEditor";
 import EmptyState from "@/components/admin/shared/EmptyState";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
@@ -276,6 +277,7 @@ export default function TournamentsTab({
 
   return (
     <>
+      <TournamentHubEditor />
       <div className="mb-4 flex gap-2 flex-wrap">
         <Button onClick={() => setCreateTournamentOpen(true)} className="bg-primary text-primary-foreground gap-2 text-xs h-8 rounded">
           <Plus className="w-3.5 h-3.5" /> {t("admin.tournaments.create")}

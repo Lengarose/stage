@@ -81,7 +81,7 @@ export default function ProfileEditShell({
   const usesClubFrame = !usesPlayerFrame && Boolean(photoPreviewClub);
 
   return (
-    <div className="h-full min-h-0 overflow-y-auto overscroll-contain">
+    <div className="profile-ui h-full min-h-0 overflow-y-auto overscroll-contain">
       <div className="mx-auto max-w-2xl space-y-6 p-4 pb-10 sm:p-6">
       <div className="flex items-center gap-3">
         {showBack ? (

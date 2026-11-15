@@ -1,3 +1,4 @@
+import "@/components/tournament/tournamentDetailTypography.css";
 import { useState, useEffect, useMemo } from "react";
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
@@ -927,7 +928,7 @@ function TournamentDetailContent() {
   ];
 
   return (
-    <div className="competition-surface min-h-screen min-w-0 bg-background">
+    <div className="tournament-detail-ui competition-surface min-h-screen min-w-0 bg-background">
       {/* ── HERO CONTENT ──────────────────────────────── */}
       <div className="relative border-b border-border bg-background">
         <TournamentBanner tournament={tournament}/>

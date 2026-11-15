@@ -58,6 +58,7 @@ const ROUTE_TO_TYPE = {
   'season-registrations':         'season_registration',
   'game-day-configs':             'game_day_config',
   'news-page-configs': 'news_page_config',
+  'tournament-hub-configs': 'tournament_hub_config',
   'transfer-room-configs':        'transfer_room_config',
 };
 
@@ -87,6 +88,7 @@ const AUDITED_ENTITY_TYPES = new Set([
   'season_registration',
   'game_day_config',
   'transfer_room_config',
+  'tournament_hub_config',
   'news_page_config',
 ]);
 
@@ -275,7 +277,7 @@ function makeRouter(entityType) {
         const result=await require('../services/leagueLifecycleService').createInitialCompetitionSeason(body,req.user);
         return res.status(result.outcome==='created'?201:200).json({...result.record,creation_outcome:result.outcome});
       }
-      if (FIXTURE_ENTITY_TYPES.has(entityType) || entityType === 'competition' || entityType === 'game_day_config' || (entityType === 'transfer_room_config' || entityType === 'news_page_config')) {
+      if (FIXTURE_ENTITY_TYPES.has(entityType) || entityType === 'competition' || entityType === 'game_day_config' || (entityType === 'transfer_room_config' || entityType === 'news_page_config' || entityType === 'tournament_hub_config')) {
         const admin = await getAdminUser(req).catch(() => null);
         if (!admin) return res.status(403).json({ error: 'Admin access required.' });
       }
@@ -328,7 +330,7 @@ function makeRouter(entityType) {
       }
       if (entityType === 'regional_league') return res.json(await require('../services/regionalEditionService').update(req.params.id, req.body || {}, req.user));
       if (entityType === 'season_registration' && !await getAdminUser(req)) return res.status(403).json({error:'Regional registration decisions and corrections require Admin access.'});
-      if (entityType === 'game_day_config' || (entityType === 'transfer_room_config' || entityType === 'news_page_config')) {
+      if (entityType === 'game_day_config' || (entityType === 'transfer_room_config' || entityType === 'news_page_config' || entityType === 'tournament_hub_config')) {
         const admin = await getAdminUser(req).catch(() => null);
         if (!admin) return res.status(403).json({ error: 'Admin access required.' });
       }
@@ -395,7 +397,7 @@ function makeRouter(entityType) {
         await require('../services/regionalEditionService').admin(req.user);
         return res.status(409).json({ error: 'Use the dry-run edition review before removing a regional league. No records were deleted.' });
       }
-      if (FIXTURE_ENTITY_TYPES.has(entityType) || entityType === 'game_day_config' || (entityType === 'transfer_room_config' || entityType === 'news_page_config')) {
+      if (FIXTURE_ENTITY_TYPES.has(entityType) || entityType === 'game_day_config' || (entityType === 'transfer_room_config' || entityType === 'news_page_config' || entityType === 'tournament_hub_config')) {
         const admin = await getAdminUser(req).catch(() => null);
         if (!admin) return res.status(403).json({ error: 'Admin access required.' });
       }

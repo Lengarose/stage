@@ -39,3 +39,11 @@ test("transfer market fills the remaining viewport under the app header", () => 
   assert.equal(isFullBleedRoute("/transfer-market"), true);
   assert.equal(isTransferMarketFullBleedRoute("/transfers"), false);
 });
+
+test('tournament directory is full bleed without changing nested organizer routes', async () => {
+ const {isTournamentHubFullBleedRoute}=await import('../profileRouteLayout.js');
+ assert.equal(isTournamentHubFullBleedRoute('/tournaments'),true);
+ assert.equal(isTournamentHubFullBleedRoute('/tournaments/'),true);
+ assert.equal(isTournamentHubFullBleedRoute('/tournaments/inbox'),false);
+ assert.equal(isFullBleedRoute('/tournaments'),true);
+});

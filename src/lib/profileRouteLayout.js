@@ -28,11 +28,16 @@ export function isNewsFullBleedRoute(pathname = "") {
   return /^\/news(?:\/|$)/.test(pathname);
 }
 
+export function isTournamentHubFullBleedRoute(pathname = "") {
+  return /^\/tournaments\/?$/.test(pathname);
+}
+
 export function isFullBleedRoute(pathname = "") {
   return isProfileFullBleedRoute(pathname)
     || isGameDayFullBleedRoute(pathname)
     || isTransferMarketFullBleedRoute(pathname)
     || isNewsFullBleedRoute(pathname)
+    || isTournamentHubFullBleedRoute(pathname)
     || /^\/leagues\/[^/]+\/?$/.test(pathname)
     || /^\/competitions\/[^/]+\/?$/.test(pathname)
     || /^\/tournaments\/(?!profile-player|profile-club|game-day)[^/]+\/?$/.test(pathname);

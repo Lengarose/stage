@@ -1,5 +1,5 @@
 <!doctype html>
-<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link href="https://fonts.googleapis.com/css2?family=Anton&family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet"></head>
 <body style="margin:0"><div id="root"></div><script type="module">
 // Local-only fixture using both real profile routes and mocked business calls.
 import React from 'react';
@@ -34,8 +34,8 @@ stageClient.auth.isAuthenticated=async()=>true;
 stageClient.entities.Player.get=async id=>id===player.id?player:{...player,id:visitor.player_id,email:visitor.email};
 stageClient.entities.Club.get=async()=>club;
 stageClient.entities.Player.filter=async filters=>filters.club_id&&clubMember?[player]:[];
-stageClient.http.get=async()=>({});stageClient.http.post=async()=>({});
-stageClient.profileMatches.list=async()=>[];
+stageClient.http.get=async path=>path.startsWith("/card-progressions/")?{level:1,total_xp:0,xp_in_level:0,xp_to_next_level:100}:({});stageClient.http.post=async()=>({});
+stageClient.profileMatches.list=async filters=>params.has('form')&&filters.home_club_id===club.id&&filters.status==='completed'?Array.from({length:3},(_,i)=>({id:`qa-form-${i}`,home_club_id:club.id,away_club_id:'qa-opponent',home_score:0,away_score:1,status:'completed',result_state:'CONFIRMED',stats_processed:1,updated_date:`2026-11-${String(10+i).padStart(2,'0')}T20:00:00Z`})) : [];
 stageClient.identityClaims.list=async()=>[];
 stageClient.functions.invoke=async()=>({});
 stageClient.entities.Notification.filter=async()=>[{id:'qa-notification',recipient_email:player.email,read:false,title:'Test notification'}];

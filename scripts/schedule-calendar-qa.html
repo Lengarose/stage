@@ -1,5 +1,5 @@
 <!doctype html>
-<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Schedule calendar local QA</title></head>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Schedule calendar local QA</title><link href="https://fonts.googleapis.com/css2?family=Anton&family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet"></head>
 <body style="margin:0"><div id="root"></div><script type="module">
 import React from 'react';
 import ReactDOM from 'react-dom/client';
@@ -37,7 +37,7 @@ const {default:Schedule}=await import('/src/pages/Schedule.jsx');
 const {default:ScheduleList}=await import('/src/components/schedule/ScheduleList.jsx');
 const {default:MatchDetail}=await import('/src/components/schedule/MatchDetail.jsx');
 const qaMatch={id:'qa-result',home_club_id:'qa-home',away_club_id:'qa-away',home_club_name:'QA Home FC',away_club_name:'QA Away FC',home_score:2,away_score:1,status:'played',result_state:'CONFIRMED',stats_processed:1,decided_on_penalties:1,penalty_winner_side:'away',aggregate_home_score:3,aggregate_away_score:3,scheduled_date:'2026-10-27T19:00:00Z'};
-const qaEvent={id:'qa-result',type:'match',date:qaMatch.scheduled_date,opposition:'QA Away FC',competition:'QA Knockout Cup',venue:'Home',venueKey:'home',status:'completed',fixtureData:qaMatch,result:{outcome:'L',display:'2–1'}};
-const content=params.get('view')==='fixture-list'?React.createElement('main',{className:'grid min-h-screen gap-4 bg-background p-4 lg:grid-cols-2'},React.createElement(ScheduleList,{events:[qaEvent],selectedId:qaEvent.id,onSelect:()=>{}}),React.createElement(MatchDetail,{event:qaEvent,myClub:{id:'qa-home'}})):React.createElement(Schedule);
+const qaEvent={id:'qa-result',type:'match',homeName:qaMatch.home_club_name,awayName:qaMatch.away_club_name,date:qaMatch.scheduled_date,opposition:'QA Away FC',competition:'QA Knockout Cup',venue:'Home',venueKey:'home',status:'completed',fixtureData:qaMatch,result:{outcome:'L',display:'2–1'}};
+const content=params.get('view')==='fixture-list'?React.createElement('main',{className:'schedule-ui grid min-h-screen gap-4 bg-background p-4 lg:grid-cols-2'},React.createElement(ScheduleList,{events:[qaEvent],selectedId:qaEvent.id,onSelect:()=>{}}),React.createElement(MatchDetail,{event:qaEvent,myClub:{id:'qa-home'}})):React.createElement(Schedule);
 ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(AuthProvider,null,React.createElement(TranslationProvider,null,React.createElement(MemoryRouter,null,React.createElement('div',{className:'h-screen bg-background'},content)))));
 </script></body></html>

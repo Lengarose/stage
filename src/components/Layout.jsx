@@ -38,7 +38,7 @@ import {
   getLiveDarkFx,
   LIVE_DARK_BG_CHANGE_EVENT,
 } from "@/lib/liveDarkBackground";
-import { isFullBleedRoute, isNewsFullBleedRoute } from "@/lib/profileRouteLayout";
+import { isFullBleedRoute, isNewsFullBleedRoute, isTournamentHubFullBleedRoute } from "@/lib/profileRouteLayout";
 import { isBannerStickyFullBleedRoute, isScheduleFullBleedRoute } from "@/lib/pageBanner";
 import { PAGE_GUIDE_STEPS_EN } from "@/lib/pageWalkthroughCopy";
 import { useTransferWindowStatus } from "@/lib/useTransferWindowStatus";
@@ -2577,6 +2577,7 @@ export default function Layout() {
             isBannerStickyFullBleedRoute(location.pathname)
               || isScheduleFullBleedRoute(location.pathname)
               || isNewsFullBleedRoute(location.pathname)
+              || isTournamentHubFullBleedRoute(location.pathname)
               ? "overflow-hidden"
               : "overflow-y-auto",
             isVideoTheme ? "bg-transparent" : "bg-background"
@@ -2591,7 +2592,7 @@ export default function Layout() {
             <div className="h-full min-h-0 overflow-hidden">
               <Outlet />
             </div>
-          ) : isBannerStickyFullBleedRoute(location.pathname) || isScheduleFullBleedRoute(location.pathname) ? (
+          ) : isBannerStickyFullBleedRoute(location.pathname) || isScheduleFullBleedRoute(location.pathname) || isTournamentHubFullBleedRoute(location.pathname) ? (
             <div className="absolute inset-0 flex min-h-0 flex-col overflow-hidden pb-[calc(var(--mobile-tab-h)+var(--safe-bottom))] md:pb-0">
               <Outlet />
             </div>

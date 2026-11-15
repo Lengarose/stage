@@ -1,3 +1,4 @@
+import "../profileTypography.css";
 import { CardLevelPhotoMark } from "@/components/card/CardProgression";
 import { playerPhotoFrame, playerPhotoFrameStyle } from "@/lib/playerPhotoFrame";
 import { Children, cloneElement, isValidElement } from "react";
@@ -70,7 +71,7 @@ export function GamerProfileShell({ children, className, scrollMode = "shell" })
   return (
     <div
       className={cn(
-        "relative flex flex-col bg-[#060912] text-white",
+        "profile-ui relative flex flex-col bg-[#060912] text-white",
         scrollMode === "page"
           ? "min-h-full"
           : hasStickyBanner
@@ -220,7 +221,7 @@ export function GamerHeroAction({ children, className, style, as: Component = "b
   return (
     <Component
       className={cn(
-        "inline-flex items-center justify-center gap-2 text-xs font-black uppercase tracking-[0.14em] transition-all",
+        "profile-action inline-flex items-center justify-center gap-2 text-xs font-black uppercase tracking-[0.14em] transition-all",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/40",
         staged
           ? cn(

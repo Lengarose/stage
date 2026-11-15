@@ -1,20 +1,22 @@
+import '@/components/tournament/tournamentHub.css';
+import TournamentHubHero from '@/components/tournament/TournamentHubHero';
+import {TOURNAMENT_HUB_ACCENTS,tournamentHubPresentation,tournamentParticipants,tournamentHubStatus,filterTournamentHub} from '@/lib/tournamentHub';
+import {isGostOfficialTournament} from '@/lib/tournamentOwnership';
 import TournamentSquadRulesFields from '@/components/competition/TournamentSquadRulesFields';
 import TournamentScheduleGuide from '@/components/competition/TournamentScheduleGuide';
 import { useState, useEffect, useRef, useId } from "react";
 import { Link } from "react-router-dom";
-import { Trophy, Plus, Calendar, Users, Crown, Upload, X, ChevronLeft, ChevronRight, BookOpen, ChevronDown } from "lucide-react";
+import { Trophy, Calendar, Users, Crown, Upload, X, ChevronLeft, ChevronRight, BookOpen, ChevronDown } from "lucide-react";
 import BannerPreviewEditor from "../components/BannerPreviewEditor";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import TournamentCountdown from "../components/TournamentCountdown";
 import { cn } from "@/lib/utils";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import { swalAlert } from "@/lib/swal";
-import { isWallClockFuture, toMysqlDateTime } from "@/lib/momentDate";
+import { toMysqlDateTime } from "@/lib/momentDate";
 import { hasStagePlus } from "@/lib/subscriptionUtils";
 import { COUNTRIES, COUNTRY_REGIONS } from "@/lib/countries";
 import {
@@ -38,15 +40,6 @@ const TYPE_LABEL = {
   knockout: "KNOCKOUT", league: "LEAGUE", group_stage: "GROUP STAGE",
   double_elimination: "DBL ELIM", swiss: "SWISS", swiss_ucl: "UCL",
 };
-const TYPE_COLOR = {
-  knockout: "text-red-400 border-red-400/30",
-  league: "text-blue-400 border-blue-400/30",
-  group_stage: "text-yellow-400 border-yellow-400/30",
-  double_elimination: "text-purple-400 border-purple-400/30",
-  swiss: "text-green-400 border-green-400/30",
-  swiss_ucl: "text-yellow-300 border-yellow-300/30",
-};
-
 const tournamentDialogFieldClass = "h-12 rounded-none border-cyan-300/18 bg-white/[0.08] text-white placeholder:text-white/35 focus-visible:ring-cyan-300/30";
 const tournamentDialogSelectClass = "h-12 rounded-none border-cyan-300/18 bg-white/[0.08] text-white focus:ring-cyan-300/30";
 const tournamentDialogClip = { clipPath: "polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%)" };
@@ -60,7 +53,15 @@ export default function Tournaments() {
   const { t, language } = useTranslation();
   const [createdTournament, setCreatedTournament] = useState(null);
   const [tournaments, setTournaments] = useState([]);
-  const [archiveView,setArchiveView]=useState(false);
+  const [hubView,setHubView]=useState('all');
+  const [search,setSearch]=useState('');
+  const [participantFilter,setParticipantFilter]=useState('all');
+  const [organizerFilter,setOrganizerFilter]=useState('all');
+  const [formatFilter,setFormatFilter]=useState('all');
+  const [identity,setIdentity]=useState({});
+  const [hubConfig,setHubConfig]=useState(null);
+  const [loadError,setLoadError]=useState('');
+  const [presentationNotice,setPresentationNotice]=useState('');
   const [trophyItems, setTrophyItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -97,26 +98,37 @@ export default function Tournaments() {
 
   async function load() {
     setLoading(true);
+    setLoadError('');
+    setPresentationNotice('');
     try {
       const isAuthed = await stageClient.auth.isAuthenticated();
       if (!isAuthed) { setLoading(false); return; }
-      const [data, user, items] = await Promise.all([
-        stageClient.entities.Tournament.list("-created_date", 100),
+      const allTournaments = async () => {
+        const records=[];
+        for(let page=1;;page++){const rows=await stageClient.entities.Tournament.filter({page},'-created_date',25);const fresh=rows.filter(row=>!records.some(existing=>existing.id===row.id));records.push(...fresh);if(rows.length<25||!fresh.length)return records;}
+      };
+      const [data, user, items, config] = await Promise.all([
+        allTournaments(),
         stageClient.auth.me(),
         stageClient.entities.TrophyItem.list("sort_order", 50).catch(() => []),
+        stageClient.entities.TournamentHubConfig.filter({key:'main'},'-updated_date',1).catch(()=>{setPresentationNotice('Custom presentation is unavailable. Default STAGE artwork is shown.');return [];}),
       ]);
       setTournaments((data || []).filter(t => !["cancelled", "archived"].includes(String(t.status || "").toLowerCase())));
-      const adminUser = user.role === "admin";
+      setHubConfig(config[0]||null);
+      const adminUser = user.role === "admin" || (user.role_id != null && [0,2].includes(Number(user.role_id)));
+      setIdentity({user});
       setTrophyItems(adminUser ? items : items.filter(t => !t.admin_only));
       if (adminUser) {
         setCanCreate(true);
       } else {
-        const { player } = await resolveMyPlayerAndClub();
+        const { player, club, presidentClub } = await resolveMyPlayerAndClub();
+        setIdentity({user,player,club,presidentClub});
         setMyPlayer(player);
         setCanCreate(hasStagePlus(player));
       }
     } catch (err) {
       console.error("[Tournaments] load error:", err);
+      setLoadError(err.message || "Tournaments could not be loaded.");
     } finally {
       setLoading(false);
     }
@@ -133,15 +145,21 @@ export default function Tournaments() {
     setBannerEditorOpen(false);
     setForm(f => ({ ...f, banner_position: position }));
     setUploadingBanner(true);
-    const { file_url } = await stageClient.integrations.Core.UploadFile({ file: bannerFile });
-    setForm(f => ({ ...f, banner_url: file_url }));
-    setBannerPreview(file_url);
-    setUploadingBanner(false);
+    try {
+      const { file_url } = await stageClient.integrations.Core.UploadFile({ file: bannerFile });
+      setForm(f => ({ ...f, banner_url: file_url }));
+      setBannerPreview(file_url);
+    } catch(error) {
+      await swalAlert(error.message || 'The banner could not be uploaded. Please try again.');
+    } finally {
+      setUploadingBanner(false);
+    }
   }
 
   async function createTournament() {
     const user = await stageClient.auth.me();
-    if (user.role !== "admin") {
+    const adminUser = user.role === "admin" || (user.role_id != null && [0,2].includes(Number(user.role_id)));
+    if (!adminUser) {
       if (!hasStagePlus(myPlayer)) { await swalAlert(t("competitionFlow.stagePlusRequired")); return; }
     }
     setCreating(true);
@@ -155,7 +173,7 @@ export default function Tournaments() {
         rules_template_id: form.written_rules.trim() ? null : rulesTemplateId,
         custom_rules: form.written_rules.trim() || encodeRulesTemplate(rulesTemplateId),
         club_rules: form.participant_type === "club" ? form.club_rules : null,
-        name: user.role === "admin" ? `By STAGE · ${form.name}` : form.name,
+        name: adminUser ? `By STAGE · ${form.name}` : form.name,
         max_teams: maxTeams,
         entry_credits: TOURNAMENT_CREDIT_COST,
         entry_fee_stc: prizes.entryFee,
@@ -168,7 +186,7 @@ export default function Tournaments() {
         organizer_email: user.email,
         creator_email: user.email,
         creator_id: myPlayer?.id || null,
-        creator_gamertag: user.role === "admin" ? null : (myPlayer?.gamertag || null),
+        creator_gamertag: adminUser ? null : (myPlayer?.gamertag || null),
         start_date: toMysqlDateTime(form.start_date),
         registered_clubs: [],
         status: "registration",
@@ -195,18 +213,10 @@ export default function Tournaments() {
     setTrophyPickerOpen(false);
   }
 
-  const now = new Date();
-  const stageTournaments = tournaments.filter(t => !t.creator_gamertag);
-  const communityTournaments = tournaments.filter(t => !!t.creator_gamertag);
-  const open = communityTournaments.filter(t => t.status === "registration" || (t.status === "in_progress" && isWallClockFuture(t.start_date, now)));
-  const live = communityTournaments.filter(t => t.status === "in_progress" && (!t.start_date || !isWallClockFuture(t.start_date, now)));
-  const done = communityTournaments.filter(t => t.status === "completed");
-
-  // Showcase: all tournaments that have a trophy image
-  const trophyShowcase = [...stageTournaments, ...communityTournaments]
-    .filter(t => t.trophy_url || t.trophy_item_id)
-    .filter(t => t.status !== "completed")
-    .slice(0, 12);
+  const presentation = tournamentHubPresentation(hubConfig||{});
+  const visible = filterTournamentHub(tournaments,{view:hubView,search,participant:participantFilter,organizer:organizerFilter,format:formatFilter,identity});
+  const openCount=tournaments.filter(t=>t.status==='registration').length;
+  const liveCount=tournaments.filter(t=>['in_progress','active'].includes(t.status)).length;
 
   const formatRule = getTournamentFormatRule(form.type);
   const maxTeamOptions = getTournamentMaxTeamOptions(form.type);
@@ -222,102 +232,21 @@ export default function Tournaments() {
   );
 
   return (
-    <div className="min-h-screen bg-background p-4 lg:p-8">
-      <div className="max-w-7xl mx-auto space-y-8">
-
-        {/* ── Header ──────────────────────────────────────────── */}
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-3">
-            <Trophy className="w-6 h-6 text-primary shrink-0" />
-            <div>
-              <h1
-                className="font-heading font-black text-5xl md:text-6xl text-foreground uppercase"
-                style={{ transform: "skewX(-8deg)", letterSpacing: "-0.02em", transformOrigin: "left center" }}
-              >
-                {t("competitionFlow.tournamentsTitle")}
-              </h1>
-              <p className="text-xs text-muted-foreground mt-1">{t("competitionFlow.tournamentsSubtitle")}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 flex-wrap">
-            <Button
-              variant="outline"
-              className="h-10 border-0 bg-transparent px-2 font-heading text-xs font-black uppercase tracking-[0.14em] text-cyan-50/90 shadow-none transition-all hover:bg-transparent hover:text-white hover:drop-shadow-[0_0_18px_rgba(0,229,255,0.55)] focus-visible:ring-2 focus-visible:ring-cyan-300/40"
-              onClick={() => setRulesOpen(true)}
-            >
-              <BookOpen className="w-3.5 h-3.5 text-cyan-200/90" /> {t("competitionFlow.rules")}
-            </Button>
-            {canCreate ? (
-              <Button
-                onClick={() => setDialogOpen(true)}
-                className="h-10 border-0 bg-transparent px-2 font-heading text-xs font-black uppercase tracking-[0.14em] text-cyan-50/90 shadow-none transition-all hover:bg-transparent hover:text-white hover:drop-shadow-[0_0_18px_rgba(0,229,255,0.55)] focus-visible:ring-2 focus-visible:ring-cyan-300/40"
-              >
-                <Plus className="w-3.5 h-3.5 text-cyan-200/90" /> {t("competitionFlow.createTournament")}
-              </Button>
-            ) : (
-              <div className="text-xs text-muted-foreground px-3 py-1.5 border border-border bg-card rounded">
-                {t("competitionFlow.stagePlusRequired")}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* ── Trophy Showcase ─────────────────────────────────── */}
-        <nav aria-label="Tournament views" className="flex gap-6"><button type="button" aria-pressed={!archiveView} className={!archiveView?'text-primary':'text-muted-foreground'} onClick={()=>setArchiveView(false)}>Tournaments</button><button type="button" aria-pressed={archiveView} className={archiveView?'text-primary':'text-muted-foreground'} onClick={()=>setArchiveView(true)}>Archive</button></nav>
-        {archiveView?<TournamentArchive/>:<>
-        {trophyShowcase.length > 0 && (
-          <TrophyShowcase tournaments={trophyShowcase} trophyItems={trophyItems} />
-        )}
-
-        {/* ── By STAGE ────────────────────────────────────────── */}
-        {stageTournaments.length > 0 && (
-          <section>
-            <SectionHeader label={t("competitionFlow.byStage")} badge={t("competitionFlow.official")} badgeColor="text-warning border-warning/30 bg-warning/5" />
-            <TournamentGrid tournaments={stageTournaments} trophyItems={trophyItems} now={now} />
-          </section>
-        )}
-
-        {/* ── Community ───────────────────────────────────────── */}
-        <section>
-          <SectionHeader label={t("competitionFlow.community")} />
-          <Tabs defaultValue="open" className="w-full">
-            <TabsList className="bg-transparent border-b border-border w-full rounded-none h-auto p-0 gap-0 justify-start mb-6">
-              {[
-                { value: "open", label: t("competitionFlow.open"), count: open.length },
-                { value: "live", label: t("competitionFlow.live"), count: live.length },
-                { value: "done", label: t("competitionFlow.done"), count: done.length },
-              ].map(tab => (
-                <TabsTrigger key={tab.value} value={tab.value}
-                  className="rounded-none border-b-2 border-transparent px-5 pb-3 pt-1 text-xs uppercase tracking-widest font-bold text-muted-foreground data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent">
-                  {tab.label}
-                  <span className="ml-1.5 text-[10px] opacity-50">({tab.count})</span>
-                </TabsTrigger>
-              ))}
-            </TabsList>
-            {[
-              { key: "open", data: open },
-              { key: "live", data: live },
-              { key: "done", data: done },
-            ].map(({ key, data }) => (
-              <TabsContent key={key} value={key}>
-                {data.length === 0 ? (
-                  <div className="border border-border rounded bg-card p-12 text-center">
-                    <Trophy className="w-8 h-8 text-muted-foreground/20 mx-auto mb-3" />
-                    <p className="text-sm text-muted-foreground">{t("competitionFlow.noTabTournaments", { status: key })}</p>
-                  </div>
-                ) : (
-                  <TournamentGrid tournaments={data} trophyItems={trophyItems} now={now} />
-                )}
-              </TabsContent>
-            ))}
-          </Tabs>
-        </section>
+    <div className="tournament-hub" style={{'--th-accent':TOURNAMENT_HUB_ACCENTS[presentation.accent]}}>
+      <TournamentHubHero presentation={presentation} openCount={openCount} liveCount={liveCount} canCreate={canCreate} onCreate={()=>setDialogOpen(true)} onRules={()=>setRulesOpen(true)}/>
+      <main id="tournament-directory" className="th-directory">
+        <nav aria-label="Tournament views" className="th-tabs">{[{id:'all',label:'Discover'},{id:'open',label:'Open entries'},{id:'live',label:'Live'},{id:'mine',label:'My tournaments'},{id:'completed',label:'Completed'},{id:'archive',label:'Archive'}].map(tab=><button type="button" key={tab.id} aria-pressed={hubView===tab.id} onClick={()=>setHubView(tab.id)}>{tab.label}</button>)}</nav>
+        {presentationNotice&&<p className="th-notice">{presentationNotice}</p>}
+        {loadError?<div role="alert" className="th-empty"><p>{loadError}</p><button type="button" onClick={load} className="th-primary mt-4">Retry loading</button></div>:hubView==='archive'?<TournamentArchive/>:<>
+          <div className="th-filters"><input aria-label="Search tournaments" placeholder="Search tournaments, hosts or regions" value={search} onChange={e=>setSearch(e.target.value)}/><select aria-label="Tournament participants" value={participantFilter} onChange={e=>setParticipantFilter(e.target.value)}><option value="all">Clubs & players</option><option value="club">Club tournaments</option><option value="player">Player tournaments</option></select><select aria-label="Tournament organizer" value={organizerFilter} onChange={e=>setOrganizerFilter(e.target.value)}><option value="all">All organizers</option><option value="stage">By STAGE</option><option value="community">Community</option></select><select aria-label="Tournament format" value={formatFilter} onChange={e=>setFormatFilter(e.target.value)}><option value="all">All formats</option>{Object.entries(TYPE_LABEL).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></div>
+          <div className="th-directory-heading"><h2>{hubView==='mine'?'Your competition desk':hubView==='live'?'On the pitch now':hubView==='completed'?'The final whistle':'Find your next challenge'}</h2><p>{visible.length} {visible.length===1?'tournament':'tournaments'} · Review the schedule and rules before entry</p></div>
+          {visible.length?<TournamentGrid tournaments={visible} trophyItems={trophyItems}/>:<div className="th-empty"><Trophy className="mx-auto mb-4 opacity-40" size={32}/><p>{hubView==='mine'?'Your entered and organized tournaments will appear here.':'No tournaments match these filters.'}</p><button type="button" className="th-text mt-3" onClick={()=>{setSearch('');setParticipantFilter('all');setOrganizerFilter('all');setFormatFilter('all');setHubView('all');}}>Explore all tournaments →</button></div>}
         </>}
-      </div>
+      </main>
 
       {/* ── Create Tournament Dialog ─────────────────────────── */}
       <Dialog open={dialogOpen} onOpenChange={open => { if (!open) resetForm(); setDialogOpen(open); }}>
-        <DialogContent hideCloseButton className="!flex max-h-[82vh] max-w-2xl flex-col overflow-hidden border-cyan-300/18 bg-[#0a1724] p-0 text-white shadow-[0_0_56px_rgba(34,211,238,0.14)] sm:max-w-2xl">
+        <DialogContent hideCloseButton className="th-dialog !flex max-h-[82vh] max-w-2xl flex-col overflow-hidden border-cyan-300/18 bg-[#0a1724] p-0 text-white shadow-[0_0_56px_rgba(34,211,238,0.14)] sm:max-w-2xl">
           {/* Header */}
           <div className="relative flex shrink-0 items-center justify-between overflow-hidden border-b border-cyan-300/14 px-5 pb-4 pt-5">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgba(34,211,238,0.16),transparent_42%),linear-gradient(90deg,rgba(34,211,238,0.08),rgba(255,255,255,0.035),transparent)]" />
@@ -333,7 +262,7 @@ export default function Tournaments() {
                 </DialogTitle>
               </div>
             </div>
-            <button type="button" onClick={() => { resetForm(); setDialogOpen(false); }}
+            <button type="button" aria-label="Close tournament builder" onClick={() => { resetForm(); setDialogOpen(false); }}
               className="relative grid h-10 w-10 place-items-center text-cyan-100/60 transition-colors hover:text-white">
               <X className="w-5 h-5" />
             </button>
@@ -708,7 +637,7 @@ export default function Tournaments() {
       </Dialog>
 
       <Dialog open={Boolean(createdTournament)} onOpenChange={open => { if (!open) setCreatedTournament(null); }}>
-        <DialogContent className="max-h-[85dvh] max-w-3xl overflow-y-auto rounded-none">
+        <DialogContent className="th-dialog max-h-[85dvh] max-w-3xl overflow-y-auto rounded-none">
           <DialogHeader><DialogTitle>Finish tournament setup: playing schedule</DialogTitle></DialogHeader>
           <p className="text-sm text-muted-foreground">Your tournament has been created. Publish its playing times before participants can enter; they will accept these conditions before payment.</p>
           {createdTournament && <><TournamentScheduleConditions tournament={createdTournament} canManage clubId={null} playerId={myPlayer?.id} /><Link to={`/tournaments/${createdTournament.id}`} className="inline-flex min-h-11 items-center font-bold">Open tournament and continue setup →</Link></>}
@@ -717,7 +646,7 @@ export default function Tournaments() {
 
       {/* ── Rules Dialog ──────────────────────────────── */}
       <Dialog open={rulesOpen} onOpenChange={setRulesOpen}>
-        <DialogContent className="bg-card border-border max-w-md max-h-[80vh] overflow-y-auto">
+        <DialogContent className="th-dialog bg-card border-border max-w-md max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><BookOpen className="w-4 h-4 text-primary" /> {t("competitionFlow.rules")}</DialogTitle>
           </DialogHeader>
@@ -749,176 +678,23 @@ export default function Tournaments() {
   );
 }
 
-/* ─── Trophy Showcase Strip ─────────────────────────────────────── */
-function TrophyShowcase({ tournaments, trophyItems }) {
-  const { t } = useTranslation();
-  const scrollRef = useRef(null);
-  function scroll(dir) { scrollRef.current?.scrollBy({ left: dir * 200, behavior: "smooth" }); }
-
-  return (
-    <div className="border border-border rounded bg-card/50 p-4">
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-[10px] uppercase tracking-widest font-bold text-warning flex items-center gap-1.5">
-          <Trophy className="w-3.5 h-3.5" /> {t("competitionFlow.trophiesAtStake")}
-        </span>
-        <div className="flex gap-1">
-          <button onClick={() => scroll(-1)} className="w-6 h-6 rounded border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"><ChevronLeft className="w-3.5 h-3.5" /></button>
-          <button onClick={() => scroll(1)} className="w-6 h-6 rounded border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"><ChevronRight className="w-3.5 h-3.5" /></button>
-        </div>
-      </div>
-      <div ref={scrollRef} className="flex gap-4 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
-        {tournaments.map(t => {
-          const trophyUrl = t.trophy_url || trophyItems.find(i => i.id === t.trophy_item_id)?.image_url;
-          if (!trophyUrl) return null;
-          return (
-            <Link key={t.id} to={`/tournaments/${t.id}`} className="flex-shrink-0 flex flex-col items-center gap-2 group">
-              <div className="w-16 h-16 flex items-center justify-center rounded bg-secondary/50 border border-border group-hover:border-warning/40 transition-colors p-1">
-                <img src={trophyUrl} alt={t.name} className="w-full h-full object-contain drop-shadow-xl" />
-              </div>
-              <p className="text-[9px] text-muted-foreground text-center w-16 truncate group-hover:text-foreground transition-colors">{t.name}</p>
-            </Link>
-          );
-        })}
-      </div>
-    </div>
-  );
+function TournamentGrid({tournaments,trophyItems}) {
+ return <div className="th-grid">{tournaments.map(tournament=><TournamentCard key={tournament.id} tournament={tournament} trophyItems={trophyItems}/>)}</div>;
 }
-
-/* ─── Section Header ────────────────────────────────────────────── */
-function SectionHeader({ label, badge, badgeColor }) {
-  return (
-    <div className="flex items-center gap-2 mb-4 border-l-2 border-primary pl-3">
-      <span className="font-heading font-black text-sm uppercase tracking-widest text-foreground">{label}</span>
-      {badge && (
-        <span className={cn("text-[10px] px-2 py-0.5 rounded border font-bold uppercase tracking-wider", badgeColor)}>{badge}</span>
-      )}
-    </div>
-  );
-}
-
-/* ─── Tournament Grid ───────────────────────────────────────────── */
-function TournamentGrid({ tournaments, trophyItems, now }) {
-  const { t } = useTranslation();
-  if (!tournaments.length) return (
-    <div className="border border-border rounded bg-card p-10 text-center">
-      <Trophy className="w-8 h-8 text-muted-foreground/20 mx-auto mb-2" />
-      <p className="text-sm text-muted-foreground">{t("competitionFlow.noTournaments")}</p>
-    </div>
-  );
-  return (
-    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-      {tournaments.map(t => <TournamentCard key={t.id} tournament={t} trophyItems={trophyItems} now={now} />)}
-    </div>
-  );
-}
-
-/* ─── Tournament Card ───────────────────────────────────────────── */
-function TournamentCard({ tournament: t, trophyItems }) {
-  const { t: translate } = useTranslation();
-  const registered = t.registered_clubs?.length || 0;
-  const fillPct = Math.round((registered / Math.max(t.max_teams, 1)) * 100);
-  const isFull = registered >= t.max_teams;
-
-  const bannerBg = t.banner_url
-    ? { backgroundImage: `url(${t.banner_url})`, backgroundSize: "cover", backgroundPosition: t.banner_position || "50% 50%" }
-    : { background: t.banner_color || "#0d1830" };
-
-  const statusBadge = {
-    registration: { label: translate("competitionFlow.open"), cls: "bg-success text-black" },
-    in_progress:  { label: translate("competitionFlow.live"), cls: "bg-primary text-primary-foreground" },
-    completed:    { label: translate("competitionFlow.done"), cls: "bg-muted text-muted-foreground" },
-  }[t.status] || { label: t.status, cls: "bg-muted text-muted-foreground" };
-
-  const typeColor = TYPE_COLOR[t.type] || "text-primary border-primary/30";
-  const typeLbl = TYPE_LABEL[t.type] || t.type?.toUpperCase();
-
-  const trophyUrl = t.trophy_url || trophyItems?.find(i => i.id === t.trophy_item_id)?.image_url;
-  const hasFee = (t.entry_fee_stc || 0) > 0;
-  const pool = (t.entry_fee_stc || 0) * (t.max_teams || 8);
-
-  return (
-    <Link to={`/tournaments/${t.id}`} className="block group">
-      <div className="bg-card border border-border rounded overflow-hidden hover:border-primary/40 transition-all hover:-translate-y-0.5 duration-200 h-full flex flex-col">
-
-        {/* Banner */}
-        <div className="h-24 relative flex-shrink-0" style={bannerBg}>
-          <div className="absolute inset-0 bg-gradient-to-b from-black/20 to-black/70" />
-
-          {/* Type badge */}
-          <div className={cn("absolute top-2 left-2 text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-sm border bg-black/50 backdrop-blur-sm", typeColor)}>
-            {typeLbl}
-          </div>
-
-          {/* Status badge */}
-          {isFull ? (
-            <div className="absolute top-2 right-2 text-[9px] font-bold uppercase px-2 py-0.5 rounded-sm bg-destructive/80 text-white">{translate("competitionFlow.full")}</div>
-          ) : (
-            <div className={cn("absolute top-2 right-2 text-[9px] font-bold uppercase px-2 py-0.5 rounded-sm", statusBadge.cls)}>{statusBadge.label}</div>
-          )}
-
-          {/* Trophy image */}
-          {trophyUrl && (
-            <div className="absolute bottom-2 right-2 w-10 h-10">
-              <img src={trophyUrl} alt="trophy" className="w-full h-full object-contain drop-shadow-xl" />
-            </div>
-          )}
-
-          {/* Participant type */}
-          <div className="absolute bottom-2 left-2 text-[9px] text-white/70 font-medium">
-            {t.participant_type === "player" ? `👤 ${translate("competitionFlow.players")}` : `🏟️ ${translate("competitionFlow.clubs")}`}
-          </div>
-        </div>
-
-        {/* Body */}
-        <div className="p-3 flex flex-col gap-2 flex-1">
-          <div>
-            <h3 className="font-heading font-black text-base text-foreground leading-tight group-hover:text-primary transition-colors line-clamp-1 uppercase">
-              {t.name}
-            </h3>
-            {t.creator_gamertag && (
-              <p className="text-[10px] text-muted-foreground">{translate("competitionFlow.by", { name: t.creator_gamertag })}</p>
-            )}
-          </div>
-
-          {/* Fill bar */}
-          <div>
-            <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
-              <span className="flex items-center gap-1"><Users className="w-3 h-3" />{registered}/{t.max_teams}</span>
-              {t.start_date && <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{new Date(t.start_date).toLocaleDateString("en-GB",{day:"numeric",month:"short"})}</span>}
-            </div>
-            <div className="h-0.5 bg-secondary rounded-full overflow-hidden">
-              <div className="h-full rounded-full bg-primary/60 transition-all" style={{ width: `${fillPct}%` }} />
-            </div>
-          </div>
-
-          {/* Entry / Prize */}
-          <div className="flex items-center gap-2 mt-auto pt-1">
-            {hasFee ? (
-              <>
-                <div className="flex-1 bg-secondary/60 rounded px-2 py-1.5 text-center">
-                  <div className="text-[8px] uppercase tracking-widest text-muted-foreground">{translate("competitionFlow.entry")}</div>
-                  <div className="text-xs font-black text-foreground">{(t.entry_fee_stc || 0).toLocaleString()} <span className="font-normal text-muted-foreground text-[9px]">STC</span></div>
-                </div>
-                <div className="flex-1 bg-warning/5 border border-warning/20 rounded px-2 py-1.5 text-center">
-                  <div className="text-[8px] uppercase tracking-widest text-warning flex items-center justify-center gap-0.5"><Crown className="w-2.5 h-2.5" /> {translate("competitionFlow.prize")}</div>
-                  <div className="text-sm font-black text-warning">{pool.toLocaleString()} <span className="font-normal text-warning/60 text-[9px]">STC</span></div>
-                </div>
-              </>
-            ) : (
-              <div className="flex-1 bg-success/5 border border-success/20 rounded px-2 py-1.5 text-center">
-                <div className="text-[8px] uppercase tracking-widest text-success">{translate("competitionFlow.entry")}</div>
-                <div className="text-sm font-black text-success">{translate("competitionFlow.free")}</div>
-              </div>
-            )}
-          </div>
-
-          {t.start_date && isWallClockFuture(t.start_date) && t.status === "registration" && (
-            <TournamentCountdown startDate={t.start_date} />
-          )}
-        </div>
-      </div>
-    </Link>
-  );
+function TournamentCard({tournament,trophyItems}) {
+ const count=tournamentParticipants(tournament).length;
+ const status=tournamentHubStatus(tournament);
+ const trophy=tournament.trophy_url||trophyItems.find(item=>item.id===tournament.trophy_item_id)?.image_url;
+ const pool=Number(tournament.prize_pool_stc??calculateTournamentPrizeBreakdown(tournament.entry_fee_stc,tournament.max_teams).pool)||0;
+ const entry=Number(tournament.entry_fee_stc)||0;
+ const credits=Number(tournament.entry_credits)||0;
+ const official=isGostOfficialTournament(tournament);
+ const date=tournament.start_date?new Date(tournament.start_date):null;
+ return <Link to={`/tournaments/${tournament.id}`} className="th-card">
+  <div className="th-card-art" style={tournament.banner_url?{backgroundImage:`url(${tournament.banner_url})`,backgroundPosition:tournament.banner_position||'50% 50%'}:{background:`radial-gradient(ellipse at 80% 20%,${tournament.banner_color||'#285caa'},#0b1425)`}}>
+    <div className="th-card-tags"><span>{official?'BY STAGE':TYPE_LABEL[tournament.type]||tournament.type}</span><span className={status==='Live'?'is-live':''}>{status}</span></div><span className="th-card-kind">{tournament.participant_type==='player'?'Player tournament':'Club tournament'}</span>{trophy&&<img className="th-card-trophy" src={trophy} alt="Competition trophy"/>}
+  </div><div className="th-card-body"><div><p className="th-card-by">{official?'STAGE competition':tournament.creator_gamertag?`Hosted by ${tournament.creator_gamertag}`:'Community competition'}</p><h3>{tournament.name}</h3></div><div className="th-card-meta"><span><Users size={13}/>{count} / {tournament.max_teams||'—'} {tournament.participant_type==='player'?'players':'clubs'}</span><span><Calendar size={13}/>{date&&!Number.isNaN(date.getTime())?date.toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'}):'Start date to be announced'}</span><span>{tournament.platform||'All platforms'} · {tournament.region||'Global'}</span>{official&&<span>{TYPE_LABEL[tournament.type]||tournament.type}</span>}</div><div className="th-card-finance"><div><span>Entry</span><strong>{entry?`${entry.toLocaleString()} STC`:'No STC fee'}</strong>{credits>0&&<small>+ {credits} credits</small>}</div><div><span>Prize pool</span><strong>{pool.toLocaleString()} STC</strong></div></div><div className="th-card-footer"><span>View tournament</span><span aria-hidden="true">↗</span></div></div>
+ </Link>;
 }
 
 /* ─── Tournament Rules ──────────────────────────────────────────── */

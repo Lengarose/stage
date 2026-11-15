@@ -17,6 +17,7 @@ function GamerClubProfileHero({
   draws = 0,
   losses = 0,
   winRate = 0,
+  form,
   topLeftActions,
   topActions,
   sideActions,
@@ -78,6 +79,7 @@ function GamerClubProfileHero({
         </div>
         <div className="pointer-events-auto flex flex-wrap items-center gap-4">
           <GamerRecordStrip wins={wins} draws={draws} losses={losses} />
+          {form}
           <span className="text-xs font-medium text-white">{t("commonPages.clubWinRate", "Win rate")}: {Math.min(100, Math.max(0, Math.round(Number(winRate) || 0)))}%</span>
         </div>
       </ProfileBannerIdentity>

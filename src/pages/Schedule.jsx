@@ -1,3 +1,4 @@
+import "@/components/schedule/scheduleTypography.css";
 import {useSearchParams} from "react-router-dom";
 import { useState, useEffect } from "react";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
@@ -375,7 +376,7 @@ export default function Schedule({ tournamentId: scopedTournamentId } = {}) {
   }
 
   return (
-    <div className="h-full min-h-0 min-w-0 flex-1 overflow-y-auto bg-background p-4 lg:p-8">
+    <div className="schedule-ui h-full min-h-0 min-w-0 flex-1 overflow-y-auto bg-background p-4 lg:p-8">
       <div className="mx-auto w-full min-w-0 max-w-[1600px]">
         <div className="flex flex-wrap items-center justify-between gap-5 border-b border-border pb-5">
           <div>

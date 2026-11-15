@@ -1,0 +1,23 @@
+/* Typography only: tournament banners, cards, tables and controls keep their layout. */
+:is(.tournament-detail-ui, body:has(.tournament-detail-ui) :is([role="dialog"], [role="alertdialog"], [role="listbox"], [role="menu"])) {
+  --font-heading: 'Anton', sans-serif;
+  --font-display: 'Anton', sans-serif;
+  --font-body: 'Chakra Petch', system-ui, sans-serif;
+  font-family: var(--font-body);
+}
+
+:is(.tournament-detail-ui, body:has(.tournament-detail-ui) :is([role="dialog"], [role="alertdialog"], [role="listbox"], [role="menu"])) :is(h1, h2, h3, h4, h5, h6, .font-heading, .font-display) {
+  font-family: 'Anton', sans-serif !important;
+  font-style: normal !important;
+  font-weight: 400;
+}
+
+:is(.tournament-detail-ui, body:has(.tournament-detail-ui) :is([role="dialog"], [role="alertdialog"], [role="listbox"], [role="menu"])) :is(button, input, textarea, select):not(.font-heading):not(.font-display),
+.tournament-detail-ui .font-sans {
+  font-family: 'Chakra Petch', system-ui, sans-serif !important;
+}
+
+:is(.tournament-detail-ui, body:has(.tournament-detail-ui) :is([role="dialog"], [role="alertdialog"], [role="listbox"], [role="menu"])) :is(.font-mono, .landing-mono) {
+  font-family: 'JetBrains Mono', ui-monospace, monospace !important;
+  font-style: normal !important;
+}

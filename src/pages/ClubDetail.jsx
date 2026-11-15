@@ -876,6 +876,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
         draws={draws}
         losses={losses}
         winRate={winRate}
+        form={<ClubForm matches={safeMatches} clubId={id} />}
         onBannerClick={() => canEdit && setBannerDialogOpen(true)}
         onLogoClick={() => {
           if (club.logo_url) setLogoPreviewOpen(true);
@@ -906,11 +907,7 @@ export default function ClubDetail({ overrideClubId, tournamentId = null } = {})
         ) : null}
         infoAside={<ClubPresidentChip club={club} president={president} />}
         sideActions={null}
-      >
-          <div className="mt-1">
-          <ClubForm matches={safeMatches} clubId={id} />
-          </div>
-      </GamerClubProfileHero>
+      />
 
       <div className="max-w-6xl mx-auto px-4 mt-6 space-y-5 pb-10">
         {canEdit ? (

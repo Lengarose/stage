@@ -1,0 +1,28 @@
+/* Profile typography matches Landing/Home without changing portrait geometry,
+   banners, tab layout, or the shared navigation outside the profile shell. */
+:is(.profile-ui, body:has(.profile-ui) :is([role="dialog"], [role="alertdialog"], [role="listbox"], [role="menu"])) {
+  --font-heading: 'Anton', sans-serif;
+  --font-display: 'Anton', sans-serif;
+  --font-body: 'Chakra Petch', system-ui, sans-serif;
+  font-family: var(--font-body);
+}
+
+:is(.profile-ui, body:has(.profile-ui) :is([role="dialog"], [role="alertdialog"], [role="listbox"], [role="menu"])) :is(h1, h2, h3, h4, h5, h6, .font-heading, .font-display) {
+  font-family: 'Anton', sans-serif !important;
+  font-style: normal !important;
+  font-weight: 400;
+}
+
+:is(.profile-ui, body:has(.profile-ui) :is([role="dialog"], [role="alertdialog"], [role="listbox"], [role="menu"])) :is(button, input, textarea, select, .profile-action) {
+  font-family: 'Chakra Petch', system-ui, sans-serif !important;
+  font-style: normal !important;
+}
+
+:is(.profile-ui, body:has(.profile-ui) :is([role="dialog"], [role="alertdialog"], [role="listbox"], [role="menu"])) :is(button, .profile-action) {
+  font-weight: 700;
+}
+
+:is(.profile-ui, body:has(.profile-ui) :is([role="dialog"], [role="alertdialog"], [role="listbox"], [role="menu"])) :is(.font-mono, .landing-mono) {
+  font-family: 'JetBrains Mono', ui-monospace, monospace !important;
+  font-style: normal !important;
+}
