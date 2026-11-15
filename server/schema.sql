@@ -1864,6 +1864,7 @@ CREATE TABLE IF NOT EXISTS reward_configs (
 );
 
 CREATE TABLE IF NOT EXISTS transfer_windows (
+  timezone VARCHAR(80) NOT NULL DEFAULT 'Europe/Brussels',
   id VARCHAR(36) NOT NULL PRIMARY KEY,
   status VARCHAR(20) DEFAULT 'closed',
   start_date DATETIME,

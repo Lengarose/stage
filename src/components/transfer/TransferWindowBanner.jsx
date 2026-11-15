@@ -1,4 +1,5 @@
 import { CheckCircle, AlertCircle, CalendarDays } from "lucide-react";
+import { formatWindowDeadline } from "@/lib/transferWindowDeadline";
 import { cn } from "@/lib/utils";
 import { isTransferWindowOpen } from "@/lib/transferWindow";
 
@@ -29,9 +30,9 @@ export default function TransferWindowBanner({ window: currentWindow, officialRe
         <p className="text-xs text-muted-foreground mt-0.5">
           {currentWindow?.label && <span className="font-medium">{currentWindow.label} · </span>}
           {isOpen && currentWindow?.end_date
-            ? `Open until ${new Date(currentWindow.end_date).toLocaleDateString()}`
+            ? `Open until ${formatWindowDeadline(currentWindow.end_date)}`
             : !isOpen && currentWindow?.end_date
-            ? `Closed ${new Date(currentWindow.end_date).toLocaleDateString()} — contracts accepted now will execute when the next window opens.`
+            ? `Closed ${formatWindowDeadline(currentWindow.end_date)} — contracts accepted now will execute when the next window opens.`
             : !isOpen && currentWindow
             ? "Contracts accepted now will execute when the next window opens."
             : !currentWindow

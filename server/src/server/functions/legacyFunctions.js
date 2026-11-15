@@ -7486,7 +7486,7 @@ const HANDLERS = {
     throw new Error(`Unknown contractManagement action: ${action}`);
   },
 
-  async transferWindowActions({ _auth_user_id, action, label, start_date, end_date, notes, window_id }) {
+  async transferWindowActions({ _auth_user_id, action, label, start_date, end_date, notes, window_id, timezone }) {
     const current = await getCurrentTransferWindow();
 
     if (action === 'get_current') {
@@ -7497,28 +7497,19 @@ const HANDLERS = {
     }
 
     if (action === 'open_window') {
-      if (current) throw new Error('A transfer window is already open');
-      const id = uuidv4();
-      await EXECUTESQL(
-        `INSERT INTO transfer_windows (id, label, status, start_date, end_date, notes, transfers_executed, created_date, updated_date)
-         VALUES (?, ?, 'open', ?, ?, ?, 0, NOW(), NOW())`,
-        [id, label || 'Transfer Window', toMysqlDateTime(start_date) || toMysqlDateTime(new Date()), toMysqlDateTime(end_date), notes || '']
-      );
-      const created = await EXECUTESQL('SELECT * FROM transfer_windows WHERE id = ? LIMIT 1', [id]);
-      broadcastTransferWindow(created[0] || null, 'opened');
-      return { success: true, data: { window: created[0] || null } };
+      const created=await require('../services/transferWindowService').openTransferWindow(_auth_user_id,{label,start_date,end_date,notes,timezone});
+      broadcastTransferWindow(created,'opened');
+      return {success:true,data:{window:created}};
     }
-
     if (action === 'close_window') {
-      const id = window_id || current?.id;
-      if (!id) throw new Error('No open transfer window');
-      await EXECUTESQL("UPDATE transfer_windows SET status = 'closed', updated_date = NOW() WHERE id = ?", [id]);
-      const closed = await EXECUTESQL('SELECT * FROM transfer_windows WHERE id = ? LIMIT 1', [id]).catch(() => []);
-      broadcastTransferWindow(closed[0] || null, 'closed');
-      return { success: true, data: { closed: true, window: closed[0] || null } };
+      const closed=await require('../services/transferWindowService').closeTransferWindow(_auth_user_id,window_id||current?.id);
+      broadcastTransferWindow(closed,'closed');
+      return {success:true,data:{closed:true,window:closed}};
     }
 
     if (action === 'execute_pending') {
+      const executingAdmin=await require('../services/transferWindowService').requireTransferWindowAdmin(_auth_user_id);
+      if(!current)throw require('../services/transferWindowService').transferWindowClosedError();
       const pendings = await EXECUTESQL(
         "SELECT *, user_id AS target_player_id FROM player_contracts WHERE status = 'pending_window' ORDER BY created_date ASC",
         []
@@ -7554,6 +7545,7 @@ const HANDLERS = {
       const latestWindow = current?.id
         ? (await EXECUTESQL('SELECT * FROM transfer_windows WHERE id = ? LIMIT 1', [current.id]).catch(() => []))[0] || current
         : await getCurrentTransferWindow();
+      await writeAdminAuditLog({admin:executingAdmin,action:'execute_pending_transfer_window',entityType:'transfer_window',entityId:current.id,oldValue:current,newValue:latestWindow,reason:'Admin processed accepted window-waiting agreements'});
       broadcastTransferWindow(latestWindow || null, 'executed_pending');
       return { success: true, data: { transfers_executed: executed, errors } };
     }

@@ -5,6 +5,13 @@ import { isTransferWindowOpen } from "@/lib/transferWindow";
 
 export function useTransferWindowStatus() {
   const [currentWindow, setCurrentWindow] = useState(null);
+  const [now,setNow]=useState(Date.now);
+  useEffect(()=>{
+    const next=[currentWindow?.start_date,currentWindow?.end_date].map(v=>Date.parse(v)).filter(ms=>Number.isFinite(ms)&&ms>Date.now()).sort((a,b)=>a-b)[0];
+    if(!next)return;
+    const timer=setTimeout(()=>setNow(Date.now()),Math.min(86400000,Math.max(1,next-Date.now()+20)));
+    return()=>clearTimeout(timer);
+  },[currentWindow,now]);
   const [officialRecruitment, setOfficialRecruitment] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -55,7 +62,7 @@ export function useTransferWindowStatus() {
     return () => offSocketListeners(CHANNELS.TRANSFER_WINDOW, onTransferWindowUpdate);
   }, [refresh]);
 
-  const windowOpen = isTransferWindowOpen(currentWindow);
+  const windowOpen = isTransferWindowOpen(currentWindow,Math.max(now,Date.now()));
 
   return {
     currentWindow,

@@ -18,6 +18,10 @@ export default function TransferWindowPanel() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
+  const [loadError,setLoadError]=useState('');
+  const [now,setNow]=useState(Date.now);
+  const timezone=Intl.DateTimeFormat().resolvedOptions().timeZone||'Europe/Brussels';
+  useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(timer);},[]);
 
   const [form, setForm] = useState({
     label: "",
@@ -30,6 +34,7 @@ export default function TransferWindowPanel() {
 
   async function load() {
     setLoading(true);
+    setLoadError('');
     try {
       const [winRes, pendingContracts] = await Promise.all([
         stageClient.functions.invoke("transferWindowActions", { action: "get_current" }),
@@ -39,6 +44,7 @@ export default function TransferWindowPanel() {
       setPendingCount(Array.isArray(pendingContracts) ? pendingContracts.length : 0);
     } catch (err) {
       console.error("[TransferWindowPanel] load failed", err);
+      setLoadError(err?.message||'Could not load transfer-window status.');
       setCurrentWindow(null);
       setPendingCount(0);
       await swalAlert(err?.message || err?.data?.error || t("admin.transfers.loadFailed") || "Failed to load transfer window.");
@@ -56,12 +62,14 @@ export default function TransferWindowPanel() {
         start_date: form.start_date || new Date().toISOString(),
         end_date: form.end_date || null,
         notes: form.notes,
+        timezone,
       });
       setCurrentWindow(res?.data?.window || null);
       setForm({ label: "", start_date: "", end_date: "", notes: "" });
       await load();
     } catch (err) {
       console.error("[TransferWindowPanel] open failed", err);
+      await load();
       await swalAlert(err?.message || err?.data?.error || "Failed to open transfer window.");
     } finally {
       setSaving(false);
@@ -100,11 +108,15 @@ export default function TransferWindowPanel() {
     }
   }
 
-  const isOpen = isTransferWindowOpen(currentWindow);
+  const isOpen = isTransferWindowOpen(currentWindow,now);
+  const isScheduled=currentWindow?.status==='open'&&!isOpen&&Date.parse(currentWindow.start_date)>now&&(!currentWindow.end_date||Date.parse(currentWindow.end_date)>now);
+  const reserved=isOpen||isScheduled;
 
   if (loading) {
     return <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-primary" /></div>;
   }
+
+  if(loadError)return <div role="alert" className="border border-destructive/30 p-5"><p>{loadError}</p><Button type="button" onClick={load} className="mt-3">Retry status</Button></div>;
 
   return (
     <div className="space-y-5">
@@ -120,7 +132,7 @@ export default function TransferWindowPanel() {
         </div>
         <div className="flex-1 min-w-0">
           <p className={cn("font-bold", isOpen ? "text-success" : "text-foreground")}>
-            {t("admin.transfers.windowStatus")}: {isOpen ? t("admin.transfers.open") : t("admin.transfers.closed")}
+            {t("admin.transfers.windowStatus")}: {isOpen ? t("admin.transfers.open") : isScheduled ? "Scheduled" : t("admin.transfers.closed")}
           </p>
           {currentWindow ? (
             <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
@@ -133,7 +145,7 @@ export default function TransferWindowPanel() {
             <p className="text-xs text-muted-foreground mt-1">{t("admin.transfers.noWindowYet")}</p>
           )}
         </div>
-        {isOpen && (
+        {reserved && (
           <Button
             size="sm"
             variant="outline"
@@ -166,9 +178,11 @@ export default function TransferWindowPanel() {
       )}
 
       {/* Open new window form */}
-      {!isOpen && (
+      {!reserved && (
         <div className="bg-card border border-border rounded-xl p-5 space-y-4">
           <h4 className="font-bold text-foreground text-sm uppercase tracking-wider">{t("admin.transfers.openNewWindow")}</h4>
+          <p className="text-sm text-muted-foreground">Open the window, then Managers can send eligible contract offers. Players review and accept their offers in Inbox. Opening a window does not create or accept contracts.</p>
+          <p className="text-xs text-muted-foreground">Closing times use {timezone}. The selected time is exact, including 00:00 (midnight). Leave it empty to keep the window open until you close it.</p>
           <div className="grid sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-muted-foreground uppercase tracking-wider block mb-1">{t("admin.transfers.windowLabel")}</label>

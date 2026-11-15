@@ -1090,6 +1090,7 @@ async function runStartupMigrations() {
     created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_date DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
   )`).catch(err => console.error('[migration] transfer_windows:', err.message));
+  await addCol('transfer_windows', 'timezone', "VARCHAR(80) NOT NULL DEFAULT 'Europe/Brussels'");
   await addCol('transfer_windows', 'updated_date', 'DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP');
 
   // chat_reads — per-user last-read marker per chat channel.

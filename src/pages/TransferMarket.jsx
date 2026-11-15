@@ -3,6 +3,7 @@ import { LayoutGrid, LayoutList, Search } from "lucide-react";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
 import OfferContractDialog from "@/components/contracts/OfferContractDialog";
 import TransferWindowBanner from "@/components/transfer/TransferWindowBanner";
+import TransferWindowDeadline from "@/components/transfer/TransferWindowDeadline";
 import TransferRoomHero from "@/components/transfer/TransferRoomHero";
 import TransferTalentBoard from "@/components/transfer/TransferTalentBoard";
 import TransferRecruitmentPanel from "@/components/transfer/TransferRecruitmentPanel";
@@ -136,8 +137,9 @@ export default function TransferMarket() {
 
   return (
     <div className="transfer-room" style={{'--tr-accent':TRANSFER_ROOM_ACCENTS[presentation.accent],'--tr-button-ink':presentation.accent==='gold'?'#071020':'#fff'}}>
-      <TransferRoomHero presentation={presentation} freeCount={freeAgents.length} expiringCount={expiringPlayers.length} canManage={canManage} clubName={myClub?.name} windowOpen={windowOpen}/>
+      <TransferRoomHero presentation={presentation} freeCount={freeAgents.length} expiringCount={expiringPlayers.length} canManage={canManage} clubName={myClub?.name} windowOpen={windowOpen} currentWindow={currentWindow}/>
       <section id="transfer-talent" className="tr-market-wrap" aria-label="Transfer player market">
+        <TransferWindowDeadline window={currentWindow} windowOpen={windowOpen}/>
         <div className="tr-market-heading"><div><p className="tr-kicker">SCOUT. CONNECT. SIGN.</p><h2>Find your next game changer.</h2></div><span className="tr-rule-note">{loading?'Loading players…':`${filteredEntries.length} player${filteredEntries.length===1?'':'s'} in your search`}</span></div>
         <div className="tr-toolbar"><div className="tr-categories" aria-label="Player availability">{[{key:'all',label:'All players',count:allEntries.length},{key:'free_agent',label:'Free agents',count:freeAgents.length},{key:'expiring',label:'Expiring · final 14 days',count:expiringPlayers.length}].map(item=><button type="button" key={item.key} className={statusFilter===item.key?'is-active':''} aria-pressed={statusFilter===item.key} onClick={()=>setStatusFilter(item.key)}>{item.label}<small>{item.count}</small></button>)}</div><div className="tr-view-modes" aria-label="Player presentation"><button type="button" className={activeView==='cards'?'is-active':''} aria-pressed={activeView==='cards'} onClick={()=>setViewMode('cards')}><LayoutGrid size={16}/> Showcase</button><button type="button" className={activeView==='list'?'is-active':''} aria-pressed={activeView==='list'} onClick={()=>setViewMode('list')}><LayoutList size={16}/> Directory</button></div></div>
         <div className="tr-filters"><label className="tr-search"><Search size={17}/><input aria-label="Search players by name" placeholder="Find a player by name…" value={search} onChange={e=>setSearch(e.target.value)}/></label><select aria-label="Player position" value={positionFilter} onChange={e=>setPositionFilter(e.target.value)}><option value="">All positions</option>{['GK','CB','LB','RB','CDM','CM','CAM','LM','RM','LW','RW','ST','CF'].map(p=><option key={p}>{p}</option>)}</select><select aria-label="Player platform" value={platformFilter} onChange={e=>setPlatformFilter(e.target.value)}><option value="">All platforms</option>{['PlayStation','Xbox','PC'].map(p=><option key={p}>{p}</option>)}</select><select aria-label="Sort players" value={activeSort} onChange={e=>setSort(e.target.value)}><option value="recent">Newest profiles</option><option value="name">Name: A–Z</option><option value="form">Match rating</option></select></div>

@@ -2612,6 +2612,8 @@ test('transferWindowActions execute_pending activates accepted window-waiting co
       if (/SELECT \* FROM players WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[player], []];
       if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1 FOR UPDATE/.test(sql)) return [[club], []];
       if (/SELECT \* FROM clubs WHERE id = \? LIMIT 1/.test(sql)) return [[club], []];
+      if (sql.startsWith("SELECT id,user_id,weekly_salary_stc,signing_bonus_stc,transfer_fee_stc,status FROM player_contracts")) return [[pendingContract], []];
+      if (sql.startsWith("SELECT * FROM league_entities WHERE entity_type=?")) return [[], []];
       if (isClubFinanceUsageQuery(sql)) return [[{ active_wages: 0, pending_wages: 0, pending_transfer_fees: 0 }], []];
       if (isLiveLoanLookup(sql)) return [[], []];
       if (/FROM player_contracts/.test(sql) && /id <> \?/.test(sql)) return [[], []];
@@ -2632,7 +2634,11 @@ test('transferWindowActions execute_pending activates accepted window-waiting co
     },
   };
   const executesql = async (sql, params = []) => {
+    if (sql.includes("entity_type='club_contract_proposal'")) return [];
+    if (sql === "SELECT * FROM player_contracts WHERE id=? LIMIT 1") return [pendingContract];
     if (/CREATE TABLE IF NOT EXISTS transfer_windows/.test(sql)) return { affectedRows: 0 };
+    if (/SELECT id,email,role_id,timezone FROM users/.test(sql)) return [{id:'admin-user',email:'admin@example.test',role_id:2,timezone:'Europe/Brussels'}];
+    if (/INSERT INTO admin_audit_log/.test(sql)) { queries.push({sql,params}); return {affectedRows:1}; }
     if (/SELECT \* FROM transfer_windows WHERE status = 'open'/.test(sql)) {
       return [{ id: 'window-1', status: 'open' }];
     }
@@ -2670,7 +2676,7 @@ test('transferWindowActions execute_pending activates accepted window-waiting co
   );
 
   assert.equal(response.statusCode, 200);
-  assert.equal(response.body.data.transfers_executed, 1);
+  assert.equal(response.body.data.transfers_executed, 1, JSON.stringify(response.body.data.errors));
   assert.equal(queries.some((call) => /UPDATE player_contracts SET status = 'active'/.test(call.sql)), true);
   assert.equal(queries.some((call) => /UPDATE players SET club_id = \?/.test(call.sql)), true);
 });
