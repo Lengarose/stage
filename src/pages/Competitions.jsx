@@ -1,3 +1,5 @@
+import CompetitionHubHero from '@/components/competition/CompetitionHubHero';
+import '@/components/competition/competitionPages.css';
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowRight, Trophy } from 'lucide-react';
@@ -12,7 +14,7 @@ const money = value => `${Number(value).toLocaleString(undefined, { maximumFract
 export function GostTrophy({ trophy, guidance, compact = false }) {
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [trophy?.id, trophy?.image_url]);
-  return <div className="flex h-64 items-center justify-center sm:h-72 lg:h-80">
+  return <div className="gost-trophy-media flex h-64 items-center justify-center sm:h-72 lg:h-80">
     {trophy?.image_url && !failed ? <img src={trophy.image_url} alt={trophy.name || 'Competition trophy'} onError={() => setFailed(true)} className="h-full w-full max-w-64 object-contain" /> : <div className="max-w-56 space-y-3 text-center text-sm text-muted-foreground"><Trophy className="mx-auto h-12 w-12 opacity-40" aria-hidden="true" /><p>{failed ? compact ? 'Artwork unavailable.' : 'Trophy artwork unavailable. Review the image in Admin → Trophies.' : guidance || 'No captured trophy design available.'}</p></div>}
   </div>;
 }
@@ -96,10 +98,10 @@ export default function Competitions() {
   const competitions = data?.competitions || [];
   const journeys = competitions.map(c => ({ name: c.name, journey: c.current?.journey || c.journey }));
   const sameJourney = new Set(journeys.map(c => JSON.stringify(c.journey))).size === 1;
-  return <main className="min-h-screen bg-background px-5 py-8 text-foreground sm:px-8 lg:py-12">
-    <div className="mx-auto max-w-7xl">
+  return <main className="official-competition-ui ch-hub"><CompetitionHubHero kind="gost">
+    <div id="competition-directory" className="ch-directory">
       <header className="flex flex-wrap items-end justify-between gap-6">
-        <div><p className="text-xs uppercase text-muted-foreground">Global Official Stage Tournaments</p><div className="mt-2 flex flex-wrap items-center gap-5"><h1 className="font-heading text-6xl font-black italic leading-none">GOST</h1><p className="border-l border-border pl-5 text-sm text-muted-foreground">Three competitions.<br />One regional pathway.</p></div></div>
+        <div><div className="mt-2 flex flex-wrap items-center gap-5"><h2 className="font-heading">Choose your stage</h2><p className="border-l border-border pl-5 text-sm text-muted-foreground">Three competitions.<br />One regional pathway.</p></div></div>
         <nav aria-label="GOST editions" className="flex gap-6">{[['Current season', false], ['Archive', true]].map(([label, value]) => <button type="button" key={label} aria-current={archive === value ? 'page' : undefined} onClick={() => setSearchParams(previous => { const next = new URLSearchParams(previous); if (value) next.set('view', 'archive'); else next.delete('view'); return next; })} className={`min-h-11 border-b-2 px-1 text-sm focus-visible:ring-2 focus-visible:ring-primary ${archive === value ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}`}>{label}</button>)}</nav>
       </header>
       {!gostAccess.qualifications_open && <p role="status" className="mt-6 text-sm text-muted-foreground">{gostAccess.closed_message}</p>}
@@ -110,6 +112,7 @@ export default function Competitions() {
       </section>
       {!archive && <section className="space-y-7 border-b border-border py-8"><h2 className="font-heading text-2xl font-bold uppercase italic">Competition journey</h2>{sameJourney ? <GostJourney journey={journeys[0]?.journey} /> : journeys.map(({ name, journey }) => <div key={name} className="space-y-4"><h3 className="text-sm font-bold">{name}</h3><GostJourney journey={journey} /></div>)}</section>}
     </div>
+    </CompetitionHubHero>
     <Dialog open={Boolean(prize)} onOpenChange={open => { if (!open) setPrize(null); }}><DialogContent style={{ width: 'min(32rem, calc(100vw - 2rem))' }} className="max-h-[85dvh] max-w-lg overflow-y-auto rounded-none"><DialogTitle className="pr-8">{prize?.name} · Prize details</DialogTitle><DialogDescription>{prize?.season?.label || 'No edition announced'}</DialogDescription>
       {prize?.season?.prizes ? <><dl className="divide-y divide-border">{[['participation', 'Participation payment'], ['winner_bonus', 'Winner’s additional prize'], ['runner_up_bonus', 'Runner-up’s additional prize']].map(([key, label]) => <div key={key} className="flex flex-wrap justify-between gap-3 py-3 text-sm"><dt>{label}</dt><dd className="font-bold">{money(prize.season.prizes[key])}</dd></div>)}</dl><p className="text-sm text-muted-foreground">Finalists receive their participation payment plus their finishing bonus.</p>{prize.season.prizes.budget && <p className="text-sm">Total budget for {prize.season.prizes.participant_basis} captured clubs: <strong>{money(prize.season.prizes.budget)}</strong></p>}</> : <p className="py-4 text-sm text-muted-foreground">Confirmed prize configuration is unavailable for this edition.</p>}
     </DialogContent></Dialog>

@@ -454,7 +454,7 @@ const ENTITY_NAMES = [
   'GameDayConfig',
   // Admin-managed Transfer Room presentation settings.
   'TransferRoomConfig',
-  'TournamentHubConfig', 'LifestylePageConfig',
+  'TournamentHubConfig', 'LifestylePageConfig', 'CompetitionPageConfig',
   'FaqItem',
   // Global transfer windows (admin manages open/close periods).
   // Business actions (open/close/execute_pending) still go through the

@@ -1,3 +1,4 @@
+import CompetitionPageEditor from '@/components/admin/CompetitionPageEditor';
 import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { useMemo, useState } from "react";
 import RegionalAdminWorkspace from "@/components/admin/RegionalAdminWorkspace";
@@ -24,7 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useTranslation } from "@/hooks/useTranslation";
 import { getSeasonStatusLabel } from "@/lib/adminI18n";
-import { Shield, Check, X, Pencil, ChevronDown, AlertTriangle, Trash2, ImagePlus, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Shield, Check, X, Pencil, ChevronDown, AlertTriangle, Trash2, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { calculatePrizePool, formatStcCompact } from "@/lib/prizeDefaults";
 import { swalAlert, swalConfirm, swalPrompt } from "@/lib/swal";
 
@@ -272,17 +273,6 @@ export default function LeaguesTab({
 
   function setSeasonSeedClubPage(seasonId, page) {
     setSeedClubPageBySeason(prev => ({ ...prev, [seasonId]: page }));
-  }
-
-  async function uploadPublicMedia(entityName, row, fieldName, file) {
-    if (!file || !row?.id) return;
-    try {
-      const res = await stageClient.integrations.Core.UploadFile({ file, timeoutMs: 45000 });
-      await stageClient.entities[entityName].update(row.id, { [fieldName]: res.file_url });
-      await loadAll?.();
-    } catch (err) {
-      window.alert(err?.message || `Could not upload ${fieldName.replace("_", " ")}.`);
-    }
   }
 
   async function replaceClubInCompetition(standing) {
@@ -1279,28 +1269,6 @@ export default function LeaguesTab({
                           {simulatingLeagueFixtures === league.id ? "Simulating..." : "Simulate fixtures"}
                         </Button>
                       </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {[
-                          { field: "logo_url", label: "Logo" },
-                          { field: "banner_url", label: "Banner" },
-                        ].map(item => (
-                          <label key={item.field} className="flex cursor-pointer items-center gap-2 rounded border border-border/60 bg-secondary/30 p-2 text-[10px] text-muted-foreground hover:border-primary/40 hover:text-foreground">
-                            {league[item.field]
-                              ? <img src={league[item.field]} alt="" className="h-8 w-10 shrink-0 object-cover" />
-                              : <ImagePlus className="h-4 w-4 shrink-0 text-primary" />}
-                            <span className="min-w-0 flex-1">
-                              <span className="block font-bold uppercase tracking-wider text-foreground">{item.label}</span>
-                              <span className="block truncate">Upload PNG/image for public league page</span>
-                            </span>
-                            <input
-                              type="file"
-                              accept="image/png,image/*"
-                              className="sr-only"
-                              onChange={e => uploadPublicMedia("RegionalLeague", league, item.field, e.target.files?.[0])}
-                            />
-                          </label>
-                        ))}
-                      </div>
                       {isEditingL && (
                         <div className="pt-2 border-t border-border/50 space-y-3">
                           <div className="grid grid-cols-2 gap-3">
@@ -1377,6 +1345,7 @@ export default function LeaguesTab({
 
   return (
     <div className={cn("space-y-6", mode !== "regional" && "max-w-3xl")}>
+      <CompetitionPageEditor key={mode === "gost" ? "gost" : "regional"} kind={mode === "gost" ? "gost" : "regional"} />
       {mode === "regional" ? <RegionalAdminWorkspace
         leagues={regionalLeagues} definitions={regionalDefinitions} trophyItems={trophyItems}
         registrations={regApplications || []} onRefresh={loadAll} sourceError={regionalSourceError}
@@ -1440,28 +1409,6 @@ export default function LeaguesTab({
               <Link to={`/competitions/${comp.slug}`}>
                 <Button size="sm" variant="outline" className="h-7 text-xs rounded border-border text-muted-foreground hover:text-foreground shrink-0">{t("admin.actions.view")}</Button>
               </Link>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {[
-                { field: "logo_url", label: "Logo" },
-                { field: "banner_url", label: "Banner" },
-              ].map(item => (
-                <label key={item.field} className="flex cursor-pointer items-center gap-2 rounded border border-border/60 bg-secondary/30 p-2 text-[10px] text-muted-foreground hover:border-primary/40 hover:text-foreground">
-                  {comp[item.field]
-                    ? <img src={comp[item.field]} alt="" className="h-8 w-10 shrink-0 object-cover" />
-                    : <ImagePlus className="h-4 w-4 shrink-0 text-primary" />}
-                  <span className="min-w-0 flex-1">
-                    <span className="block font-bold uppercase tracking-wider text-foreground">{item.label}</span>
-                    <span className="block truncate">Upload PNG/image for public tournament page</span>
-                  </span>
-                  <input
-                    type="file"
-                    accept="image/png,image/*"
-                    className="sr-only"
-                    onChange={e => uploadPublicMedia("Competition", comp, item.field, e.target.files?.[0])}
-                  />
-                </label>
-              ))}
             </div>
             <CompetitionTrophySelector competitionId={comp.id} />
             {isEditing && (

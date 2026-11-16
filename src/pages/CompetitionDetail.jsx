@@ -1,3 +1,4 @@
+import '@/components/competition/competitionPages.css';
 import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { useState, useEffect } from "react";
 import { useParams, useSearchParams, Link } from "react-router-dom";
@@ -301,7 +302,7 @@ function CompetitionPage({ slug }) {
   const trophy = historical ? edition?.trophy : competition?.assignment?.trophy || edition?.trophy;
   const setTab = tab => setParams(previous => { const next = new URLSearchParams(previous); next.set('tab', tab); return next; });
   const selectSeason = (id, overview = false) => setParams(previous => seasonLocation(previous, id, overview));
-  return <main className="gost-detail min-h-screen bg-background px-5 py-7 text-foreground sm:px-8" style={{ '--primary': 'var(--gost-accent)', '--gost-accent-dark': ({ supreme: '199 95% 60%', elite: '48 96% 53%', challenger: '142 71% 45%' })[slug], '--gost-accent-light': ({ supreme: '200 98% 32%', elite: '40 93% 29%', challenger: '142 72% 29%' })[slug] }}>
+  return <main className="official-competition-ui gost-detail min-h-screen bg-background px-5 py-7 text-foreground sm:px-8" style={{ '--primary': 'var(--gost-accent)', '--gost-accent-dark': ({ supreme: '199 95% 60%', elite: '48 96% 53%', challenger: '142 71% 45%' })[slug], '--gost-accent-light': ({ supreme: '200 98% 32%', elite: '40 93% 29%', challenger: '142 72% 29%' })[slug] }}>
     <div className="mx-auto max-w-7xl min-w-0">
       <Link to="/competitions" className={linkClass}><ArrowLeft size={17} /> All GOST competitions</Link>
       <header className="grid grid-cols-[80px_minmax(0,1fr)] items-center gap-5 py-5 sm:grid-cols-[180px_minmax(0,1fr)] lg:grid-cols-[220px_minmax(0,1fr)_auto]">

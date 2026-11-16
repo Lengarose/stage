@@ -1,3 +1,4 @@
+import '@/components/competition/competitionPages.css';
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowRight, Search, Trophy } from 'lucide-react';
@@ -102,5 +103,5 @@ export default function RegionalCups({ embedded = false }) {
       </>}
     </>}
   </>;
-  return embedded ? content : <main className="competition-surface min-h-screen bg-background px-5 py-8 text-foreground sm:px-8"><div className="mx-auto max-w-7xl">{content}</div></main>;
+  return <main className="official-competition-ui ch-cups min-h-screen"><div>{content}</div></main>;
 }
