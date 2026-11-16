@@ -2461,20 +2461,13 @@ export default function Layout() {
               </span> */}
               {!showAdminHeader && transferWindowIndicator ? (
                 <span
-                  className="inline-flex items-center whitespace-nowrap rounded-sm border px-2 py-1"
-                  style={{
-                    ...headingFont,
-                    fontSize: 10,
-                    fontWeight: 700,
-                    letterSpacing: "0.12em",
-                    textTransform: "uppercase",
-                    color: "#052e16",
-                    borderColor: "rgba(34,197,94,0.72)",
-                    background: "linear-gradient(90deg, rgba(34,197,94,0.95), rgba(20,184,166,0.95))",
-                    boxShadow: "0 0 18px rgba(34,197,94,0.35)",
-                  }}
+                  className="stage-arena-transfer-status"
+                  role="status"
+                  aria-label={transferWindowIndicator}
                 >
-                  {transferWindowIndicator}
+                  <span className="stage-arena-transfer-dot" aria-hidden="true" />
+                  <span className="stage-arena-transfer-label">Transfer window</span>
+                  <span className="stage-arena-transfer-open">Open</span>
                 </span>
               ) : null}
             </div>
