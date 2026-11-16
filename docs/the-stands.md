@@ -31,6 +31,10 @@ Cancelled, voided and administrative-forfeit matches are excluded. Disputed/unco
 
 **Normal time means 90 minutes, excluding extra time and penalties.** Current knockout reports do not reliably separate that score. In the match centre, Admin can record a verified normal-time score and its verification source, with an audit row. This affects predictions only. Until then, knockout guesses stay pending. A later result correction invalidates the old verification and requires a fresh one.
 
+## Presentation
+
+The Stands uses a single full-page background image with dark fades and gold accents by default. In **Admin → Operations → The Stands** (`/admin/the-stands`), upload a replacement, reposition/zoom it and choose an accent colour. Save presentation applies these settings to every Stands tab and the match centre. The split-photo match tile backgrounds remain intact. No custom image uses existing STAGE artwork.
+
 ## Admin and deployment
 
 In the match centre's STAGE editorial controls, Admin can feature/unfeature a match and verify its normal-time score. Removing an editorial feature does not suppress an automatically featured final/playoff. Both operations require server-side Admin permission and write an audit record.

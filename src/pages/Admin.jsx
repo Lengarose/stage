@@ -17,6 +17,7 @@ import RankingsTab from "@/components/admin/sections/RankingsTab";
 import LeaguesTab from "@/components/admin/sections/LeaguesTab";
 import TournamentsTab from "@/components/admin/sections/TournamentsTab";
 import InternationalTournamentsTab from "@/components/admin/sections/InternationalTournamentsTab";
+import StandsPresentationEditor from '@/components/admin/StandsPresentationEditor';
 import NewsTab from "@/components/admin/sections/NewsTab";
 import LifestylesTab from "@/components/admin/sections/LifestylesTab";
 import TransfersTab from "@/components/admin/sections/TransfersTab";
@@ -1747,6 +1748,7 @@ export default function Admin(props) {
             />
           )}
 
+          {adminTab === "the-stands" && <StandsPresentationEditor />}
           {adminTab === "news" && (
             <NewsTab />
           )}

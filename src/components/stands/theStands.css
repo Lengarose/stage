@@ -1,0 +1,41 @@
+.stands-page {--font-heading:'Anton',sans-serif;--font-display:'Anton',sans-serif;--font-body:'Chakra Petch',system-ui,sans-serif;position:relative;isolation:isolate;min-height:100vh;width:100%;min-width:0;color:#f5f5f5;background:#080b11;font-family:var(--font-body)}
+.stands-background {position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none;background:#080b11}
+.stands-background>img {width:100%;height:100%;display:block;object-fit:cover}
+.stands-background-shade {position:absolute;inset:0;background:linear-gradient(90deg,#05090fed 0%,#05090f88 48%,#05090f40),linear-gradient(0deg,#05090fe6 0%,#05090f70 55%,#05090f33)}
+.stands-content {position:relative;width:100%;padding:70px clamp(20px,4.5vw,88px) 110px}
+.stands-header {display:flex;align-items:end;justify-content:space-between;gap:35px;min-height:350px;padding-bottom:45px;margin-bottom:0;border-bottom:1px solid #ffffff30}
+.stands-page :is(h1,h2,h3,.font-heading) {font-family:var(--font-heading);font-weight:400;font-style:normal}
+.stands-header h1 {font-size:clamp(64px,8vw,142px);line-height:1.04;letter-spacing:-.025em;margin:18px 0 25px}
+.stands-header h1>span {color:var(--stands-accent)}
+.stands-kicker,.stands-header-note>span {font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.2em;color:var(--stands-accent)}
+.stands-intro {font-size:clamp(17px,1.6vw,23px);line-height:1.65;color:#e2e7ed}
+.stands-header-note {max-width:300px;font-size:14px;color:#d4d9e0;line-height:1.7}
+.stands-header-note p {margin:12px 0}
+.stands-header-note small {display:block;font-size:11px;color:#bec7d1}
+.stands-page nav[aria-label="The Stands sections"] {padding:23px 0;margin-bottom:30px;border-bottom:1px solid #ffffff25;gap:14px 32px}
+.stands-page nav button {font-family:var(--font-body);font-size:14px;letter-spacing:.04em;text-transform:none;color:#e1e4e8;filter:none}
+.stands-page nav button[aria-current="page"] {color:white;text-shadow:0 0 16px var(--stands-accent);filter:none}
+.stands-page nav button:hover {color:var(--stands-accent)}
+.stands-page :is(input,select,button,a) {border-radius:0;font-family:var(--font-body)}
+.stands-page :is(button,a):focus-visible {outline:2px solid var(--stands-accent);outline-offset:4px}
+.stands-page :is(.text-cyan-100,.text-cyan-200,[class*="text-cyan-100/"],[class*="text-cyan-200/"]) {color:var(--stands-accent)}
+.stands-page :is([class*="border-cyan-200/"],[class*="border-cyan-100/"]) {border-color:var(--stands-accent);background:color-mix(in srgb,var(--stands-accent) 10%,#090d16dc)}
+.stands-match-tile {min-height:280px;background:#080d18b8!important;box-shadow:0 10px 40px #00000025}
+.stands-match-tile:is(:hover,.is-selected) {border-color:var(--stands-accent);box-shadow:inset 3px 0 var(--stands-accent)}
+.stands-match-tile .font-heading {font-size:clamp(25px,2vw,34px);line-height:1.25;text-transform:uppercase}
+.stands-data-panel,.stands-page section[aria-label="Match centre"] {background:#080e19e6;backdrop-filter:blur(12px)}
+.stands-page section[aria-label="Match centre"] {box-shadow:0 12px 50px #0005}
+.stands-page section[aria-label="Match centre"] button:not(:disabled):hover {color:var(--stands-accent)}
+@media(min-width:1280px) {.stands-page section[aria-label="Match centre"] {position:sticky;top:22px}}
+@media(max-width:760px) {
+ .stands-content {padding-top:42px;padding-bottom:100px}
+ .stands-header {min-height:330px;align-items:start;flex-direction:column;gap:25px;padding-bottom:30px}
+ .stands-header h1 {font-size:clamp(58px,13vw,90px);margin:18px 0}
+ .stands-header-note {max-width:100%;font-size:12px}
+ .stands-header-note p {display:none}
+ .stands-header-note small {margin-top:10px}
+ .stands-page nav[aria-label="The Stands sections"] {gap:6px 12px}
+ .stands-page nav button {font-size:12px}
+ .stands-match-tile {min-height:255px}
+}
+.stands-page nav[aria-label="The Stands sections"] button {font-family:var(--font-body)!important;font-weight:500}

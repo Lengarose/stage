@@ -29,6 +29,7 @@ export function getAdminSectionKey(slug) {
 }
 
 export function getAdminSectionLabel(t, slug) {
+  if (slug === "the-stands") return "The Stands";
   const key = getAdminSectionKey(slug);
   if (!key) return t("admin.shell.title");
   return t(`admin.sections.${key}`);

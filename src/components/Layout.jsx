@@ -264,6 +264,7 @@ function getAdminGroups(t) {
         { path: "/admin/trophies", icon: Trophy, label: t("admin.nav.trophies") },
         { path: "/admin/rewards", icon: Star, label: t("admin.nav.rewards") },
         { path: "/admin/news", icon: Newspaper, label: t("admin.nav.news") },
+        { path: "/admin/the-stands", icon: Newspaper, label: "The Stands" },
         { path: "/admin/lifestyles", icon: Coins, label: t("admin.nav.lifestyles") },
         { path: "/admin/transfers", icon: ArrowLeftRight, label: t("admin.nav.transfers") },
         { path: "/admin/home", icon: Palette, label: t("admin.nav.homePage") },
@@ -1497,6 +1498,7 @@ const ADMIN_MOBILE_MORE_GROUPS = [
     label: "Content",
     items: [
       { path: "/admin/news", icon: Newspaper, label: "News" },
+      { path: "/admin/the-stands", icon: Newspaper, label: "The Stands" },
       { path: "/admin/store", icon: ShoppingBag, label: "Store" },
       { path: "/admin/lifestyles", icon: Coins, label: "Lifestyle" },
     ],

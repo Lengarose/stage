@@ -24,6 +24,7 @@ export const ADMIN_SECTION_ALIASES = {
   leagues: "leagues",
   gost: "gost",
   news: "news",
+  "the-stands": "the-stands",
   trophies: "trophies",
   rewards: "rewards",
   rankings: "rankings",
