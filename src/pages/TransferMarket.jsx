@@ -26,6 +26,8 @@ export default function TransferMarket() {
   const [myContracts, setMyContracts] = useState([]);
   const [canManage, setCanManage] = useState(false);
   const [roomConfig, setRoomConfig] = useState(null);
+  const [artworkStatus, setArtworkStatus] = useState("loading");
+  const [artworkAttempt, setArtworkAttempt] = useState(0);
 
   // UI state
   const [selected, setSelected] = useState(null); // { player, badgeType, contract, days_left }
@@ -40,6 +42,21 @@ export default function TransferMarket() {
   const [detailsOpen, setDetailsOpen] = useState(false);
 
   useEffect(() => { load(); }, []);
+
+  // Resolve presentation independently of identity and market data. An unresolved
+  // (or failed) request must never be mistaken for an empty configured slideshow.
+  useEffect(() => {
+    let active = true;
+    setArtworkStatus("loading");
+    stageClient.entities.TransferRoomConfig.filter({ key: "main" }, "-updated_date", 1)
+      .then(rows => {
+        if (!active) return;
+        setRoomConfig(rows?.[0] || null);
+        setArtworkStatus("ready");
+      })
+      .catch(() => { if (active) setArtworkStatus("error"); });
+    return () => { active = false; };
+  }, [artworkAttempt]);
 
   async function load() {
     setLoading(true);
@@ -56,15 +73,11 @@ export default function TransferMarket() {
       // carries another id, and the server rightly refuses.
       const club = presidentClub || resolvedClub;
 
-      const [marketRes, configRows] = await Promise.all([
-        stageClient.functions.invoke("getTransferMarket", {}),
-        stageClient.entities.TransferRoomConfig.filter({ key: "main" }, "-updated_date", 1).catch(() => []),
-      ]);
+      const marketRes = await stageClient.functions.invoke("getTransferMarket", {});
       const normalizedMarket = normalizeTransferMarketPlayers(marketRes?.data || {});
 
       setFreeAgents(normalizedMarket.freeAgents);
       setExpiringPlayers(normalizedMarket.expiringPlayers);
-      setRoomConfig(configRows?.[0] || null);
 
       if (club) {
         const contractArr = await stageClient.entities.PlayerContract.filter({ team_id: club.id }).catch(() => []);
@@ -137,7 +150,7 @@ export default function TransferMarket() {
 
   return (
     <div className="transfer-room" style={{'--tr-accent':TRANSFER_ROOM_ACCENTS[presentation.accent],'--tr-button-ink':presentation.accent==='gold'?'#071020':'#fff'}}>
-      <TransferRoomHero presentation={presentation} freeCount={freeAgents.length} expiringCount={expiringPlayers.length} canManage={canManage} clubName={myClub?.name} windowOpen={windowOpen} currentWindow={currentWindow}/>
+      <TransferRoomHero artworkStatus={artworkStatus} onRetryArtwork={() => setArtworkAttempt(n => n + 1)} presentation={presentation} freeCount={freeAgents.length} expiringCount={expiringPlayers.length} canManage={canManage} clubName={myClub?.name} windowOpen={windowOpen} currentWindow={currentWindow}/>
       <section id="transfer-talent" className="tr-market-wrap" aria-label="Transfer player market">
         <TransferWindowDeadline window={currentWindow} windowOpen={windowOpen}/>
         <div className="tr-market-heading"><div><p className="tr-kicker">SCOUT. CONNECT. SIGN.</p><h2>Find your next game changer.</h2></div><span className="tr-rule-note">{loading?'Loading players…':`${filteredEntries.length} player${filteredEntries.length===1?'':'s'} in your search`}</span></div>

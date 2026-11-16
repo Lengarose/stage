@@ -1,0 +1,15 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Transfer Room slideshow regression</title></head><body style="margin:0;background:#070e1b"><div id="root"></div><output id="result" style="position:fixed;z-index:99999;bottom:12px;left:12px;background:white;color:black;padding:12px">Checking initial slideshow…</output><script type="module">
+// Local-only regression: real TransferMarket, delayed read-only configuration.
+import React from 'react';import ReactDOM from 'react-dom/client';import {MemoryRouter} from 'react-router-dom';import RefreshRuntime from '/@react-refresh';
+RefreshRuntime.injectIntoGlobalHook(window);window.$RefreshReg$=()=>{};window.$RefreshSig$=()=>type=>type;window.__vite_plugin_react_preamble_installed__=true;
+await import('/src/index.css');await import('/src/components/transfer/transfer-room.css');await import('/node_modules/@fontsource/anton/index.css');
+const {stageClient}=await import('/src/api/stageClient.js');
+for(const entity of Object.values(stageClient.entities)){entity.filter=async()=>[];entity.list=async()=>[];entity.get=async()=>null;entity.subscribe=()=>()=>{};}
+stageClient.auth.me=async()=>null;stageClient.auth.isAuthenticated=async()=>false;stageClient.functions.invoke=async()=>({data:{freeAgents:[],expiringPlayers:[]}});
+const mode=new URLSearchParams(location.search).get('mode');let calls=0;
+stageClient.entities.TransferRoomConfig.filter=async()=>{await new Promise(r=>setTimeout(r,1800));if(mode==='error'&&calls++===0)throw Error('Isolated config failure');return mode==='empty'?[]:[{key:'main',banner_slides:[{url:'/src/assets/Stage%20Desk.png',position:'50% 50%',zoom:100}]}];};
+const {default:Page}=await import('/src/pages/TransferMarket.jsx');
+let unexpected=false;const timer=setInterval(()=>{for(const image of document.querySelectorAll('.tr-hero-image img'))if(image.getAttribute('src')!=='/src/assets/Stage%20Desk.png')unexpected=true;},20);
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(MemoryRouter,null,React.createElement(Page)));
+setTimeout(()=>{clearInterval(timer);const custom=!!document.querySelector('.tr-hero-image img[src="/src/assets/Stage%20Desk.png"]');document.getElementById('result').textContent=mode==='empty'?'Empty config: inspect fallback':mode==='error'?(!unexpected?'PASS: no default artwork after config failure':'FAIL: default artwork shown after config failure'):!unexpected&&custom?'PASS: uploaded image only, including initial load':'FAIL: built-in artwork appeared before uploaded image';},2600);
+</script></body></html>
