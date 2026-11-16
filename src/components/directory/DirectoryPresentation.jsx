@@ -2,6 +2,7 @@ import { ArrowRight, ChevronLeft, ChevronRight, LayoutGrid, List, Search } from 
 import { Link } from "react-router-dom";
 import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { getCountryShortName } from "@/lib/countryDisplay";
+import { useCardProgression } from "@/hooks/useCardProgression";
 import "./directory.css";
 
 export function DirectoryHeader({ kind, title, count, loading, scoped }) {
@@ -34,6 +35,14 @@ export function DirectoryTools({ children, search, onSearch, placeholder, view, 
   </div>;
 }
 
+function DirectoryPlayerLevel({ playerId }) {
+  const { card, error } = useCardProgression(playerId);
+  const level = card?.level;
+  return <span className="directory-player-level" aria-label={`STAGE Card Level ${level ?? "unavailable"}`} title={error ? "Card Level is temporarily unavailable" : "STAGE Card Level — earned through official match participation"}>
+    <span>LV</span><strong>{level ?? "—"}</strong>
+  </span>;
+}
+
 export function DirectoryCard({ kind, item, club, profileLabel }) {
   const isClub = kind === "clubs";
   const isManager = kind === "managers";
@@ -48,7 +57,7 @@ export function DirectoryCard({ kind, item, club, profileLabel }) {
     </div>
     <div className="directory-card-body">
       <IdentityAvatar src={image} name={name} alt="" className="directory-avatar" position={isClub ? item.logo_position : item.avatar_position} zoom={isClub ? item.logo_zoom : item.avatar_zoom} />
-      <div className="directory-card-identity"><h2>{name || (isClub ? "Club" : "Player")}</h2>
+      <div className="directory-card-identity"><div className="directory-card-name"><h2>{name || (isClub ? "Club" : "Player")}</h2>{kind === "players" && <DirectoryPlayerLevel playerId={item.id} />}</div>
         <p className="directory-card-meta">{[item.platform, isClub ? item.region : country].filter(Boolean).join(" · ") || "STAGE community"}</p>
         {!isClub && <p className="directory-card-affiliation">{club?.name || (item.club_id ? "Club player" : "Free agent")}</p>}
         {isClub && country && <p className="directory-card-affiliation">{country}</p>}

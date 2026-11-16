@@ -21,7 +21,7 @@ for(const entity of Object.values(stageClient.entities)) {entity.filter=async()=
 stageClient.auth.me=async()=>user;stageClient.auth.hasToken=()=>false;stageClient.auth.isAuthenticated=async()=>false;
 stageClient.entities.Player.get=async()=>player;stageClient.entities.Player.filter=async()=>players;
 stageClient.entities.Club.get=async()=>club;stageClient.entities.Club.filter=async()=>clubs;
-stageClient.http.get=async()=>({});stageClient.functions.invoke=async()=>({});
+stageClient.http.get=async path=>path.startsWith("/card-progressions/")?{level:[1,12,100][Number(path.split("-").at(-1))%3]}:{};stageClient.functions.invoke=async()=>({});
 const {AuthProvider}=await import('/src/lib/AuthContext.jsx');
 const {TranslationProvider}=await import('/src/lib/TranslationContext.jsx');
 const {default:Layout}=await import('/src/components/Layout.jsx');
