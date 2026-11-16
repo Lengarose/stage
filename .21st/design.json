@@ -1,0 +1,282 @@
+{
+  "version": 1,
+  "project": {
+    "name": "base44-app",
+    "productType": null,
+    "stack": [
+      "react",
+      "shadcn",
+      "tailwind-v3",
+      "vite"
+    ]
+  },
+  "sources": {
+    "tokens": [
+      "src/index.css"
+    ],
+    "components": [
+      "src/components/ui"
+    ],
+    "assets": [
+      "src/assets"
+    ],
+    "instructions": [
+      "AGENTS.md"
+    ]
+  },
+  "design": {
+    "colorMode": "light-and-dark",
+    "colors": {
+      "--background": {
+        "value": "220 70% 5%",
+        "source": "src/index.css"
+      },
+      "--foreground": {
+        "value": "210 20% 95%",
+        "source": "src/index.css"
+      },
+      "--card-foreground": {
+        "value": "210 20% 95%",
+        "source": "src/index.css"
+      },
+      "--popover-foreground": {
+        "value": "210 20% 95%",
+        "source": "src/index.css"
+      },
+      "--primary": {
+        "value": "189 100% 52%",
+        "source": "src/index.css"
+      },
+      "--primary-foreground": {
+        "value": "220 70% 5%",
+        "source": "src/index.css"
+      },
+      "--secondary": {
+        "value": "220 50% 13%",
+        "source": "src/index.css"
+      },
+      "--secondary-foreground": {
+        "value": "210 20% 90%",
+        "source": "src/index.css"
+      },
+      "--muted": {
+        "value": "220 50% 11%",
+        "source": "src/index.css"
+      },
+      "--muted-foreground": {
+        "value": "215 20% 50%",
+        "source": "src/index.css"
+      },
+      "--accent": {
+        "value": "200 90% 45%",
+        "source": "src/index.css"
+      },
+      "--accent-foreground": {
+        "value": "210 20% 95%",
+        "source": "src/index.css"
+      },
+      "--destructive": {
+        "value": "0 72% 51%",
+        "source": "src/index.css"
+      },
+      "--destructive-foreground": {
+        "value": "210 20% 95%",
+        "source": "src/index.css"
+      },
+      "--border": {
+        "value": "220 45% 16%",
+        "source": "src/index.css"
+      },
+      "--ring": {
+        "value": "189 100% 52%",
+        "source": "src/index.css"
+      },
+      "--chart-1": {
+        "value": "204 100% 40%",
+        "source": "src/index.css"
+      },
+      "--chart-2": {
+        "value": "200 90% 38%",
+        "source": "src/index.css"
+      },
+      "--chart-3": {
+        "value": "145 70% 42%",
+        "source": "src/index.css"
+      },
+      "--chart-4": {
+        "value": "45 95% 50%",
+        "source": "src/index.css"
+      },
+      "--chart-5": {
+        "value": "0 72% 51%",
+        "source": "src/index.css"
+      },
+      "--sidebar-background": {
+        "value": "0 0% 0%",
+        "source": "src/index.css"
+      },
+      "--sidebar-foreground": {
+        "value": "210 20% 90%",
+        "source": "src/index.css"
+      },
+      "--sidebar-primary": {
+        "value": "189 100% 52%",
+        "source": "src/index.css"
+      },
+      "--sidebar-primary-foreground": {
+        "value": "220 70% 5%",
+        "source": "src/index.css"
+      },
+      "--sidebar-accent": {
+        "value": "220 50% 11%",
+        "source": "src/index.css"
+      },
+      "--sidebar-accent-foreground": {
+        "value": "210 20% 90%",
+        "source": "src/index.css"
+      },
+      "--sidebar-border": {
+        "value": "220 45% 14%",
+        "source": "src/index.css"
+      },
+      "--sidebar-ring": {
+        "value": "189 100% 52%",
+        "source": "src/index.css"
+      },
+      "--liquid-accent": {
+        "value": "#f87171",
+        "source": "src/index.css"
+      },
+      "--gost-accent": {
+        "value": "var(--gost-accent-light)",
+        "source": "src/index.css"
+      }
+    },
+    "typography": {
+      "--font-heading": {
+        "value": "'EA Sports 15', 'Anton', 'Barlow Condensed', sans-serif",
+        "source": "src/index.css"
+      },
+      "--font-body": {
+        "value": "'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif",
+        "source": "src/index.css"
+      },
+      "--font-display": {
+        "value": "'EA Sports 15', 'Anton', 'Barlow Condensed', sans-serif",
+        "source": "src/index.css"
+      },
+      "--font-heading-legacy": {
+        "value": "'Anton', 'Barlow Condensed', sans-serif",
+        "source": "src/index.css"
+      }
+    },
+    "spacing": {},
+    "radius": {
+      "--radius": {
+        "value": "0.75rem",
+        "source": "src/index.css"
+      }
+    },
+    "shadows": {},
+    "motion": {},
+    "density": "unknown"
+  },
+  "components": {
+    "installed": [
+      "accordion",
+      "alert",
+      "alert-dialog",
+      "aspect-ratio",
+      "avatar",
+      "badge",
+      "breadcrumb",
+      "button",
+      "calendar",
+      "card",
+      "carousel",
+      "chart",
+      "checkbox",
+      "collapsible",
+      "command",
+      "context-menu",
+      "dialog",
+      "drawer",
+      "dropdown-menu",
+      "form",
+      "hover-card",
+      "input",
+      "input-otp",
+      "label",
+      "menubar",
+      "navigation-menu",
+      "pagination",
+      "popover",
+      "progress",
+      "radio-group",
+      "resizable",
+      "scroll-area",
+      "select",
+      "separator",
+      "sheet",
+      "sidebar",
+      "skeleton",
+      "slider",
+      "sonner",
+      "switch",
+      "table",
+      "tabs",
+      "textarea",
+      "toast",
+      "toast-notification",
+      "toaster",
+      "toggle",
+      "toggle-group",
+      "tooltip",
+      "use-toast"
+    ],
+    "preferredPrimitives": [
+      "radix-ui"
+    ],
+    "patterns": []
+  },
+  "constraints": {
+    "must": [],
+    "avoid": []
+  },
+  "decisions": [],
+  "evidence": [
+    {
+      "fact": "components.installed",
+      "source": "src/components/ui"
+    },
+    {
+      "fact": "design.colorMode:light-and-dark",
+      "source": "src/index.css"
+    },
+    {
+      "fact": "design.tokens",
+      "source": "src/index.css"
+    },
+    {
+      "fact": "project.instructions",
+      "source": "AGENTS.md"
+    },
+    {
+      "fact": "project.stack:react",
+      "source": "package.json"
+    },
+    {
+      "fact": "project.stack:shadcn",
+      "source": "components.json"
+    },
+    {
+      "fact": "project.stack:tailwind-v3",
+      "source": "package.json"
+    },
+    {
+      "fact": "project.stack:vite",
+      "source": "package.json"
+    }
+  ],
+  "generatedAt": "2026-11-16T16:07:41.890Z"
+}
