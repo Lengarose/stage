@@ -115,20 +115,21 @@ test("public president identity is the player profile, not a President page", ()
   assert.doesNotMatch(layout, /\/presidents\/\$\{/, "Layout should not route normal identity menus to legacy President profiles");
 });
 
-test("presidents list page derives public presidents from Player-linked clubs", () => {
+test("unified directory derives managers from Player-linked clubs", () => {
   const app = readRepoFile("src/App.jsx");
   const layout = readRepoFile("src/components/Layout.jsx");
-  const page = readRepoFile("src/pages/Presidents.jsx");
+  const page = readRepoFile("src/pages/Directory.jsx");
+  const cards = readRepoFile("src/components/directory/DirectoryPresentation.jsx");
   const directory = readRepoFile("src/lib/presidentDirectory.js");
 
   assert.match(app, /path="\/presidents-list"/);
-  assert.match(app, /import\('\.\/pages\/Presidents'\)/);
+  assert.match(app, /import\('\.\/pages\/Directory'\)/);
   assert.match(layout, /\/presidents-list/);
-  assert.match(layout, /nav\.presidents/);
+  assert.match(layout, /STAGE Directory/);
   assert.match(page, /loadClubDirectoryPages/);
   assert.match(page, /loadPlayerDirectoryPages/);
   assert.match(page, /buildPlayerPresidentDirectoryRows/);
-  assert.match(page, /to=\{`\/players\/\$\{president\.player_id\}`\}/);
+  assert.match(cards, /isManager \? item\.player_id : item\.id/);
   assert.doesNotMatch(page, /entities\.President\.list/);
   assert.doesNotMatch(page, /filterPublicPresidentProfiles/);
   assert.match(directory, /club\?\.president_player_id/);

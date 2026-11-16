@@ -1,0 +1,2 @@
+Built-in image_gen precise branding edit. Target: stage-signing-number-10.png. References: src/assets/Name logo.png and src/assets/Stadium Logo.png.
+Replace every invented backdrop logo with the actual white italic STAGE name and stadium lockup, wordmark left and stadium right. Preserve the original stadium outline, elliptical top, zigzag rim and curved tapered supports. No blue rectangle behind the logo. Replace main top-center and all repeated small marks. Preserve crop, no faces, blue/silver kit, number 10, hands, clothing, lights and game-render style.

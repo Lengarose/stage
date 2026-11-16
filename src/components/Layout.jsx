@@ -2,7 +2,7 @@ import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Home, Shield, Trophy, BarChart3, User, ArrowLeftRight,
-  Search, Rss, ShoppingBag, Video, UsersRound, Handshake, Crown,
+  Search, Rss, ShoppingBag, Video, UsersRound, Handshake,
   Palette, ChevronDown, Newspaper, ShieldAlert, Settings,
   Inbox, CalendarDays, Zap, Coins, Moon, LogOut, Star, Bell,
   MessagesSquare, Globe2, Activity, HelpCircle,
@@ -139,9 +139,7 @@ function getPlayerGroups(t, clubPath) {
     {
       label: t("nav.market"),
       items: [
-        { path: "/clubs",            icon: Shield,     label: t("nav.clubs") },
-        { path: "/players-list",     icon: UsersRound, label: t("nav.players") },
-        { path: "/presidents-list",  icon: Crown,      label: t("nav.presidents") },
+        { path: "/directory", icon: UsersRound, label: "STAGE Directory" },
         { path: "/scouting",        icon: Binoculars,     label: t("nav.scouting") },
         { path: "/transfer-market", icon: ArrowLeftRight, label: t("nav.transfers") },
         { path: "/lifestyle",       icon: Coins,          label: t("nav.lifestyle") },
@@ -205,9 +203,7 @@ function getPresidentGroups(t, clubPath, hasPlayer) {
     {
       label: t("nav.market"),
       items: [
-        { path: "/clubs",           icon: Shield,     label: t("nav.clubs") },
-        { path: "/players-list",    icon: UsersRound, label: t("nav.players") },
-        { path: "/presidents-list", icon: Crown,      label: t("nav.presidents") },
+        { path: "/directory", icon: UsersRound, label: "STAGE Directory" },
         // No Scouting entry here: this is the president nav, and scouting rights
         // follow a club-attached *player* row. A president without one would only
         // ever reach the "join a club" screen.
@@ -459,23 +455,13 @@ const MOBILE_WALKTHROUGHS = [
     ],
   },
   {
-    path: "/players-list",
-    label: "Players",
-    title: "Players",
+    path: "/directory",
+    label: "STAGE Directory",
+    title: "STAGE Directory",
     steps: [
-      "Search the player pool and open profiles to inspect stats, role and activity.",
-      "Club managers can use this page as a scouting starting point.",
-      "Players can compare themselves and discover potential teammates or rivals.",
-    ],
-  },
-  {
-    path: "/presidents-list",
-    label: "Managers",
-    title: "Managers",
-    steps: [
-      "Browse club managers and open their public profiles.",
-      "Check success level, management style and the club they run.",
-      "Use this directory to discover managers separately from the player list.",
+      "Switch between Players, Clubs and Managers to explore the STAGE community.",
+      "Search by name, narrow the filters, or switch between grid and list views.",
+      "Open a profile to see more. Contract offers belong in the Transfer Room.",
     ],
   },
   {
@@ -617,6 +603,7 @@ const MOBILE_WALKTHROUGH_KEYS_BY_PATH = {
   "/international": "international",
   "/register-league": "register",
   "/rankings": "rankings",
+  "/directory": "directory",
   "/players-list": "players",
   "/presidents-list": "presidents",
   "/free-agents": "freeAgents",
@@ -966,8 +953,7 @@ const MOBILE_MORE_GROUPS_PLAYER = [
   {
     label: "Club",
     items: [
-      { path: "/players-list",    icon: UsersRound,    label: "Players"       },
-      { path: "/presidents-list", icon: Crown,         label: "Managers"    },
+      { path: "/directory", icon: UsersRound, label: "STAGE Directory" },
       { path: "/free-agents",     icon: UsersRound,    label: "Free Agents"   },
       { path: "/scouting",        icon: Binoculars,     label: "Scouting"    },
       { path: "/transfer-market", icon: ArrowLeftRight, label: "Transfer Room"   },
@@ -1008,8 +994,7 @@ function getMobileMoreGroupsPresident(clubPath) {
       label: "Club",
       items: [
         { path: clubPath || "/clubs", icon: Shield,      label: "My Club" },
-        { path: "/players-list",    icon: UsersRound,    label: "Squad"       },
-        { path: "/presidents-list", icon: Crown,         label: "Managers"  },
+        { path: "/directory", icon: UsersRound, label: "STAGE Directory" },
         { path: "/scouting",        icon: Binoculars,     label: "Scouting"    },
         { path: "/transfer-market", icon: ArrowLeftRight, label: "Transfer Room"   },
         { path: "/contracts/create", icon: Handshake,     label: "Contracts"   },

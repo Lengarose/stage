@@ -1,0 +1,35 @@
+<!doctype html>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link href="https://fonts.googleapis.com/css2?family=Anton&family=Chakra+Petch:wght@400;500;600;700&display=swap" rel="stylesheet"></head>
+<body style="margin:0"><div id="root"></div><script type="module">
+// Isolated directory UI fixture: real Directory and Layout,
+// with no authenticated session or business mutations.
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import {MemoryRouter,Routes,Route} from 'react-router-dom';
+import RefreshRuntime from '/@react-refresh';
+RefreshRuntime.injectIntoGlobalHook(window);
+window.$RefreshReg$=()=>{}; window.$RefreshSig$=()=>type=>type;
+window.__vite_plugin_react_preamble_installed__=true;
+await import('/src/index.css');
+await import('/node_modules/@fontsource/anton/index.css');
+const {stageClient}=await import('/src/api/stageClient.js');
+const asset=name=>new URL('/src/assets/'+encodeURIComponent(name),location.origin).href;
+const clubs=Array.from({length:18},(_,i)=>({id:`club-${i}`,name:['Atlas FC','Blue Valley','Crimson United','Northside Athletic','Royal City','The Hooded FC'][i%6]+(i>5?' '+(i+1):''),tag:'FC'+i,platform:i%2?'Xbox':'PlayStation',region:i%2?'North America':'Europe',country:'Belgium',country_code:'BE',logo_url:i===4?'':asset('Stadium Logo.png'),banner_url:i===3?'':asset(i%2?'Banner.jpg':'Stage Desk.png'),banner_zoom:110,president_player_id:`player-${i}`}));
+const players=Array.from({length:18},(_,i)=>({id:`player-${i}`,user_id:`user-${i}`,gamertag:['Alex Rivers','Blaise Kito','Callmeddz','Dario Stone','Emile Laurent','Lengarose'][i%6]+(i>5?' '+(i+1):''),position:i%2?'ST':'CDM',platform:i%2?'Xbox':'PlayStation',country:'Belgium',country_code:'BE',club_id:i===2?null:clubs[i].id,avatar_url:i===3?'':asset(i%2?'Coach Luis.PNG':'DDZ.PNG'),banner_url:i===3?'':asset(i%2?'Banner.jpg':'Stage Desk.png'),banner_zoom:110}));
+const player=players[0],club=clubs[0],user={id:player.user_id,email:'directory@example.test',player_id:player.id,role_id:1};
+for(const entity of Object.values(stageClient.entities)) {entity.filter=async()=>[];entity.list=async()=>[];entity.get=async()=>null;entity.subscribe=()=>()=>{};}
+stageClient.auth.me=async()=>user;stageClient.auth.hasToken=()=>false;stageClient.auth.isAuthenticated=async()=>false;
+stageClient.entities.Player.get=async()=>player;stageClient.entities.Player.filter=async()=>players;
+stageClient.entities.Club.get=async()=>club;stageClient.entities.Club.filter=async()=>clubs;
+stageClient.http.get=async()=>({});stageClient.functions.invoke=async()=>({});
+const {AuthProvider}=await import('/src/lib/AuthContext.jsx');
+const {TranslationProvider}=await import('/src/lib/TranslationContext.jsx');
+const {default:Layout}=await import('/src/components/Layout.jsx');
+const {default:Directory}=await import('/src/pages/Directory.jsx');
+const kind=new URLSearchParams(location.search).get('type')||'players';
+ReactDOM.createRoot(document.getElementById('root')).render(
+ React.createElement(MemoryRouter,{initialEntries:['/directory?type='+kind]},
+ React.createElement(TranslationProvider,null,React.createElement(AuthProvider,null,
+ React.createElement(Routes,null,React.createElement(Route,{element:React.createElement(Layout)},
+ React.createElement(Route,{path:'/directory',element:React.createElement(Directory)})))))));
+</script></body></html>

@@ -36,7 +36,7 @@ import Home from './pages/Home';
 // Lazy-loaded pages — split into separate chunks for faster initial load
 const Dashboard = React.lazy(() => import('./pages/Dashboard'));
 const ClubDetail = React.lazy(() => import('./pages/ClubDetail'));
-const Clubs = React.lazy(() => import('./pages/Clubs'));
+const Directory = React.lazy(() => import('./pages/Directory'));
 const Tournaments = React.lazy(() => import('./pages/Tournaments'));
 const TournamentDetail = React.lazy(() => import('./pages/TournamentDetail'));
 const InternationalTournaments = React.lazy(() => import('./pages/InternationalTournaments'));
@@ -47,7 +47,6 @@ const Search = React.lazy(() => import('./pages/Search'));
 const Store = React.lazy(() => import('./pages/Store'));
 const PlayerProfile = React.lazy(() => import('./pages/PlayerProfile'));
 const PresidentLegacyRedirect = React.lazy(() => import('./pages/PresidentLegacyRedirect'));
-const Presidents = React.lazy(() => import('./pages/Presidents'));
 const EAFCClub = React.lazy(() => import('./pages/EAFCClub'));
 const FreeAgents = React.lazy(() => import('./pages/FreeAgents'));
 const PlayerStats = React.lazy(() => import('./pages/PlayerStats'));
@@ -55,7 +54,6 @@ const TheStands = React.lazy(() => import('./pages/TheStands'));
 const Settings = React.lazy(() => import('./pages/Settings'));
 const FontPreview = React.lazy(() => import('./pages/FontPreview'));
 const News = React.lazy(() => import('./pages/News'));
-const Players = React.lazy(() => import('./pages/Players'));
 const ClubsRegistered = React.lazy(() => import('./pages/ClubsRegistered'));
 const PlayersRegistered = React.lazy(() => import('./pages/PlayersRegistered'));
 const CreateContract = React.lazy(() => import('./pages/CreateContract'));
@@ -428,7 +426,8 @@ const AuthenticatedApp = () => {
               <Route path="/tournaments/entrance/:token/signup" element={<EntranceTournamentSignupPage />} />
             <Route path="/" element={isAdmin ? <Navigate to="/admin" replace /> : <Home />} />
             <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/clubs" element={<Clubs />} />
+            <Route path="/directory" element={<Directory />} />
+            <Route path="/clubs" element={<Navigate to="/directory?type=clubs" replace />} />
             <Route path="/clubs/:id" element={<ClubDetail />} />
             <Route path="/tournaments" element={<Tournaments />} />
             <Route path="/tournaments/:id" element={<TournamentDetail />} />
@@ -440,12 +439,12 @@ const AuthenticatedApp = () => {
             <Route path="/profile" element={<Profile />} />
             <Route path="/store" element={<Store />} />
             <Route path="/players/:id" element={<PlayerProfile />} />
-            <Route path="/presidents-list" element={<Presidents />} />
+            <Route path="/presidents-list" element={<Navigate to="/directory?type=managers" replace />} />
             <Route path="/presidents/:id" element={<PresidentLegacyRedirect />} />
             <Route path="/eafc" element={<EAFCClub />} />
             <Route path="/free-agents" element={<FreeAgents />} />
             <Route path="/stats" element={<PlayerStats />} />
-            <Route path="/players-list" element={<Players />} />
+            <Route path="/players-list" element={<Navigate to="/directory?type=players" replace />} />
             <Route path="/predictions" element={<Navigate to="/the-stands?view=rankings" replace />} />
             <Route path="/the-stands" element={<TheStands />} />
             <Route path="/settings" element={<Settings />} />
