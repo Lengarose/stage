@@ -22,7 +22,7 @@ async function balance({ player, user }, q = EXECUTESQL) {
   const now=Date.now();
   const passive=assets.map(a=>({...a,due:now-Date.parse(a.last_passive_collected || a.created_date)>=Number(a.passive_income_interval_days || 7)*86400000}));
   const locked=wagers.reduce((sum,m)=>sum+((m.home_player_id===player.id&&Number(m.wager_home_locked)===1)||(m.away_player_id===player.id&&Number(m.wager_away_locked)===1)?Number(m.wager_stc||0):0),0);
-  return {balance:Number(player.stc||0),credits:Number(accounts[0]?.credits||0),summary,agreements,payroll,locked_stc:locked,locked_match_count:wagers.filter(m=>(m.home_player_id===player.id&&Number(m.wager_home_locked)===1)||(m.away_player_id===player.id&&Number(m.wager_away_locked)===1)).length,passive_income:{asset_count:passive.length,due_assets:passive.filter(a=>a.due).length,collectable_stc:passive.filter(a=>a.due).reduce((n,a)=>n+Number(a.passive_income_stc),0)},managed_clubs:managed,categories:categories.map(c=>c.category),credit_history_available:false};
+  return {history_filters_available:true,balance:Number(player.stc||0),credits:Number(accounts[0]?.credits||0),summary,agreements,payroll,locked_stc:locked,locked_match_count:wagers.filter(m=>(m.home_player_id===player.id&&Number(m.wager_home_locked)===1)||(m.away_player_id===player.id&&Number(m.wager_away_locked)===1)).length,passive_income:{asset_count:passive.length,due_assets:passive.filter(a=>a.due).length,collectable_stc:passive.filter(a=>a.due).reduce((n,a)=>n+Number(a.passive_income_stc),0)},managed_clubs:managed,categories:categories.map(c=>c.category),credit_history_available:false};
 }
 async function history({player}, options={}, q=EXECUTESQL) {
   const page=Math.max(1,Math.floor(Number(options.page)||1));

@@ -15,3 +15,11 @@ Credit transaction history is explicitly unavailable because the existing system
 No production data changes or deployment. Frontend build and changed backend files must be deployed together; the backend requires restart.
 
 `graphify update .` could not run because graphify is not installed in this environment.
+
+## Previous-response compatibility fix (17 November)
+
+Reproduced the exact `Cannot read properties of undefined (reading 'filter')` crash by returning the previous Wallet balance response to the real component (`scripts/wallet-style-qa.html?state=legacy`). The configured local API proxy targets stageleagues.com; the previous response has no agreements/payroll arrays.
+
+Added a response adapter that retains known balances, safely handles absent lists, distinguishes unavailable financial information from genuine zero/empty results, validates history responses and disables unsupported server filters. The updated server explicitly advertises filter support. Credit-history selection no longer sends a request that an older server could misinterpret as STC history.
+
+Three regression tests passed (`node --test src/lib/__tests__/walletResponse.test.mjs`). Browser reproduction now renders both Overview and Income & Contracts safely. Lint, typecheck, backend syntax and production build passed. Screenshot `legacy-response-fixed.png` uses demonstration data. Full connected data still requires deploying the updated backend and restarting it. No deployment performed. Graphify remains unavailable.
