@@ -1,348 +1,57 @@
-import { useState, useEffect, useCallback } from "react";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { ArrowDownLeft, ArrowUpRight, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { stageClient } from "@/api/stageClient";
-import { cn } from "@/lib/utils";
-import { useTranslation } from "@/hooks/useTranslation";
-import { Button } from "@/components/ui/button";
-import {
-  Coins, TrendingUp, Zap, Wallet,
-  ShoppingBag, Building2, Trophy, RefreshCw,
-  ChevronDown, Briefcase, ArrowUpRight, ArrowDownRight, Lock,
-} from "lucide-react";
-
-function getCategoryMeta(category, t) {
-  const CATEGORY_META = {
-    initial_grant:            { label: t("commonPages.walCatWelcomeBonus"),      icon: Coins,       color: "text-success",     bg: "bg-success/10"     },
-    salary:                   { label: t("commonPages.cccWeeklySalary"),           icon: Briefcase,   color: "text-primary",    bg: "bg-primary/10"     },
-    lifestyle_purchase:       { label: t("commonPages.walCatLifestylePurchase"), icon: ShoppingBag, color: "text-destructive", bg: "bg-destructive/10" },
-    lifestyle_rent:           { label: t("commonPages.walCatLifestyleRental"),   icon: Building2,   color: "text-destructive", bg: "bg-destructive/10" },
-    lifestyle_passive_income: { label: t("commonPages.walCatInvestmentReturn"),  icon: TrendingUp,  color: "text-accent",      bg: "bg-accent/10"      },
-    wager_stake:              { label: t("commonPages.walCatWagerStake"),          icon: Coins,       color: "text-warning",     bg: "bg-warning/10"     },
-    wager_win:                { label: t("commonPages.walCatWagerWon"),          icon: Trophy,      color: "text-success",     bg: "bg-success/10"     },
-    wager_loss:               { label: t("commonPages.walCatWagerLost"),         icon: Zap,         color: "text-destructive", bg: "bg-destructive/10" },
-    wager_refund:             { label: t("commonPages.walCatWagerRefunded"),     icon: Zap,         color: "text-warning",     bg: "bg-warning/10"     },
-    competition_reward:       { label: t("commonPages.walCatCompetitionReward"), icon: Trophy,      color: "text-success",     bg: "bg-success/10"     },
-    signing_bonus:            { label: t("commonPages.cccSigningBonus"),         icon: Briefcase,   color: "text-primary",     bg: "bg-primary/10"     },
-    admin_credit:             { label: t("commonPages.walCatAdminCredit"),       icon: Coins,       color: "text-success",     bg: "bg-success/10"     },
-    admin_debit:              { label: t("commonPages.walCatAdminDebit"),        icon: Coins,       color: "text-destructive", bg: "bg-destructive/10" },
-  };
-  return CATEGORY_META[category] || { label: category || t("commonPages.walCatTransaction"), icon: Coins, color: "text-foreground", bg: "bg-secondary" };
-}
-
-function fmt(n) { return Number(n || 0).toLocaleString(); }
-
-const panel = "overflow-hidden rounded-2xl border border-[#f5c542]/20 bg-card/80 shadow-[0_0_80px_-28px_rgba(245,197,66,0.35)] backdrop-blur-md";
-const goldCta = "h-10 gap-1.5 rounded-sm bg-gradient-to-b from-[#ffe27a] to-[#c9a227] px-3 font-heading text-xs font-black uppercase tracking-[0.16em] text-black hover:from-[#fff0a8] hover:to-[#d4ad30] focus-visible:ring-2 focus-visible:ring-[#f5c542]";
-
-function TxRow({ tx, t }) {
-  const meta = getCategoryMeta(tx.category, t);
-  const Icon = meta.icon;
-  const isPos = Number(tx.amount) > 0;
-  return (
-    <div className="flex items-center gap-3 border-b border-border/50 px-4 py-3 last:border-0 hover:bg-secondary/30">
-      <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-sm", meta.bg)}>
-        <Icon className={cn("h-4 w-4", meta.color)} />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-xs font-semibold text-foreground">{tx.description || meta.label}</p>
-        <div className="mt-0.5 flex items-center gap-2">
-          <span className={cn("rounded-sm px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider", meta.bg, meta.color)}>{meta.label}</span>
-          {tx.source && <span className="truncate text-[10px] text-muted-foreground">{tx.source}</span>}
-        </div>
-      </div>
-      <div className="shrink-0 text-right">
-        <p className={cn("font-heading text-sm font-black tabular-nums", isPos ? "text-success" : "text-destructive")}>
-          {isPos ? "+" : ""}{fmt(tx.amount)}
-        </p>
-        <p className="text-[9px] uppercase tracking-wider text-muted-foreground">
-          {new Date(tx.created_date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
-        </p>
-      </div>
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import "@/components/wallet/wallet.css";
+const money=value=>Number(value||0).toLocaleString(undefined,{maximumFractionDigits:2});
+const date=value=>value?new Date(value).toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'}):'—';
+const label=value=>String(value||'Transaction').replaceAll('_',' ');
+const initialFilters={search:'',direction:'all',category:'all',currency:'stc',from_date:'',to_date:''};
+function Failure({message,retry}) {return <div className="wallet-error" role="alert"><p>{message}</p><button type="button" onClick={retry}>Retry</button></div>;}
+function Activity({rows,onSelect}) {return <div className="wallet-activity">{rows.map(tx=><button type="button" key={tx.id} className="wallet-activity-row" onClick={()=>onSelect(tx)}><span className={`wallet-flow-icon ${Number(tx.amount)>0?'is-income':''}`}>{Number(tx.amount)>0?<ArrowDownLeft size={19}/>:<ArrowUpRight size={19}/>}</span><span className="wallet-activity-description"><strong>{tx.description||label(tx.category)}</strong><small>{label(tx.category)}{tx.source?` · ${tx.source}`:''}</small></span><span className="wallet-activity-amount"><strong className={Number(tx.amount)>0?'is-income':Number(tx.amount)<0?'is-expense':''}>{Number(tx.amount)>0?'+':''}{money(tx.amount)} <small>STC</small></strong><small>{date(tx.created_date)}</small></span></button>)}</div>;}
+export default function STCWallet({compact=false}) {
+  const [tab,setTab]=useState('overview'),[data,setData]=useState(null),[error,setError]=useState(''),[refresh,setRefresh]=useState(0);
+  const [history,setHistory]=useState(null),[historyError,setHistoryError]=useState(''),[historyLoading,setHistoryLoading]=useState(true);
+  const [filters,setFilters]=useState(initialFilters),[page,setPage]=useState(1),[selected,setSelected]=useState(null);
+  const [collecting,setCollecting]=useState(false),[notice,setNotice]=useState('');
+  useEffect(()=>{let active=true;setError('');stageClient.functions.invoke('playerWallet',{action:'get_balance'}).then(res=>{if(active)setData(res.data);}).catch(()=>{if(active)setError('Your wallet could not be loaded. Please try again.');});return()=>{active=false;};},[refresh]);
+  useEffect(()=>{let active=true;setHistoryLoading(true);setHistoryError('');const timer=setTimeout(()=>{stageClient.functions.invoke('playerWallet',{action:'get_history',page:tab==='transactions'?page:1,limit:20,...(tab==='transactions'?filters:{})}).then(res=>{if(active)setHistory(res.data);}).catch(()=>{if(active)setHistoryError('Transaction history could not be loaded. Please try again.');}).finally(()=>{if(active)setHistoryLoading(false);});},200);return()=>{active=false;clearTimeout(timer);};},[tab,filters,page,refresh]);
+  function filter(key,value){setFilters(f=>({...f,[key]:value}));setPage(1);}
+  async function collect(){setCollecting(true);setNotice('');try{const res=await stageClient.functions.invoke('collectPassiveIncome',{});setNotice(`${money(res.data?.collected||0)} STC collected.`);setRefresh(n=>n+1);}catch{setNotice('Income could not be collected. Please try again.');}finally{setCollecting(false);}}
+  if(error)return <div className="wallet-dashboard"><Failure message={error} retry={()=>setRefresh(n=>n+1)}/></div>;
+  if(!data)return <div className="wallet-dashboard wallet-loading" role="status">Loading your wallet…</div>;
+  const active=data.agreements.filter(a=>a.status==='active'&&Date.parse(a.ends_at)>Date.now());
+  const upcoming=active.filter(a=>a.next_payment_at).sort((a,b)=>Date.parse(a.next_payment_at)-Date.parse(b.next_payment_at))[0];
+  const arrears=data.payroll.filter(p=>p.status==='arrears').reduce((n,p)=>n+Number(p.amount_stc),0);
+  const income=data.summary.filter(s=>s.type==='income').reduce((n,s)=>n+Number(s.total),0),spent=data.summary.filter(s=>s.type==='expense').reduce((n,s)=>n+Math.abs(Number(s.total)),0);
+  const totalPages=Math.max(1,Math.ceil((history?.total||0)/20));
+  const historyContent=(preview=false)=>historyError?<Failure message={historyError} retry={()=>setRefresh(n=>n+1)}/>:historyLoading?<p className="wallet-empty" role="status">Loading transactions…</p>:history?.history_available===false?<p className="wallet-empty">Your credits balance is shared across your account. A complete credit transaction history is not recorded in this wallet yet.</p>:!history?.transactions?.length?<p className="wallet-empty">{preview?'No transactions recorded yet.':'No transactions match these filters.'}</p>:<Activity rows={preview?history.transactions.slice(0,5):history.transactions} onSelect={setSelected}/>;
+  return <div className={`wallet-dashboard ${compact?'wallet-dashboard--compact':''}`}>
+    <div className="wallet-summary">
+      <section className="wallet-balance"><p>Available balance</p><div>{money(data.balance)} <span>STC</span></div><small>Ready to use · reserved match stakes are shown separately</small></section>
+      <section><p>Account credits</p><div>{money(data.credits)}</div><small>Shared between your Player and Manager roles</small><Link to="/store">Visit Store <ArrowUpRight size={15}/></Link></section>
+      <section><p>Next payroll date</p><strong className="wallet-next-date">{upcoming?date(upcoming.next_payment_at):'No upcoming payroll'}</strong><small>{upcoming?`${upcoming.kind==='management'?'Manager':'Player'} agreement · ${upcoming.club_name}`:'Accepted agreements appear here.'}</small><small>Automatic weekly processing · payment depends on club funds</small></section>
     </div>
-  );
-}
-
-export default function STCWallet({ player: initialPlayer, compact = false }) {
-  const { t } = useTranslation();
-  const [data, setData]         = useState(null);
-  const [txFilter, setTxFilter] = useState("all"); // all | income | expense
-  const [loading, setLoading]   = useState(true);
-  const [collecting, setCollecting] = useState(false);
-  const [page, setPage]         = useState(1);
-  const [allTx, setAllTx]       = useState([]);
-  const [totalTx, setTotalTx]   = useState(0);
-  const [loadingMore, setLoadingMore] = useState(false);
-
-  const loadBalance = useCallback(async () => {
-    try {
-      const res = await stageClient.functions.invoke("playerWallet", { action: "get_balance" });
-      setData(res?.data || null);
-    } catch { /* silent */ }
-    setLoading(false);
-  }, []);
-
-  const loadHistory = useCallback(async (pageNum = 1, append = false) => {
-    if (append) setLoadingMore(true);
-    try {
-      const res = await stageClient.functions.invoke("playerWallet", { action: "get_history", page: pageNum, limit: 20 });
-      const txs = res?.data?.transactions || [];
-      setTotalTx(res?.data?.total || 0);
-      setAllTx(prev => append ? [...prev, ...txs] : txs);
-      setPage(pageNum);
-    } catch { /* silent */ }
-    setLoadingMore(false);
-  }, []);
-
-  useEffect(() => {
-    loadBalance();
-    loadHistory(1);
-  }, [loadBalance, loadHistory]);
-
-  async function collectPassive() {
-    setCollecting(true);
-    try {
-      const res = await stageClient.functions.invoke("collectPassiveIncome", {});
-      if ((res?.data?.collected || 0) > 0) {
-        await loadBalance();
-        await loadHistory(1);
-      }
-    } catch { /* silent */ }
-    setCollecting(false);
-  }
-
-  async function collectSalary() {
-    setCollecting(true);
-    try {
-      await stageClient.functions.invoke("playerWallet", { action: "pay_salary" });
-      await loadBalance();
-      await loadHistory(1);
-    } catch { /* silent */ }
-    setCollecting(false);
-  }
-
-  const balance    = data?.balance ?? (initialPlayer?.stc || 0);
-  const contract   = data?.contract;
-  const salary     = Number(data?.weekly_salary || 0);
-  const nextDays   = data?.next_salary_days;
-  const summary    = data?.summary || [];
-
-  const totalIncome  = summary.filter(s => s.type === "income").reduce((a, s) => a + Number(s.total || 0), 0);
-  const totalExpense = summary.filter(s => s.type === "expense").reduce((a, s) => a + Math.abs(Number(s.total || 0)), 0);
-
-  const filteredTx = txFilter === "all" ? allTx
-    : txFilter === "income"  ? allTx.filter(row => Number(row.amount) > 0)
-    : allTx.filter(row => Number(row.amount) < 0);
-
-  const lastWager = allTx.find((tx) =>
-    ["wager_stake", "wager_win", "wager_loss", "wager_refund"].includes(tx.category)
-  );
-  const lockedWager = lastWager?.category === "wager_stake" && Number(lastWager.amount) < 0
-    ? lastWager
-    : null;
-  const lockedStake = lockedWager ? Math.abs(Number(lockedWager.amount)) : 0;
-
-  const hasPassiveItems = true; // allow collect attempt always (server returns 0 if nothing)
-  const salaryDue = salary > 0 && (nextDays === 0 || nextDays === null);
-  const salaryDueText = nextDays > 0
-    ? (nextDays === 1 ? t("commonPages.walSalaryDueInDay") : t("commonPages.walSalaryDueInDays", { days: nextDays }))
-    : t("commonPages.walSalaryDueNow");
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-16" aria-label={t("commonPages.loading")}>
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#f5c542] border-t-transparent" />
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-5">
-      <div className="relative overflow-hidden rounded-2xl border border-[#f5c542]/28 bg-card/70 shadow-[0_0_80px_-24px_rgba(245,197,66,0.4)] backdrop-blur-md">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-80"
-          style={{
-            background: [
-              "radial-gradient(ellipse 90% 55% at 50% -8%, rgba(245,197,66,0.18), transparent 52%)",
-              "radial-gradient(ellipse 42% 58% at 12% 48%, rgba(0,229,255,0.08), transparent 58%)",
-              "repeating-linear-gradient(90deg, rgba(8,21,15,0.55) 0px, rgba(8,21,15,0.55) 56px, rgba(11,28,19,0.35) 56px, rgba(11,28,19,0.35) 112px)",
-            ].join(", "),
-          }}
-        />
-        <div aria-hidden className="pointer-events-none absolute left-1/2 top-[46%] h-[200px] w-[200px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10" />
-        <div className="relative z-[1] p-6">
-          <div className="mb-5 flex items-start justify-between gap-3">
-            <p className="font-heading text-[11px] font-black uppercase tracking-[0.28em] text-[#f5c542]">
-              {t("commonPages.walStcBalance")}
-            </p>
-            <div className="flex h-9 w-9 items-center justify-center rounded-sm border border-[#f5c542]/35 bg-[#f5c542]/10">
-              <Coins className="h-4 w-4 text-[#f5c542]" />
-            </div>
-          </div>
-
-          <div className="text-center">
-            <p className={cn(
-              "font-heading font-black tabular-nums leading-none text-success",
-              compact ? "text-4xl" : "text-5xl sm:text-7xl"
-            )}>
-              {fmt(balance)}
-            </p>
-            <p className="mt-2 text-[11px] uppercase tracking-[0.28em] text-muted-foreground">
-              {t("commonPages.walStageCoin")}
-            </p>
-          </div>
-
-          <div className="mt-5 grid grid-cols-2 gap-3 border-t border-white/10 pt-4">
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-sm bg-success/15">
-                <ArrowUpRight className="h-4 w-4 text-success" />
-              </div>
-              <div>
-                <p className="text-[9px] uppercase tracking-wider text-muted-foreground">{t("commonPages.wal30dIncome")}</p>
-                <p className="font-heading text-sm font-black tabular-nums text-success">+{fmt(totalIncome)}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-sm bg-destructive/15">
-                <ArrowDownRight className="h-4 w-4 text-destructive" />
-              </div>
-              <div>
-                <p className="text-[9px] uppercase tracking-wider text-muted-foreground">{t("commonPages.wal30dSpent")}</p>
-                <p className="font-heading text-sm font-black tabular-nums text-destructive">-{fmt(totalExpense)}</p>
-              </div>
-            </div>
-          </div>
-
-          {lockedStake > 0 && (
-            <div className="mx-auto mt-5 flex max-w-lg items-center justify-center gap-3 rounded-sm border border-[#f5c542]/35 bg-black/40 px-4 py-2.5 text-[#f5c542]">
-              <Coins className="h-4 w-4 shrink-0" />
-              <p className="font-heading text-xs font-black uppercase tracking-[0.18em] sm:text-sm">
-                {t("commonPages.walCatWagerStake")} · {fmt(lockedStake)}
-              </p>
-              <Lock className="h-3.5 w-3.5 shrink-0 text-[#f5c542]/80" />
-            </div>
-          )}
-        </div>
-        <Wallet className="pointer-events-none absolute -right-6 -top-6 h-40 w-40 text-foreground/5" />
-      </div>
-
-      {!compact && (salary > 0 || hasPassiveItems) && (
-        <div className={panel}>
-          <div className="border-b border-[#f5c542]/15 bg-secondary/30 px-4 py-3">
-            <p className="font-heading text-[11px] font-black uppercase tracking-[0.18em] text-[#f5c542]">{t("commonPages.walIncomeSources")}</p>
-          </div>
-          <div className="divide-y divide-border/50">
-            {salary > 0 && (
-              <div className="flex items-center justify-between gap-3 px-4 py-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-sm bg-primary/10">
-                    <Briefcase className="h-4 w-4 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-foreground">{t("commonPages.cccWeeklySalary")}</p>
-                    <p className="text-[10px] text-muted-foreground">
-                      {contract?.team_id ? t("commonPages.walFromClubContract") : t("commonPages.walNoClub")} · {salaryDueText}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex shrink-0 items-center gap-3">
-                  <p className="font-heading text-sm font-black tabular-nums text-primary">+{fmt(salary)}</p>
-                  {salaryDue && (
-                    <Button size="sm" onClick={collectSalary} disabled={collecting} className={goldCta}>
-                      {collecting ? <div className="h-3 w-3 animate-spin rounded-full border border-black/30 border-t-black" /> : <><Coins className="h-3.5 w-3.5" />{t("commonPages.walCollect")}</>}
-                    </Button>
-                  )}
-                </div>
-              </div>
-            )}
-            <div className="flex items-center justify-between gap-3 px-4 py-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-sm bg-accent/10">
-                  <TrendingUp className="h-4 w-4 text-accent" />
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-foreground">{t("commonPages.walInvestmentReturns")}</p>
-                  <p className="text-[10px] text-muted-foreground">{t("commonPages.walPassiveIncomeDesc")}</p>
-                </div>
-              </div>
-              <Button size="sm" onClick={collectPassive} disabled={collecting} className={goldCta}>
-                {collecting ? <div className="h-3 w-3 animate-spin rounded-full border border-black/30 border-t-black" /> : <><RefreshCw className="h-3.5 w-3.5" />{t("commonPages.walCollect")}</>}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className={panel}>
-        <div className="flex items-center justify-between border-b border-[#f5c542]/15 bg-secondary/30 px-4 py-3">
-          <p className="font-heading text-[11px] font-black uppercase tracking-[0.18em] text-[#f5c542]">{t("commonPages.walTransactionHistory")}</p>
-          <span className="text-[9px] uppercase tracking-wider text-muted-foreground">{t("commonPages.walTotalCount", { count: totalTx })}</span>
-        </div>
-
-        <div className="flex gap-0 border-b border-border">
-          {[["all", t("commonPages.all")], ["income", t("commonPages.walIncome")], ["expense", t("commonPages.walExpenses")]].map(([val, lbl]) => (
-            <button
-              key={val}
-              type="button"
-              onClick={() => setTxFilter(val)}
-              className={cn(
-                "min-h-11 flex-1 py-2 font-heading text-[10px] font-black uppercase tracking-[0.16em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#f5c542]",
-                txFilter === val
-                  ? "border-b-2 border-[#f5c542] bg-[#f5c542]/5 text-[#f5c542]"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {lbl}
-            </button>
-          ))}
-        </div>
-
-        {filteredTx.length === 0 ? (
-          <div className="py-12 text-center">
-            <Coins className="mx-auto mb-2 h-8 w-8 text-muted-foreground/30" />
-            <p className="text-xs text-muted-foreground">{t("commonPages.walNoTransactions")}</p>
-          </div>
-        ) : (
-          <>
-            <div>
-              {filteredTx.map(tx => <TxRow key={tx.id} tx={tx} t={t} />)}
-            </div>
-            {allTx.length < totalTx && (
-              <div className="border-t border-border p-3">
-                <Button variant="ghost" size="sm" onClick={() => loadHistory(page + 1, true)} disabled={loadingMore}
-                  className="h-10 w-full gap-1.5 text-xs text-muted-foreground">
-                  {loadingMore ? <div className="h-3 w-3 animate-spin rounded-full border border-muted-foreground/30 border-t-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                  {t("commonPages.crLoadMore")}
-                </Button>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-
-      {!compact && (
-        <div className={cn(panel, "space-y-3 p-5")}>
-          <div className="flex items-center gap-2">
-            <Zap className="h-4 w-4 text-[#00e5ff]" />
-            <p className="font-heading text-xs font-black uppercase tracking-[0.16em] text-foreground">{t("commonPages.walHowToEarn")}</p>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {[
-              { key: "salary",      label: t("commonPages.cccWeeklySalary"),         val: t("commonPages.walEarnPerContract"),   color: "text-primary",  desc: t("commonPages.walEarnSalaryDesc") },
-              { key: "wager",       label: t("commonPages.walCatWagerWon"),          val: t("commonPages.walEarnWagerWinVal"),   color: "text-success",  desc: t("commonPages.walEarnWagerWinDesc") },
-              { key: "investment",  label: t("commonPages.walEarnInvestmentIncome"), val: t("commonPages.walEarnPassiveDaily"),  color: "text-accent",   desc: t("commonPages.walEarnInvestmentDesc") },
-              { key: "competition", label: t("commonPages.walCatCompetitionReward"), val: t("commonPages.walEarnPrizePool"), color: "text-warning",  desc: t("commonPages.walEarnCompetitionDesc") },
-            ].map(r => (
-              <div key={r.key} className="flex items-center justify-between rounded-sm border border-border bg-secondary/40 px-3 py-2 text-xs">
-                <div className="flex flex-1 flex-col gap-0.5">
-                  <span className="font-medium text-foreground">{r.label}</span>
-                  <span className="text-[9px] text-muted-foreground">{r.desc}</span>
-                </div>
-                <span className={cn("ml-2 whitespace-nowrap font-heading text-[11px] font-black uppercase", r.color)}>{r.val}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
+    {(data.locked_stc>0||arrears>0)&&<div className="wallet-notices">{data.locked_stc>0&&<p><strong>{money(data.locked_stc)} STC reserved</strong> across {data.locked_match_count} unsettled match wager(s). This is already outside your available balance.</p>}{arrears>0&&<p><strong>{money(arrears)} STC outstanding</strong> in recorded payroll arrears. Unpaid earnings are not included in your balance.</p>}</div>}
+    <div className="wallet-navigation"><nav aria-label="Wallet sections">{[['overview','Overview'],['transactions','Transactions'],['income','Income & Contracts']].map(([key,title])=><button type="button" key={key} aria-pressed={tab===key} onClick={()=>setTab(key)}>{title}</button>)}</nav><button type="button" aria-label="Refresh wallet" onClick={()=>setRefresh(n=>n+1)}><RefreshCw size={16}/><span>Refresh</span></button></div>
+    {tab==='overview'&&<>
+      <div className="wallet-period"><span>Last 30 days</span><p>Received <strong className="is-income">+{money(income)} STC</strong></p><p>Spent <strong className="is-expense">−{money(spent)} STC</strong></p></div>
+      <div className="wallet-overview-columns"><section className="wallet-panel"><div className="wallet-panel-heading"><h2>Recent activity</h2><button type="button" onClick={()=>{setFilters(initialFilters);setPage(1);setTab('transactions');}}>View all <ArrowUpRight size={15}/></button></div>{historyContent(true)}</section><aside className="wallet-panel wallet-income-preview"><p className="wallet-eyebrow">Your income</p><h2>Every role.<br/>One wallet.</h2>{['player','management'].map(kind=><div key={kind}><span>{kind==='player'?'Player salary':'Manager salary'}</span><strong>{money(active.filter(a=>a.kind===kind).reduce((n,a)=>n+a.weekly_salary_stc,0))} <small>STC / week</small></strong></div>)}<button type="button" className="wallet-action" onClick={()=>setTab('income')}>Review income & contracts <ArrowUpRight size={17}/></button></aside></div>
+    </>}
+    {tab==='transactions'&&<section className="wallet-panel"><div className="wallet-panel-heading"><h2>Transaction history</h2><span>{historyLoading?'…':`${history?.total||0} results`}</span></div><div className="wallet-filters">
+      <label>Search<input type="search" placeholder="Description, source or reference" value={filters.search} onChange={e=>filter('search',e.target.value)}/></label>
+      <label>Currency<select value={filters.currency} onChange={e=>{setFilters({...initialFilters,currency:e.target.value});setPage(1);}}><option value="stc">STC</option><option value="credits">Credits</option></select></label>
+      <label>Direction<select value={filters.direction} onChange={e=>filter('direction',e.target.value)} disabled={filters.currency==='credits'}><option value="all">All activity</option><option value="income">Income</option><option value="expense">Expenses</option></select></label>
+      <label>Category<select value={filters.category} onChange={e=>filter('category',e.target.value)} disabled={filters.currency==='credits'}><option value="all">All categories</option>{data.categories.map(c=><option key={c} value={c}>{label(c)}</option>)}</select></label>
+      <label>From<input type="date" value={filters.from_date} onChange={e=>filter('from_date',e.target.value)} disabled={filters.currency==='credits'}/></label><label>Through<input type="date" value={filters.to_date} min={filters.from_date} onChange={e=>filter('to_date',e.target.value)} disabled={filters.currency==='credits'}/></label>
+      <button type="button" onClick={()=>{setFilters(initialFilters);setPage(1);}}>Clear filters</button>
+    </div>{historyContent()}{filters.currency==='stc'&&!historyError&&<div className="wallet-pagination"><button type="button" aria-label="Previous transactions" disabled={page<=1||historyLoading} onClick={()=>setPage(p=>p-1)}><ChevronLeft size={18}/></button><span>Page {page} of {totalPages}</span><button type="button" aria-label="Next transactions" disabled={page>=totalPages||historyLoading} onClick={()=>setPage(p=>p+1)}><ChevronRight size={18}/></button></div>}</section>}
+    {tab==='income'&&<div className="wallet-income-sections"><section className="wallet-panel"><div className="wallet-panel-heading"><h2>Your agreements</h2><Link to="/profile">Open your profile <ArrowUpRight size={15}/></Link></div><p className="wallet-explanation">Accepted Player and Manager pay are separate. Pending offers do not count as income. Payroll is processed automatically after completed seven-day periods, with a proportional final period.</p>{!data.agreements.length?<p className="wallet-empty">No accepted agreements yet.</p>:data.agreements.map(a=><article className="wallet-agreement" key={a.id}><div><p>{a.kind==='management'?'Management agreement':'Player agreement'} <span>{label(a.status)}</span></p><h3>{a.club_name}</h3><small>{date(a.starts_at)} → {date(a.ends_at)}</small></div><div><strong>{money(a.weekly_salary_stc)} <small>STC / week</small></strong><p>Next payroll: {date(a.next_payment_at)}</p><p>Signing bonus: {money(a.signing_bonus_stc)} STC · {label(a.bonus_status)}</p></div></article>)}</section>
+      <section className="wallet-panel"><div className="wallet-panel-heading"><h2>Payroll records</h2></div>{!data.payroll.length?<p className="wallet-empty">No weekly payroll periods recorded yet.</p>:data.payroll.map(p=><div className="wallet-payroll" key={p.id}><span><strong>{data.agreements.find(a=>a.id===p.agreement_id)?.kind==='management'?'Manager payroll':'Player payroll'}</strong><br/>{date(p.from)} → {date(p.through)}</span><strong>{money(p.amount_stc)} STC</strong><span className={p.status==='arrears'?'wallet-warning':''}>{label(p.status)}</span></div>)}</section>
+      <section className="wallet-panel wallet-assets"><div><h2>Lifestyle income</h2><p>{data.passive_income.asset_count?`${data.passive_income.asset_count} income-producing asset(s) · ${money(data.passive_income.collectable_stc)} STC ready to collect.`:'You have no income-producing lifestyle assets.'}</p><Link to="/lifestyle">Explore Lifestyle <ArrowUpRight size={15}/></Link></div>{data.passive_income.asset_count>0&&<button type="button" className="wallet-action" disabled={collecting||!data.passive_income.due_assets} onClick={collect}>{collecting?'Collecting…':'Collect available income'}</button>}</section>{notice&&<p role="status">{notice}</p>}
+    </div>}
+    {data.managed_clubs.length>0&&<div className="wallet-club-links"><span>Club money stays in Club Office.</span>{data.managed_clubs.map(c=><Link key={c.id} to={`/clubs/${c.id}`}>{c.name} <ArrowUpRight size={15}/></Link>)}</div>}
+    <Dialog open={Boolean(selected)} onOpenChange={open=>{if(!open)setSelected(null);}}><DialogContent className="wallet-transaction-dialog" aria-describedby={undefined}><DialogHeader><DialogTitle>Transaction details</DialogTitle></DialogHeader>{selected&&<><p className="wallet-detail-amount">{Number(selected.amount)>0?'+':''}{money(selected.amount)} STC</p><p>{selected.description||label(selected.category)}</p><dl>{[['Category',label(selected.category)],['Source',selected.source||'—'],['Recorded',date(selected.created_date)],['Status','Recorded in ledger'],['Balance after',selected.balance_after==null?'Not recorded':`${money(selected.balance_after)} STC`],['Transaction ID',selected.id],['Reference',selected.reference_id||'—']].map(([key,value])=><div key={key}><dt>{key}</dt><dd>{value}</dd></div>)}</dl>{selected.category?.startsWith('wager_')&&selected.reference_id&&<Link className="wallet-action" to={`/game-day?match=${encodeURIComponent(selected.reference_id)}`}>Open match <ArrowUpRight size={15}/></Link>}{selected.category?.startsWith('lifestyle_')&&<Link className="wallet-action" to="/lifestyle">Open Lifestyle <ArrowUpRight size={15}/></Link>}</>}</DialogContent></Dialog>
+  </div>;
 }

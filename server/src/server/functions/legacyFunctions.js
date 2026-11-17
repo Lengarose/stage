@@ -9496,51 +9496,14 @@ const HANDLERS = {
   },
 
   // ── Player Wallet ─────────────────────────────────────────────────────────
-  async playerWallet({ action, _auth_user_id, player_id, amount, description, category, page, limit: limitParam }) {
+  async playerWallet({ action, _auth_user_id, player_id, amount, description, category, page, limit: limitParam, direction, currency, search, from_date, to_date }) {
     if (!_auth_user_id) throw new Error('not authenticated');
 
-    if (action === 'get_balance') {
-      const { player } = await getMe(_auth_user_id);
-      if (!player) throw new Error('Player not found');
-
-      const [contracts, summary, recent] = await Promise.all([
-        EXECUTESQL("SELECT *, user_id AS target_player_id FROM player_contracts WHERE user_id = ? AND status = 'active' AND compensation_policy_version IS NULL LIMIT 1", [player.id]),
-        EXECUTESQL(
-          `SELECT type, category, SUM(amount) as total FROM player_stc_transactions
-           WHERE player_id = ? AND created_date >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-           GROUP BY type, category`,
-          [player.id]
-        ).catch(() => []),
-        EXECUTESQL(
-          'SELECT * FROM player_stc_transactions WHERE player_id = ? ORDER BY created_date DESC LIMIT 20',
-          [player.id]
-        ).catch(() => []),
-      ]);
-
-      const activeContract = contracts[0] || null;
-      let nextSalaryDays = null;
-      if (activeContract?.weekly_salary_stc) {
-        const lastPaid = activeContract.last_salary_paid_at || activeContract.start_date || activeContract.created_date;
-        if (lastPaid) {
-          const daysSince = (Date.now() - new Date(lastPaid).getTime()) / (1000 * 60 * 60 * 24);
-          nextSalaryDays = Math.max(0, Math.ceil(7 - daysSince));
-        }
-      }
-
-      return { data: { balance: Number(player.stc || 0), contract: activeContract, weekly_salary: activeContract?.weekly_salary_stc || 0, next_salary_days: nextSalaryDays, summary, recent_transactions: recent } };
-    }
-
-    if (action === 'get_history') {
-      const { player } = await getMe(_auth_user_id);
-      if (!player) throw new Error('Player not found');
-      const pageNum  = Number(page  || 1);
-      const pageSize = Number(limitParam || 30);
-      const offset   = (pageNum - 1) * pageSize;
-      const [rows, countRows] = await Promise.all([
-        EXECUTESQL('SELECT * FROM player_stc_transactions WHERE player_id = ? ORDER BY created_date DESC LIMIT ? OFFSET ?', [player.id, pageSize, offset]),
-        EXECUTESQL('SELECT COUNT(*) as total FROM player_stc_transactions WHERE player_id = ?', [player.id]),
-      ]);
-      return { data: { transactions: rows, total: Number(countRows[0]?.total || 0), page: pageNum, limit: pageSize } };
+    if (action === 'get_balance' || action === 'get_history') {
+      const context = await getMe(_auth_user_id);
+      if (!context.player) throw new Error('Player not found');
+      const read = require('../services/playerWalletReadService');
+      return { data: action === 'get_balance' ? await read.balance(context) : await read.history(context, { category, page, limit: limitParam, direction, currency, search, from_date, to_date }) };
     }
 
     if (action === 'pay_salary') {

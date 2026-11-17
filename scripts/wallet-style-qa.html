@@ -1,0 +1,24 @@
+<!doctype html>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link href="https://fonts.googleapis.com/css2?family=Anton&family=Chakra+Petch:wght@400;500;600;700&display=swap" rel="stylesheet"></head>
+<body style="margin:0;background:#060d18"><div id="root"></div><script type="module">
+// Isolated visual fixture for the real Wallet. No account or financial mutations.
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import {MemoryRouter} from 'react-router-dom';
+import RefreshRuntime from '/@react-refresh';
+RefreshRuntime.injectIntoGlobalHook(window);window.$RefreshReg$=()=>{};window.$RefreshSig$=()=>type=>type;window.__vite_plugin_react_preamble_installed__=true;
+await import('/src/index.css');await import('/node_modules/@fontsource/anton/index.css');
+const {stageClient}=await import('/src/api/stageClient.js');
+const now=Date.now(),iso=days=>new Date(now+days*86400000).toISOString();
+const rows=Array.from({length:26},(_,i)=>({id:`transaction-${i}`,amount:i%3===0?-1250:5000,balance_after:128500,type:i%3===0?'expense':'income',category:i%3===0?'lifestyle_purchase':'salary',source:i%3===0?'Lifestyle':'Club Board',description:i%3===0?'Hotel suite purchase':'Weekly player payroll — Atlas FC',created_date:iso(-i),reference_id:`reference-${i}`}));
+const state=new URLSearchParams(location.search).get('state');let failed=false;
+stageClient.functions.invoke=async(name,p)=>{
+ if(name==='collectPassiveIncome')return{data:{collected:500}};
+ if(state==='error'&&!failed){failed=true;throw Error('Demonstration failure');}
+ if(p.action==='get_balance')return{data:{balance:128500,credits:100,summary:[{type:'income',total:55000},{type:'expense',total:-12500}],agreements:state==='empty'?[]:['player','management'].map((kind,i)=>({id:`agreement-${i}`,kind,status:'active',club_name:'Atlas FC',weekly_salary_stc:i?5000:10000,starts_at:iso(-14),ends_at:iso(70),next_payment_at:iso(3),signing_bonus_stc:20000,bonus_status:'paid'})),payroll:state==='empty'?[]:[{id:'payroll-1',amount_stc:10000,status:'paid',from:iso(-14),through:iso(-7)}],locked_stc:500,locked_match_count:1,passive_income:{asset_count:0,due_assets:0,collectable_stc:0},managed_clubs:[{id:'atlas',name:'Atlas FC'}],categories:['salary','lifestyle_purchase'],credit_history_available:false}};
+ let filtered=state==='empty'?[]:rows.filter(r=>(!p.search||r.description.toLowerCase().includes(p.search.toLowerCase()))&&(!p.category||p.category==='all'||p.category===r.category)&&(!p.direction||p.direction==='all'||(p.direction==='income'?r.amount>0:r.amount<0)));
+ return{data:{transactions:p.currency==='credits'?[]:filtered.slice(((p.page||1)-1)*20,(p.page||1)*20),total:p.currency==='credits'?0:filtered.length,history_available:p.currency!=='credits'}};
+};
+const {default:Wallet}=await import('/src/pages/Wallet.jsx');
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(MemoryRouter,null,React.createElement(Wallet)));
+</script></body></html>
