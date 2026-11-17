@@ -6,6 +6,7 @@ import {penaltyOutcome} from '@/lib/penaltyOutcome';
 import {sameResultSnapshot} from '@/lib/gameDayResultFlow';
 import GameDayMatchResult from './GameDayMatchResult';
 import OfficialResultPolicyNotice from './OfficialResultPolicyNotice';
+import './gameDayResultDialog.css';
 export default function GameDayResultDialog({report,onClose}) {
   const [dirty,setDirty]=useState(false),[busy,setBusy]=useState(false),[discard,setDiscard]=useState(false);
   const [game,setGame]=useState(report.game);
@@ -33,7 +34,7 @@ export default function GameDayResultDialog({report,onClose}) {
   }
   return <Dialog.Root open onOpenChange={open=>{if(!open)requestClose();}}><Dialog.Portal>
     <Dialog.Overlay className="fixed inset-0 z-[80] bg-black/75 backdrop-blur-sm"/>
-    <Dialog.Content aria-describedby="gameday-result-description" style={{width:'min(48rem, calc(100vw - 1rem))'}} className="fixed left-1/2 top-1/2 z-[81] flex max-h-[96dvh] min-w-0 max-w-full -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden border border-border bg-background text-foreground shadow-2xl sm:max-h-[90dvh]" onEscapeKeyDown={e=>{e.preventDefault();requestClose();}} onPointerDownOutside={e=>{e.preventDefault();requestClose();}}>
+    <Dialog.Content aria-describedby="gameday-result-description" style={{width:'min(58rem, calc(100vw - 1rem))'}} className="gameday-result-modal fixed left-1/2 top-1/2 z-[81] flex max-h-[96dvh] min-w-0 max-w-full -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden border border-border bg-background text-foreground shadow-2xl sm:max-h-[90dvh]" onEscapeKeyDown={e=>{e.preventDefault();requestClose();}} onPointerDownOutside={e=>{e.preventDefault();requestClose();}}>
       <header className="flex shrink-0 items-start justify-between gap-3 border-b border-border p-4"><div className="min-w-0"><Dialog.Title className="font-heading text-xl font-black uppercase">{report.readOnly?'Match Report':'Report / Review Result'}</Dialog.Title><Dialog.Description id="gameday-result-description" className="mt-1 break-words text-xs text-muted-foreground">{game.home_club_name||game.home_player_name} vs {game.away_club_name||game.away_player_name} · {game.competition_name||game.competition_context||'Match'}</Dialog.Description></div><button type="button" aria-label="Close match report" disabled={busy} onClick={requestClose} className="flex h-11 w-11 shrink-0 items-center justify-center focus-visible:ring-2 focus-visible:ring-cyan-400"><X size={20}/></button></header>
       <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6" onChangeCapture={()=>setDirty(true)} onClickCapture={e=>{if(e.target.closest('button'))setDirty(true);}}>
         <OfficialResultPolicyNotice game={game} policy={report.resultPolicy} />

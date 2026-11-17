@@ -8,7 +8,8 @@ function setup(player=false) {
   let fail=false;
   async function query(sql,v=[]) {
     if (/FROM matches/.test(sql)) return [{...state.match}];
-    if (/FROM (clubs|players)/.test(sql)) return state.accounts.filter(a=>a.id===v[0]).map(a=>({...a}));
+    if (/FROM users/.test(sql)) return [{id:v[0],email:`${v[0]}@example.test`,role_id:1}];
+    if (/FROM (clubs|players)/.test(sql)) return state.accounts.filter(a=>sql.includes('id IN')?v.includes(a.id):a.id===v[0]).map(a=>({...a}));
     if (/FROM (stc_transactions|player_stc_transactions)/.test(sql)) return state.ledger.filter(l=>l[`${kind}_id`]===v[0] && l.reference_id===v[1] && (sql.includes("'wager_stake'") ? l.category==='wager_stake' : ['wager_win','wager_loss','wager_refund'].includes(l.category)));
     if (/^UPDATE (clubs|players)/.test(sql)) {const a=state.accounts.find(a=>a.id===v[1]);const n=cents(a.stc)+(sql.includes('0)-?') ? -cents(v[0]):cents(v[0]));a.stc=stc(n);return {affectedRows:1};}
     if (/^INSERT INTO/.test(sql)) {
@@ -36,4 +37,17 @@ test('wager reservation rolls back the first debit when the second account has i
 });
 test('wager cancellation refunds atomically and disputed results do not pay',async()=>{
   const env=setup();env.state.match.result_state='DISPUTED';assert.equal((await env.service.settle('match')).skipped,true);assert.equal(env.state.ledger.length,0);env.state.match.status='scheduled';await env.service.settle('match','cancel');assert.equal(env.state.match.wager_status,'cancelled');assert(env.state.accounts.every(a=>a.stc==='110.01'));
+});
+for(const player of [false,true])test(`${player?'player':'club'} invitation reservation permits either verified recipient but preserves direct away-only and outsider restrictions`,async()=>{
+  const env=setup(player);
+  Object.assign(env.state.match,{status:'scheduled',wager_status:'pending_acceptance',wager_home_locked:0,wager_away_locked:0});
+  Object.assign(env.state.accounts[0],{user_id:'home-user',president_user_id:'home-user'});
+  Object.assign(env.state.accounts[1],{user_id:'away-user',president_user_id:'away-user'});
+  await assert.rejects(()=>env.service.settle('match','reserve','home-user'),/Only an eligible participant/);
+  await assert.rejects(()=>env.service.settle('match','reserve','outsider',{invitationRecipientVerified:true}),/Only an eligible participant/);
+  assert.equal(env.state.ledger.length,0);
+  await env.service.settle('match','reserve','home-user',{invitationRecipientVerified:true});
+  assert.equal(env.state.match.wager_status,'active');
+  assert.equal(env.state.ledger.length,2);
+  assert(env.state.accounts.every(a=>a.stc==='89.99'));
 });

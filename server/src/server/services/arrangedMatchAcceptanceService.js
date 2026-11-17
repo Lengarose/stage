@@ -30,7 +30,7 @@ async function accept({message,userEmail,action='accepted',createMatch,transacti
   }
   if(created && Number(meta.wager_stc || 0)>0) {
    try {
-    await require('./wagerSettlementService').settle(matchId,'reserve',actor?.id || null,{query});
+    await require('./wagerSettlementService').settle(matchId,'reserve',actor?.id || null,{query,invitationRecipientVerified:true});
     match={...match,wager_home_locked:1,wager_away_locked:1,wager_status:'active'};
    } catch(error) { throw Object.assign(error,{status:error.status||409}); }
   }

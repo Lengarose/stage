@@ -3,7 +3,6 @@ import { stageClient } from "@/api/stageClient";
 import { Target, Zap, Star, CheckCircle2, Plus, Trash2, Upload, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import {
   evidenceRequired,
@@ -163,10 +162,11 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
       if(!nominated.length)throw new Error('The confirmed Match Squad is missing. Ask the Manager to review the selection.');
       const roster=await Promise.all(nominated.map(id=>stageClient.entities.Player.get(id)));
       if(cancelled)return;
+      if(roster.some(p=>!p?.id))throw new Error('A selected squad player could not be loaded. Close and reopen the report to try again.');
       setSeatedPlayers(roster);
       const initRatings = {};
       roster.forEach(p => { initRatings[p.id] = ""; });
-      setRatings(initRatings);
+      setRatings(prev=>({...initRatings,...prev}));
       let suggested = [];
       if (myClub?.id) {
         const lineups = await stageClient.entities.ClubFixtureLineup
@@ -180,7 +180,7 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
           suggested = [];
         }
       }
-      setPlayedIds(new Set(suggested.map(String)));
+      setPlayedIds(prev=>prev.size?prev:new Set(suggested.map(String)));
       setLoadingPlayers(false);
     }
     loadSquad().catch(e=>{if(!cancelled){setSubmitError(e.message);setLoadingPlayers(false);}});
@@ -213,7 +213,7 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
             return next;
           });
         }
-        return { ...ev, scorer_kind:kind,scorer_player_id:kind==="human"?value:"",scorer_gamertag:p?.gamertag||"",...(kind==="own_goal"?{assist_kind:"none",assist_player_id:""}:{}) };
+        return { ...ev, scorer_kind:kind,scorer_player_id:kind==="human"?value:"",scorer_gamertag:p?.gamertag||"",...(kind==="own_goal"||value===ev.assist_player_id?{assist_kind:"none",assist_player_id:"",assist_gamertag:""}:{}) };
       }
       if (field === "assist_player_id") {
         const p = value ? seatedPlayers.find(pl => pl.id === value) : null;
@@ -497,7 +497,7 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
             </p>
             <p className="text-[9px] font-bold uppercase tracking-wider text-cyan-300/80 mb-1">Home goals</p>
             <Input type="number" min={0} max={99} value={homeScore}
-              onChange={e => setHomeScore(e.target.value)}
+              onChange={e => {setHomeScore(e.target.value);if(isHomeTeam&&Number(e.target.value)===0)setGoalEvents([]);}}
               readOnly={confirmMode && !correcting}
               aria-label="Home goals"
               className={cn(
@@ -512,7 +512,7 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
             </p>
             <p className="text-[9px] font-bold uppercase tracking-wider text-cyan-300/80 mb-1">Away goals</p>
             <Input type="number" min={0} max={99} value={awayScore}
-              onChange={e => setAwayScore(e.target.value)}
+              onChange={e => {setAwayScore(e.target.value);if(!isHomeTeam&&Number(e.target.value)===0)setGoalEvents([]);}}
               readOnly={confirmMode && !correcting}
               aria-label="Away goals"
               className={cn(
@@ -606,10 +606,10 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
           </p>
 
           {goalEvents.map((ev, idx) => (
-            <div key={idx} className="bg-secondary/40 border border-border rounded-lg p-3 space-y-2">
+            <div key={idx} className="result-goal-card bg-secondary/40 border border-border p-3 space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-[10px] font-bold text-foreground uppercase tracking-wider">Goal {idx + 1}</p>
-                <button onClick={() => removeGoalEvent(idx)} className="p-1 text-muted-foreground hover:text-destructive transition-colors">
+                <button type="button" aria-label={`Remove goal ${idx + 1}`} onClick={() => removeGoalEvent(idx)} className="p-1 text-muted-foreground hover:text-destructive transition-colors">
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -629,17 +629,12 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
                   <label className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center gap-1">
                     <Target className="w-3 h-3" /> Scorer
                   </label>
-                  <Select value={ev.scorer_kind==="ai"?"__ai":ev.scorer_kind==="own_goal"?"__own_goal":ev.scorer_player_id} onValueChange={v => updateGoalEvent(idx, "scorer_player_id", v)}>
-                    <SelectTrigger className="h-7 text-xs bg-background border-border">
-                      <SelectValue placeholder="Select player" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-card border-border text-foreground">
-                      <SelectItem value="__ai">AI player</SelectItem><SelectItem value="__own_goal">Own goal — credited to this team</SelectItem>
-                      {seatedPlayers.filter(p=>playedIds.has(String(p.id))).map(p => (
-                        <SelectItem key={p.id} value={p.id} className="text-xs">{p.gamertag}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <select aria-label={`Scorer for goal ${idx + 1}`} className="result-player-select" value={ev.scorer_kind==="ai"?"__ai":ev.scorer_kind==="own_goal"?"__own_goal":ev.scorer_player_id} onChange={e => updateGoalEvent(idx, "scorer_player_id", e.target.value)}>
+                    <option value="" disabled>Select player</option>
+                    <option value="__ai">AI player</option>
+                    <option value="__own_goal">Own goal — credited to this team</option>
+                    {seatedPlayers.filter(p=>playedIds.has(String(p.id))).map(p => <option key={p.id} value={p.id}>{p.gamertag}</option>)}
+                  </select>
                 </div>
               </div>
 
@@ -649,25 +644,18 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
                   <label className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center gap-1">
                     <Zap className="w-3 h-3" /> Assist <span className="normal-case font-normal">(opt.)</span>
                   </label>
-                  <Select disabled={ev.scorer_kind==="own_goal"} value={ev.assist_kind==="ai"?"__ai":ev.assist_player_id || "none"} onValueChange={v => updateGoalEvent(idx, "assist_player_id", v === "none" ? "" : v)}>
-                    <SelectTrigger className="h-7 text-xs bg-background border-border">
-                      <SelectValue placeholder="No assist" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-card border-border text-foreground">
-                      <SelectItem value="none" className="text-xs text-muted-foreground">No assist</SelectItem><SelectItem value="__ai">AI player</SelectItem>
-                      {seatedPlayers
-                        .filter(p => playedIds.has(String(p.id)) && p.id !== ev.scorer_player_id)
-                        .map(p => (
-                          <SelectItem key={p.id} value={p.id} className="text-xs">{p.gamertag}</SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
+                  <select aria-label={`Assist for goal ${idx + 1}`} className="result-player-select" disabled={ev.scorer_kind==="own_goal"} value={ev.assist_kind==="ai"?"__ai":ev.assist_player_id || "none"} onChange={e => updateGoalEvent(idx, "assist_player_id", e.target.value === "none" ? "" : e.target.value)}>
+                    <option value="none">No assist</option>
+                    <option value="__ai">AI player</option>
+                    {seatedPlayers.filter(p=>playedIds.has(String(p.id))&&p.id!==ev.scorer_player_id).map(p=><option key={p.id} value={p.id}>{p.gamertag}</option>)}
+                  </select>
                 </div>
 
                 {/* Penalty toggle */}
                 <div className="flex flex-col">
                   <label className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1 block">Pen?</label>
                   <button
+                    type="button" aria-label={`Goal ${idx + 1} is a penalty`} aria-pressed={ev.is_penalty}
                     onClick={() => updateGoalEvent(idx, "is_penalty", !ev.is_penalty)}
                     className={cn(
                       "h-7 rounded border text-[10px] font-bold transition-colors",
@@ -681,7 +669,7 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
             </div>
           ))}
 
-          <Button size="sm" variant="outline" onClick={addGoalEvent}
+          <Button type="button" size="sm" variant="outline" onClick={addGoalEvent}
             disabled={goalCount >= myScore}
             className="w-full h-7 text-xs border-dashed border-border text-muted-foreground hover:text-foreground gap-1.5">
             <Plus className="w-3.5 h-3.5" />
@@ -701,7 +689,7 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
             const pGoals   = derived[p.id]?.goals   || 0;
             const pAssists = derived[p.id]?.assists  || 0;
             return (
-              <div key={p.id} className="bg-secondary/40 border border-border rounded-lg p-3">
+              <div key={p.id} className="result-rating-card bg-secondary/40 border border-border p-3">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-xs font-bold text-foreground">
                     {p.gamertag}
@@ -716,7 +704,7 @@ export default function GameDayMatchResult({ game, myClub, myPlayer, isHomeTeam,
                   <label className="text-[9px] uppercase tracking-wider text-muted-foreground flex items-center gap-1 mb-1">
                     <Star className="w-3 h-3" /> Rating (1–10)
                   </label>
-                  <Input type="number" min={1} max={10} step={0.5}
+                  <Input aria-label={`Rating for ${p.gamertag}`} type="number" min={1} max={10} step={0.5}
                     value={ratings[p.id] ?? ""}
                     placeholder="Not rated"
                     onChange={e => setRatings(prev => ({ ...prev, [p.id]: e.target.value }))}

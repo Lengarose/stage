@@ -1,0 +1,24 @@
+.gameday-result-modal{background:linear-gradient(145deg,#101c2c,#080f1b 55%)!important;color:#edf4ff!important;border:1px solid #859fbd55!important;border-radius:0!important;font-family:"Chakra Petch",sans-serif;box-shadow:0 24px 100px #000b}
+.gameday-result-modal>header{padding:24px 28px;border-color:#8dabc533;background:linear-gradient(105deg,#314f7329,transparent);border-top:3px solid #71abf3}
+.gameday-result-modal>header h2{font:400 30px/1.2 Anton,sans-serif!important;letter-spacing:.015em}
+.gameday-result-modal>header p{font:13px/1.6 "Chakra Petch",sans-serif;color:#9cb2cb;margin-top:9px}
+.gameday-result-modal :is(button,input,select,label,p){font-family:"Chakra Petch",sans-serif!important}
+.gameday-result-modal :is(button,input,select){border-radius:0!important}
+.gameday-result-modal :is(input:not([type=checkbox]),select){min-height:44px;background:#080f1b;color:#edf4ff;border:1px solid #91adc544;padding:10px 12px;font-size:14px;color-scheme:dark}
+.gameday-result-modal input[aria-label$="goals"]{height:76px;font:400 40px/1 Anton,sans-serif!important;background:linear-gradient(135deg,#1c3049,#111d30);border-color:#84abd05c}
+.gameday-result-modal input[type=checkbox]{width:17px;height:17px;accent-color:#79b0fa;flex-shrink:0}
+.gameday-result-modal :is(button,select,input):focus-visible{outline:2px solid #8cbfff;outline-offset:3px}
+.gameday-result-modal .result-player-select{width:100%;cursor:pointer;white-space:normal}
+.gameday-result-modal .result-player-select:disabled{opacity:.45;cursor:default}
+.gameday-result-modal :is(.result-goal-card,.result-rating-card){padding:18px;background:#111e3055;border-color:#8faccc33;border-radius:0!important}
+.gameday-result-modal .result-goal-card{border-left:2px solid #78a9e4}
+.gameday-result-modal .result-goal-card>div:first-child>p{font-size:12px;letter-spacing:.13em;color:#b5cee9}
+.gameday-result-modal .result-goal-card label{font-size:11px;letter-spacing:.06em;margin-bottom:7px}
+.gameday-result-modal .result-goal-card button[aria-label^="Remove"]{padding:8px;color:#b7c9dc}
+.gameday-result-modal .result-rating-card>div:first-child>p{font-size:15px}
+.gameday-result-modal button{min-height:40px}
+.gameday-result-modal>footer{background:#0b1422;border-color:#8faccc33;padding:12px 24px}
+.gameday-result-modal>div{scrollbar-width:thin;scrollbar-color:#4c6d95 #09111e}
+@media(max-width:600px){.gameday-result-modal>header{padding:18px}.gameday-result-modal>header h2{font-size:25px}.gameday-result-modal>div{padding:18px 12px}.gameday-result-modal :is(.result-goal-card,.result-rating-card){padding:12px}.gameday-result-modal input[aria-label$="goals"]{height:64px;font-size:34px!important}.gameday-result-modal .result-goal-card .grid{grid-template-columns:repeat(3,minmax(0,1fr))}.gameday-result-modal :is(input,select){min-width:0}.gameday-result-modal>footer{padding:10px 14px}}
+
+.gameday-result-modal .rounded-lg{border-radius:0!important}

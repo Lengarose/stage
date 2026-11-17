@@ -4,7 +4,7 @@ const { withTransaction } = require('../db/database');
 const { cents, stc } = require('../lib/competitionPrizes');
 const { isConfirmedResult } = require('../lib/tournamentStatistics');
 
-async function settle(matchId, action = 'settle', actorId = null, { winner: forcedWinner, reason, query: existingQuery } = {}) {
+async function settle(matchId, action = 'settle', actorId = null, { winner: forcedWinner, reason, query: existingQuery, invitationRecipientVerified = false } = {}) {
   const execute = async query => {
     const [match] = await query('SELECT * FROM matches WHERE id=? FOR UPDATE', [matchId]);
     if (!match) throw new Error('Match not found');
@@ -21,12 +21,17 @@ async function settle(matchId, action = 'settle', actorId = null, { winner: forc
         if (action === 'admin_settle' && !['home','away','draw'].includes(forcedWinner)) throw new Error('Choose home, away, or draw');
       }
       let eligible = false;
+      // Direct wager acceptance belongs to the away side. In an Inbox
+      // negotiation either side can be the recipient of the latest proposal.
+      // Only the locked invitation-acceptance service sets this internal flag;
+      // the actor must still control one of this match's two participants.
+      const awayOnly = action === 'decline' || (action === 'reserve' && !invitationRecipientVerified);
       if (kind === 'club') {
         const sides = await query('SELECT id,president_user_id,user_id,owner_email FROM clubs WHERE id IN (?,?)',[match.home_club_id,match.away_club_id]);
-        eligible = sides.some(c=>(!['reserve','decline'].includes(action) || c.id === match.away_club_id) && (c.president_user_id === actor?.id || c.user_id === actor?.id || (actor?.email && String(c.owner_email || '').toLowerCase() === actor.email.toLowerCase())));
+        eligible = sides.some(c=>(!awayOnly || c.id === match.away_club_id) && (c.president_user_id === actor?.id || c.user_id === actor?.id || (actor?.email && String(c.owner_email || '').toLowerCase() === actor.email.toLowerCase())));
       } else {
         const sides = await query('SELECT id,user_id,email FROM players WHERE id IN (?,?)',[match.home_player_id,match.away_player_id]);
-        eligible = sides.some(p=>(!['reserve','decline'].includes(action) || p.id === match.away_player_id) && (p.user_id === actor?.id || (actor?.email && p.email === actor.email)));
+        eligible = sides.some(p=>(!awayOnly || p.id === match.away_player_id) && (p.user_id === actor?.id || (actor?.email && p.email === actor.email)));
       }
       if (!eligible && ![0,2].includes(Number(actor?.role_id))) throw new Error('Only an eligible participant may change this wager');
     }
