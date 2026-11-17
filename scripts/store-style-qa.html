@@ -1,0 +1,19 @@
+<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link href="https://fonts.googleapis.com/css2?family=Anton&family=Chakra+Petch:wght@400;500;600;700&display=swap" rel="stylesheet"></head><body style="margin:0;background:#050c17"><div id="root"></div><script type="module">
+// Controlled fixture of the real components. All API writes are intercepted;
+// checkout deliberately returns no redirect URL. No Stripe or real user writes.
+import React from 'react';import ReactDOM from 'react-dom/client';import RefreshRuntime from '/@react-refresh';
+RefreshRuntime.injectIntoGlobalHook(window);window.$RefreshReg$=()=>{};window.$RefreshSig$=()=>type=>type;window.__vite_plugin_react_preamble_installed__=true;
+await import('/src/index.css');await import('/node_modules/@fontsource/anton/index.css');
+const {stageClient}=await import('/src/api/stageClient.js');const state=new URLSearchParams(location.search).get('state');
+const player={id:'store-qa-player',subscription:state==='plus'?'stage_plus':state==='expired'?'stage_plus':'free',subscription_expires_at:state==='expired'?'2020-01-01T00:00:00Z':'2099-12-31T00:00:00Z',credits:999};
+const user={id:'store-qa-user',player_id:player.id,email:'store-qa@example.test',credits:75};
+stageClient.auth.me=async()=>user;stageClient.entities.Player.get=async()=>player;stageClient.entities.Club.filter=async()=>[];stageClient.entities.President.filter=async()=>[];
+let config={id:'store-qa-config',badge_image_url:'/stage-plus-mark.png',background_image_url:''};
+stageClient.entities.StoreConfig.filter=async()=>[config];stageClient.entities.PlayerCardBackground.filter=async()=>[];
+stageClient.entities.StoreConfig.update=async(id,p)=>{config={...config,...p};window.__storeSaved=config;return config;};
+stageClient.integrations.Core.UploadFile=async({file})=>({file_url:URL.createObjectURL(file)});
+stageClient.functions.invoke=async(name,p)=>{window.__storeAction={name,p};if(name==='cancelStagePlus')return{data:{success:true,expires_at:player.subscription_expires_at}};throw Error('Safe checkout demonstration — no payment has been created.');};
+const {TranslationProvider}=await import('/src/lib/TranslationContext.jsx');
+const Component=state==='admin'?(await import('/src/components/admin/sections/StoreTab.jsx')).default:(await import('/src/pages/Store.jsx')).default;
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(TranslationProvider,null,React.createElement(Component)));
+</script></body></html>

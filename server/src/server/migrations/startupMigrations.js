@@ -1904,6 +1904,7 @@ async function runStartupMigrations() {
     headline                   VARCHAR(255)  NULL,
     description                TEXT          NULL,
     badge_image_url            VARCHAR(500)  NULL,
+    background_image_url       VARCHAR(500)  NULL,
     perks                      JSON          NULL,
     is_active                  TINYINT(1)    NOT NULL DEFAULT 1,
     created_date               DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1911,7 +1912,8 @@ async function runStartupMigrations() {
     INDEX idx_store_configs_active (is_active)
   )`).catch(err => console.error('[migration] store_configs:', err.message));
   await addCol('store_configs', 'badge_image_url', 'VARCHAR(500) NULL');
-  await EXECUTESQL("UPDATE store_configs SET badge_image_url = '/uploads/stage-plus-badge.png' WHERE badge_image_url IS NULL OR badge_image_url = ''")
+  await addCol('store_configs', 'background_image_url', 'VARCHAR(500) NULL');
+  await EXECUTESQL("UPDATE store_configs SET badge_image_url = '/uploads/stage-plus-badge.png' WHERE badge_image_url IS NULL")
     .catch(err => console.error('[migration] store_configs badge_image_url:', err.message));
   await EXECUTESQL(
     `UPDATE store_configs

@@ -1,0 +1,354 @@
+.stage-store {
+  --store-blue:#66aeff;
+  position:relative;
+  isolation:isolate;
+  min-height:100vh;
+  padding:clamp(24px,4vw,76px);
+  color:#edf3fc;
+  background:#050c17;
+  font-family:'Chakra Petch',sans-serif;
+  overflow:hidden
+}
+
+.store-backdrop {
+  position:absolute;
+  z-index:-1;
+  inset:0 0 auto;
+  height:min(1100px,110vh);
+  background-size:cover;
+  background-position:center;
+  opacity:.6;
+  mask-image:linear-gradient(#000 15%,transparent 100%)
+}
+
+.stage-store:has(.store-backdrop):before {
+  content:'';
+  position:absolute;
+  inset:0;
+  z-index:-1;
+  background:linear-gradient(90deg,#050c17e6,transparent)
+}
+
+.store-content {
+  position:relative;
+  max-width:1680px;
+  margin:auto
+}
+.stage-store h1,.stage-store h2,.stage-store h3,.store-price {
+  font-family:Anton,sans-serif;
+  font-weight:400
+}
+.stage-store h1 {
+  font-size:clamp(70px,10vw,160px);
+  line-height:1.1;
+  margin:18px 0;
+  text-transform:uppercase
+}
+.stage-store h1 span {
+  color:var(--store-blue)
+}
+
+.store-hero {
+  padding:22px 0 50px
+}
+.store-hero>p:not(.store-eyebrow) {
+  max-width:680px;
+  font-size:clamp(17px,1.6vw,23px);
+  margin:12px 0
+}
+.store-eyebrow {
+  font-size:12px;
+  letter-spacing:.22em;
+  color:var(--store-blue);
+  text-transform:uppercase
+}
+.store-muted {
+  color:#a0b0c6;
+  font-size:14px;
+  line-height:1.65
+}
+.store-account {
+  display:flex;
+  flex-wrap:wrap;
+  gap:28px;
+  margin-top:35px;
+  padding-top:25px;
+  border-top:1px solid #ffffff26
+}
+.store-account>div,.store-account>a {
+  display:flex;
+  align-items:center;
+  gap:12px
+}
+.store-account strong {
+  font-weight:700;
+  color:white
+}
+.store-account small {
+  display:block;
+  color:#a0b0c6
+}
+.stage-store a {
+  color:var(--store-blue)
+}
+.store-account>a {
+  margin-left:auto
+}
+.store-tabs {
+  display:flex;
+  gap:32px;
+  border-top:1px solid #ffffff26;
+  padding:24px 0 40px
+}
+.store-tabs button,.store-billing button {
+  color:#a0b0c6;
+  padding:8px 0;
+  font-size:18px
+}
+.store-tabs button[aria-pressed=true],.store-tabs button:hover,.store-billing button[aria-pressed=true] {
+  color:#fff;
+  text-shadow:0 0 18px #9accff88
+}
+.store-section-heading {
+  display:flex;
+  align-items:end;
+  justify-content:space-between;
+  gap:24px;
+  margin-bottom:30px
+}
+.stage-store h2 {
+  font-size:clamp(25px,2.5vw,38px);
+  margin:8px 0
+}
+.store-section-heading>p {
+  max-width:320px;
+  color:#a0b0c6
+}
+.store-packs {
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:18px
+}
+.store-pack,.store-plan,.store-benefits {
+  border:1px solid #ffffff26;
+  background:#0b1624d9;
+  padding:clamp(20px,2.5vw,38px)
+}
+.store-pack {
+  display:flex;
+  flex-direction:column;
+  gap:18px
+}
+.store-pack h3 {
+  font-size:56px;
+  line-height:1.2
+}
+.store-pack h3 small,.store-price small {
+  font-family:'Chakra Petch',sans-serif;
+  font-size:15px;
+  color:#a0b0c6
+}
+.store-pack>p:not(.store-eyebrow) {
+  font-size:14px;
+  color:#a0b0c6;
+  line-height:1.65
+}
+.store-price {
+  font-size:38px;
+  display:block
+}
+.store-pack .store-price {
+  margin-top:auto
+}
+.store-action {
+  background:var(--store-blue);
+  color:#06101c;
+  border:1px solid var(--store-blue);
+  padding:16px 20px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  font-weight:700;
+  font-family:'Chakra Petch',sans-serif;
+  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);
+  cursor:pointer
+}
+.store-action:hover {
+  filter:brightness(1.12)
+}
+.store-action:disabled {
+  opacity:.5;
+  cursor:not-allowed
+}
+.store-secondary {
+  background:transparent;
+  color:#edf3fc;
+  border-color:#61758d
+}
+.store-callout {
+  margin-top:30px;
+  border-block:1px solid #ffffff26;
+  padding:28px 0;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:28px
+}
+.store-callout p {
+  max-width:700px;
+  line-height:1.65
+}
+.store-callout .store-action {
+  flex-shrink:0
+}
+.store-billing {
+  display:flex;
+  gap:20px;
+  flex-shrink:0
+}
+.store-membership {
+  display:grid;
+  grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);
+  gap:24px
+}
+.store-plan {
+  border-top:3px solid var(--store-blue);
+  display:flex;
+  flex-direction:column;
+  align-items:start;
+  gap:22px
+}
+.store-plan-title {
+  display:flex;
+  align-items:center;
+  gap:20px
+}
+.store-plan-title img {
+  width:72px;
+  height:72px;
+  object-fit:contain
+}
+.store-plan h3 {
+  font-size:40px
+}
+.store-plan>p {
+  line-height:1.7
+}
+.store-plan .store-price {
+  font-size:50px
+}
+.store-plan>.store-action,.store-plan-status {
+  width:100%
+}
+.store-plan-status>p:first-child {
+  display:flex;
+  gap:10px;
+  margin-bottom:15px
+}
+.store-benefits h3 {
+  font-size:30px;
+  margin:14px 0 24px
+}
+.store-benefits ul {
+  display:grid;
+  gap:18px
+}
+.store-benefits li {
+  display:flex;
+  gap:14px;
+  line-height:1.6;
+  font-size:16px
+}
+.store-benefits li svg {
+  flex-shrink:0;
+  color:var(--store-blue);
+  margin-top:4px
+}
+.store-benefits>p:last-child {
+  margin-top:30px;
+  border-top:1px solid #ffffff26;
+  padding-top:20px
+}
+.store-footer {
+  padding-top:28px;
+  font-size:13px;
+  color:#a0b0c6;
+  line-height:1.7
+}
+.store-notification,.store-notice {
+  border:1px solid #66aeff88;
+  padding:18px;
+  background:#0b1d30;
+  margin-bottom:24px
+}
+.store-notification {
+  position:fixed;
+  bottom:24px;
+  right:24px;
+  max-width:min(500px,90vw);
+  z-index:90;
+  box-shadow:0 8px 30px #0008
+}
+.store-error {
+  border-color:#fb9393;
+  color:#ffc1c1
+}
+.stage-store button:focus-visible,.stage-store a:focus-visible {
+  outline:2px solid white;
+  outline-offset:4px
+}
+
+@media(max-width:1100px) {
+  .store-packs {
+  grid-template-columns:repeat(2,minmax(0,1fr))
+}
+
+}
+@media(max-width:700px) {
+  .stage-store {
+  padding:24px 18px 110px
+}
+.store-membership {
+  grid-template-columns:1fr
+}
+.store-section-heading,.store-callout {
+  align-items:start;
+  flex-direction:column
+}
+.store-account {
+  gap:20px
+}
+.store-account>a {
+  margin-left:0
+}
+.store-packs {
+  gap:12px
+}
+.store-pack {
+  padding:18px 12px
+}
+.store-pack h3 {
+  font-size:42px
+}
+.store-action {
+  padding:13px 12px;
+  font-size:14px;
+  gap:8px
+}
+.store-billing {
+  flex-wrap:wrap
+}
+.store-hero {
+  padding-top:0
+}
+.store-plan h3 {
+  font-size:32px
+}
+.store-plan-title img {
+  width:55px;
+  height:55px
+}
+
+}
+

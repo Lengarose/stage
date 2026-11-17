@@ -1,3 +1,4 @@
+const storeBenefits = require('../../shared/storeBenefits.json');
 const { EXECUTESQL } = require('../db/database');
 
 // Credit packs are top-up purchases, framed as extra tournament entries for
@@ -23,27 +24,10 @@ const DEFAULT_STORE_SETTINGS = {
   starter_credits: 50,
   tournament_entry_credits: 50,
   community_tournament_limit: 0,
-  headline: 'One membership for serious competitors',
-  description: 'STAGE Plus unlocks official competitions, community tournament creation, full rankings, full stats, monthly credits, and premium visual customization across your football identity.',
+  ...storeBenefits,
   badge_image_url: '/uploads/stage-plus-badge.png',
-  perks: [
-    '150 credits refreshed every month',
-    'Enter official STAGE competitions and regional leagues',
-    'Create community tournaments',
-    'Ranked player and club tournament access',
-    'Full rankings and position rankings',
-    'Full player and club stats',
-    'Advanced recruitment and search filters',
-    'Custom player card backgrounds',
-    'Upload your own player card background',
-    'Choose exclusive STAGE Plus card background designs',
-    'Custom Club Profile stats tile backgrounds',
-    'Upload your own club stats tile background',
-    'Custom Career tab tile backgrounds',
-    'Upload your own career tile background',
-    'Custom GameDay panel backgrounds',
-    'Personalize Match Screens and Dressing Room tiles',
-  ],
+  background_image_url: '',
+
 };
 
 function parsePerks(value) {
@@ -59,11 +43,12 @@ function parsePerks(value) {
 function normalizeStoreCopy(row = {}) {
   const rawDescription = String(row.description || '').trim();
   const legacyDescription = !rawDescription
-    || /ranked play/i.test(rawDescription)
+    || /ranked play|^STAGE Plus unlocks official competitions/i.test(rawDescription)
     || /monthly credit refresh/i.test(rawDescription) && !/full rankings/i.test(rawDescription);
   const perks = parsePerks(row.perks);
-  const hasLegacyPerks = perks.some((perk) => /300 credits|advanced player and club discovery|active events|premium/i.test(String(perk)));
+  const hasLegacyPerks = perks.some((perk) => /300 credits|advanced player and club discovery|active events|premium|150 credits refreshed every month|Ranked player and club tournament access|Enter official STAGE competitions/i.test(String(perk)));
   return {
+    headline: !row.headline || row.headline === "One membership for serious competitors" ? storeBenefits.headline : row.headline,
     description: legacyDescription ? DEFAULT_STORE_SETTINGS.description : rawDescription,
     perks: hasLegacyPerks ? DEFAULT_STORE_SETTINGS.perks : perks,
   };
@@ -82,8 +67,9 @@ function normalizeStoreSettings(row = {}) {
     starter_credits: DEFAULT_STORE_SETTINGS.starter_credits,
     tournament_entry_credits: DEFAULT_STORE_SETTINGS.tournament_entry_credits,
     community_tournament_limit: DEFAULT_STORE_SETTINGS.community_tournament_limit,
+    headline: normalizedCopy.headline,
     description: normalizedCopy.description,
-    badge_image_url: row.badge_image_url || DEFAULT_STORE_SETTINGS.badge_image_url,
+    badge_image_url: row.badge_image_url ?? DEFAULT_STORE_SETTINGS.badge_image_url,
     perks: normalizedCopy.perks.length ? normalizedCopy.perks : DEFAULT_STORE_SETTINGS.perks,
   };
 }

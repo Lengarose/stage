@@ -1,4 +1,5 @@
 // @ts-nocheck — admin UI uses project shadcn primitives without full prop inference.
+import storeBenefits from "../../../../server/src/shared/storeBenefits.json";
 import { useEffect, useMemo, useState } from "react";
 import { stageClient } from "@/api/stageClient";
 import { Button } from "@/components/ui/button";
@@ -24,37 +25,19 @@ const DEFAULT_FORM = {
   starter_credits: TOURNAMENT_ENTRY_CREDITS,
   tournament_entry_credits: TOURNAMENT_ENTRY_CREDITS,
   community_tournament_limit: 0,
-  headline: "One membership for serious competitors",
-  description: "STAGE Plus unlocks official competitions, community tournament creation, full rankings, full stats, monthly credits, and premium visual customization across your football identity.",
+  ...storeBenefits,
   badge_image_url: "/uploads/stage-plus-badge.png",
-  perks: [
-    "150 credits refreshed every month",
-    "Enter official STAGE competitions and regional leagues",
-    "Create community tournaments",
-    "Ranked player and club tournament access",
-    "Full rankings and position rankings",
-    "Full player and club stats",
-    "Advanced recruitment and search filters",
-    "Custom player card backgrounds",
-    "Upload your own player card background",
-    "Choose exclusive STAGE Plus card background designs",
-    "Custom Club Profile stats tile backgrounds",
-    "Upload your own club stats tile background",
-    "Custom Career tab tile backgrounds",
-    "Upload your own career tile background",
-    "Custom GameDay panel backgrounds",
-    "Personalize Match Screens and Dressing Room tiles",
-  ],
+  background_image_url: "",
   is_active: 1,
 };
 
 function normalizeAdminStoreForm(row = {}) {
   const rawDescription = String(row.description || "").trim();
   const legacyDescription = !rawDescription
-    || /ranked play/i.test(rawDescription)
+    || /ranked play|^STAGE Plus unlocks official competitions/i.test(rawDescription)
     || (/monthly credit refresh/i.test(rawDescription) && !/full rankings/i.test(rawDescription));
   const rawPerks = Array.isArray(row.perks) ? row.perks : [];
-  const hasLegacyPerks = rawPerks.some((perk) => /300 credits|advanced player and club discovery|active events|premium/i.test(String(perk)));
+  const hasLegacyPerks = rawPerks.some((perk) => /300 credits|advanced player and club discovery|active events|premium|150 credits refreshed every month|Ranked player and club tournament access|Enter official STAGE competitions/i.test(String(perk)));
   return {
     ...DEFAULT_FORM,
     ...row,
@@ -64,6 +47,7 @@ function normalizeAdminStoreForm(row = {}) {
     starter_credits: TOURNAMENT_ENTRY_CREDITS,
     tournament_entry_credits: TOURNAMENT_ENTRY_CREDITS,
     community_tournament_limit: 0,
+    headline: !row.headline || row.headline === "One membership for serious competitors" ? storeBenefits.headline : row.headline,
     description: legacyDescription ? DEFAULT_FORM.description : rawDescription,
     perks: rawPerks.length && !hasLegacyPerks ? rawPerks : DEFAULT_FORM.perks,
   };
@@ -78,6 +62,7 @@ export default function StoreTab() {
   const [backgroundFile, setBackgroundFile] = useState(null);
   const [backgroundBusy, setBackgroundBusy] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [imageBusy, setImageBusy] = useState(null);
   const [saving, setSaving] = useState(false);
 
   const perksText = useMemo(() => (Array.isArray(form.perks) ? form.perks.join("\n") : String(form.perks || "")), [form.perks]);
@@ -113,7 +98,8 @@ export default function StoreTab() {
       community_tournament_limit: 0,
       headline: form.headline || DEFAULT_FORM.headline,
       description: form.description || DEFAULT_FORM.description,
-      badge_image_url: form.badge_image_url || DEFAULT_FORM.badge_image_url,
+      badge_image_url: form.badge_image_url ?? DEFAULT_FORM.badge_image_url,
+      background_image_url: form.background_image_url || "",
       perks: perksText.split("\n").map((p) => p.trim()).filter(Boolean),
       is_active: 1,
       reason: t("admin.store.updatedFromAdmin"),
@@ -134,6 +120,19 @@ export default function StoreTab() {
     } finally {
       setSaving(false);
     }
+  }
+
+  async function uploadStoreImage(field, file) {
+    if (!file) return;
+    setImageBusy(field);
+    try {
+      if (!file.type.startsWith("image/")) throw new Error("Please select an image.");
+      const uploaded = await stageClient.integrations.Core.UploadFile({ file });
+      setField(field, uploaded.file_url);
+      toast({ title: "Image uploaded", description: "Save Store to publish this image." });
+    } catch (err) {
+      toast({ title: "Could not upload image", description: err.message, variant: "destructive" });
+    } finally { setImageBusy(null); }
   }
 
   async function saveBackground() {
@@ -211,14 +210,14 @@ export default function StoreTab() {
             <ShoppingBag className="w-5 h-5 text-primary" />
             <div>
               <h2 className="font-heading text-xl uppercase text-foreground">{t("admin.store.storeSettings")}</h2>
-              <p className="text-xs text-muted-foreground">{t("admin.store.storeSettingsDesc")}</p>
+              <p className="text-xs text-muted-foreground">Edit Store copy, the Plus badge and the page background. Pricing follows the checkout policy.</p>
             </div>
           </div>
           <div className="flex gap-2">
             <Button type="button" variant="outline" onClick={loadConfig} className="gap-1.5 border-border">
               <RefreshCw className="w-4 h-4" /> {t("admin.analytics.reload")}
             </Button>
-            <Button type="button" onClick={saveConfig} disabled={saving} className="gap-1.5 bg-primary text-primary-foreground">
+            <Button type="button" onClick={saveConfig} disabled={saving || !!imageBusy} className="gap-1.5 bg-primary text-primary-foreground">
               <Save className="w-4 h-4" /> {saving ? t("admin.actions.savingDots") : t("admin.store.saveStore")}
             </Button>
           </div>
@@ -231,28 +230,29 @@ export default function StoreTab() {
             <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("admin.store.planName")}</label>
             <Input value={form.name || ""} onChange={(e) => setField("name", e.target.value)} className="bg-secondary border-border" />
           </div>
+          <p className="text-xs text-muted-foreground">Prices and credit allowances below follow the checkout policy and are read-only here.</p>
           <div className="grid sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("admin.store.monthlyPrice")}</label>
-              <Input type="number" step="0.01" value={form.stage_plus_monthly_price} onChange={(e) => setField("stage_plus_monthly_price", e.target.value)} className="bg-secondary border-border" />
+              <Input type="number" step="0.01" readOnly title="Fixed by the STAGE pricing policy" value={form.stage_plus_monthly_price} onChange={(e) => setField("stage_plus_monthly_price", e.target.value)} className="bg-secondary border-border" />
             </div>
             <div>
               <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("admin.store.yearlyPrice")}</label>
-              <Input type="number" step="0.01" value={form.stage_plus_yearly_price} onChange={(e) => setField("stage_plus_yearly_price", e.target.value)} className="bg-secondary border-border" />
+              <Input type="number" step="0.01" readOnly title="Fixed by the STAGE pricing policy" value={form.stage_plus_yearly_price} onChange={(e) => setField("stage_plus_yearly_price", e.target.value)} className="bg-secondary border-border" />
             </div>
           </div>
           <div className="grid sm:grid-cols-3 gap-3">
             <div>
               <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("admin.store.monthlyCredits")}</label>
-              <Input type="number" value={form.monthly_credits} onChange={(e) => setField("monthly_credits", e.target.value)} className="bg-secondary border-border" />
+              <Input type="number" readOnly title="Fixed by the STAGE pricing policy" value={form.monthly_credits} onChange={(e) => setField("monthly_credits", e.target.value)} className="bg-secondary border-border" />
             </div>
             <div>
               <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("admin.store.starterCredits")}</label>
-              <Input type="number" value={form.starter_credits} onChange={(e) => setField("starter_credits", e.target.value)} className="bg-secondary border-border" />
+              <Input type="number" readOnly title="Fixed by the STAGE pricing policy" value={form.starter_credits} onChange={(e) => setField("starter_credits", e.target.value)} className="bg-secondary border-border" />
             </div>
             <div>
               <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("admin.store.entryCredits")}</label>
-              <Input type="number" value={form.tournament_entry_credits} onChange={(e) => setField("tournament_entry_credits", e.target.value)} className="bg-secondary border-border" />
+              <Input type="number" readOnly title="Fixed by the STAGE pricing policy" value={form.tournament_entry_credits} onChange={(e) => setField("tournament_entry_credits", e.target.value)} className="bg-secondary border-border" />
             </div>
           </div>
           <div>
@@ -263,10 +263,20 @@ export default function StoreTab() {
             <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("admin.editors.description")}</label>
             <Textarea value={form.description || ""} onChange={(e) => setField("description", e.target.value)} className="bg-secondary border-border min-h-24" />
           </div>
-          <div>
-            <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("admin.store.badgeImageUrl")}</label>
-            <Input value={form.badge_image_url || ""} onChange={(e) => setField("badge_image_url", e.target.value)} className="bg-secondary border-border" />
-          </div>
+          <fieldset className="space-y-4 border border-border p-4">
+            <legend className="px-2 font-bold">Store images</legend>
+            <p className="text-xs text-muted-foreground">One large page background and one Plus badge. Upload images, then Save Store to publish. Leave the background empty for the plain design.</p>
+            {[
+              { field: "badge_image_url", label: "STAGE Plus badge" },
+              { field: "background_image_url", label: "Store page background" },
+            ].map(({ field, label }) => <div key={field} className="space-y-2">
+              <label className="block text-sm" htmlFor={`store-${field}`}>{label}</label>
+              <Input id={`store-${field}`} value={form[field] || ""} onChange={(e) => setField(field, e.target.value)} placeholder="Image URL, or upload below" />
+              <input type="file" accept="image/*" aria-label={`Upload ${label}`} disabled={!!imageBusy} onChange={(e) => { void uploadStoreImage(field, e.target.files?.[0]); e.target.value = ""; }} />
+              {imageBusy === field && <p role="status">Uploading…</p>}
+              {form[field] && <><img src={form[field]} alt={`${label} preview`} className="max-h-40 max-w-full object-contain" /><Button type="button" variant="outline" onClick={() => setField(field, "")}>Remove {label}</Button></>}
+            </div>)}
+          </fieldset>
           <div>
             <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">{t("admin.store.perksLabel")}</label>
             <Textarea value={perksText} onChange={(e) => setField("perks", e.target.value.split("\n"))} className="bg-secondary border-border min-h-36" />
