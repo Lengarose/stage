@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { EXECUTESQL } = require('../db/database');
 const { hasStagePlus } = require('../utils/subscriptionAccess');
+const { compareRankings, isRankingAdminRole, buildBoard, locateIdentity, previewSummary } = require('../lib/rankingQuery');
 
 const COMPLETE_STATUSES = new Set(['completed', 'confirmed', 'played', 'forfeit']);
 const DEFENSIVE_POSITIONS = new Set(['GK', 'CB', 'LCB', 'RCB', 'LB', 'RB', 'LWB', 'RWB']);
@@ -33,10 +34,7 @@ function normalizeStatus(value) {
 }
 
 function safeRankSort(a, b) {
-  return (b.ranking_points || 0) - (a.ranking_points || 0) ||
-    (b.wins || b.ranking_wins || 0) - (a.wins || a.ranking_wins || 0) ||
-    (b.matches_ranked || b.ranking_matches || 0) - (a.matches_ranked || a.ranking_matches || 0) ||
-    text(a.name || a.gamertag).localeCompare(text(b.name || b.gamertag));
+  return compareRankings(a, b);
 }
 
 function phaseMultiplier(phase) {
@@ -82,6 +80,8 @@ function clubShell(club) {
     banner_url: club.banner_url,
     banner_position: club.banner_position,
     banner_zoom: club.banner_zoom,
+    logo_position: club.logo_position,
+    logo_zoom: club.logo_zoom,
     platform: club.platform,
     region: club.region || 'Global',
     country_code: club.country_code || '',
@@ -110,6 +110,8 @@ function playerShell(player) {
     email: player.email,
     gamertag: player.gamertag || player.player_gamertag || 'Unknown Player',
     avatar_url: player.avatar_url,
+    avatar_position: player.avatar_position,
+    avatar_zoom: player.avatar_zoom,
     position,
     secondary_position: upper(player.secondary_position),
     platform: player.platform,
@@ -531,15 +533,6 @@ async function buildRankings() {
   };
 }
 
-function filterScope(rows, query, playerMode = false) {
-  let out = [...rows];
-  const scope = text(query.scope || 'global').toLowerCase();
-  if (scope === 'regional' && query.region) out = out.filter((r) => text(r.region).toLowerCase() === text(query.region).toLowerCase());
-  if (scope === 'country' && query.country_code) out = out.filter((r) => text(r.country_code).toLowerCase() === text(query.country_code).toLowerCase());
-  if (playerMode && query.position) out = out.filter((r) => upper(r.position) === upper(query.position));
-  return out.sort(safeRankSort).slice(0, Math.min(n(query.limit, 100), 250));
-}
-
 async function persistRankings(summary) {
   await EXECUTESQL(
     `UPDATE clubs
@@ -655,7 +648,7 @@ async function persistRankings(summary) {
 async function requireAdmin(req, res) {
   const rows = await EXECUTESQL('SELECT id, email, role_id FROM users WHERE id = ? LIMIT 1', [req.user?.id]).catch(() => []);
   const user = rows[0];
-  if (Number(user?.role_id) !== 0) {
+  if (!isRankingAdminRole(user?.role_id)) {
     res.status(403).json({ error: 'Admin access required' });
     return null;
   }
@@ -667,10 +660,10 @@ async function hasFullRankingAccess(req) {
   const email = req.user?.email || '';
   if (!userId && !email) return false;
   const userRows = userId
-    ? await query('SELECT id, email, role_id FROM users WHERE id = ? LIMIT 1', [userId])
+    ? await EXECUTESQL('SELECT id, email, role_id FROM users WHERE id = ? LIMIT 1', [userId])
     : [];
-  if ([0, 2].includes(Number(userRows[0]?.role_id))) return true;
-  const playerRows = await query(
+  if (isRankingAdminRole(userRows[0]?.role_id)) return true;
+  const playerRows = await EXECUTESQL(
     `SELECT subscription, subscription_expires_at
        FROM players
       WHERE user_id = ?
@@ -682,75 +675,39 @@ async function hasFullRankingAccess(req) {
   return hasStagePlus(playerRows[0]);
 }
 
-function publicClubRanking(row) {
-  return {
-    id: row.id,
-    name: row.name,
-    tag: row.tag,
-    logo_url: row.logo_url,
-    banner_url: row.banner_url,
-    banner_position: row.banner_position,
-    banner_zoom: row.banner_zoom,
-    platform: row.platform,
-    region: row.region,
-    country_code: row.country_code,
-    global_rank: row.global_rank,
-    matches_ranked: row.matches_ranked,
-    wins: row.wins,
-    draws: row.draws,
-    losses: row.losses,
-  };
-}
-
-function publicPlayerRanking(row) {
-  return {
-    id: row.id,
-    gamertag: row.gamertag,
-    avatar_url: row.avatar_url,
-    position: row.position,
-    secondary_position: row.secondary_position,
-    platform: row.platform,
-    country: row.country,
-    country_code: row.country_code,
-    club_id: row.club_id,
-    club_name: row.club_name,
-    club_tag: row.club_tag,
-    global_rank: row.global_rank,
-    ranking_matches: row.ranking_matches,
-    ranking_wins: row.ranking_wins,
-    ranking_draws: row.ranking_draws,
-    ranking_losses: row.ranking_losses,
-    ranking_goals: row.ranking_goals,
-    ranking_assists: row.ranking_assists,
-    is_verified: row.is_verified,
-  };
-}
-
-function applyRankingAccess(summary, fullAccess) {
-  if (fullAccess) {
-    return {
-      ...summary,
-      clubs: summary.clubs.slice(0, 100),
-      players: summary.players.slice(0, 100),
-      meta: { ...summary.meta, access: 'full', full_access: true },
-    };
+async function viewerIdentities(req) {
+  const userId = req.user?.id || '';
+  const email = req.user?.email || '';
+  if (!userId && !email) return { player_id: null, club_id: null };
+  const players = await EXECUTESQL(
+    `SELECT id FROM players
+      WHERE user_id = ? OR LOWER(TRIM(email)) = LOWER(TRIM(?))
+      ORDER BY user_id = ? DESC, updated_date DESC
+      LIMIT 1`,
+    [userId, email, userId]
+  );
+  const clubs = await EXECUTESQL(
+    `SELECT id FROM clubs
+      WHERE president_user_id = ? OR user_id = ? OR LOWER(TRIM(owner_email)) = LOWER(TRIM(?))
+      ORDER BY president_user_id = ? DESC
+      LIMIT 1`,
+    [userId, userId, email, userId]
+  );
+  let clubId = clubs[0]?.id || null;
+  if (!clubId && userId) {
+    const presidents = await EXECUTESQL('SELECT club_id FROM presidents WHERE user_id = ? LIMIT 1', [userId]).catch(() => []);
+    clubId = presidents[0]?.club_id || null;
   }
-  return {
-    ...summary,
-    clubs: summary.clubs.slice(0, 10).map(publicClubRanking),
-    players: summary.players.slice(0, 10).map(publicPlayerRanking),
-    positions: [],
-    meta: { ...summary.meta, access: 'limited', full_access: false },
-  };
+  return { player_id: players[0]?.id || null, club_id: clubId };
 }
 
 router.get('/summary', async (req, res) => {
   try {
     const summary = await buildRankings();
-    res.json(applyRankingAccess(summary, await hasFullRankingAccess(req)));
+    res.json(previewSummary(summary, await hasFullRankingAccess(req)));
   } catch (err) {
     console.error('[rankings] summary failed:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Rankings could not be loaded.' });
   }
 });
 
@@ -758,12 +715,11 @@ router.get('/clubs', async (req, res) => {
   try {
     const summary = await buildRankings();
     const fullAccess = await hasFullRankingAccess(req);
-    const queryParams = fullAccess ? req.query : { limit: 10 };
-    const rows = filterScope(summary.clubs, queryParams).map((row) => fullAccess ? row : publicClubRanking(row));
-    res.json(rows);
+    const viewer = await viewerIdentities(req);
+    res.json(buildBoard({ rows: summary.clubs, kind: 'club', fullAccess, query: req.query, meta: summary.meta, viewer }));
   } catch (err) {
     console.error('[rankings] clubs failed:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Rankings could not be loaded.' });
   }
 });
 
@@ -771,12 +727,26 @@ router.get('/players', async (req, res) => {
   try {
     const summary = await buildRankings();
     const fullAccess = await hasFullRankingAccess(req);
-    const queryParams = fullAccess ? req.query : { limit: 10 };
-    const rows = filterScope(summary.players, queryParams, fullAccess).map((row) => fullAccess ? row : publicPlayerRanking(row));
-    res.json(rows);
+    const viewer = await viewerIdentities(req);
+    res.json(buildBoard({ rows: summary.players, kind: 'player', fullAccess, query: req.query, meta: summary.meta, viewer }));
   } catch (err) {
     console.error('[rankings] players failed:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Rankings could not be loaded.' });
+  }
+});
+
+router.get('/me', async (req, res) => {
+  try {
+    const kind = req.query.kind === 'club' ? 'club' : 'player';
+    const summary = await buildRankings();
+    const fullAccess = await hasFullRankingAccess(req);
+    const viewer = await viewerIdentities(req);
+    const rows = kind === 'club' ? summary.clubs : summary.players;
+    const id = kind === 'club' ? viewer.club_id : viewer.player_id;
+    res.json(locateIdentity({ rows, id, kind, fullAccess, query: req.query }));
+  } catch (err) {
+    console.error('[rankings] locate failed:', err);
+    res.status(500).json({ error: 'Your ranking could not be located.' });
   }
 });
 
@@ -801,9 +771,7 @@ router.post('/rebuild', async (req, res) => {
     ).catch(() => {});
     res.json({
       success: true,
-      ...summary,
-      clubs: summary.clubs.slice(0, 100),
-      players: summary.players.slice(0, 100),
+      ...previewSummary(summary, true),
     });
   } catch (err) {
     console.error('[rankings] rebuild failed:', err);

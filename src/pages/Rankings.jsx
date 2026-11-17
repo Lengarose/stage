@@ -1,335 +1,439 @@
 import IdentityAvatar from "@/components/profile/IdentityAvatar";
-import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { stageClient } from "@/api/stageClient";
-import { cn } from "@/lib/utils";
-import {
-  Activity,
-  BadgeCheck,
-  Crosshair,
-  Globe,
-  MapPin,
-  Medal,
-  Shield,
-  ShieldCheck,
-  Trophy,
-  Users,
-} from "lucide-react";
+import { useCardProgression } from "@/hooks/useCardProgression";
 import { useTranslation } from "@/hooks/useTranslation";
+import { stageClient } from "@/api/stageClient";
+import { rankingsPresentation } from "@/lib/rankingsPresentation";
+import { getCountryShortName } from "@/lib/countryDisplay";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import "./rankings.css";
 
-const POSITIONS = ["GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LW", "RW", "ST"];
-
-function rankBadge(rank) {
-  if (rank === 1) return "bg-yellow-300 text-black shadow-[0_0_22px_rgba(250,204,21,0.45)]";
-  if (rank === 2) return "bg-slate-200 text-slate-950";
-  if (rank === 3) return "bg-amber-600 text-white";
-  return "bg-white/8 text-white/60";
-}
+const PAGE_SIZE = 25;
 
 function formatNumber(value) {
   return Intl.NumberFormat("en", { maximumFractionDigits: 1 }).format(Number(value) || 0);
 }
 
-function scopeLabel(scope, selected, t) {
-  if (scope === "regional") return selected.region || t("competitionFlow.allRegions");
-  if (scope === "country") return selected.country || t("competitionFlow.allCountries");
-  return t("competitionFlow.global");
+function placeLabel(rank) {
+  if (rank === 1) return "Gold";
+  if (rank === 2) return "Silver";
+  if (rank === 3) return "Bronze";
+  return "";
 }
 
-function ClubRow({ club, rank, limited = false }) {
-  const { t } = useTranslation();
-  const winRate = club.matches_ranked ? Math.round((club.wins / club.matches_ranked) * 100) : 0;
+function playerStats(player, limited) {
+  const position = String(player.position || "").toUpperCase();
+  const stats = [{ key: "ranking_matches", label: "GP", title: "Games played in official ranking matches" }];
+  const defensive = ["GK", "CB", "LCB", "RCB", "LB", "RB", "LWB", "RWB"].includes(position);
+  const creative = ["CDM", "CM", "CAM", "LM", "RM"].includes(position);
+  if (defensive) stats.push({ key: "ranking_clean_sheets", label: "CS", title: "Clean sheets", plus: true });
+  if (creative) {
+    stats.push({ key: "ranking_assists", label: "A", title: "Assists" });
+    stats.push({ key: "ranking_goals", label: "G", title: "Goals" });
+  } else {
+    stats.push({ key: "ranking_goals", label: "G", title: "Goals" });
+    stats.push({ key: "ranking_assists", label: "A", title: "Assists" });
+  }
+  if (!limited) stats.push({ key: "ranking_avg_rating", label: "Rating", title: "Average match rating. Not STAGE Card Level and not ranking points.", plus: true });
+  return stats.filter((stat) => !limited || !stat.plus);
+}
+
+function clubStats(club, limited) {
+  const stats = [
+    { label: "GP", value: club.matches_ranked || 0, title: "Official ranking matches" },
+    { label: "Record", value: `${club.wins || 0}W ${club.draws || 0}D ${club.losses || 0}L`, title: "Wins, draws and losses" },
+  ];
+  if (!limited) {
+    const difference = Number(club.goals_scored || 0) - Number(club.goals_conceded || 0);
+    stats.push({ label: "GD", value: difference > 0 ? `+${difference}` : difference, title: "Goal difference" });
+    stats.push({ label: "Titles", value: club.competition_wins || 0, title: "Eligible official titles counted by the ranking" });
+  }
+  return stats;
+}
+
+function CardLevel({ playerId }) {
+  const { card, error } = useCardProgression(playerId);
+  const level = Number.isInteger(card?.level) ? card.level : null;
   return (
-    <Link to={`/clubs/${club.id}`} className="block group">
-      <div className="relative min-h-[88px] overflow-hidden rounded-xl border border-white/10 bg-[#07111f]">
-        {club.banner_url ? (
-          <div
-            className="absolute inset-0 scale-105 opacity-70 transition-transform duration-700 group-hover:scale-110"
-            style={{
-              backgroundImage: `url(${club.banner_url})`,
-              backgroundSize: `${club.banner_zoom || 150}%`,
-              backgroundPosition: club.banner_position || "50% 50%",
-            }}
-          />
-        ) : (
-          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(8,20,36,1),rgba(14,35,56,0.72),rgba(8,20,36,1))]" />
-        )}
-        <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/40 to-black/90" />
-        <div className="relative flex items-center gap-4 px-4 py-4 sm:px-5">
-          <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-black", rankBadge(rank))}>{rank}</div>
-          <div className="identity-avatar-shell flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/20 bg-black/50">
-            {club.logo_url ? <IdentityAvatar src={club.logo_url} alt={club.name} className="h-full w-full object-cover"  zoom={club?.logo_zoom}  position={club?.logo_position} /> : <Shield className="h-5 w-5 text-white/35" />}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="truncate font-heading text-lg font-black uppercase text-white">{club.name}</h3>
-              {club.tag ? <span className="rounded border border-cyan-300/25 bg-cyan-300/10 px-2 py-0.5 font-mono text-[10px] font-black uppercase text-cyan-200">[{club.tag}]</span> : null}
-            </div>
-            <p className="mt-1 text-xs text-white/45">{club.region || "Global"}{club.country_code ? ` · ${club.country_code}` : ""}</p>
-          </div>
-          <div className="hidden items-center gap-6 sm:flex">
-            <Metric label={t("competitionFlow.record")} value={`${club.wins || 0}W ${club.draws || 0}D ${club.losses || 0}L`} />
-            {!limited ? <Metric label="WR" value={`${winRate}%`} tone={winRate >= 60 ? "good" : winRate >= 40 ? "warn" : "muted"} /> : null}
-            {!limited ? <Metric label={t("competitionFlow.titles")} value={club.competition_wins || 0} /> : null}
-          </div>
-          {!limited ? (
-            <div className="min-w-[64px] text-right">
-              <div className="font-heading text-2xl font-black text-cyan-300">{formatNumber(club.ranking_points)}</div>
-              <div className="text-[10px] uppercase text-white/35">{t("competitionFlow.points")}</div>
-            </div>
-          ) : null}
-        </div>
-      </div>
-    </Link>
+    <span className="rankings-level" title={error ? "Card Level is temporarily unavailable" : "STAGE Card Level from official match progression. Not ranking points or match rating."}>
+      Card Lv {level ?? "—"}
+    </span>
   );
 }
 
-function PlayerRow({ player, rank, limited = false }) {
-  const { t } = useTranslation();
+function RankMark({ rank }) {
+  const medal = placeLabel(rank);
   return (
-    <Link to={`/players/${player.id}`} className="block group">
-      <div className="grid gap-3 rounded-xl border border-white/10 bg-[#07111f] px-4 py-4 transition-colors group-hover:border-cyan-300/35 md:grid-cols-[auto_auto_1fr_auto] md:items-center">
-        <div className={cn("flex h-10 w-10 items-center justify-center rounded-lg text-sm font-black", rankBadge(rank))}>{rank}</div>
-        <div className="flex items-center gap-3">
-          <div className="identity-avatar-shell flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-white/5">
-            {player.avatar_url ? <IdentityAvatar src={player.avatar_url} alt={player.gamertag} className="h-full w-full object-cover"  zoom={player?.avatar_zoom}  position={player?.avatar_position} /> : <Users className="h-5 w-5 text-white/35" />}
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h3 className="truncate font-heading text-lg font-black uppercase text-white">{player.gamertag}</h3>
-              {player.is_verified ? <BadgeCheck className="h-4 w-4 text-cyan-300" /> : null}
-            </div>
-            <p className="text-xs text-white/45">{player.position}{player.club_name ? ` · ${player.club_name}` : ""}</p>
-          </div>
-        </div>
-        <div className={cn("grid gap-2", limited ? "grid-cols-4" : "grid-cols-3 sm:grid-cols-6")}>
-          <Metric label="GP" value={player.ranking_matches || 0} />
-          {limited ? <Metric label="W" value={player.ranking_wins || 0} /> : <Metric label="WR" value={`${formatNumber(player.ranking_win_rate)}%`} />}
-          <Metric label="G" value={player.ranking_goals || 0} />
-          <Metric label="A" value={player.ranking_assists || 0} />
-          {!limited ? <Metric label="CS" value={player.ranking_clean_sheets || 0} /> : null}
-          {!limited ? <Metric label="AVG" value={formatNumber(player.ranking_avg_rating)} /> : null}
-        </div>
-        {!limited ? (
-          <div className="text-left md:text-right">
-            <div className="font-heading text-2xl font-black text-cyan-300">{formatNumber(player.ranking_points)}</div>
-            <div className="text-[10px] uppercase text-white/35">{t("competitionFlow.points")}</div>
-          </div>
-        ) : null}
-      </div>
-    </Link>
+    <span className="rankings-rank" data-place={medal ? rank : undefined}>
+      {rank ?? "—"}
+      {medal ? <small>{medal}</small> : null}
+    </span>
   );
 }
 
-function Metric({ label, value, tone = "default" }) {
+function ResultCaption({ board, kindLabel }) {
+  if (!board) return null;
+  if (board.result_kind === "preview") {
+    return (
+      <p className="rankings-note">
+        Free preview: {board.displayed} of {board.total_ranked} ranked {kindLabel}. This is not the full board.
+      </p>
+    );
+  }
+  if (board.result_kind === "complete") {
+    return (
+      <p className="rankings-note">
+        Complete results: {board.matching} of {board.total_ranked} ranked {kindLabel} match. Showing {board.displayed}.
+      </p>
+    );
+  }
   return (
-    <div className="min-w-[52px]">
-      <div className={cn(
-        "text-sm font-black",
-        tone === "good" ? "text-emerald-300" : tone === "warn" ? "text-yellow-300" : tone === "muted" ? "text-white/45" : "text-white"
-      )}>{value}</div>
-      <div className="text-[9px] uppercase tracking-widest text-white/30">{label}</div>
-    </div>
-  );
-}
-
-function EmptyState({ label }) {
-  return (
-    <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-white/10 py-16 text-center text-white/40">
-      <Trophy className="h-10 w-10 text-white/15" />
-      <p>{label}</p>
-    </div>
+    <p className="rankings-note">
+      Page {board.page} of {board.pages}. Showing {board.displayed} of {board.matching} matching {kindLabel}. {board.total_ranked} are ranked in total.
+    </p>
   );
 }
 
 export default function Rankings() {
   const { t } = useTranslation();
-  const [summary, setSummary] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const dialogRef = useRef(null);
   const [view, setView] = useState("clubs");
-  const [scope, setScope] = useState("global");
   const [region, setRegion] = useState("");
   const [country, setCountry] = useState("");
-  const [position, setPosition] = useState("ST");
+  const [position, setPosition] = useState("");
+  const [platform, setPlatform] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [board, setBoard] = useState(null);
+  const [boardView, setBoardView] = useState(null);
+  const [status, setStatus] = useState("loading");
+  const [access, setAccess] = useState("unknown");
+  const [presentation, setPresentation] = useState(() => rankingsPresentation());
+  const [locateMessage, setLocateMessage] = useState("");
+  const [locating, setLocating] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const fullAccess = access === "full";
+  const kind = view === "clubs" ? "club" : "player";
+  const kindLabel = view === "clubs" ? "clubs" : "players";
 
   useEffect(() => {
-    stageClient.http.get("/rankings/summary")
-      .then(setSummary)
-      .catch(() => setSummary({ clubs: [], players: [], positions: [], meta: {} }))
-      .finally(() => setLoading(false));
+    const timer = window.setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPage(1);
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
+
+  useEffect(() => {
+    let active = true;
+    stageClient.entities.RankingsPageConfig.filter({ key: "main" }, "-updated_date", 1)
+      .then((rows) => { if (active) setPresentation(rankingsPresentation(rows?.[0] || {})); })
+      .catch(() => { if (active) setPresentation(rankingsPresentation()); });
+    return () => { active = false; };
   }, []);
 
-  const clubs = summary?.clubs || [];
-  const players = summary?.players || [];
-  const regions = useMemo(() => [...new Set([...clubs, ...players].map((r) => r.region).filter(Boolean))].sort(), [clubs, players]);
-  const countries = useMemo(() => [...new Set([...clubs, ...players].map((r) => r.country_code).filter(Boolean))].sort(), [clubs, players]);
-  const hasFullRankings = summary?.meta?.full_access !== false;
+  useEffect(() => {
+    let active = true;
+    setStatus("loading");
+    const query = { page, limit: PAGE_SIZE, q: search, region, country_code: country, platform };
+    if (view === "positions" && position) query.position = position;
+    stageClient.http.get(view === "clubs" ? "/rankings/clubs" : "/rankings/players", query)
+      .then((data) => {
+        if (!active) return;
+        setBoard(data);
+        setBoardView(view);
+        setAccess(data?.full_access === true ? "full" : data?.access === "limited" ? "limited" : "unknown");
+        setStatus("ready");
+      })
+      .catch(() => {
+        if (!active) return;
+        setBoard(null);
+        setBoardView(null);
+        setAccess("unknown");
+        setStatus("error");
+      });
+    return () => { active = false; };
+  }, [view, page, search, region, country, position, platform, attempt]);
 
   useEffect(() => {
-    if (hasFullRankings) return;
-    if (view === "positions") setView("players");
-    if (scope !== "global") setScope("global");
-  }, [hasFullRankings, scope, view]);
+    if (!fullAccess && view === "positions") setView("players");
+  }, [fullAccess, view]);
 
-  const filteredClubs = useMemo(() => clubs.filter((club) => {
-    if (scope === "regional" && region && club.region !== region) return false;
-    if (scope === "country" && country && club.country_code !== country) return false;
-    return true;
-  }), [clubs, scope, region, country]);
+  useEffect(() => {
+    if (status !== "ready" || !board?.highlighted_id) return;
+    document.getElementById(`ranking-${board.highlighted_id}`)?.scrollIntoView({ block: "center" });
+  }, [status, board]);
 
-  const filteredPlayers = useMemo(() => players.filter((player) => {
-    if (view === "positions" && position && player.position !== position) return false;
-    if (scope === "regional" && region && player.region !== region) return false;
-    if (scope === "country" && country && player.country_code !== country) return false;
-    return true;
-  }), [players, view, position, scope, region, country]);
+  const facets = board?.facets || {};
+  const showPlatform = fullAccess && (facets.platforms || []).length > 0;
+  const filtersActive = Boolean(search || region || country || position || platform);
+  const accentColor = useMemo(() => {
+    const map = { ice: "#c2edfa", blue: "#4d8dff", cyan: "#00d4ff", gold: "#f5c542", red: "#ff6575", violet: "#c3a6ff" };
+    return map[presentation.accent] || "#4d8dff";
+  }, [presentation.accent]);
+
+  function changeView(next) {
+    setView(next);
+    setPage(1);
+    setLocateMessage("");
+  }
+
+  function resetFilters() {
+    setRegion("");
+    setCountry("");
+    setPosition("");
+    setPlatform("");
+    setSearchInput("");
+    setSearch("");
+    setPage(1);
+    setLocateMessage("");
+  }
+
+  async function findMe() {
+    setLocating(true);
+    setLocateMessage("");
+    try {
+      const result = await stageClient.http.get("/rankings/me", {
+        kind,
+        q: search,
+        region,
+        country_code: country,
+        platform,
+        position: view === "positions" ? position : "",
+        limit: PAGE_SIZE,
+      });
+      if (!result?.found || result.reason === "no_identity") {
+        setLocateMessage(kind === "club"
+          ? "No club managed by this account was found."
+          : "No player profile linked to this account was found.");
+      } else if (result.reason === "unranked") {
+        setLocateMessage(kind === "club"
+          ? "Your club is not in the official rankings yet. A club needs completed official competition results."
+          : "Your player is not in the official rankings yet. Rankings start after an official competition match.");
+      } else if (result.reason === "outside_preview") {
+        setLocateMessage("You are ranked, but outside the free top-10 preview. STAGE Plus shows your position. The exact rank stays hidden on the free preview.");
+      } else if (result.reason === "filtered_out" || result.reason === "outside_scope") {
+        setLocateMessage(`You are ranked globally at ${result.global_rank}, but the current filters hide that row. Reset filters to see it.`);
+      } else if (result.page && result.page !== page) {
+        setPage(result.page);
+        setLocateMessage(`Your rank in this scope is ${result.scope_rank}. Global rank ${result.global_rank}.`);
+      } else {
+        setLocateMessage(`Your rank in this scope is ${result.scope_rank}. Global rank ${result.global_rank}.`);
+        document.getElementById(`ranking-${result.row?.id}`)?.scrollIntoView({ block: "center" });
+      }
+    } catch {
+      setLocateMessage("Your ranking could not be located. Try again.");
+    } finally {
+      setLocating(false);
+    }
+  }
+
+  const boardReady = status === "ready" && board && boardView === view;
+  const rows = boardReady ? board.rows || [] : [];
+  const scopeIsGlobal = !board?.scope || board.scope === "global";
 
   return (
-    <div className="min-h-screen px-5 py-8 lg:px-10">
-      <div className="mx-auto max-w-7xl">
-        <header className="mb-8">
-          <p className="mb-1 text-xs font-bold uppercase tracking-[0.35em] text-cyan-300">STAGE</p>
-          <h1 className="font-heading text-5xl font-black uppercase leading-none text-white sm:text-6xl">{t("competitionFlow.rankingsTitle")}</h1>
-          <p className="mt-4 max-w-3xl text-sm text-white/50">
-            {t("competitionFlow.rankingsSubtitle")}
-          </p>
+    <main className="rankings-page" style={{ "--rankings-accent": accentColor }}>
+      {presentation.background_url ? (
+        <div className="rankings-backdrop" aria-hidden="true">
+          <img
+            src={presentation.background_url}
+            alt=""
+            style={{ objectPosition: presentation.background_position, transform: `scale(${(presentation.background_zoom || 100) / 100})` }}
+          />
+          <div className="rankings-backdrop-fade" />
+        </div>
+      ) : null}
+      <div className="rankings-content">
+        <header className="rankings-header">
+          <div>
+            <p className="rankings-kicker">STAGE / OFFICIAL COMPETITION</p>
+            <h1>{t("competitionFlow.rankingsTitle")}<span aria-hidden="true">.</span></h1>
+            <p className="rankings-intro">{t("competitionFlow.rankingsSubtitle")}</p>
+          </div>
+          <div className="rankings-header-actions">
+            <button type="button" onClick={() => dialogRef.current?.showModal()}>How rankings work</button>
+            <button type="button" onClick={findMe} disabled={locating || status === "loading"}>{locating ? "Looking…" : "Find me"}</button>
+          </div>
         </header>
 
-        <div className="mb-6 grid gap-3 rounded-xl border border-cyan-300/20 bg-cyan-300/5 p-4 md:grid-cols-4">
-          <Stat icon={Trophy} label={t("competitionFlow.officialFixtures")} value={summary?.meta?.official_fixtures_count || 0} />
-          <Stat icon={ShieldCheck} label={t("competitionFlow.rankedClubs")} value={clubs.length} />
-          <Stat icon={Users} label={t("competitionFlow.rankedPlayers")} value={players.length} />
-          <Stat icon={Activity} label={t("competitionFlow.scope")} value={scopeLabel(scope, { region, country }, t)} />
-        </div>
-
-        {!hasFullRankings ? (
-          <div className="mb-6 rounded-xl border border-yellow-300/25 bg-yellow-300/10 px-4 py-3 text-sm text-yellow-100">
-            Free accounts see the top rankings and basic stats. STAGE Plus unlocks full scopes, position rankings, ranking points, ratings, and advanced form stats.
+        {boardReady ? (
+          <div className="rankings-counts" aria-label="Ranking totals">
+            <div><strong>{board.meta?.official_fixtures_count ?? "—"}</strong><span>{t("competitionFlow.officialFixtures")}</span></div>
+            <div><strong>{board.meta?.club_count ?? "—"}</strong><span>{t("competitionFlow.rankedClubs")}</span></div>
+            <div><strong>{board.meta?.ranked_player_count ?? "—"}</strong><span>{t("competitionFlow.rankedPlayers")}</span></div>
           </div>
         ) : null}
 
-        <div className="mb-6 space-y-3">
-          <div className="flex flex-wrap gap-2">
-            <Segment
-              value={view}
-              onChange={setView}
-              items={[
-                { value: "clubs", label: t("competitionFlow.clubs"), icon: Shield },
-                { value: "players", label: t("competitionFlow.players"), icon: Users },
-                ...(hasFullRankings ? [{ value: "positions", label: t("competitionFlow.bestByPosition"), icon: Crosshair }] : []),
-              ]}
-            />
-          </div>
+        {access === "limited" ? (
+          <p className="rankings-banner">
+            Free accounts see the top 10 global rankings and basic match records. STAGE Plus unlocks the full board, filters, position rankings, ranking points and match ratings. <Link to="/store">Open the Store</Link>
+          </p>
+        ) : null}
+        {locateMessage ? <p className="rankings-status" role="status">{locateMessage}</p> : null}
 
-          {hasFullRankings ? (
-            <div
-              className="flex flex-wrap items-center gap-3 border border-cyan-300/15 bg-[#070b14]/82 px-4 py-3 backdrop-blur-md"
-              style={{ clipPath: "polygon(1% 0, 100% 0, 99% 100%, 0 100%)" }}
-            >
-              <Segment
-                variant="filter"
-                value={scope}
-                onChange={setScope}
-                items={[
-                  { value: "global", label: t("competitionFlow.global"), icon: Globe },
-                  { value: "regional", label: t("competitionFlow.regional"), icon: MapPin },
-                  { value: "country", label: t("competitionFlow.country"), icon: Medal },
-                ]}
-              />
-              {scope === "regional" ? (
-                <Select value={region} onChange={setRegion} options={regions} placeholder={t("competitionFlow.allRegions")} />
-              ) : null}
-              {scope === "country" ? (
-                <Select value={country} onChange={setCountry} options={countries} placeholder={t("competitionFlow.allCountries")} />
-              ) : null}
-              {view === "positions" ? (
-                <Select value={position} onChange={setPosition} options={POSITIONS} placeholder="Position" />
-              ) : null}
-            </div>
-          ) : null}
+        <div className="rankings-tabs" role="tablist" aria-label="Ranking views">
+          <button type="button" role="tab" aria-selected={view === "clubs"} onClick={() => changeView("clubs")}>{t("competitionFlow.clubs")}</button>
+          <button type="button" role="tab" aria-selected={view === "players"} onClick={() => changeView("players")}>{t("competitionFlow.players")}</button>
+          {fullAccess ? <button type="button" role="tab" aria-selected={view === "positions"} onClick={() => changeView("positions")}>{t("competitionFlow.bestByPosition")}</button> : null}
         </div>
 
-        {loading ? (
-          <div className="flex justify-center py-24">
-            <div className="h-10 w-10 animate-spin rounded-full border-4 border-cyan-300/20 border-t-cyan-300" />
+        {fullAccess ? (
+          <div className="rankings-filters">
+            <label>
+              <span className="sr-only">Search {kindLabel}</span>
+              <input type="search" value={searchInput} placeholder={`Search ${kindLabel}`} onChange={(event) => setSearchInput(event.target.value)} />
+            </label>
+            <label>
+              <span className="sr-only">{t("competitionFlow.regional")}</span>
+              <select value={region} onChange={(event) => { setRegion(event.target.value); setPage(1); }}>
+                <option value="">{t("competitionFlow.allRegions")}</option>
+                {(facets.regions || []).map((option) => <option key={option} value={option}>{option}</option>)}
+              </select>
+            </label>
+            <label>
+              <span className="sr-only">{t("competitionFlow.country")}</span>
+              <select value={country} onChange={(event) => { setCountry(event.target.value); setPage(1); }}>
+                <option value="">{t("competitionFlow.allCountries")}</option>
+                {(facets.countries || []).map((option) => <option key={option} value={option}>{getCountryShortName(option, option)}</option>)}
+              </select>
+            </label>
+            {view === "positions" ? (
+              <label>
+                <span className="sr-only">Position</span>
+                <select value={position} onChange={(event) => { setPosition(event.target.value); setPage(1); }}>
+                  <option value="">{t("competitionFlow.allPositions")}</option>
+                  {(facets.positions || []).map((option) => <option key={option} value={option}>{option}</option>)}
+                </select>
+              </label>
+            ) : null}
+            {showPlatform ? (
+              <label>
+                <span className="sr-only">{t("competitionFlow.allPlatforms")}</span>
+                <select value={platform} onChange={(event) => { setPlatform(event.target.value); setPage(1); }}>
+                  <option value="">{t("competitionFlow.allPlatforms")}</option>
+                  {facets.platforms.map((option) => <option key={option} value={option}>{option}</option>)}
+                </select>
+              </label>
+            ) : null}
+            <button type="button" onClick={resetFilters} disabled={!filtersActive}>Reset filters</button>
           </div>
-        ) : view === "clubs" ? (
-          filteredClubs.length ? (
-            <div className="space-y-3">
-              {filteredClubs.map((club, index) => <ClubRow key={club.id} club={club} rank={index + 1} limited={!hasFullRankings} />)}
-            </div>
-          ) : <EmptyState label={t("competitionFlow.noRankedClubs")} />
-        ) : (
-          filteredPlayers.length ? (
-            <div className="space-y-3">
-              {filteredPlayers.map((player, index) => <PlayerRow key={player.id} player={player} rank={index + 1} limited={!hasFullRankings} />)}
-            </div>
-          ) : <EmptyState label={t("competitionFlow.noRankedPlayers")} />
-        )}
+        ) : null}
+
+        {status === "loading" ? <p className="rankings-status" role="status">{t("competitionFlow.loading")}</p> : null}
+        {status === "error" ? (
+          <div className="rankings-error" role="alert">
+            <p>Rankings could not be loaded. This does not mean the board is empty.</p>
+            <button type="button" onClick={() => setAttempt((current) => current + 1)}>Retry</button>
+          </div>
+        ) : null}
+
+        {boardReady && board.total_ranked === 0 ? (
+          <p className="rankings-empty">{view === "clubs" ? t("competitionFlow.noRankedClubs") : t("competitionFlow.noRankedPlayers")}</p>
+        ) : null}
+        {boardReady && board.total_ranked > 0 && rows.length === 0 ? (
+          <p className="rankings-empty">No {kindLabel} match these filters. The ranked list itself is not empty.</p>
+        ) : null}
+        {boardReady && rows.length > 0 ? <ResultCaption board={board} kindLabel={kindLabel} /> : null}
+        {fullAccess ? (
+          <p className="rankings-abbr">GP games played · G goals · A assists · CS clean sheets · GD goal difference · Rating is the average match rating, not Card Level or ranking points.</p>
+        ) : null}
+
+        {boardReady && rows.length > 0 ? (
+          <table className="rankings-table">
+            <caption className="sr-only">{t("competitionFlow.rankingsTitle")} — {kindLabel}</caption>
+            <thead>
+              <tr>
+                <th title="Rank inside the selected scope. Search does not change this number.">Rank</th>
+                <th>{view === "clubs" ? t("competitionFlow.club") : t("competitionFlow.player")}</th>
+                <th>Record</th>
+                {fullAccess ? <th title="Ranking points from the official ranking calculation.">Points</th> : null}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => {
+                const rank = scopeIsGlobal ? row.global_rank : row.scope_rank;
+                const you = board.highlighted_id && board.highlighted_id === row.id;
+                const name = view === "clubs" ? row.name : row.gamertag;
+                const href = view === "clubs" ? `/clubs/${row.id}` : `/players/${row.id}`;
+                const stats = view === "clubs" ? clubStats(row, !fullAccess) : playerStats(row, !fullAccess);
+                const identity = view === "clubs"
+                  ? [row.tag ? `[${row.tag}]` : "", row.region, row.country_code, row.platform].filter(Boolean).join(" · ")
+                  : [row.position, row.club_name || "Free agent", getCountryShortName(row.country_code, row.country), row.platform].filter(Boolean).join(" · ");
+                return (
+                  <tr key={row.id} id={`ranking-${row.id}`} className={you ? "rankings-row is-you" : "rankings-row"}>
+                    <td><RankMark rank={rank} /></td>
+                    <td>
+                      <div className="rankings-identity">
+                        <IdentityAvatar
+                          className="rankings-avatar"
+                          src={view === "clubs" ? row.logo_url : row.avatar_url}
+                          name={name}
+                          alt=""
+                          position={view === "clubs" ? row.logo_position : row.avatar_position}
+                          zoom={view === "clubs" ? row.logo_zoom : row.avatar_zoom}
+                        />
+                        <div>
+                          <Link className="rankings-name" to={href}>{name}</Link>
+                          {you ? <span className="rankings-you">YOU</span> : null}
+                          <p className="rankings-meta">{identity}</p>
+                          {view !== "clubs" && fullAccess ? <CardLevel playerId={row.id} /> : null}
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="rankings-stats">
+                        {stats.map((stat) => (
+                          <div key={stat.label} className={stat.label === "GP" || stat.label === "Record" ? undefined : "rankings-extra"} title={stat.title}>
+                            <b>{stat.value ?? formatNumber(row[stat.key])}</b>
+                            <span>{stat.label}</span>
+                          </div>
+                        ))}
+                      </div>
+                      {!scopeIsGlobal && fullAccess ? <span className="rankings-global">Global #{row.global_rank}</span> : null}
+                    </td>
+                    {fullAccess ? (
+                      <td className="rankings-points">
+                        {formatNumber(row.ranking_points)}
+                        <small>PTS</small>
+                      </td>
+                    ) : null}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        ) : null}
+
+        {boardReady && fullAccess && board.pages > 1 ? (
+          <div className="rankings-pages">
+            <button type="button" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={board.page <= 1}>Previous</button>
+            <span>Page {board.page} of {board.pages}</span>
+            <button type="button" onClick={() => setPage((current) => Math.min(board.pages, current + 1))} disabled={board.page >= board.pages}>Next</button>
+          </div>
+        ) : null}
       </div>
-    </div>
-  );
-}
 
-function Segment({ value, onChange, items, variant = "primary" }) {
-  const isFilter = variant === "filter";
-  return (
-    <div className="flex flex-wrap gap-2">
-      {items.map(({ value: itemValue, label, icon: Icon }) => {
-        const active = value === itemValue;
-        return (
-          <button
-            key={itemValue}
-            type="button"
-            onClick={() => onChange(itemValue)}
-            className={cn(
-              "flex items-center gap-2 border text-xs font-black uppercase transition-all",
-              isFilter
-                ? cn(
-                    "rounded-lg px-3 py-2 tracking-wider",
-                    active
-                      ? "border-cyan-200/45 bg-cyan-300/15 text-cyan-100"
-                      : "border-white/10 bg-black/30 text-white/45 hover:border-cyan-300/30 hover:text-cyan-100",
-                  )
-                : cn(
-                    "px-4 py-2.5 tracking-widest",
-                    active
-                      ? "border-cyan-200/55 bg-gradient-to-r from-sky-500/35 via-cyan-400/20 to-blue-600/30 text-cyan-50 shadow-[0_0_22px_-10px_rgba(0,229,255,0.95)]"
-                      : "border-cyan-300/15 bg-[#06111d]/75 text-cyan-100/45 hover:border-cyan-300/35 hover:bg-cyan-300/10 hover:text-cyan-50",
-                  ),
-            )}
-            style={isFilter ? undefined : { clipPath: "polygon(10% 0, 100% 0, 90% 100%, 0 100%)" }}
-          >
-            <Icon className="h-4 w-4 shrink-0" />
-            {label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function Select({ value, onChange, options, placeholder }) {
-  return (
-    <select
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
-      className="h-10 min-w-[120px] rounded-lg border border-cyan-300/20 bg-[#061018]/95 px-3 text-sm text-white outline-none focus:border-cyan-300/60"
-    >
-      <option value="">{placeholder}</option>
-      {options.map((option) => <option key={option} value={option}>{option}</option>)}
-    </select>
-  );
-}
-
-function Stat({ icon: Icon, label, value }) {
-  return (
-    <div className="flex items-center gap-3">
-      <Icon className="h-5 w-5 text-cyan-300" />
-      <div>
-        <div className="font-heading text-xl font-black text-white">{value}</div>
-        <div className="text-[10px] uppercase tracking-widest text-white/35">{label}</div>
-      </div>
-    </div>
+      <dialog ref={dialogRef} className="rankings-dialog" aria-labelledby="rankings-how-title">
+        <h2 id="rankings-how-title">How rankings work</h2>
+        <p>This page calculates the current official board when it loads. Saved club and player ranking fields change only when an admin rebuilds rankings. There is no separate seasonal archive on this page.</p>
+        <h3>Eligible matches</h3>
+        <ul>
+          <li>Completed, confirmed, played or forfeited official tournament matches run by STAGE admin, or official tournaments with no community creator.</li>
+          <li>Completed official competition fixtures and regional league fixtures.</li>
+          <li>Fixtures marked excluded from standings are left out. Arrange Game results are not included.</li>
+        </ul>
+        <h3>Calculation</h3>
+        <p>Club points come from the match result, goal difference, goals and clean sheets, multiplied by the competition and round weight already used by the ranking engine. Eligible club titles add a championship or runner-up bonus. A player needs at least one official ranking match. Player points use participation, results, match rating, man of the match, position-weighted goals, assists and clean sheets, and official titles. A capped overall-rating factor is part of that calculation and is not shown as OVR.</p>
+        <h3>Ties and scopes</h3>
+        <p>Equal points are ordered by wins, then matches played, then name. Global rank is across everyone eligible. A region, country, position or platform filter shows rank inside that scope. Search only hides other rows. It does not turn a global rank into number 1.</p>
+        <h3>Card Level, points and rating</h3>
+        <p>STAGE Card Level comes from official match progression and is separate from this board. Ranking points are the leaderboard score. Match rating is the average rating recorded in official ranking matches.</p>
+        <h3>Free and STAGE Plus</h3>
+        <p>Free accounts see a top-10 global preview with basic records. STAGE Plus sees the full board, filters, position rankings, ranking points and match ratings. Those limits are applied on the server.</p>
+        <button type="button" onClick={() => dialogRef.current?.close()}>Close</button>
+      </dialog>
+    </main>
   );
 }

@@ -134,6 +134,7 @@ function registerStageRoutes(app, { verifyToken }) {
   app.use('/api/stage/game-day-configs', verifyToken, makeLeagueRouter('game_day_config'));
   app.use('/api/stage/news-page-configs', verifyToken, makeLeagueRouter('news_page_config'));
   app.use('/api/stage/stands-page-configs', verifyToken, makeLeagueRouter('stands_page_config'));
+  app.use('/api/stage/rankings-page-configs', verifyToken, makeLeagueRouter('rankings_page_config'));
   app.use('/api/stage/competition-page-configs', verifyToken, makeLeagueRouter('competition_page_config'));
   app.use('/api/stage/lifestyle-page-configs', verifyToken, makeLeagueRouter('lifestyle_page_config'));
   app.use('/api/stage/tournament-hub-configs', verifyToken, makeLeagueRouter('tournament_hub_config'));

@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react";
 import { stageClient } from "@/api/stageClient";
+import PositionedImageUploadField from "@/components/admin/shared/PositionedImageUploadField";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/hooks/useTranslation";
-import { Activity, AlertCircle, CheckCircle2, RefreshCw, Shield, Trophy, Users } from "lucide-react";
+import { RANKINGS_ACCENTS, rankingsPresentation } from "@/lib/rankingsPresentation";
+import { Activity, AlertCircle, CheckCircle2, RefreshCw, Save, Shield, Trash2, Trophy, Users } from "lucide-react";
 
 function formatNumber(value) {
+  if (value == null || value === "—") return "—";
   return Intl.NumberFormat("en", { maximumFractionDigits: 1 }).format(Number(value) || 0);
 }
 
@@ -13,18 +16,27 @@ export default function RankingsTab() {
   const { t } = useTranslation();
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [rebuilding, setRebuilding] = useState(false);
   const [message, setMessage] = useState("");
+  const [presentationRecord, setPresentationRecord] = useState(null);
+  const [presentation, setPresentation] = useState(() => rankingsPresentation());
+  const [presentationLoading, setPresentationLoading] = useState(true);
+  const [presentationError, setPresentationError] = useState("");
+  const [presentationSaveError, setPresentationSaveError] = useState("");
+  const [presentationSaving, setPresentationSaving] = useState(false);
+  const [presentationSaved, setPresentationSaved] = useState(false);
 
   async function loadSummary() {
     setLoading(true);
     try {
       const data = await stageClient.http.get("/rankings/summary");
       setSummary(data);
+      setLoadError("");
       setMessage("");
     } catch (err) {
-      setMessage(err?.message || t("admin.rankings.loadFailed"));
-      setSummary({ clubs: [], players: [], positions: [], meta: {} });
+      setLoadError(err?.message || t("admin.rankings.loadFailed"));
+      setSummary(null);
     } finally {
       setLoading(false);
     }
@@ -46,11 +58,53 @@ export default function RankingsTab() {
 
   useEffect(() => {
     loadSummary();
+    let active = true;
+    stageClient.entities.RankingsPageConfig.filter({ key: "main" }, "-updated_date", 1)
+      .then((rows) => {
+        if (!active) return;
+        setPresentationRecord(rows?.[0] || null);
+        setPresentation(rankingsPresentation(rows?.[0] || {}));
+      })
+      .catch((err) => {
+        if (active) setPresentationError(err?.message || "Could not load the Rankings page presentation.");
+      })
+      .finally(() => { if (active) setPresentationLoading(false); });
+    return () => { active = false; };
   }, []);
+
+  function changePresentation(key, value) {
+    setPresentation((current) => ({ ...current, [key]: value }));
+    setPresentationSaved(false);
+  }
+
+  async function savePresentation() {
+    setPresentationSaving(true);
+    setPresentationSaveError("");
+    setPresentationSaved(false);
+    try {
+      const payload = {
+        ...rankingsPresentation(presentation),
+        key: "main",
+        reason: "Admin updated Rankings page background and accent",
+      };
+      const result = presentationRecord?.id
+        ? await stageClient.entities.RankingsPageConfig.update(presentationRecord.id, payload)
+        : await stageClient.entities.RankingsPageConfig.create(payload);
+      setPresentationRecord(result);
+      setPresentation(rankingsPresentation(result));
+      setPresentationSaved(true);
+    } catch (err) {
+      setPresentationSaveError(err?.message || "Could not save the Rankings page presentation.");
+    } finally {
+      setPresentationSaving(false);
+    }
+  }
 
   const clubs = summary?.clubs || [];
   const players = summary?.players || [];
   const meta = summary?.meta || {};
+  const rankedClubTotal = meta.club_count ?? null;
+  const rankedPlayerTotal = meta.ranked_player_count ?? null;
   const sources = Object.entries(meta.source_counts || {}).map(([key, value]) => `${key}: ${value}`).join(" · ");
   const isSuccessMessage = message === t("admin.rankings.rebuildSuccess");
 
@@ -92,11 +146,63 @@ export default function RankingsTab() {
         ) : null}
       </section>
 
+      <section className="rounded-none border border-border bg-card p-5">
+        <h3 className="text-sm font-bold uppercase tracking-wider text-foreground">Rankings page presentation</h3>
+        <p className="mt-2 max-w-3xl text-xs leading-relaxed text-muted-foreground">
+          Optional display settings for the public Rankings page. Saving a background or accent does not rebuild or reset rankings.
+        </p>
+        {presentationLoading ? <p className="mt-4 text-sm" role="status">Loading presentation…</p> : null}
+        {presentationError ? <p className="mt-4 text-sm text-destructive" role="alert">{presentationError}</p> : null}
+        {!presentationLoading && !presentationError ? (
+          <fieldset disabled={presentationSaving} className="mt-4 min-w-0 space-y-4">
+            <PositionedImageUploadField
+              label="Rankings header background"
+              value={presentation.background_url}
+              onChange={(value) => changePresentation("background_url", value)}
+              position={presentation.background_position}
+              onPositionChange={(value) => changePresentation("background_position", value)}
+              zoom={presentation.background_zoom}
+              onZoomChange={(value) => changePresentation("background_zoom", value)}
+              preview="hero"
+              title="RANKINGS"
+              subtitle="One image, fading behind the header. Leave empty for no image."
+            />
+            <p className="text-xs text-muted-foreground">One optional image. It fades behind the header and is not a slideshow. Remove it to leave the page without a background.</p>
+            {presentation.background_url ? (
+              <Button type="button" variant="outline" size="sm" className="gap-2" onClick={() => changePresentation("background_url", "")}>
+                <Trash2 className="h-4 w-4" />
+                Remove background
+              </Button>
+            ) : <p className="text-xs text-muted-foreground">No background is saved. The page stays plain until you upload one.</p>}
+            <label className="block text-sm">
+              Accent colour
+              <span className="mt-1 block text-xs text-muted-foreground">Colors the square after RANKINGS and small highlights. It does not change ranking points.</span>
+              <select className="mt-2 block h-10 w-full max-w-sm border border-border bg-background px-3" value={presentation.accent} onChange={(event) => changePresentation("accent", event.target.value)}>
+                {Object.keys(RANKINGS_ACCENTS).map((key) => <option key={key} value={key}>{key[0].toUpperCase() + key.slice(1)}</option>)}
+              </select>
+            </label>
+            <Button type="button" size="sm" className="gap-2" onClick={savePresentation} disabled={presentationSaving}>
+              <Save className="h-4 w-4" />
+              {presentationSaving ? "Saving…" : "Save presentation"}
+            </Button>
+            {presentationSaveError ? <p className="text-sm text-destructive" role="alert">{presentationSaveError}</p> : null}
+            {presentationSaved ? <p className="text-sm text-emerald-300" role="status">Saved. Reload Rankings to see the background and accent.</p> : null}
+          </fieldset>
+        ) : null}
+      </section>
+
+      {loadError ? (
+        <div className="flex items-center justify-between gap-3 rounded-none border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">
+          <span>{loadError} The preview was not replaced with an empty board.</span>
+          <Button type="button" variant="outline" size="sm" onClick={loadSummary}>Retry</Button>
+        </div>
+      ) : null}
+
       <section className="grid gap-3 md:grid-cols-4">
         <Stat label={t("admin.rankings.officialFixtures")} value={meta.official_fixtures_count || 0} icon={Trophy} />
         <Stat label={t("admin.rankings.playerStatRows")} value={meta.player_stat_rows_count || 0} icon={Activity} />
-        <Stat label={t("admin.rankings.rankedClubs")} value={clubs.length} icon={Shield} />
-        <Stat label={t("admin.rankings.rankedPlayers")} value={players.length} icon={Users} />
+        <Stat label={t("admin.rankings.rankedClubs")} value={rankedClubTotal ?? "—"} icon={Shield} />
+        <Stat label={t("admin.rankings.rankedPlayers")} value={rankedPlayerTotal ?? "—"} icon={Users} />
       </section>
 
       <section className="rounded-xl border border-border bg-card p-5">
@@ -108,13 +214,13 @@ export default function RankingsTab() {
 
       <section className="grid gap-5 lg:grid-cols-2">
         <PreviewTable
-          title={t("admin.rankings.topClubs")}
+          title={`${t("admin.rankings.topClubs")} · preview ${meta.displayed_clubs ?? clubs.length} of ${rankedClubTotal ?? "—"}`}
           rows={clubs.slice(0, 10)}
-          empty={t("admin.rankings.noClubRankings")}
-          renderRow={(club, index) => (
+          empty={loadError ? "Preview unavailable." : t("admin.rankings.noClubRankings")}
+          renderRow={(club) => (
             <RankingRow
               key={club.id}
-              rank={index + 1}
+              rank={club.global_rank}
               name={club.name}
               meta={`${club.region || t("admin.rankings.global")} · ${club.matches_ranked || 0} GP · ${club.wins || 0}W ${club.draws || 0}D ${club.losses || 0}L`}
               points={club.ranking_points}
@@ -122,13 +228,13 @@ export default function RankingsTab() {
           )}
         />
         <PreviewTable
-          title={t("admin.rankings.topPlayers")}
+          title={`${t("admin.rankings.topPlayers")} · preview ${meta.displayed_players ?? players.length} of ${rankedPlayerTotal ?? "—"}`}
           rows={players.slice(0, 10)}
-          empty={t("admin.rankings.noPlayerRankings")}
-          renderRow={(player, index) => (
+          empty={loadError ? "Preview unavailable." : t("admin.rankings.noPlayerRankings")}
+          renderRow={(player) => (
             <RankingRow
               key={player.id}
-              rank={index + 1}
+              rank={player.global_rank}
               name={player.gamertag}
               meta={`${player.position || "?"} · ${player.ranking_matches || 0} GP · ${player.ranking_goals || 0}G ${player.ranking_assists || 0}A · ${formatNumber(player.ranking_avg_rating)} AVG`}
               points={player.ranking_points}
