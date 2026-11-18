@@ -1,5 +1,40 @@
-const storeBenefits = require('../../shared/storeBenefits.json');
+const fs = require('fs');
+const path = require('path');
 const { EXECUTESQL } = require('../db/database');
+
+// Keep this aligned with lib/storeBenefits.json and src/shared/storeBenefits.json.
+// The host must still boot when an upload includes this file but not the JSON.
+const STORE_BENEFITS_FALLBACK = {
+  headline: 'More ways to play. More ways to make it yours.',
+  description: 'Official competition access, community tournament creation, deeper statistics and personal backgrounds — with monthly credits included.',
+  perks: [
+    '150 credits refreshed each month — an allowance, not a stackable monthly bonus',
+    'Personal eligibility for Regional Leagues and Regional Cups, subject to registration and squad rules',
+    'GOST access when competitions open — Plus does not guarantee a qualification place',
+    'Create community tournaments; normal entry costs and competition rules still apply',
+    'Full rankings, position rankings and detailed player and club statistics',
+    'Player card backgrounds: choose an official design or upload your own',
+    'Personalize Club Profile statistics tiles and player Career tiles',
+    'Custom GameDay panel backgrounds, including Match Screens and Dressing Room tiles',
+  ],
+};
+
+function loadStoreBenefits() {
+  const candidates = [
+    path.join(__dirname, '../lib/storeBenefits.json'),
+    path.join(__dirname, '../../shared/storeBenefits.json'),
+  ];
+  for (const file of candidates) {
+    try {
+      return JSON.parse(fs.readFileSync(file, 'utf8'));
+    } catch (err) {
+      if (err.code !== 'ENOENT') throw err;
+    }
+  }
+  return STORE_BENEFITS_FALLBACK;
+}
+
+const storeBenefits = loadStoreBenefits();
 
 // Credit packs are top-up purchases, framed as extra tournament entries for
 // casual/occasional use. STAGE Plus (below) is the better-value option for

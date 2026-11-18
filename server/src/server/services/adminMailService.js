@@ -307,6 +307,10 @@ async function syncInbox() {
   let synced = 0;
   let skipped = 0;
   for (const msg of messages || []) {
+    if (Number(msg.external_uid) <= sinceUid) {
+      skipped += 1;
+      continue;
+    }
     const toList = msg.to_addresses || [];
     const row = new AdminMailMessage({
       direction: 'in',
@@ -329,15 +333,12 @@ async function syncInbox() {
         : new Date().toISOString().slice(0, 19).replace('T', ' '),
     });
     try {
-      await row.create();
-      synced += 1;
+      const result = await row.create({ ignoreDuplicate: true });
+      if (Number(result?.affectedRows) > 0) synced += 1;
+      else skipped += 1;
     } catch (err) {
-      if (String(err.message || '').includes('Duplicate') || String(err.code) === 'ER_DUP_ENTRY') {
-        skipped += 1;
-      } else {
-        console.warn('[adminMail] insert failed:', err.message);
-        skipped += 1;
-      }
+      console.warn('[adminMail] insert failed:', err.message);
+      skipped += 1;
     }
   }
   return { synced, skipped, sinceUid, mailbox: fetchedMailbox || mailbox };

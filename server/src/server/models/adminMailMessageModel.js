@@ -86,9 +86,9 @@ class AdminMailMessage {
     );
   }
 
-  create() {
+  create({ ignoreDuplicate = false } = {}) {
     this.id = this.id || uuidv4();
-    const sql = `INSERT INTO admin_mail_messages
+    const sql = `${ignoreDuplicate ? 'INSERT IGNORE' : 'INSERT'} INTO admin_mail_messages
       (id, direction, folder, mailbox, from_email, from_name, to_email, to_addresses, cc_addresses, bcc_addresses,
        draft_meta, subject, body_text, body_html, is_read, external_uid, external_message_id, in_reply_to,
        admin_user_id, admin_email, received_at)

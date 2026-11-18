@@ -274,6 +274,17 @@ class ImapClient {
 }
 
 /**
+ * IMAP UID ranges that end in * include the current highest UID even when the
+ * requested start is past the mailbox. Drop those already-stored UIDs.
+ */
+function selectNewUids(uids, sinceUid = 0) {
+  const floor = Number(sinceUid) || 0;
+  return (Array.isArray(uids) ? uids : [])
+    .map(Number)
+    .filter((uid) => Number.isFinite(uid) && uid > floor);
+}
+
+/**
  * Fetch new INBOX messages with UID greater than `sinceUid`.
  * Returns parsed message objects ready for DB insert.
  */
@@ -287,7 +298,8 @@ async function fetchInboxMessages({ sinceUid = 0, limit = 50 } = {}) {
   try {
     await client.login(cfg.user, cfg.pass);
     await client.select('INBOX');
-    const uids = await client.uidSearch(sinceUid > 0 ? `UID ${sinceUid + 1}:*` : 'ALL');
+    const found = await client.uidSearch(sinceUid > 0 ? `UID ${Number(sinceUid) + 1}:*` : 'ALL');
+    const uids = selectNewUids(found, sinceUid);
     const slice = uids.slice(-Math.max(1, Math.min(limit, 100)));
     const messages = [];
     for (const uid of slice) {
@@ -307,6 +319,7 @@ async function fetchInboxMessages({ sinceUid = 0, limit = 50 } = {}) {
 module.exports = {
   ImapClient,
   fetchInboxMessages,
+  selectNewUids,
   imapConfig,
   isConfigured,
   parseRawMessage,
