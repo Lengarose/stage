@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "publish:gandi": "bash scripts/publish-gandi.sh",
     "lint": "eslint . --quiet",
     "lint:fix": "eslint . --fix",
     "healthcheck": "node scripts/production-healthcheck.mjs",
