@@ -1,0 +1,23 @@
+<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;background:#050c16"><div id="root"></div><script type="module">
+// Real Inbox components with all calls intercepted. No real mail is sent/deleted.
+import React from 'react';import ReactDOM from 'react-dom/client';import RefreshRuntime from '/@react-refresh';
+RefreshRuntime.injectIntoGlobalHook(window);window.$RefreshReg$=()=>{};window.$RefreshSig$=()=>type=>type;window.__vite_plugin_react_preamble_installed__=true;
+await import('/src/index.css');await import('/node_modules/@fontsource/anton/index.css');
+const {stageClient}=await import('/src/api/stageClient.js');
+const user={id:'inbox-qa',email:'manager@example.test',player_id:'player-qa'};
+stageClient.auth.me=async()=>user;stageClient.entities.Player.get=async()=>({id:'player-qa',gamertag:'Arena Manager'});stageClient.entities.Club.filter=async()=>[];stageClient.entities.President.filter=async()=>[];
+let messages=[
+{id:'system',sender_gamertag:'STAGE System',is_system:1,subject:'Welcome to your next season',body:'Hello Manager,\n\nYour club’s next chapter starts here. Regional competition registrations are now available for review. Check the published schedule and confirm your squad before entering.\n\nYour upcoming fixtures and confirmed results will appear in Schedule and GameDay once they are available.\n\nGood luck to you and your players. We look forward to seeing your club on the pitch.\n\nThe STAGE Team',message_type:'announcement',is_read:false,status:'none'},
+{id:'match',sender_club_name:'Northside United',sender_gamertag:'Alex',sender_avatar_url:null,subject:'A new kickoff proposal',body:'Hello Manager,\n\nNorthside United would like to arrange our upcoming match. Please review the proposed kickoff and respond using the request below.\n\nIf this time does not suit your squad, you can propose an alternative. The match will appear in your schedule once both clubs agree.\n\nKind regards,\nNorthside United',message_type:'match_invite',action_type:'accept_decline_date',status:'pending',is_read:false},
+{id:'board',sender_gamertag:'Club Board',is_system:1,subject:'Your management agreement is confirmed',body:'Hello Manager,\n\nThank you for accepting your management agreement. We look forward to supporting the club throughout the season.\n\nYour agreement remains available in Club Office.\n\nThe Club Board',message_type:'contract_update',status:'accepted',is_read:true},
+{id:'cup',sender_gamertag:'STAGE System',is_system:1,subject:'Regional Cup — registration confirmed',body:'Hello Manager,\n\nYour club’s place in the Regional Cup has been confirmed. Consult the competition page for the playing schedule and rules.\n\nBest of luck,\nThe STAGE Team',message_type:'tournament_registration',status:'accepted',is_read:true}
+].map(m=>({...m,sender_email:'office@example.test',recipient_email:user.email,created_date:new Date().toISOString()}));
+stageClient.entities.InboxPageConfig.filter=async()=>[];
+stageClient.entities.InboxMessage.filter=async()=>messages;
+stageClient.entities.InboxMessage.subscribe=()=>()=>{};
+stageClient.entities.InboxMessage.update=async(id,p)=>{messages=messages.map(m=>m.id===id?{...m,...p}:m);return messages.find(m=>m.id===id);};
+stageClient.entities.InboxMessage.delete=async(id)=>{messages=messages.filter(m=>m.id!==id);return{deleted_ids:[id]};};
+stageClient.http.post=async(path)=>{if(path.includes('mark-all-read'))messages=messages.map(m=>({...m,is_read:true}));if(path.includes('delete-conversation')){const id=path.split('/')[2];messages=messages.filter(m=>m.id!==id);return{deleted_ids:[id]};}return{success:true};};
+stageClient.functions.invoke=async(name,p)=>{messages=messages.map(m=>m.id===p.message_id?{...m,status:p.action}:m);return{data:{success:true}};};
+const {TranslationProvider}=await import('/src/lib/TranslationContext.jsx');const {default:Inbox}=await import('/src/pages/Inbox.jsx');ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(TranslationProvider,null,React.createElement(Inbox)));
+</script></body></html>

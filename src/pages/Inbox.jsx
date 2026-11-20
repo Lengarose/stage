@@ -1,5 +1,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";
+import { inboxCategory, inboxNeedsResponse } from "@/lib/inboxPresentation";
+import "./inbox.css";
 import { CheckCheck, Inbox, Search } from "lucide-react";
 import InboxMessageList from "@/components/inbox/InboxMessageList";
 import InboxMessageDetail from "@/components/inbox/InboxMessageDetail";
@@ -18,9 +20,20 @@ export default function InboxPage({ tournamentId: scopedTournamentId } = {}) {
   const [user, setUser] = useState(null);
   const [myPlayer, setMyPlayer] = useState(null);
   const [myClub, setMyClub] = useState(null);
+  const [filter, setFilter] = useState("all");
+  const [category, setCategory] = useState("all");
+  const [background, setBackground] = useState("");
   const [query, setQuery] = useState("");
   const [error,setError]=useState("");
   const [marking,setMarking]=useState(false);
+
+  useEffect(() => {
+    let active = true;
+    stageClient.entities.InboxPageConfig.filter({key:"main"}, "-updated_date", 1)
+      .then(rows => { if (active) setBackground(rows?.[0]?.background_url || ""); })
+      .catch(() => {}); // Optional artwork never blocks correspondence.
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     let unsub = null;
@@ -130,8 +143,10 @@ export default function InboxPage({ tournamentId: scopedTournamentId } = {}) {
   const unreadCount = mailboxMessages.filter(m => !m.is_read).length;
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return mailboxMessages;
     return mailboxMessages.filter((m) => {
+      if (filter === "unread" && m.is_read) return false;
+      if (filter === "response" && !inboxNeedsResponse(m)) return false;
+      if (category !== "all" && inboxCategory(m) !== category) return false;
       const hay = [
         m.subject,
         m.body,
@@ -141,116 +156,21 @@ export default function InboxPage({ tournamentId: scopedTournamentId } = {}) {
       ].map((v) => String(v || "").toLowerCase()).join(" ");
       return hay.includes(q);
     });
-  }, [mailboxMessages, query]);
+  }, [mailboxMessages, query, filter, category]);
 
-  if (loading) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center bg-[#060912]">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-400/20 border-t-cyan-400" />
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex h-[calc(100vh-56px)] flex-col bg-[#060912] text-white lg:h-[calc(100vh-64px)]">
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        {/* Discussions column */}
-        <aside
-          className={`
-            flex min-h-0 min-w-0 w-full lg:w-[380px] xl:w-[420px] lg:shrink-0 flex-col border-r border-white/[0.07] bg-[#0a101c]
-            ${selected ? "hidden lg:flex lg:w-[380px] xl:w-[420px] shrink-0" : "flex"}
-          `}
-        >
-          <div className="shrink-0 border-b border-white/[0.07] px-4 pb-3 pt-4">
-            <div className="mb-3 flex items-center gap-2">
-              <h1 className="font-heading text-2xl font-black uppercase tracking-tight text-white">
-                {t("matchFlow.inboxTitle")}
-              </h1>
-              {unreadCount > 0 && (
-                <span className="rounded-full bg-blue-200 px-2 py-0.5 text-[11px] font-bold text-[#061018]">
-                  {unreadCount}
-                </span>
-              )}
-              {unreadCount > 0 && (
-                <button
-                  type="button"
-                  onClick={markAllAsRead}
-                  disabled={marking}
-                  className="ml-auto inline-flex items-center gap-1.5 text-[11px] text-white/45 transition hover:text-blue-100"
-                >
-                  <CheckCheck className="h-3.5 w-3.5" />
-                  {t("matchFlow.markAllRead")}
-                </button>
-              )}
-            </div>
-
-            <label className="relative block">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={t("matchFlow.inboxSearch", "Search")}
-                className="w-full rounded-none border-0 bg-[#141b28] py-2.5 pl-10 pr-3 text-sm text-white placeholder:text-white/35 outline-none ring-1 ring-white/[0.06] focus:ring-cyan-400/40"
-              />
-            </label>
-          </div>
-
-          {error&&<p role="alert" className="border-b border-red-300/30 p-3 text-sm text-red-200">{error}</p>}
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            {filtered.length === 0 ? (
-              <div className="flex flex-col items-center justify-center px-8 py-16 text-center">
-                <Inbox className="mb-3 h-12 w-12 text-white/15" />
-                <p className="text-sm text-white/40">
-                  {mailboxMessages.length === 0 ? t("matchFlow.inboxEmpty") : t("matchFlow.noMessages")}
-                </p>
-              </div>
-            ) : (
-              <InboxMessageList
-                messages={filtered}
-                selectedId={selected?.id}
-                onSelect={(msg) => openMessage(msg)}
-              />
-            )}
-          </div>
-        </aside>
-
-        {/* Conversation pane */}
-        <section
-          className={`
-            relative min-h-0 min-w-0 flex-1 flex-col
-            ${selected ? "flex" : "hidden lg:flex"}
-          `}
-        >
-          {selected ? (
-            <InboxMessageDetail
-              message={selected}
-              onDeleted={handleDeleted}
-              onStatusChanged={handleStatusChanged}
-              onBack={() => setSelected(null)}
-              myClub={myClub}
-              myEmail={user?.email}
-              myGamertag={myPlayer?.gamertag}
-            />
-          ) : (
-            <div className="relative flex h-full flex-col items-center justify-center overflow-hidden">
-              <div
-                className="pointer-events-none absolute inset-0 opacity-[0.12]"
-                style={{
-                  backgroundImage:
-                    "radial-gradient(circle at 1px 1px, rgba(0,229,255,0.35) 1px, transparent 0)",
-                  backgroundSize: "28px 28px",
-                }}
-              />
-              <div className="relative z-10 flex flex-col items-center px-8 text-center">
-                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white/[0.04] ring-1 ring-white/10">
-                  <Inbox className="h-7 w-7 text-blue-100/70" />
-                </div>
-                <p className="text-sm text-white/45">{t("matchFlow.selectMessage")}</p>
-              </div>
-            </div>
-          )}
-        </section>
-      </div>
+  if (loading) return <div className="stage-inbox inbox-loading" role="status">Loading your Inbox…</div>;
+  return <main className={`stage-inbox ${selected ? "has-selection" : ""}`}>
+    {background && <div className="inbox-artwork" aria-hidden="true" style={{backgroundImage:`url(${JSON.stringify(background)})`}}/>}
+    <header className="inbox-page-header"><div><p className="inbox-eyebrow">STAGE / CORRESPONDENCE</p><h1>{t("matchFlow.inboxTitle")}<span className="inbox-title-square" aria-hidden="true" /></h1><p>Your club. Your matches. Your next move.</p></div><div className="inbox-header-actions"><span>{unreadCount} unread</span><button type="button" disabled={marking || !unreadCount} onClick={markAllAsRead}><CheckCheck size={17}/>{marking ? "Marking…" : t("matchFlow.markAllRead")}</button></div></header>
+    {error && <p role="alert" className="inbox-error">{error}</p>}
+    <div className="inbox-workspace">
+      <aside className="inbox-sidebar" aria-label="Messages"><div className="inbox-tools">
+        <label className="inbox-search"><Search size={18}/><input aria-label="Search messages" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search your Inbox"/></label>
+        <nav className="inbox-filters" aria-label="Message filters">{[["all","All"],["unread","Unread"],["response","Needs response"]].map(([value,label])=><button type="button" key={value} aria-pressed={filter===value} onClick={()=>setFilter(value)}>{label}</button>)}</nav>
+        <label className="inbox-category">Category<select value={category} onChange={e=>setCategory(e.target.value)}>{[["all","All categories"],["contracts","Contracts"],["matches","Matches"],["competitions","Competitions"],["system","System & other"]].map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
+        <p className="inbox-result-count">{filtered.length} {filtered.length===1?"message":"messages"}{messages.length>=200?" · latest 200 loaded":""}</p>
+      </div><div className="inbox-message-scroll">{filtered.length?<InboxMessageList messages={filtered} selectedId={selected?.id} onSelect={openMessage}/>:<div className="inbox-empty"><Inbox size={32}/><h2>{mailboxMessages.length?"No matching messages":"You're all caught up"}</h2><p>{mailboxMessages.length?"Try another filter or search.":"New correspondence will appear here."}</p></div>}</div></aside>
+      <section className="inbox-reading" aria-label="Selected correspondence">{selected?<InboxMessageDetail message={selected} onDeleted={handleDeleted} onStatusChanged={handleStatusChanged} onBack={()=>setSelected(null)} myClub={myClub} myEmail={user?.email} myGamertag={myPlayer?.gamertag}/>:<div className="inbox-empty inbox-welcome"><span className="inbox-eyebrow">YOUR CLUB OFFICE</span><h2>Every next step<br/>starts with a message.</h2><p>Select correspondence to read it and review any available response.</p></div>}</section>
     </div>
-  );
+  </main>;
 }

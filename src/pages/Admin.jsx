@@ -1,3 +1,4 @@
+import InboxPresentationEditor from "@/components/admin/InboxPresentationEditor";
 import TournamentSquadRulesFields, { defaultTournamentClubRules } from '@/components/competition/TournamentSquadRulesFields';
 import TournamentScheduleGuide from '@/components/competition/TournamentScheduleGuide';
 import IdentityAvatar from "@/components/profile/IdentityAvatar";
@@ -1834,7 +1835,7 @@ export default function Admin(props) {
           )}
 
           {adminTab === "mail" && (
-            <MailTab />
+            <div className="space-y-4"><InboxPresentationEditor /><MailTab /></div>
           )}
     </>
   );

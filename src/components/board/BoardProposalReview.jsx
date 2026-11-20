@@ -4,13 +4,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { formatSTC, suggestSalaryRange } from "@/lib/playerValue";
 import { loadCardProgression } from "@/hooks/useCardProgression";
 const field="w-full border border-white/20 bg-[#080f1c] p-3 text-white focus:outline-none focus:ring-1 focus:ring-blue-200";
-export default function BoardProposalReview({proposalId,open,onClose,onChanged}) {
+export default function BoardProposalReview({proposalId,open,onClose,onChanged,className=''}) {
   const [proposal,setProposal]=useState(null),[card,setCard]=useState(null),[weekly,setWeekly]=useState(''),[bonus,setBonus]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false),[confirm,setConfirm]=useState(null);
   async function load(){setError('');try{const p=await stageClient.http.get(`/club-board/proposals/${proposalId}`);setProposal(p);setWeekly(String(p.weekly_salary_stc));setBonus(String(p.signing_bonus_stc||0));setCard(await loadCardProgression(p.player_id));}catch(e){setError(e.message);}}
   useEffect(()=>{setProposal(null);setConfirm(null);if(open&&proposalId)load();},[open,proposalId]);
   async function respond(action){setBusy(true);setError('');try{const p=await stageClient.http.post(`/club-board/proposals/${proposalId}/respond`,{action,expected_version:proposal.version,request_id:crypto.randomUUID(),weekly_salary_stc:Number(weekly),signing_bonus_stc:Number(bonus)});setProposal(p);setConfirm(null);onChanged?.(p);if(p.status==='pending')await load();}catch(e){setError(e.message);}finally{setBusy(false);}}
   const band=suggestSalaryRange('squad',null,null,card?.level||1),actions=proposal?.supported_actions||[];
-  return <Dialog open={open} onOpenChange={value=>{if(!value&&!busy)onClose();}}><DialogContent className="max-h-[88vh] max-w-2xl overflow-y-auto rounded-none [&>button]:rounded-none border-white/20 bg-[#0b1423] p-6 text-white"><DialogHeader><DialogTitle className="font-heading text-xl uppercase tracking-wide">{proposal?.origin==='board'?'Club Board offer':'Player agreement'}</DialogTitle></DialogHeader>
+  return <Dialog open={open} onOpenChange={value=>{if(!value&&!busy)onClose();}}><DialogContent className={`max-h-[88vh] max-w-2xl overflow-y-auto rounded-none [&>button]:rounded-none border-white/20 bg-[#0b1423] p-6 text-white ${className}`}><DialogHeader><DialogTitle className="font-heading text-xl uppercase tracking-wide">{proposal?.origin==='board'?'Club Board offer':'Player agreement'}</DialogTitle></DialogHeader>
     {error&&<p role="alert" className="border border-red-300/30 p-3 text-sm text-red-200">{error} <button type="button" onClick={load} className="underline">Reload latest terms</button></p>}
     {!proposal?<p>Loading the current proposal…</p>:<div className="space-y-5">
       <p className="text-sm leading-relaxed text-white/70">{proposal.explanation}</p>

@@ -1,0 +1,35 @@
+.stage-inbox{position:relative;isolation:isolate;display:flex;flex-direction:column;min-height:600px;height:auto;padding:24px clamp(16px,1.6vw,28px);background:#050c16;color:#edf3fb;font-family:'Chakra Petch',sans-serif;overflow:hidden}
+.inbox-artwork{position:absolute;inset:0 0 auto;height:560px;background-size:cover;background-position:center;z-index:-1;opacity:.25;mask-image:linear-gradient(#000,transparent)}
+.inbox-page-header{display:flex;justify-content:space-between;align-items:center;gap:24px;padding:0 0 26px;flex-shrink:0}.inbox-eyebrow{font-size:10px;letter-spacing:.22em;color:#81b6ef}.inbox-page-header h1{font:400 clamp(38px,4vw,62px)/1.15 Anton,sans-serif;margin:8px 0;text-transform:uppercase}.inbox-page-header h1 .inbox-title-square{display:inline-block;width:.18em;height:.18em;margin-left:.12em;background:#66aeff;vertical-align:baseline}.inbox-page-header p:last-child{font-size:13px;color:#a3b2c5}.inbox-header-actions{display:flex;align-items:center;gap:24px;font-size:12px}.inbox-header-actions>span{color:#a6c8f0}.inbox-header-actions button{display:flex;align-items:center;gap:10px;border:1px solid #ffffff32;padding:12px 16px;font-size:12px}.stage-inbox button:disabled{opacity:.4;cursor:not-allowed}.stage-inbox button:focus-visible,.stage-inbox input:focus-visible,.stage-inbox select:focus-visible{outline:2px solid #9dcaff;outline-offset:2px}.inbox-workspace{display:grid;grid-template-columns:minmax(300px,340px) minmax(0,1fr);min-height:680px;height:clamp(680px,calc(100dvh - 220px),820px);flex:none;border:1px solid #ffffff24;background:#081220e8}.inbox-sidebar{min-height:0;display:flex;flex-direction:column;border-right:1px solid #ffffff24}.inbox-tools{padding:16px;border-bottom:1px solid #ffffff21}.inbox-search{display:flex;align-items:center;gap:10px;border:1px solid #ffffff27;padding:12px;color:#8ea7c4}.inbox-search input{min-width:0;width:100%;background:transparent;border:0;font:inherit;color:white;outline:none}.inbox-filters{display:flex;gap:16px;flex-wrap:wrap;margin:12px 0}.inbox-filters button{font-size:12px;color:#98aac0;text-transform:none;letter-spacing:0;padding:0}.inbox-filters button[aria-pressed=true]{color:white;text-shadow:0 0 14px #92c8ff}.inbox-category{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:11px;color:#a3b2c5}.inbox-category select{min-width:0;max-width:180px;padding:6px;background:#0b192a;color:white;border:1px solid #ffffff24;border-radius:0}.inbox-result-count{color:#8195ad;font-size:10px;margin-top:14px}.inbox-message-scroll{min-height:0;overflow-y:auto;flex:1}.inbox-list-row{border-bottom:1px solid #ffffff10;padding:15px 16px!important;border-left:2px solid transparent}.inbox-list-row[aria-current=true]{border-left-color:#77b7ff;background:#14253a}.inbox-list-row>div:last-child{border-bottom:0;padding-bottom:0}.inbox-reading{min-height:0;min-width:0;overflow:hidden}.inbox-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:220px;padding:32px;text-align:center;gap:15px;color:#8da3bd}.inbox-empty h2{font:400 25px/1.3 Anton,sans-serif;color:#e3ecfa}.inbox-empty p{max-width:350px;font-size:13px;line-height:1.7}.inbox-welcome{height:100%;align-items:flex-start;text-align:left;padding:clamp(24px,3vw,46px)}.inbox-welcome h2{font-size:clamp(25px,2.4vw,34px)}.inbox-letter{background:transparent}.inbox-letter>header{background:#0c1928;padding:18px 25px}.inbox-letter>header span{font-family:Anton,sans-serif;font-weight:400}.inbox-letter-body{background:#08111e}.inbox-letter-body h2{font-family:Anton,sans-serif;font-weight:400;letter-spacing:.015em;text-transform:none}.inbox-letter-body dl{font-size:12px;line-height:1.7}.inbox-letter-body dd{overflow-wrap:anywhere}.inbox-letter-body>div{max-width:1000px}.inbox-response-button{border-radius:0;min-height:40px;font-family:'Chakra Petch',sans-serif}.inbox-error{padding:12px;border:1px solid #f88a8a66;color:#ffc0c0;margin-bottom:12px}.inbox-loading{align-items:center;justify-content:center}
+@media(max-width:1023px){.stage-inbox{height:calc(100dvh - 150px);min-height:480px;padding:18px 12px 20px}.inbox-page-header{padding-bottom:18px;gap:10px}.inbox-page-header h1{font-size:46px}.inbox-page-header p:last-child{display:none}.inbox-header-actions{flex-direction:column;gap:8px;align-items:flex-end}.inbox-header-actions button{font-size:10px;padding:8px}.inbox-workspace{display:flex}.inbox-sidebar{width:100%;border-right:0}.inbox-reading{display:none;width:100%}.stage-inbox.has-selection .inbox-sidebar{display:none}.stage-inbox.has-selection .inbox-reading{display:block}.inbox-letter>header{padding:12px;gap:8px}.inbox-letter>header>div:last-child{gap:4px}.inbox-letter>header>div:last-child button{padding:8px;font-size:10px}.inbox-letter>header span{font-size:14px}.inbox-letter>header .identity-avatar{width:32px;height:32px}.inbox-letter-body{padding:20px 16px}.inbox-letter-body h2{font-size:25px}}
+
+/* Match the landing font family, including correspondence and portalled reviews. */
+.stage-inbox :is(p,a,button,label,select,input,textarea,span,dt,dd),
+.inbox-review-dialog {font-family:"Chakra Petch",system-ui,sans-serif!important;font-style:normal}
+.stage-inbox :is(h1,h2,h3),
+.stage-inbox .inbox-sender-name,
+.stage-inbox .inbox-letter>header span,
+.inbox-review-dialog :is(h1,h2,h3) {font-family:Anton,sans-serif!important;font-weight:400;font-style:normal!important}
+.inbox-review-dialog :is(p,a,button,label,input,select,textarea,span) {font-family:"Chakra Petch",system-ui,sans-serif!important}
+.stage-inbox .inbox-sender-name {font-size:16px;letter-spacing:.025em}
+.stage-inbox .inbox-list-subject {font-size:12px;line-height:1.5}
+.stage-inbox .inbox-letter-body {padding:26px clamp(20px,2.5vw,40px)}
+.stage-inbox .inbox-letter-body h2 {font-size:clamp(23px,1.8vw,28px);line-height:1.25}
+.stage-inbox .inbox-letter-body dl {font-size:12px}
+.stage-inbox .inbox-letter-body>div>div.space-y-4 {font-size:14px;line-height:1.75}
+.stage-inbox .inbox-filters button {font-size:12px}
+@media(max-width:1023px){
+ .stage-inbox .inbox-letter-body {padding:24px 18px}
+ .stage-inbox .inbox-letter-body h2 {font-size:25px}
+ .stage-inbox .inbox-letter-body>div>div.space-y-4 {font-size:15px}
+}
+
+/* Balanced correspondence workspace with comfortable page margins. */
+.inbox-page-header,.inbox-workspace,.stage-inbox>.inbox-error{width:100%;max-width:1360px;margin-left:auto;margin-right:auto}
+@media(min-width:1024px){.stage-inbox{padding-left:clamp(24px,3vw,60px);padding-right:clamp(24px,3vw,60px)}}
+@media(max-width:1023px){.stage-inbox{height:auto;min-height:0}.inbox-workspace{height:clamp(560px,calc(100dvh - 220px),720px);min-height:560px}}
+
+.stage-inbox .inbox-list-row .identity-avatar{width:40px;height:40px}
+.stage-inbox .inbox-search{font-size:14px;padding:10px}
+.stage-inbox .inbox-letter>header{padding:14px 20px}
+.stage-inbox .inbox-letter>header span{font-size:16px}

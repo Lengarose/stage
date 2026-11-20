@@ -1,3 +1,4 @@
+import { inboxSender, inboxNeedsResponse } from "@/lib/inboxPresentation";
 import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { format, isToday } from "@/lib/momentDate";
 import { cn } from "@/lib/utils";
@@ -30,15 +31,9 @@ function previewText(msg) {
   return String(msg?.subject || "").trim();
 }
 
-function SenderAvatar({ msg, t }) {
-  if (msg.is_system) {
-    return (
-      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-200/10 text-lg ring-1 ring-cyan-400/20">
-        ✉
-      </div>
-    );
-  }
-  return <IdentityAvatar src={msg.sender_avatar_url} name={msg.sender_gamertag || msg.sender_club_name || t("matchFlow.unknown")} className="h-12 w-12" />;
+function SenderAvatar({ msg }) {
+  const sender = inboxSender(msg);
+  return <IdentityAvatar src={sender.avatar} name={sender.name} className="h-12 w-12 shrink-0" />;
 }
 
 export default function InboxMessageList({ messages, selectedId, onSelect }) {
@@ -57,9 +52,9 @@ export default function InboxMessageList({ messages, selectedId, onSelect }) {
       {messages.map((msg) => {
         const isSelected = msg.id === selectedId;
         const unread = !msg.is_read;
-        const needsAction = false;
+        const needsAction = inboxNeedsResponse(msg);
         const isActioned = inboxMessageIsActioned(msg);
-        const name = msg.sender_gamertag || msg.sender_club_name || (msg.is_system ? t("matchFlow.stageSystem") : t("matchFlow.unknown"));
+        const name = inboxSender(msg).name;
         const preview = previewText(msg);
         const time = listTimestamp(msg.created_date, t);
 
@@ -68,8 +63,9 @@ export default function InboxMessageList({ messages, selectedId, onSelect }) {
             key={msg.id}
             type="button"
             onClick={() => onSelect(msg)}
+            aria-current={isSelected ? "true" : undefined}
             className={cn(
-              "flex min-w-0 w-full items-center gap-3 px-3 py-3 text-left normal-case tracking-normal transition-colors",
+              "inbox-list-row flex min-w-0 w-full items-center gap-3 px-3 py-3 text-left normal-case tracking-normal transition-colors",
               isSelected ? "bg-white/[0.08]" : "hover:bg-white/[0.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-200",
               unread && !isSelected && "bg-cyan-500/[0.04]"
             )}
@@ -80,7 +76,7 @@ export default function InboxMessageList({ messages, selectedId, onSelect }) {
               <div className="flex items-baseline justify-between gap-2">
                 <span
                   className={cn(
-                    "truncate text-[15px] leading-tight",
+                    "inbox-sender-name truncate text-[15px] leading-tight",
                     unread ? "font-semibold text-white" : "font-medium text-white/85"
                   )}
                 >
@@ -99,7 +95,7 @@ export default function InboxMessageList({ messages, selectedId, onSelect }) {
               <div className="mt-0.5 flex items-center gap-2">
                 <p
                   className={cn(
-                    "min-w-0 flex-1 truncate text-[13px] leading-snug",
+                    "inbox-list-subject min-w-0 flex-1 truncate text-[13px] leading-snug",
                     unread ? "text-white/70" : "text-white/40"
                   )}
                 >
@@ -120,7 +116,7 @@ export default function InboxMessageList({ messages, selectedId, onSelect }) {
                     <span className="h-2 w-2 rounded-full bg-blue-200" title={t("matchFlow.needsAction")} />
                   )}
                   {isActioned && (
-                    <span className="text-[10px] text-emerald-400/80">✓</span>
+                    <span className="text-[10px] text-blue-200/80">✓</span>
                   )}
                   {unread && (
                     <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-blue-200 px-1 text-[10px] font-bold text-[#061018]">
