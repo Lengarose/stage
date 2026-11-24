@@ -110,6 +110,8 @@ export default function Rankings() {
   const [status, setStatus] = useState("loading");
   const [access, setAccess] = useState("unknown");
   const [presentation, setPresentation] = useState(() => rankingsPresentation());
+  const [slideIndex, setSlideIndex] = useState(0);
+  const [slideshowPaused, setSlideshowPaused] = useState(false);
   const [locateMessage, setLocateMessage] = useState("");
   const [locating, setLocating] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -173,6 +175,17 @@ export default function Rankings() {
     return map[presentation.accent] || "#4d8dff";
   }, [presentation.accent]);
 
+  const backgrounds = [
+    { url: presentation.background_url, position: presentation.background_position, zoom: presentation.background_zoom },
+    ...presentation.background_slides,
+  ].filter(slide => slide.url);
+  const activeBackground = backgrounds[slideIndex % Math.max(1, backgrounds.length)];
+  useEffect(() => {
+    if (!presentation.slideshow_enabled || slideshowPaused || backgrounds.length < 2 || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const timer = window.setInterval(() => setSlideIndex(current => (current + 1) % backgrounds.length), presentation.slide_interval_seconds * 1000);
+    return () => window.clearInterval(timer);
+  }, [presentation.slideshow_enabled, presentation.slide_interval_seconds, slideshowPaused, backgrounds.length]);
+
   function changeView(next) {
     setView(next);
     setPage(1);
@@ -235,12 +248,12 @@ export default function Rankings() {
 
   return (
     <main className="rankings-page" style={{ "--rankings-accent": accentColor }}>
-      {presentation.background_url ? (
+      {activeBackground ? (
         <div className="rankings-backdrop" aria-hidden="true">
           <img
-            src={presentation.background_url}
+            src={activeBackground.url}
             alt=""
-            style={{ objectPosition: presentation.background_position, transform: `scale(${(presentation.background_zoom || 100) / 100})` }}
+            style={{ objectPosition: activeBackground.position, transform: `scale(${activeBackground.zoom / 100})` }}
           />
           <div className="rankings-backdrop-fade" />
         </div>
@@ -249,8 +262,8 @@ export default function Rankings() {
         <header className="rankings-header">
           <div>
             <p className="rankings-kicker">STAGE / OFFICIAL COMPETITION</p>
-            <h1>{t("competitionFlow.rankingsTitle")}<span aria-hidden="true">.</span></h1>
-            <p className="rankings-intro">{t("competitionFlow.rankingsSubtitle")}</p>
+            <h1>{t("competitionFlow.rankingsTitle")}<span className="rankings-title-square" aria-hidden="true" /></h1>
+            <p className="rankings-intro">The official STAGE leaderboard. Find your place.</p>
           </div>
           <div className="rankings-header-actions">
             <button type="button" onClick={() => dialogRef.current?.showModal()}>How rankings work</button>
@@ -258,6 +271,7 @@ export default function Rankings() {
           </div>
         </header>
 
+        <div className="rankings-overview-strip">
         {boardReady ? (
           <div className="rankings-counts" aria-label="Ranking totals">
             <div><strong>{board.meta?.official_fixtures_count ?? "—"}</strong><span>{t("competitionFlow.officialFixtures")}</span></div>
@@ -266,6 +280,8 @@ export default function Rankings() {
           </div>
         ) : null}
 
+          {backgrounds.length > 1 && presentation.slideshow_enabled ? <div className="rankings-background-controls" aria-label="Background slideshow"><button type="button" onClick={() => setSlideIndex(current => (current + 1) % backgrounds.length)}>Change image</button><button type="button" aria-pressed={slideshowPaused} onClick={() => setSlideshowPaused(current => !current)}>{slideshowPaused ? "Play slideshow" : "Pause slideshow"}</button></div> : null}
+        </div>
         {access === "limited" ? (
           <p className="rankings-banner">
             Free accounts see the top 10 global rankings and basic match records. STAGE Plus unlocks the full board, filters, position rankings, ranking points and match ratings. <Link to="/store">Open the Store</Link>
@@ -337,7 +353,9 @@ export default function Rankings() {
         ) : null}
         {boardReady && rows.length > 0 ? <ResultCaption board={board} kindLabel={kindLabel} /> : null}
         {fullAccess ? (
-          <p className="rankings-abbr">GP games played · G goals · A assists · CS clean sheets · GD goal difference · Rating is the average match rating, not Card Level or ranking points.</p>
+          <details className="rankings-stat-guide"><summary>Stat guide — what do the columns mean?</summary><dl>
+            <div><dt>GP</dt><dd>Games played</dd></div><div><dt>G</dt><dd>Goals scored</dd></div><div><dt>A</dt><dd>Assists</dd></div><div><dt>CS</dt><dd>Clean sheets</dd></div><div><dt>GD</dt><dd>Goal difference</dd></div><div><dt>Record</dt><dd>Wins, draws and losses</dd></div><div><dt>Rating</dt><dd>Average match rating, separate from Card Level and ranking points.</dd></div><div><dt>Points</dt><dd>Points from the official ranking calculation.</dd></div>
+          </dl></details>
         ) : null}
 
         {boardReady && rows.length > 0 ? (

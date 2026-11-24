@@ -156,7 +156,7 @@ export default function RankingsTab() {
         {!presentationLoading && !presentationError ? (
           <fieldset disabled={presentationSaving} className="mt-4 min-w-0 space-y-4">
             <PositionedImageUploadField
-              label="Rankings header background"
+              label="Rankings page background — primary image"
               value={presentation.background_url}
               onChange={(value) => changePresentation("background_url", value)}
               position={presentation.background_position}
@@ -165,15 +165,22 @@ export default function RankingsTab() {
               onZoomChange={(value) => changePresentation("background_zoom", value)}
               preview="hero"
               title="RANKINGS"
-              subtitle="One image, fading behind the header. Leave empty for no image."
+              subtitle="Full-page backdrop with a dark overlay for readable rankings."
             />
-            <p className="text-xs text-muted-foreground">One optional image. It fades behind the header and is not a slideshow. Remove it to leave the page without a background.</p>
+            <p className="text-xs text-muted-foreground">Use one image for a static page background, or enable the slideshow and upload additional images below. Empty slots are ignored.</p>
             {presentation.background_url ? (
               <Button type="button" variant="outline" size="sm" className="gap-2" onClick={() => changePresentation("background_url", "")}>
                 <Trash2 className="h-4 w-4" />
                 Remove background
               </Button>
             ) : <p className="text-xs text-muted-foreground">No background is saved. The page stays plain until you upload one.</p>}
+            <label className="flex items-center gap-3 text-sm"><input type="checkbox" checked={presentation.slideshow_enabled} onChange={event => changePresentation("slideshow_enabled", event.target.checked)} />Enable background slideshow</label>
+            <label className="block text-sm">Seconds per image<input type="number" min={3} max={30} value={presentation.slide_interval_seconds} onChange={event => changePresentation("slide_interval_seconds", Number(event.target.value))} className="mt-2 block h-10 border border-border bg-background px-3" /></label>
+            <details className="border border-border p-4"><summary className="cursor-pointer text-sm">Additional background images (up to five)</summary><div className="mt-4 grid gap-5 lg:grid-cols-2">{Array.from({ length: 5 }, (_, index) => {
+              const slide = presentation.background_slides[index] || { url: "", position: "50% 40%", zoom: 100 };
+              const changeSlide = (key, value) => changePresentation("background_slides", Array.from({ length: 5 }, (_, i) => i === index ? { ...slide, [key]: value } : presentation.background_slides[i] || { url: "", position: "50% 40%", zoom: 100 }));
+              return <div key={index} className="min-w-0 border border-border p-3"><PositionedImageUploadField label={`Additional image ${index + 1}`} value={slide.url} onChange={value => changeSlide("url", value)} position={slide.position} onPositionChange={value => changeSlide("position", value)} zoom={slide.zoom} onZoomChange={value => changeSlide("zoom", value)} preview="hero" title="RANKINGS" />{slide.url && <button type="button" className="mt-3 text-sm" onClick={() => changeSlide("url", "")}>Remove image</button>}</div>;
+            })}</div></details>
             <label className="block text-sm">
               Accent colour
               <span className="mt-1 block text-xs text-muted-foreground">Colors the square after RANKINGS and small highlights. It does not change ranking points.</span>

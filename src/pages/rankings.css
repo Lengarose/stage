@@ -42,9 +42,9 @@
 }
 .rankings-backdrop {
   position: absolute;
-  inset: 0 0 auto;
+  inset: 0;
   z-index: 0;
-  height: 280px;
+  height: 100%;
   overflow: hidden;
   pointer-events: none;
   background: transparent;
@@ -59,8 +59,8 @@
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(90deg, #070b12f2 0%, #070b12b8 42%, #070b1266 100%),
-    linear-gradient(180deg, #070b1200 0%, #070b12 92%);
+    linear-gradient(90deg, #070b12ec 0%, #070b12b8 52%, #070b1299 100%),
+    linear-gradient(180deg, #070b1240 0%, #070b12db 75%, #070b12 100%);
 }
 .rankings-content {
   position: relative;
@@ -83,7 +83,7 @@
 }
 .rankings-header h1 {
   margin: 0;
-  font-size: clamp(48px, 6vw, 84px);
+  font-size: clamp(42px, 5vw, 66px);
   line-height: 0.9;
 }
 .rankings-header h1 > span {
@@ -366,7 +366,7 @@
   .rankings-content { padding-top: 20px; }
   .rankings-header { flex-direction: column; align-items: stretch; }
   .rankings-header-actions { justify-content: flex-start; }
-  .rankings-backdrop { height: 210px; }
+  .rankings-backdrop { height: 100%; }
   .rankings-table thead { display: none; }
   .rankings-table,
   .rankings-table tbody,
@@ -378,3 +378,17 @@
   .rankings-points { text-align: left; margin-top: 6px; }
   .rankings-filters select { max-width: none; }
 }
+
+/* A quiet title masthead above the full-width leaderboard. */
+.rankings-header{align-items:center;margin-bottom:22px;padding-bottom:20px;border-bottom:1px solid #ffffff20}
+.rankings-header h1>.rankings-title-square{display:inline-block;width:.16em;height:.16em;background:var(--rankings-accent);margin-left:.12em}
+.rankings-intro{font-size:13px;max-width:460px}
+.rankings-header-actions button{font-size:12px;min-height:38px;background:#070b1277}
+.rankings-overview-strip{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:20px}
+.rankings-counts{margin:0;gap:12px 28px;font-size:11px}.rankings-counts>div{display:flex;align-items:baseline;gap:8px}.rankings-counts strong{font-size:20px}
+.rankings-background-controls{display:flex;gap:8px}.rankings-background-controls button{font-size:10px;min-height:30px;padding:0 10px}
+.rankings-table{background:#070b12b8}.rankings-table td{padding:15px 12px}
+.rankings-stat-guide{margin:16px 0;border-top:1px solid #ffffff20;border-bottom:1px solid #ffffff20;background:#070b1266;padding:12px 14px;font-size:12px;color:#b4c3d7}
+.rankings-stat-guide summary{cursor:pointer;color:#e0e9f5;min-height:24px;line-height:24px}.rankings-stat-guide summary:focus-visible{outline:2px solid var(--rankings-accent)}
+.rankings-stat-guide dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:18px;margin-top:16px}.rankings-stat-guide dt{color:var(--rankings-accent);font-weight:600;margin-bottom:4px}.rankings-stat-guide dd{margin:0;line-height:1.6}
+@media(max-width:760px){.rankings-header h1{font-size:44px}.rankings-counts{gap:12px 18px}.rankings-table td{padding:5px 12px}.rankings-intro{max-width:100%}}
