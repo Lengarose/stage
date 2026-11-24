@@ -276,7 +276,7 @@ function SliderRow({ label, value, min, max, onChange }) {
         value={value}
         onChange={e => onChange(Number(e.target.value))}
         className="w-full h-1 rounded-full appearance-none cursor-pointer accent-blue-500"
-        style={{ background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${((value - min) / (max - min)) * 100}%, rgba(255,255,255,0.1) ${((value - min) / (max - min)) * 100}%, rgba(255,255,255,0.1) 100%)` }}
+        style={{ background: `linear-gradient(to right, var(--profile-slider, #3b82f6) 0%, var(--profile-slider, #3b82f6) ${((value - min) / (max - min)) * 100}%, rgba(255,255,255,0.1) ${((value - min) / (max - min)) * 100}%, rgba(255,255,255,0.1) 100%)` }}
       />
     </div>
   );

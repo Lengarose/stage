@@ -1,0 +1,66 @@
+/* Profile routes own this scope, including Radix portals attached to body.
+   No geometry, photo crops, cabinet artwork or business actions are changed. */
+body.stage-red-profiles {
+  --profile-slider:#e4bf73;
+  --background:340 47% 7%;--foreground:345 41% 93%;
+  --card:340 47% 12%;--card-foreground:345 41% 93%;
+  --popover:340 47% 12%;--popover-foreground:345 41% 93%;
+  --muted:339 43% 16%;--muted-foreground:347 26% 75%;
+  --secondary:339 43% 16%;--secondary-foreground:345 41% 93%;
+  --accent:339 43% 20%;--accent-foreground:345 41% 93%;
+  --primary:40 68% 67%;--primary-foreground:342 36% 12%;
+  --border:38 38% 34%;--input:38 30% 29%;--ring:40 68% 67%;
+  --profile-red-edge:linear-gradient(135deg,#624620,#efd69b 18%,#9a7238 36%,#574020 57%,#d2ac63 78%,#705027);
+  background:#19090e;
+}
+.stage-red-profiles main,.stage-red-profiles .profile-ui {background-color:#19090e}
+.stage-red-profiles .profile-ui > .pointer-events-none.absolute.inset-0:first-child {
+  background-image:radial-gradient(circle at 18% 0%,#9d324630,transparent 38%),radial-gradient(circle at 82% 8%,#d2ac6314,transparent 34%),linear-gradient(180deg,#19090e,#260d16 48%,#19090e)!important;
+}
+.stage-red-profiles :is(.profile-ui,[role="dialog"],[role="alertdialog"],.swal2-popup) .p-px {background:var(--profile-red-edge)!important}
+.stage-red-profiles :is(.profile-ui,[role="dialog"],[role="alertdialog"]) .p-px > div {background:linear-gradient(145deg,#401724,#2d101a 65%,#35121d)}
+/* Solid panel surfaces, including editor, career, contracts and finance. */
+.stage-red-profiles :is(.profile-ui,[role="dialog"],[role="alertdialog"],.swal2-popup) :is([class*="bg-[#0"],[class*="bg-[#1"],[class~="bg-slate-900"],[class~="bg-slate-800"],[class~="bg-gray-900"]) {background-color:#2d101a}
+.stage-red-profiles :is([role="dialog"],[role="alertdialog"],.swal2-popup) {
+  background:#280e18!important;color:#f4e5e7;border-color:#a27b43!important;
+  box-shadow:0 0 0 1px #e4bf7326,0 24px 80px #0009;
+}
+.stage-red-profiles :is([role="listbox"],[role="menu"]) {background:#35121d;color:#f4e5e7;border-color:#a27b43}
+.stage-red-profiles :is(.profile-ui,[role="dialog"],[role="alertdialog"],.swal2-popup) :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),textarea,select,[role="combobox"]) {background-color:#200b13;color:#f4e5e7;border-color:#92704480}
+.stage-red-profiles :is(input,textarea)::placeholder {color:#cfaeb5;opacity:.8}
+.stage-red-profiles select option {background:#280e18;color:#f4e5e7}
+.stage-red-profiles :is([role="option"],[role="menuitem"])[data-highlighted] {background:#4a1b2b;color:#fff5ed}
+.stage-red-profiles :is(.profile-ui,[role="dialog"],[role="alertdialog"],.swal2-popup) :is([class*="text-cyan-"],[class*="text-blue-"],[class*="text-sky-"]) {color:#e4bf73}
+.stage-red-profiles :is(.profile-ui,[role="dialog"],[role="alertdialog"],.swal2-popup) :is([class~="text-white/30"],[class~="text-white/35"],[class~="text-white/40"],[class~="text-white/45"],[class~="text-white/50"],[class~="text-white/55"],[class~="text-gray-400"],[class~="text-slate-400"]) {color:#cfaeb5}
+.stage-red-profiles :is(.profile-ui,[role="dialog"],[role="alertdialog"]) :is([class*="border-cyan-"],[class*="border-blue-"]) {border-color:#a27b4380}
+.stage-red-profiles :is(.profile-ui,[role="dialog"],[role="alertdialog"]) :is(button,a):is([class^="bg-blue-"],[class*=" bg-blue-"]),
+.stage-red-profiles :is(.profile-ui,[role="dialog"],[role="alertdialog"]) :is(button,a):is([class^="bg-cyan-"],[class*=" bg-cyan-"]),
+.stage-red-profiles .profile-action[class~="bg-[#2563eb]"],
+.stage-red-profiles .swal2-confirm {background:linear-gradient(120deg,#efd69b,#c69a50)!important;color:#28131a!important;box-shadow:0 4px 20px #b88b3826}
+.stage-red-profiles :is(.profile-ui,[role="dialog"],[role="alertdialog"]) :is(button,a):is([class^="bg-blue-"],[class*=" bg-blue-"]):hover,
+.stage-red-profiles .profile-action[class~="bg-[#2563eb]"]:hover {background:#f5dd9f!important}
+/* Keep dark-red banner fades without covering uploaded pictures. */
+.stage-red-profiles .profile-ui [class~="from-[#060912]"] {--tw-gradient-from:#19090e;--tw-gradient-to:transparent;--tw-gradient-stops:var(--tw-gradient-from),var(--tw-gradient-to)}
+.stage-red-profiles .profile-ui [class~="via-[#060912]/78"] {--tw-gradient-stops:#19090e,#19090ec7,transparent}
+.stage-red-profiles .profile-ui [class~="via-[#060912]/55"] {--tw-gradient-stops:#19090e,#19090e8c,transparent}
+.stage-red-profiles .profile-ui [class~="to-[#060912]"] {--tw-gradient-to:#19090e}
+.stage-red-profiles :focus-visible {outline:2px solid #e4bf73;outline-offset:3px}
+.stage-red-profiles :is(main,.profile-ui,[role="dialog"],[role="alertdialog"],[role="listbox"]) {scrollbar-color:#b38a4b #220c14;scrollbar-width:thin}
+.stage-red-profiles ::-webkit-scrollbar {width:10px}
+.stage-red-profiles ::-webkit-scrollbar-track {background:#220c14}
+.stage-red-profiles ::-webkit-scrollbar-thumb {background:linear-gradient(#e4bf73,#9a7238);border:2px solid #220c14;border-radius:2px}
+
+.stage-red-profiles :is(.gamer-stat-surface,.gamer-section-surface) {background:linear-gradient(145deg,#401724,#2d101a 65%,#35121d)!important;border-color:#a27b4366}
+.stage-red-profiles .profile-ui .p-px > div {height:100%}
+.stage-red-profiles input:is([type="range"],[type="checkbox"],[type="radio"]) {accent-color:#e4bf73}
+.stage-red-profiles :is([role="dialog"],[role="alertdialog"]) button[class~="bg-white"] {background:linear-gradient(120deg,#efd69b,#c69a50)!important;color:#28131a!important}
+.stage-red-profiles .profile-ui [class~="from-cyan-500/14"] {--tw-gradient-from:#9d324624;--tw-gradient-to:#d2ac631f;--tw-gradient-stops:var(--tw-gradient-from),transparent,var(--tw-gradient-to)}
+.stage-red-profiles :is(.profile-ui,[role="dialog"],[role="alertdialog"]) :is(div,section)[class*="bg-gradient-"]:not(.absolute):not([class~="bg-clip-text"]) {background-image:linear-gradient(145deg,#401724,#2d101a 65%,#35121d)}
+/* Preserve the divider's portrait-sized gap; only recolour its two lines. */
+.stage-red-profiles .profile-banner-divider > span:first-child {background:linear-gradient(90deg,transparent,#c69a50cc,#f8e4ae)!important;box-shadow:0 0 7px #e4bf7380}
+.stage-red-profiles .profile-banner-divider > span:last-child {background:linear-gradient(90deg,#f8e4ae,#c69a50bf,transparent)!important;box-shadow:0 0 7px #e4bf7380}
+.stage-red-profiles :is(.profile-ui,[role="dialog"]) [class~="bg-cyan-200/50"] {background:var(--profile-red-edge)}
+.stage-red-profiles progress {accent-color:#e4bf73}
+.stage-red-profiles progress::-webkit-progress-bar {background:#200b13}
+.stage-red-profiles progress::-webkit-progress-value {background:linear-gradient(90deg,#c69a50,#efd69b)}
+.stage-red-profiles progress::-moz-progress-bar {background:#e4bf73}

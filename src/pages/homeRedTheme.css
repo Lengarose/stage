@@ -1,0 +1,44 @@
+.home-red-theme {
+  --home-red-base:#06091a;--home-red-section:#080d22;--home-red-card:#0a1130;--home-red-card-hover:#0c1330;
+  --home-red-copy:#aab3c8;--home-red-muted:#7f8aa3;--home-red-highlight:#00d4ff;--home-red-button:#2563eb;--home-red-button-hover:#3b76f6;
+  --home-hero-fade-strong:rgba(6,9,26,.92);--home-hero-fade-mid:rgba(6,9,26,.55);--home-hero-fade-end:rgba(6,9,26,0);
+}
+/* A Home-only team-colour preview. The rest of STAGE keeps its current theme. */
+.theme-red .home-red-theme {
+  --home-red-base:#19090e;
+  --home-hero-fade-strong:rgba(25,9,14,.96);--home-hero-fade-mid:rgba(25,9,14,.68);--home-hero-fade-end:rgba(25,9,14,0);
+  --home-red-section:#280e16;
+  --home-red-card:#35121d;
+  --home-red-card-hover:#481b29;
+  --home-red-copy:#f4e5e7;
+  --home-red-muted:#cfaeb5;
+  --home-red-highlight:#e4bf73;
+  --home-red-button:#e4bf73;
+  --home-red-button-hover:#ffffff;
+  --background:340 47% 7%;
+  --foreground:0 0% 100%;
+  --primary:37 100% 92%;
+  --primary-foreground:342 27% 11%;
+  --muted-foreground:17 100% 94%;
+  --border:40 62% 67% / .3;
+  background:#19090e;
+  color:white;
+}
+.theme-red .home-red-theme .home-red-primary {color:#28131a!important;text-shadow:none}
+.theme-red .home-red-theme :focus-visible {outline:2px solid #e4bf73;outline-offset:4px}
+.theme-red .home-red-theme ::selection {background:#e4bf73;color:#28131a}
+
+.home-red-theme .home-stage-word {color:#00d4ff!important;text-shadow:0 0 48px rgba(0,212,255,.45)}
+
+/* Layered oxblood surfaces and static metallic edges: no distracting shimmer. */
+.theme-red .home-red-theme .home-metal-card {
+  background:linear-gradient(135deg,#624620 0%,#efd69b 18%,#9a7238 36%,#574020 57%,#d2ac63 78%,#705027 100%)!important;
+  filter:drop-shadow(0 3px 8px #0005);
+}
+.theme-red .home-red-theme .home-metal-card > div {
+  background:linear-gradient(145deg,#401724,#2d101a 65%,#35121d);
+}
+.theme-red .home-red-theme .home-jump-grid {border-color:#ad874c66;background:#ad874c66;box-shadow:0 1px 0 #f7df9b33}
+.theme-red .home-red-theme .home-jump-card {background:linear-gradient(135deg,#34121e,#260d16)}
+.theme-red .home-red-theme .home-jump-card:hover {background:linear-gradient(135deg,#4a1b2b,#35121d)}
+.theme-red .home-red-theme section {border-color:#ae824638}

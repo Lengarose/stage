@@ -307,7 +307,7 @@ export function GamerStatTile({ label, value, accent = "cyan", sub, className, s
   return (
     <div
       className={cn(
-        "min-w-0 border backdrop-blur-md",
+        "gamer-stat-surface min-w-0 border backdrop-blur-md",
         // Angled clip eats the corners — px-6 keeps labels/values clear of the slant.
         rounded ? "rounded-xl p-3" : "py-3 px-6",
         tinted
@@ -372,7 +372,7 @@ export function GamerSectionCard({ title, action, children, className, frameClas
   return (
     <section
       className={cn(
-        "overflow-hidden border backdrop-blur-md",
+        "gamer-section-surface overflow-hidden border backdrop-blur-md",
         rounded
           ? "rounded-none border-white/10 bg-[#070b14]/88 shadow-[0_24px_70px_rgba(0,0,0,0.24)]"
           : "border-cyan-300/15 bg-[#070b14]/82",

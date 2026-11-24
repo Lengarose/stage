@@ -1,0 +1,40 @@
+/* Scoped to the Dashboard; Dark Blue and other pages retain their surfaces. */
+.theme-red .dashboard-theme {
+  --dashboard-gold:#e4bf73;
+  --dashboard-edge:linear-gradient(135deg,#624620,#efd69b 18%,#9a7238 36%,#574020 57%,#d2ac63 78%,#705027);
+  background:#19090e;
+  color:#f4e5e7;
+}
+.theme-red .dashboard-theme > .pointer-events-none:first-child {
+  background-image:radial-gradient(circle at 18% 0%,#9d324630,transparent 38%),radial-gradient(circle at 82% 8%,#d2ac6314,transparent 34%),linear-gradient(180deg,#19090e,#260d16 48%,#19090e)!important;
+}
+.theme-red .dashboard-theme .p-px {background:var(--dashboard-edge)!important}
+.theme-red .dashboard-theme .p-px > div {
+  height:100%;
+  background:linear-gradient(145deg,#401724,#2d101a 65%,#35121d);
+}
+.theme-red .dashboard-theme .p-px > .dashboard-hero {
+  background:linear-gradient(120deg,#4a1b2b,#2b0e19 65%,#35121d);
+}
+.theme-red .dashboard-theme .dashboard-hero-light {
+  background-image:radial-gradient(circle at 85% 20%,#e4bf7340,transparent 40%),radial-gradient(circle at 10% 80%,#bd3c5340,transparent 35%)!important;
+}
+.theme-red .dashboard-theme :is(.dashboard-row,.dashboard-footer) {
+  background:linear-gradient(110deg,#2a0e18,#3b1422 65%,#2e101a);
+}
+.theme-red .dashboard-theme .dashboard-row:hover {background:linear-gradient(110deg,#401724,#4c1d2d)}
+.theme-red .dashboard-theme :is([class~="text-cyan-200"],[class~="text-cyan-300"],[class~="text-cyan-400"]) {color:var(--dashboard-gold)}
+.theme-red .dashboard-theme :is([class~="text-white/35"],[class~="text-white/40"],[class~="text-white/45"],[class~="text-white/50"],[class~="text-white/55"]) {color:#cfaeb5}
+.theme-red .dashboard-theme [class~="bg-cyan-300/10"] {background:#e4bf7314}
+.theme-red .dashboard-theme [class~="from-cyan-400"] {--tw-gradient-from:#e4bf73;--tw-gradient-to:#9a7238;--tw-gradient-stops:var(--tw-gradient-from),var(--tw-gradient-to)}
+.theme-red .dashboard-theme .profile-action[class~="bg-[#2563eb]"] {background:linear-gradient(120deg,#efd69b,#c69a50);color:#28131a;box-shadow:0 4px 20px #b88b3826}
+.theme-red .dashboard-theme .profile-action[class~="bg-[#2563eb]"]:hover {background:#f5dd9f}
+.theme-red .dashboard-theme :focus-visible {outline:2px solid var(--dashboard-gold);outline-offset:3px}
+.theme-red .dashboard-theme #rankGrad stop:first-child {stop-color:#efd69b}
+.theme-red .dashboard-theme #rankGrad stop:last-child {stop-color:#9a7238}
+
+.theme-red .dashboard-page-shell {background:#19090e;scrollbar-color:#b38a4b #220c14;scrollbar-width:thin}
+.theme-red .dashboard-page-shell::-webkit-scrollbar {width:10px}
+.theme-red .dashboard-page-shell::-webkit-scrollbar-track {background:#220c14}
+.theme-red .dashboard-page-shell::-webkit-scrollbar-thumb {background:linear-gradient(#e4bf73,#9a7238);border:2px solid #220c14;border-radius:2px}
+.theme-red .dashboard-page-shell::-webkit-scrollbar-thumb:hover {background:#e4bf73}

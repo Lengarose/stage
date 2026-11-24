@@ -13,7 +13,7 @@ const CARDS = [
   { bar: '#fb923c', title: 'commonPages.landFeat8Title', body: 'commonPages.landFeat8Desc' },
 ];
 
-export default function FeatureGrid() {
+export default function FeatureGrid({ image }) {
   const { t } = useTranslation();
 
   return (
@@ -28,13 +28,16 @@ export default function FeatureGrid() {
           {t('commonPages.landEverything')}
         </div>
       </div>
+      <div className="overflow-hidden">
       <img
-        src={platform}
+        src={image?.url || platform}
+        style={{objectPosition:image?.position, transform:image?.url ? `scale(${image.zoom / 100})` : undefined}}
         alt={t('commonPages.landV2AltPlatform')}
         loading="lazy"
         decoding="async"
         className={`${CLIP_28} mb-8 block aspect-video w-full object-cover`}
       />
+      </div>
       <div className="grid grid-cols-[repeat(auto-fit,minmax(290px,1fr))] gap-px border border-white/10 bg-white/10">
         {CARDS.map((card) => (
           <div key={card.title} className="bg-[#080d22] px-8 pb-10 pt-9 transition-colors hover:bg-[#0c1330]">

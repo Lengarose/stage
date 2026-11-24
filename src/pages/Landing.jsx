@@ -3,6 +3,8 @@ import { useReducedMotion } from 'framer-motion';
 import triumph from '@/assets/landing/triumph.webp';
 import coach from '@/assets/landing/coach.webp';
 import player from '@/assets/landing/player.webp';
+import { TranslationContext } from '@/lib/TranslationContext';
+import { landingContent, landingTranslate } from '@/lib/landingContent';
 import { useTranslation } from '@/hooks/useTranslation';
 import FadeIn from '@/components/landing/FadeIn';
 import Nav from '@/components/landing/Nav';
@@ -76,7 +78,7 @@ function readStats(cms, t) {
 }
 
 export default function Landing({ onSignIn }) {
-  const { t } = useTranslation();
+  const translation = useTranslation();
   const reduce = useReducedMotion();
   const [cms, setCms] = useState(null);
 
@@ -101,6 +103,8 @@ export default function Landing({ onSignIn }) {
     };
   }, [reduce]);
 
+  const content = landingContent(cms?.content_json);
+  const t = landingTranslate(content, translation.t);
   const heroImage = cms?.hero_image_url || '';
   const heroZoom = cms?.hero_image_zoom ? Number(cms.hero_image_zoom) : null;
   const sections = PICTURES.map((section, index) => {
@@ -119,12 +123,14 @@ export default function Landing({ onSignIn }) {
   });
 
   return (
-    <div className="landing-v2 min-h-screen overflow-x-hidden bg-[#06091a] font-['Chakra_Petch',system-ui,sans-serif] text-white">
-      <Nav onSignIn={onSignIn} />
+    <TranslationContext.Provider value={{...translation,t}}><div className="landing-v2 min-h-screen overflow-x-hidden bg-[#06091a] font-['Chakra_Petch',system-ui,sans-serif] text-white">
+      <Nav onSignIn={onSignIn} logoImage={content.logo_image.url} />
       <HeroCarousel
         onSignIn={onSignIn}
         eyebrow={cms?.hero_title || t('commonPages.landV2Eyebrow')}
         description={cms?.hero_description || t('commonPages.landV2HeroDesc')}
+        customSlides={content.slides}
+        interval={content.interval}
         leadImage={heroImage ? {
           src: heroImage,
           position: cms?.hero_image_position || '50% 10%',
@@ -139,10 +145,10 @@ export default function Landing({ onSignIn }) {
           <FeatureSection {...section} onSignIn={onSignIn} />
         </FadeIn>
       ))}
-      <FadeIn><FeatureGrid /></FadeIn>
+      <FadeIn><FeatureGrid image={content.platform_image} /></FadeIn>
       <FadeIn><Steps /></FadeIn>
       <FadeIn><CtaBand onSignIn={onSignIn} /></FadeIn>
-      <Footer tagline={cms?.footer_tagline || ''} />
-    </div>
+      <Footer tagline={cms?.footer_tagline || ''} logoImage={content.logo_image.url} />
+    </div></TranslationContext.Provider>
   );
 }

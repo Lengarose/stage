@@ -1,0 +1,10 @@
+<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;background:#070b12"><div id="root"></div><script type="module">
+// Isolated UI fixture: all content saves stay in memory.
+import React from 'react';import ReactDOM from 'react-dom/client';import {MemoryRouter} from 'react-router-dom';import RefreshRuntime from '/@react-refresh';
+RefreshRuntime.injectIntoGlobalHook(window);window.$RefreshReg$=()=>{};window.$RefreshSig$=()=>type=>type;window.__vite_plugin_react_preamble_installed__=true;
+await import('/src/index.css');await import('/node_modules/@fontsource/anton/index.css');
+const {stageClient}=await import('/src/api/stageClient.js');
+let config={id:'qa',hero_title:'The competitive virtual football platform',content_json:JSON.stringify({slides:Array.from({length:6},(_,i)=>({url:`/src/assets/landing/${['gamers','dribble','penalty','team','moments-1','moments-2'][i]}.webp`,position:'50% 50%',zoom:100}))})};
+stageClient.entities.LandingConfig.filter=async()=>[config];stageClient.entities.LandingConfig.update=async(id,payload)=>{config={...config,...payload};return config};stageClient.entities.LandingConfig.create=async(payload)=>{config={id:'qa',...payload};return config};
+const {TranslationProvider}=await import('/src/lib/TranslationContext.jsx');const {default:Page}=await import('/src/components/admin/LandingPageEditor.jsx');ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(MemoryRouter,null,React.createElement(TranslationProvider,null,React.createElement('div',{style:{padding:'24px',maxWidth:1100,margin:'auto'}},React.createElement(Page)))));
+</script></body></html>

@@ -9,16 +9,16 @@ import moments2 from '@/assets/landing/moments-2.webp';
 import { useTranslation } from '@/hooks/useTranslation';
 import { CLIP_12, focusRing, fontDisplay, fontItalic, fontMono } from './clips';
 
-const AUTOPLAY_MS = 4500;
 
-export default function HeroCarousel({ onSignIn, eyebrow, description, leadImage }) {
+
+export default function HeroCarousel({ onSignIn, eyebrow, description, leadImage, customSlides = [], interval = 4.5 }) {
   const { t } = useTranslation();
   const reduce = useReducedMotion();
   const [index, setIndex] = useState(0);
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
 
-  const slides = [
+  const defaults = [
     {
       src: leadImage?.src || gamers,
       alt: t('commonPages.landV2AltGamers'),
@@ -31,15 +31,16 @@ export default function HeroCarousel({ onSignIn, eyebrow, description, leadImage
     { src: moments1, alt: t('commonPages.landV2AltMoments1') },
     { src: moments2, alt: t('commonPages.landV2AltMoments2') },
   ];
+  const slides = defaults.map((slide,i) => customSlides[i]?.url ? {...slide, src:customSlides[i].url, position:customSlides[i].position, zoom:customSlides[i].zoom} : slide);
   const count = slides.length;
 
   useEffect(() => {
     if (reduce || hovered || focused) return undefined;
     const timer = window.setInterval(() => {
       setIndex((current) => (current + 1) % count);
-    }, AUTOPLAY_MS);
+    }, interval * 1000);
     return () => window.clearInterval(timer);
-  }, [reduce, hovered, focused, count]);
+  }, [reduce, hovered, focused, count, interval]);
 
   const go = (next) => setIndex(((next % count) + count) % count);
 

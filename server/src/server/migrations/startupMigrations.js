@@ -1789,6 +1789,7 @@ async function runStartupMigrations() {
 
   // Pre-login landing page config table
   await EXECUTESQL(`CREATE TABLE IF NOT EXISTS landing_config (
+    content_json LONGTEXT NULL,
     id               VARCHAR(36)  NOT NULL PRIMARY KEY,
     hero_title       VARCHAR(255) NULL,
     hero_description TEXT         NULL,
@@ -1871,6 +1872,7 @@ async function runStartupMigrations() {
   await addCol('home_page_contents', 'section3_image_position', 'VARCHAR(50) NULL');
   await addCol('home_page_contents', 'section3_image_zoom', 'INT NULL');
 
+  await addCol('landing_config', 'content_json', 'LONGTEXT NULL');
   await addCol('landing_config', 'hero_image_position', 'VARCHAR(50) NULL');
   await addCol('landing_config', 'hero_image_zoom', 'INT NULL');
   await addCol('landing_config', 'section1_image_position', 'VARCHAR(50) NULL');

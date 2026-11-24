@@ -1,3 +1,5 @@
+import './homeRedTheme.css';
+import { HOME_COPY, HOME_FAQ, refreshHomeCopy } from '@/lib/homePageCopy';
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { stageClient } from "@/api/stageClient";
@@ -26,7 +28,7 @@ import {
 const DEFAULTS = {
   hero_title:        "Welcome To",
   hero_subtitle:     "STAGE",
-  hero_description:  "Create your club, compete in structured leagues and tournaments, and build your legacy in the ultimate competitive football gaming community.",
+  hero_description:  HOME_COPY.hero_description,
   hero_image_url:    HeroImg,
   hero_cta_1_label:  "Competitions",
   hero_cta_1_url:    "/competitions",
@@ -34,37 +36,31 @@ const DEFAULTS = {
   hero_cta_2_url:    "/game-day",
   hero_cta_3_label:  "Store",
   hero_cta_3_url:    "/lifestyle",
-  section1_title:    "What is STAGE?",
-  section1_text:     "STAGE is the premier structured competitive platform for EA FC players. We provide the infrastructure for real clubs, real leagues, and real trophies — all within a professional community built around the game.",
+  section1_title:    HOME_COPY.section1_title,
+  section1_text:     HOME_COPY.section1_text,
   section1_image_url: HIWImg,
-  section2_title:    "How It Works",
-  section2_text:     "Register your club, sign players to contracts, and enter league seasons or knockout tournaments. Every match is tracked, every goal counts, and every season crowns a champion.",
+  section2_title:    HOME_COPY.section2_title,
+  section2_text:     HOME_COPY.section2_text,
   section2_image_url: CoachLuisImg,
-  section3_title:    "Built for Competitors",
-  section3_text:     "From transfer markets and player contracts to STC rewards and custom trophies — STAGE gives serious players the structure and recognition their game deserves.",
+  section3_title:    HOME_COPY.section3_title,
+  section3_text:     HOME_COPY.section3_text,
   section3_image_url: BFCHomeImg,
-  faq_items: [
-    { question: "How do I join STAGE?",                   answer: "Create your account, complete your player profile, and either create a club or join an existing one. From there you can register for leagues and competitions." },
-    { question: "What game does STAGE support?",           answer: "STAGE is built around EA FC (formerly FIFA). We support all major platforms including PlayStation and Xbox." },
-    { question: "How do leagues and competitions work?",   answer: "Leagues are seasonal competitions where clubs compete over multiple rounds. Competitions include knockout-style cups. Results are tracked and standings update in real time." },
-    { question: "What are STC points?",                   answer: "STC (STAGE Coins) are the platform currency. Earn them through match rewards, seasonal prizes, and achievements. Use them in the Lifestyle store or on premium features." },
-    { question: "Is STAGE free to use?",                  answer: "Yes — STAGE is free to join. Some premium features and store items require STC, which can be earned through gameplay." },
-  ],
+  faq_items: HOME_FAQ,
   contact_email:  "contact@stage.gg",
-  footer_tagline: "The premier competitive football gaming platform.",
+  footer_tagline: HOME_COPY.footer_tagline,
 };
 
 const NAV_CARDS = [
-  { labelKey: "homeNavCompetitions", descKey: "homeNavCompetitionsDesc", to: "/competitions", accent: "#00d4ff" },
-  { labelKey: "homeNavGameDay",      descKey: "homeNavGameDayDesc",      to: "/game-day",     accent: "#f59e0b" },
-  { labelKey: "homeNavClubs",        descKey: "homeNavClubsDesc",        to: "/clubs",        accent: "#4d8dff" },
-  { labelKey: "homeNavStore",        descKey: "homeNavStoreDesc",        to: "/lifestyle",    accent: "#10b981" },
+  { labelKey: "homeNavCompetitions", descKey: "homeNavCompetitionsDesc", to: "/competitions", accent: "var(--home-red-highlight)" },
+  { labelKey: "homeNavGameDay",      descKey: "homeNavGameDayDesc",      to: "/game-day",     accent: "var(--home-red-highlight)" },
+  { labelKey: "homeNavClubs",        descKey: "homeNavClubsDesc",        to: "/clubs",        accent: "var(--home-red-highlight)" },
+  { labelKey: "homeNavStore",        descKey: "homeNavStoreDesc",        to: "/lifestyle",    accent: "var(--home-red-highlight)" },
 ];
 
 const FEATURES = [
-  { number: "01", accent: "#f59e0b", flip: false },
-  { number: "02", accent: "#4d8dff", flip: true },
-  { number: "03", accent: "#10b981", flip: false },
+  { number: "01", accent: "var(--home-red-highlight)", flip: false },
+  { number: "02", accent: "var(--home-red-highlight)", flip: true },
+  { number: "03", accent: "var(--home-red-highlight)", flip: false },
 ];
 
 const textOrDefault = (value, fallback) =>
@@ -79,15 +75,15 @@ function timeAgo(dateStr) {
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
-const kickerClass = `${fontMono} text-xs font-bold uppercase tracking-[.32em] text-[#4d8dff]`;
-const quietLink = `${focusRing} ${fontMono} inline-flex items-center text-xs font-bold uppercase tracking-[.14em] text-[#7f8aa3] transition-colors hover:text-white`;
-const primaryCta = `${CLIP_12} ${focusRing} inline-flex items-center justify-center border-0 bg-[#2563eb] px-[clamp(16px,2vw,30px)] py-[clamp(10px,1.25vw,18px)] text-sm font-bold uppercase tracking-[.14em] text-white shadow-[0_10px_40px_rgba(37,99,235,.45)] transition-colors hover:bg-[#3b76f6]`;
+const kickerClass = `${fontMono} text-xs font-bold uppercase tracking-[.32em] text-[var(--home-red-highlight)]`;
+const quietLink = `${focusRing} ${fontMono} inline-flex items-center text-xs font-bold uppercase tracking-[.14em] text-[var(--home-red-muted)] transition-colors hover:text-white`;
+const primaryCta = `home-red-primary ${CLIP_12} ${focusRing} inline-flex items-center justify-center border-0 bg-[var(--home-red-button)] px-[clamp(16px,2vw,30px)] py-[clamp(10px,1.25vw,18px)] text-sm font-bold uppercase tracking-[.14em] text-white shadow-[0_10px_40px_rgba(72,6,18,.2)] transition-colors hover:bg-[var(--home-red-button-hover)]`;
 const ghostCta = `${CLIP_12} ${focusRing} inline-flex items-center justify-center border-0 bg-white/10 px-[clamp(16px,2vw,30px)] py-[clamp(10px,1.25vw,18px)] text-sm font-bold uppercase tracking-[.14em] text-white transition-colors hover:bg-white/20`;
 
 function ClipCard({ accent = "rgba(255,255,255,.16)", children, className }) {
   return (
-    <div className={cn(CLIP_16, "h-full p-px", className)} style={{ background: accent }}>
-      <div className={cn(CLIP_16, "flex h-full flex-col bg-[#0a1130] px-7 pb-8 pt-7")}>
+    <div className={cn(CLIP_16, "home-metal-card h-full p-px", className)} style={{ background: accent }}>
+      <div className={cn(CLIP_16, "flex h-full flex-col bg-[var(--home-red-card)] px-7 pb-8 pt-7")}>
         {children}
       </div>
     </div>
@@ -111,7 +107,7 @@ function SectionHeading({ kicker, title, action }) {
 function FaqItem({ question, answer }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className={cn("border-t border-white/12", open && "border-[#00d4ff]")}>
+    <div className={cn("border-t border-white/12", open && "border-[var(--home-red-highlight)]")}>
       <button
         type="button"
         className={cn(focusRing, "landing-keep flex w-full items-center justify-between gap-4 border-0 bg-transparent px-0 py-5 text-left")}
@@ -122,11 +118,11 @@ function FaqItem({ question, answer }) {
           {question}
         </span>
         {open
-          ? <ChevronUp className="h-5 w-5 shrink-0 text-[#00d4ff]" />
-          : <ChevronDown className="h-5 w-5 shrink-0 text-[#7f8aa3]" />}
+          ? <ChevronUp className="h-5 w-5 shrink-0 text-[var(--home-red-highlight)]" />
+          : <ChevronDown className="h-5 w-5 shrink-0 text-[var(--home-red-muted)]" />}
       </button>
       {open && (
-        <p className="m-0 max-w-[68ch] pb-6 text-base leading-[1.6] text-[#aab3c8]">{answer}</p>
+        <p className="m-0 max-w-[68ch] pb-6 text-base leading-[1.6] text-[var(--home-red-copy)]">{answer}</p>
       )}
     </div>
   );
@@ -149,7 +145,7 @@ function FeatureBlock({ title, text, imageUrl, flip, objectPosition = "50% 28%",
       />
     </div>
   ) : (
-    <div className={cn(CLIP_28, "aspect-video w-full min-w-0 bg-[#0a1130] [flex:1.2_1_420px]")} role="img" aria-label={title} />
+    <div className={cn(CLIP_28, "aspect-video w-full min-w-0 bg-[var(--home-red-card)] [flex:1.2_1_420px]")} role="img" aria-label={title} />
   );
 
   const copy = (
@@ -161,7 +157,7 @@ function FeatureBlock({ title, text, imageUrl, flip, objectPosition = "50% 28%",
       <h2 className={cn(fontDisplay, "mb-[22px] mt-5 text-[clamp(40px,5vw,72px)] font-normal uppercase leading-[.95] text-white")}>
         {title}
       </h2>
-      <p className="m-0 max-w-[560px] text-lg leading-[1.6] text-[#aab3c8] text-pretty">{text}</p>
+      <p className="m-0 max-w-[560px] text-lg leading-[1.6] text-[var(--home-red-copy)] text-pretty">{text}</p>
     </div>
   );
 
@@ -177,21 +173,21 @@ function EventsCarousel({ seasons, tournaments, leagues, compact = false }) {
   const { t } = useTranslation();
 
   const TABS = [
-    { key: "competitions", label: t("commonPages.homeCompetitions"), accent: "#00d4ff", viewAllTo: "/competitions" },
-    { key: "tournaments",  label: t("commonPages.homeTournaments"),  accent: "#f59e0b", viewAllTo: "/tournaments" },
-    { key: "leagues",      label: t("commonPages.homeLeagues"),      accent: "#a78bfa", viewAllTo: "/leagues" },
+    { key: "competitions", label: t("commonPages.homeCompetitions"), accent: "var(--home-red-highlight)", viewAllTo: "/competitions" },
+    { key: "tournaments",  label: t("commonPages.homeTournaments"),  accent: "var(--home-red-highlight)", viewAllTo: "/tournaments" },
+    { key: "leagues",      label: t("commonPages.homeLeagues"),      accent: "var(--home-red-highlight)", viewAllTo: "/leagues" },
   ];
   const currentTab = TABS.find((tab) => tab.key === activeTab) || TABS[0];
 
   const statusBadge = (status) => {
     if (!status) return null;
     const sl = String(status).toLowerCase();
-    if (["open", "registration"].includes(sl)) return { text: "OPEN", color: "#34d399" };
-    if (["league_phase", "in_progress", "group_stage"].includes(sl)) return { text: "LIVE", color: "#34d399" };
-    if (sl === "playoffs") return { text: "PLAYOFFS", color: "#facc15" };
-    if (sl === "knockout") return { text: "KNOCKOUT", color: "#fb923c" };
-    if (sl === "completed") return { text: "COMPLETED", color: "#7f8aa3" };
-    if (sl === "cancelled") return { text: "CANCELLED", color: "#f87171" };
+    if (["open", "registration"].includes(sl)) return { text: "OPEN", color: "var(--home-red-highlight)" };
+    if (["league_phase", "in_progress", "group_stage"].includes(sl)) return { text: "LIVE", color: "var(--home-red-highlight)" };
+    if (sl === "playoffs") return { text: "PLAYOFFS", color: "var(--home-red-highlight)" };
+    if (sl === "knockout") return { text: "KNOCKOUT", color: "var(--home-red-highlight)" };
+    if (sl === "completed") return { text: "COMPLETED", color: "var(--home-red-muted)" };
+    if (sl === "cancelled") return { text: "CANCELLED", color: "var(--home-red-highlight)" };
     return null;
   };
 
@@ -229,8 +225,8 @@ function EventsCarousel({ seasons, tournaments, leagues, compact = false }) {
             <h3 className={cn(fontDisplay, "text-[clamp(28px,3vw,40px)] font-normal uppercase leading-none text-white")}>
               {comp.name.replace("STAGE ", "")}
             </h3>
-            <p className="mt-4 text-sm leading-[1.6] text-[#aab3c8]">{comp.description}</p>
-            <div className={cn(fontMono, "mt-auto pt-6 text-[11px] font-medium uppercase tracking-[.14em] text-[#7f8aa3] transition-colors group-hover:text-white")}>
+            <p className="mt-4 text-sm leading-[1.6] text-[var(--home-red-copy)]">{comp.description}</p>
+            <div className={cn(fontMono, "mt-auto pt-6 text-[11px] font-medium uppercase tracking-[.14em] text-[var(--home-red-muted)] transition-colors group-hover:text-white")}>
               {t("commonPages.homeViewBracket")}
             </div>
           </ClipCard>
@@ -268,21 +264,21 @@ function EventsCarousel({ seasons, tournaments, leagues, compact = false }) {
             {max > 0 && (
               <div className="mt-5">
                 <div className="mb-2 flex items-center justify-between gap-3">
-                  <span className={cn(fontMono, "text-[10px] font-bold uppercase tracking-[.16em] text-[#7f8aa3]")}>
+                  <span className={cn(fontMono, "text-[10px] font-bold uppercase tracking-[.16em] text-[var(--home-red-muted)]")}>
                     {t("commonPages.homePlayers", { count, max })}
                   </span>
                   {count >= max && (
-                    <span className={cn(fontMono, "text-[10px] font-bold uppercase tracking-[.16em] text-[#f87171]")}>
+                    <span className={cn(fontMono, "text-[10px] font-bold uppercase tracking-[.16em] text-[var(--home-red-highlight)]")}>
                       {t("commonPages.homeFull")}
                     </span>
                   )}
                 </div>
                 <div className="h-0.5 w-full bg-white/10">
-                  <div className="h-full" style={{ width: `${pct}%`, background: count >= max ? "#f87171" : accent }} />
+                  <div className="h-full" style={{ width: `${pct}%`, background: count >= max ? "var(--home-red-highlight)" : accent }} />
                 </div>
               </div>
             )}
-            <div className={cn(fontMono, "mt-auto pt-6 text-[11px] font-medium uppercase tracking-[.14em] text-[#7f8aa3] transition-colors group-hover:text-white")}>
+            <div className={cn(fontMono, "mt-auto pt-6 text-[11px] font-medium uppercase tracking-[.14em] text-[var(--home-red-muted)] transition-colors group-hover:text-white")}>
               {t("commonPages.homeViewDetails")}
             </div>
           </ClipCard>
@@ -293,10 +289,10 @@ function EventsCarousel({ seasons, tournaments, leagues, compact = false }) {
   const renderContent = () => {
     if (activeTab === "competitions") return renderCompetitions();
     if (activeTab === "tournaments") {
-      if (!tournaments?.length) return [<p key="empty" className="col-span-full py-8 text-center text-base text-[#aab3c8]">{t("commonPages.homeNoTournaments")}</p>];
+      if (!tournaments?.length) return [<p key="empty" className="col-span-full py-8 text-center text-base text-[var(--home-red-copy)]">{t("commonPages.homeNoTournaments")}</p>];
       return renderEventCards(tournaments, "/tournaments", currentTab.accent);
     }
-    if (!leagues?.length) return [<p key="empty" className="col-span-full py-8 text-center text-base text-[#aab3c8]">{t("commonPages.homeNoLeagues")}</p>];
+    if (!leagues?.length) return [<p key="empty" className="col-span-full py-8 text-center text-base text-[var(--home-red-copy)]">{t("commonPages.homeNoLeagues")}</p>];
     return renderEventCards(leagues, "/leagues", currentTab.accent);
   };
 
@@ -317,10 +313,10 @@ function EventsCarousel({ seasons, tournaments, leagues, compact = false }) {
             compact ? fontMono : fontDisplay,
             activeTab === tab.key
               ? compact
-                ? "text-[#00d4ff]"
+                ? "text-[var(--home-red-highlight)]"
                 : "text-[clamp(40px,5vw,72px)] leading-[.9] text-white"
               : compact
-                ? "text-[#7f8aa3]"
+                ? "text-[var(--home-red-muted)]"
                 : "text-[clamp(22px,2.4vw,32px)] leading-none text-white/25 hover:text-white/55",
             compact && "text-[11px] font-bold tracking-[.16em]",
           )}
@@ -396,12 +392,12 @@ function NewsMosaic({ items }) {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
         {featured && (
           <Link to="/news" className={cn(focusRing, "group block lg:col-span-3")}>
-            <ClipCard accent="#00d4ff" className="min-h-[260px]">
+            <ClipCard accent="var(--home-red-highlight)" className="min-h-[260px]">
               <div className="mb-4 flex items-center justify-between gap-3">
-                <span className={cn(fontMono, "text-[11px] font-bold uppercase tracking-[.2em] text-[#00d4ff]")}>
+                <span className={cn(fontMono, "text-[11px] font-bold uppercase tracking-[.2em] text-[var(--home-red-highlight)]")}>
                   {t("commonPages.featured")}
                 </span>
-                <span className={cn(fontMono, "text-[11px] tracking-[.12em] text-[#7f8aa3]")}>
+                <span className={cn(fontMono, "text-[11px] tracking-[.12em] text-[var(--home-red-muted)]")}>
                   {timeAgo(featured.published_at)}
                 </span>
               </div>
@@ -409,7 +405,7 @@ function NewsMosaic({ items }) {
                 {featured.title}
               </h3>
               {featured.body && (
-                <p className="mt-4 line-clamp-3 text-base leading-[1.6] text-[#aab3c8]">{featured.body}</p>
+                <p className="mt-4 line-clamp-3 text-base leading-[1.6] text-[var(--home-red-copy)]">{featured.body}</p>
               )}
               {(featured.club_name || featured.player_name) && (
                 <div className="mt-auto flex items-center gap-2 pt-6">
@@ -419,7 +415,7 @@ function NewsMosaic({ items }) {
                   {featured.player_avatar_url && (
                     <img src={featured.player_avatar_url} alt="" className="h-5 w-5 object-cover" />
                   )}
-                  <span className="text-sm text-[#aab3c8]">
+                  <span className="text-sm text-[var(--home-red-copy)]">
                     {featured.club_name || featured.player_name}
                   </span>
                 </div>
@@ -432,10 +428,10 @@ function NewsMosaic({ items }) {
             <Link key={item.id} to="/news" className={cn(focusRing, "group block flex-1")}>
               <ClipCard accent="rgba(255,255,255,.16)">
                 <div className="mb-3 flex items-start justify-between gap-2">
-                  <span className={cn(fontMono, "text-[11px] font-bold uppercase tracking-[.2em] text-[#4d8dff]")}>
+                  <span className={cn(fontMono, "text-[11px] font-bold uppercase tracking-[.2em] text-[var(--home-red-highlight)]")}>
                     {item._category || item.category || "News"}
                   </span>
-                  <span className={cn(fontMono, "shrink-0 text-[11px] tracking-[.12em] text-[#7f8aa3]")}>
+                  <span className={cn(fontMono, "shrink-0 text-[11px] tracking-[.12em] text-[var(--home-red-muted)]")}>
                     {timeAgo(item.published_at)}
                   </span>
                 </div>
@@ -460,9 +456,9 @@ function ScheduleFrame({ matches }) {
   };
 
   const statusColor = (status) => {
-    if (status === "live") return "#34d399";
-    if (status === "completed") return "#7f8aa3";
-    return "#00d4ff";
+    if (status === "live") return "var(--home-red-highlight)";
+    if (status === "completed") return "var(--home-red-muted)";
+    return "var(--home-red-highlight)";
   };
 
   return (
@@ -473,7 +469,7 @@ function ScheduleFrame({ matches }) {
           <h2 className={cn(fontDisplay, "m-0 text-[clamp(40px,5vw,72px)] font-normal uppercase leading-[.9] text-white")}>
             {t("commonPages.homeSchedule")}
           </h2>
-          <p className="mb-8 mt-5 max-w-[36ch] text-lg leading-[1.6] text-[#aab3c8]">
+          <p className="mb-8 mt-5 max-w-[36ch] text-lg leading-[1.6] text-[var(--home-red-copy)]">
             {t("commonPages.homeScheduleDesc")}
           </p>
           <Link to="/game-day" className={primaryCta}>
@@ -482,7 +478,7 @@ function ScheduleFrame({ matches }) {
         </div>
         <div className="lg:col-span-2">
           {!matches?.length ? (
-            <p className="border-t border-white/12 py-10 text-base text-[#aab3c8]">
+            <p className="border-t border-white/12 py-10 text-base text-[var(--home-red-copy)]">
               {t("commonPages.homeNoMatches")}
             </p>
           ) : (
@@ -498,14 +494,14 @@ function ScheduleFrame({ matches }) {
                         {live ? "LIVE" : formatDate(match.scheduled_date)}
                       </div>
                       {match.competition && (
-                        <div className={cn(fontMono, "mt-1 truncate text-[10px] uppercase tracking-[.14em] text-[#7f8aa3]")}>
+                        <div className={cn(fontMono, "mt-1 truncate text-[10px] uppercase tracking-[.14em] text-[var(--home-red-muted)]")}>
                           {match.competition}
                         </div>
                       )}
                     </div>
                     <div className="grid min-w-0 grid-cols-[1fr_auto_1fr] items-center gap-3">
                       <span className="truncate text-base font-medium text-white">{home}</span>
-                      <span className={cn(fontMono, "text-[10px] uppercase tracking-[.16em] text-[#7f8aa3]")}>vs</span>
+                      <span className={cn(fontMono, "text-[10px] uppercase tracking-[.16em] text-[var(--home-red-muted)]")}>vs</span>
                       <span className="truncate text-right text-base font-medium text-white">{away}</span>
                     </div>
                   </div>
@@ -532,7 +528,7 @@ function InboxPanel({ messages, user }) {
             <span className="inline-flex items-center gap-3">
               {t("nav.inbox")}
               {unread > 0 && (
-                <span className={cn(fontMono, "text-sm font-bold tracking-[.08em] text-[#04130d]", "bg-[#00d4ff] px-2 py-1")}>
+                <span className={cn(fontMono, "text-sm font-bold tracking-[.08em] text-[#04130d]", "bg-[var(--home-red-highlight)] px-2 py-1")}>
                   {unread}
                 </span>
               )}
@@ -547,11 +543,11 @@ function InboxPanel({ messages, user }) {
 
         {!user ? (
           <div className="border-t border-white/12 py-8">
-            <p className="mb-5 text-base text-[#aab3c8]">{t("commonPages.homeSignInMessages")}</p>
+            <p className="mb-5 text-base text-[var(--home-red-copy)]">{t("commonPages.homeSignInMessages")}</p>
             <Link to="/login" className={ghostCta}>{t("auth.signIn")}</Link>
           </div>
         ) : !messages?.length ? (
-          <p className="border-t border-white/12 py-8 text-base text-[#aab3c8]">
+          <p className="border-t border-white/12 py-8 text-base text-[var(--home-red-copy)]">
             {t("commonPages.homeInboxEmpty")}
           </p>
         ) : (
@@ -562,7 +558,7 @@ function InboxPanel({ messages, user }) {
                 to={`/inbox?id=${msg.id}`}
                 className={cn(focusRing, "grid grid-cols-[auto_1fr_auto] items-center gap-4 border-t border-white/12 py-4")}
               >
-                <div className="flex h-9 w-9 items-center justify-center overflow-hidden bg-[#10183a] text-xs font-bold text-[#aab3c8]">
+                <div className="flex h-9 w-9 items-center justify-center overflow-hidden bg-[var(--home-red-card-hover)] text-xs font-bold text-[var(--home-red-copy)]">
                   {msg.sender_avatar_url ? (
                     <img src={msg.sender_avatar_url} alt="" className="h-full w-full object-cover" />
                   ) : (
@@ -571,20 +567,20 @@ function InboxPanel({ messages, user }) {
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-baseline justify-between gap-3">
-                    <span className={cn("truncate text-sm font-medium", msg.is_read ? "text-[#7f8aa3]" : "text-white")}>
+                    <span className={cn("truncate text-sm font-medium", msg.is_read ? "text-[var(--home-red-muted)]" : "text-white")}>
                       {msg.is_system ? t("commonPages.homeStageSystem") : (msg.sender_gamertag || t("commonPages.homeUnknown"))}
                     </span>
-                    <span className={cn(fontMono, "shrink-0 text-[10px] tracking-[.12em] text-[#7f8aa3]")}>
+                    <span className={cn(fontMono, "shrink-0 text-[10px] tracking-[.12em] text-[var(--home-red-muted)]")}>
                       {timeAgo(msg.created_date)}
                     </span>
                   </div>
-                  <p className={cn("mt-1 truncate text-sm", msg.is_read ? "text-[#7f8aa3]" : "text-[#aab3c8]")}>
+                  <p className={cn("mt-1 truncate text-sm", msg.is_read ? "text-[var(--home-red-muted)]" : "text-[var(--home-red-copy)]")}>
                     {msg.subject}
                   </p>
                 </div>
                 <span
                   aria-hidden="true"
-                  className={cn("h-2 w-2 rounded-full", msg.is_read ? "bg-white/15" : "bg-[#00d4ff]")}
+                  className={cn("h-2 w-2 rounded-full", msg.is_read ? "bg-white/15" : "bg-[var(--home-red-highlight)]")}
                 />
               </Link>
             ))}
@@ -631,7 +627,7 @@ function MobileHomeDashboard({
               : t("commonPages.homeMobileWelcome")}
           </h1>
           {displayName && (
-            <p className="mt-2 truncate text-base text-[#aab3c8]">{displayName}</p>
+            <p className="mt-2 truncate text-base text-[var(--home-red-copy)]">{displayName}</p>
           )}
         </Link>
         {player?.avatar_url && (
@@ -645,14 +641,14 @@ function MobileHomeDashboard({
       </header>
 
       <Link to="/game-day" className={cn(focusRing, "block")}>
-        <ClipCard accent="#00d4ff">
-          <p className={cn(fontMono, "text-[11px] font-bold uppercase tracking-[.2em] text-[#00d4ff]")}>
+        <ClipCard accent="var(--home-red-highlight)">
+          <p className={cn(fontMono, "text-[11px] font-bold uppercase tracking-[.2em] text-[var(--home-red-highlight)]")}>
             {t("commonPages.homeGameDay")}
           </p>
           <p className={cn(fontDisplay, "mt-3 text-[32px] font-normal uppercase leading-none text-white")}>
             {t("commonPages.homeMobileOpenGameDay")}
           </p>
-          <p className="mt-3 text-sm leading-[1.55] text-[#aab3c8]">
+          <p className="mt-3 text-sm leading-[1.55] text-[var(--home-red-copy)]">
             {nextMatch
               ? `${formatMatchWhen(nextMatch.scheduled_date)} · ${homeName} vs ${awayName}`
               : t("commonPages.homeMobileNoMatchHint")}
@@ -675,12 +671,12 @@ function MobileHomeDashboard({
             const away = match.away_club_name || match.away_player_name || "TBD";
             return (
               <Link key={match.id || index} to="/game-day" className={cn(focusRing, "grid grid-cols-[5.5rem_1fr] items-center gap-3 border-t border-white/12 py-3")}>
-                <span className={cn(fontMono, "text-[10px] font-bold uppercase tracking-[.12em] text-[#00d4ff]")}>
+                <span className={cn(fontMono, "text-[10px] font-bold uppercase tracking-[.12em] text-[var(--home-red-highlight)]")}>
                   {match.status === "live" ? "LIVE" : formatMatchWhen(match.scheduled_date).split(" · ")[0]}
                 </span>
                 <span className="grid min-w-0 grid-cols-[1fr_auto_1fr] items-center gap-2 text-sm text-white">
                   <span className="truncate">{home}</span>
-                  <span className={cn(fontMono, "text-[10px] uppercase tracking-[.14em] text-[#7f8aa3]")}>vs</span>
+                  <span className={cn(fontMono, "text-[10px] uppercase tracking-[.14em] text-[var(--home-red-muted)]")}>vs</span>
                   <span className="truncate text-right">{away}</span>
                 </span>
               </Link>
@@ -695,7 +691,7 @@ function MobileHomeDashboard({
             <h2 className={cn(fontDisplay, "inline-flex items-center gap-2 text-[28px] font-normal uppercase leading-none text-white")}>
               {t("nav.inbox")}
               {unread > 0 && (
-                <span className={cn(fontMono, "bg-[#00d4ff] px-1.5 py-0.5 text-[10px] font-bold text-[#04130d]")}>
+                <span className={cn(fontMono, "bg-[var(--home-red-highlight)] px-1.5 py-0.5 text-[10px] font-bold text-[#04130d]")}>
                   {unread}
                 </span>
               )}
@@ -705,19 +701,19 @@ function MobileHomeDashboard({
             </Link>
           </div>
           {!messages?.length ? (
-            <p className="border-t border-white/12 py-4 text-sm text-[#aab3c8]">{t("commonPages.homeInboxEmpty")}</p>
+            <p className="border-t border-white/12 py-4 text-sm text-[var(--home-red-copy)]">{t("commonPages.homeInboxEmpty")}</p>
           ) : (
             messages.slice(0, 2).map((msg) => (
               <Link key={msg.id} to={`/inbox?id=${msg.id}`} className={cn(focusRing, "flex items-center gap-3 border-t border-white/12 py-3")}>
                 <div className="min-w-0 flex-1">
-                  <p className={cn("truncate text-sm", msg.is_read ? "text-[#7f8aa3]" : "font-medium text-white")}>
+                  <p className={cn("truncate text-sm", msg.is_read ? "text-[var(--home-red-muted)]" : "font-medium text-white")}>
                     {msg.subject || msg.title || t("commonPages.homeStageSystem")}
                   </p>
-                  <p className={cn(fontMono, "mt-1 text-[10px] tracking-[.12em] text-[#7f8aa3]")}>
+                  <p className={cn(fontMono, "mt-1 text-[10px] tracking-[.12em] text-[var(--home-red-muted)]")}>
                     {timeAgo(msg.created_date)}
                   </p>
                 </div>
-                {!msg.is_read && <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full bg-[#00d4ff]" />}
+                {!msg.is_read && <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full bg-[var(--home-red-highlight)]" />}
               </Link>
             ))
           )}
@@ -743,14 +739,14 @@ function MobileHomeDashboard({
           <div className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-1">
             {newsItems.slice(0, 4).map((item) => (
               <Link key={item.id} to="/news" className={cn(focusRing, "w-[min(78vw,260px)] shrink-0 snap-start")}>
-                <ClipCard accent="#4d8dff">
-                  <p className={cn(fontMono, "text-[10px] font-bold uppercase tracking-[.18em] text-[#4d8dff]")}>
+                <ClipCard accent="var(--home-red-highlight)">
+                  <p className={cn(fontMono, "text-[10px] font-bold uppercase tracking-[.18em] text-[var(--home-red-highlight)]")}>
                     {item._category || item.category || t("commonPages.general")}
                   </p>
                   <p className={cn(fontDisplay, "mt-3 text-[22px] font-normal uppercase leading-[1.05] text-white")}>
                     {item.title}
                   </p>
-                  <p className={cn(fontMono, "mt-3 text-[10px] tracking-[.12em] text-[#7f8aa3]")}>
+                  <p className={cn(fontMono, "mt-3 text-[10px] tracking-[.12em] text-[var(--home-red-muted)]")}>
                     {timeAgo(item.published_at)}
                   </p>
                 </ClipCard>
@@ -790,10 +786,10 @@ export default function Home() {
     const safe = (promise) => Promise.resolve(promise).catch(() => []);
 
     safe(stageClient.entities.HomePageContent.filter({}, null, 1))
-      .then((rows) => setCms(rows?.[0] || null));
+      .then((rows) => setCms(rows?.[0] ? refreshHomeCopy(rows[0]) : null));
 
     safe(stageClient.entities.FaqItem.filter({ is_active: 1 }, "sort_order", 50))
-      .then((rows) => setFaqItems(rows || []));
+      .then((rows) => setFaqItems((rows || []).map(refreshHomeCopy)));
 
     safe(stageClient.entities.CompetitionSeason.list("-season_number", 10))
       .then((rows) => setSeasons(rows || []));
@@ -856,7 +852,7 @@ export default function Home() {
   return (
     <div
       ref={pageRef}
-      className="landing-v2 min-h-screen overflow-x-hidden bg-[#06091a] font-['Chakra_Petch',system-ui,sans-serif] text-white selection:bg-[#00d4ff] selection:text-[#04131a]"
+      className="landing-v2 home-red-theme min-h-screen overflow-x-hidden bg-[var(--home-red-base)] font-['Chakra_Petch',system-ui,sans-serif] text-white selection:bg-[var(--home-red-highlight)] selection:text-[#24151a]"
     >
       <MobileHomeDashboard
         user={user}
@@ -872,7 +868,7 @@ export default function Home() {
       />
 
       <div className="hidden md:block">
-        <section className={cn(pagePad, "relative box-border flex aspect-auto min-h-[720px] flex-col justify-center overflow-hidden bg-[#06091a] py-[clamp(56px,6vw,96px)] lg:aspect-video lg:min-h-0")}>
+        <section className={cn(pagePad, "relative box-border flex aspect-auto min-h-[720px] flex-col justify-center overflow-hidden bg-[var(--home-red-base)] py-[clamp(56px,6vw,96px)] lg:aspect-video lg:min-h-0")}>
           <img
             src={heroBg}
             alt=""
@@ -886,17 +882,17 @@ export default function Home() {
           />
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,#06091a_0%,rgba(6,9,26,.92)_28%,rgba(6,9,26,.55)_52%,rgba(6,9,26,0)_78%)]"
+            className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,var(--home-red-base)_0%,var(--home-hero-fade-strong)_28%,var(--home-hero-fade-mid)_52%,var(--home-hero-fade-end)_78%)]"
           />
           <div className="relative z-10 max-w-[720px]">
             <h1 className={cn(fontDisplay, "m-0 text-[clamp(36px,9vw,160px)] font-normal uppercase leading-[.88] tracking-[-.01em] text-white")}>
               {heroTitle}
               <br />
-              <span className={cn(fontDisplay, fontItalic, "text-[#00d4ff] [text-shadow:0_0_48px_rgba(0,212,255,.45)]")}>
+              <span className={cn(fontDisplay, fontItalic, "home-stage-word text-[#00d4ff] [text-shadow:0_0_48px_rgba(0,212,255,.45)]")}>
                 {heroSubtitle}
               </span>
             </h1>
-            <p className="mb-[clamp(14px,2.2vw,36px)] mt-[clamp(12px,2vw,32px)] max-w-[520px] text-[clamp(13px,1.35vw,19px)] leading-[1.55] text-[#aab3c8] text-pretty">
+            <p className="mb-[clamp(14px,2.2vw,36px)] mt-[clamp(12px,2vw,32px)] max-w-[520px] text-[clamp(13px,1.35vw,19px)] leading-[1.55] text-[var(--home-red-copy)] text-pretty">
               {textOrDefault(c.hero_description, DEFAULTS.hero_description)}
             </p>
             <div className="flex flex-wrap gap-3.5">
@@ -924,31 +920,31 @@ export default function Home() {
         <FeatureBlock {...features[2]} />
         <InboxPanel messages={messages} user={user} />
 
-        <section className="border-t border-white/[.08] bg-[#080d22] py-[clamp(64px,8vw,112px)]">
+        <section className="border-t border-white/[.08] bg-[var(--home-red-section)] py-[clamp(64px,8vw,112px)]">
           <div className={pagePad}>
             <div className="mb-8 flex flex-wrap items-end justify-between gap-6">
               <h2 className={cn(fontDisplay, "m-0 text-[clamp(48px,6vw,96px)] font-normal uppercase leading-[.9] text-white")}>
                 {t("commonPages.homeJumpIn")}
               </h2>
-              <div className={cn(fontMono, "text-xs font-bold uppercase tracking-[.32em] text-[#4d8dff]")}>
+              <div className={cn(fontMono, "text-xs font-bold uppercase tracking-[.32em] text-[var(--home-red-highlight)]")}>
                 {t("commonPages.homePlatform")}
               </div>
             </div>
-            <p className="mb-8 max-w-[52ch] text-lg leading-[1.6] text-[#aab3c8]">
+            <p className="mb-8 max-w-[52ch] text-lg leading-[1.6] text-[var(--home-red-copy)]">
               {t("commonPages.homeJumpInDesc")}
             </p>
-            <div className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-px border border-white/10 bg-white/10">
+            <div className="home-jump-grid grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-px border border-white/10 bg-white/10">
               {NAV_CARDS.map((card) => (
                 <Link
                   key={card.to}
                   to={card.to}
-                  className={cn(focusRing, "block bg-[#080d22] px-8 pb-10 pt-9 transition-colors hover:bg-[#0c1330]")}
+                  className={cn(focusRing, "home-jump-card block bg-[var(--home-red-section)] px-8 pb-10 pt-9 transition-colors hover:bg-[var(--home-red-card-hover)]")}
                 >
                   <div className="mb-6 h-1 w-7" style={{ background: card.accent }} />
                   <h3 className={cn(fontDisplay, "m-0 text-[26px] font-normal uppercase leading-[1.1] text-white")}>
                     {t(`commonPages.${card.labelKey}`)}
                   </h3>
-                  <p className="mt-3 text-base leading-[1.6] text-[#aab3c8]">
+                  <p className="mt-3 text-base leading-[1.6] text-[var(--home-red-copy)]">
                     {t(`commonPages.${card.descKey}`)}
                   </p>
                 </Link>
@@ -962,7 +958,7 @@ export default function Home() {
           <h2 className={cn(fontDisplay, "m-0 text-[clamp(40px,5vw,72px)] font-normal uppercase leading-[.9] text-white")}>
             {t("commonPages.homeFaq")}
           </h2>
-          <p className="mb-8 mt-5 text-lg leading-[1.6] text-[#aab3c8]">{t("commonPages.homeFaqDesc")}</p>
+          <p className="mb-8 mt-5 text-lg leading-[1.6] text-[var(--home-red-copy)]">{t("commonPages.homeFaqDesc")}</p>
           <div>
             {(faqItems.length ? faqItems : DEFAULTS.faq_items).map((item) => (
               <FaqItem key={item.id || item.question} question={item.question} answer={item.answer} />
@@ -974,38 +970,38 @@ export default function Home() {
         <footer className={cn(pagePad, "border-t border-white/[.08] py-12")}>
           <div className="grid grid-cols-1 gap-10 sm:grid-cols-3">
             <div>
-              <p className={cn(fontDisplay, fontItalic, "text-5xl uppercase leading-none text-[#00d4ff] [text-shadow:0_0_28px_rgba(0,212,255,.45)]")}>
+              <p className={cn(fontDisplay, fontItalic, "text-5xl uppercase leading-none text-[var(--home-red-highlight)] [text-shadow:0_0_28px_rgba(255,238,214,.2)]")}>
                 STAGE
               </p>
-              <p className="mt-4 max-w-xs text-sm leading-[1.6] text-[#7f8aa3]">
+              <p className="mt-4 max-w-xs text-sm leading-[1.6] text-[var(--home-red-muted)]">
                 {textOrDefault(c.footer_tagline, DEFAULTS.footer_tagline)}
               </p>
             </div>
             <div>
-              <p className={cn(fontMono, "mb-4 text-[11px] font-bold uppercase tracking-[.22em] text-[#7f8aa3]")}>
+              <p className={cn(fontMono, "mb-4 text-[11px] font-bold uppercase tracking-[.22em] text-[var(--home-red-muted)]")}>
                 {t("commonPages.homePlatform")}
               </p>
               <div className="space-y-2">
                 {FOOTER_LINKS.map(([labelKey, to]) => (
-                  <Link key={to} to={to} className="block text-sm text-[#aab3c8] transition-colors hover:text-white">
+                  <Link key={to} to={to} className="block text-sm text-[var(--home-red-copy)] transition-colors hover:text-white">
                     {t(`commonPages.${labelKey}`)}
                   </Link>
                 ))}
               </div>
             </div>
             <div>
-              <p className={cn(fontMono, "mb-4 text-[11px] font-bold uppercase tracking-[.22em] text-[#7f8aa3]")}>
+              <p className={cn(fontMono, "mb-4 text-[11px] font-bold uppercase tracking-[.22em] text-[var(--home-red-muted)]")}>
                 {t("commonPages.homeContact")}
               </p>
               <a
                 href={`mailto:${textOrDefault(c.contact_email, DEFAULTS.contact_email)}`}
-                className={cn(focusRing, "text-sm text-[#aab3c8] transition-colors hover:text-[#00d4ff]")}
+                className={cn(focusRing, "text-sm text-[var(--home-red-copy)] transition-colors hover:text-[var(--home-red-highlight)]")}
               >
                 {textOrDefault(c.contact_email, DEFAULTS.contact_email)}
               </a>
             </div>
           </div>
-          <div className={cn(fontMono, "mt-10 border-t border-white/[.08] pt-6 text-center text-[11px] tracking-[.14em] text-[#7f8aa3]")}>
+          <div className={cn(fontMono, "mt-10 border-t border-white/[.08] pt-6 text-center text-[11px] tracking-[.14em] text-[var(--home-red-muted)]")}>
             © {new Date().getFullYear()} STAGE. {t("commonPages.homeRights")}
           </div>
         </footer>

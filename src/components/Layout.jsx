@@ -9,6 +9,8 @@ import {
   X, LayoutDashboard, UserCog, Binoculars, Archive, Mail, Menu, Compass,
 } from "lucide-react";
 import "./navigation/arenaNavigation.css";
+import "./navigation/darkRedNavigation.css";
+import "./profile/profileDarkRed.css";
 import LogoImg from '@/assets/Stadium Logo.png';
 import { useState, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
@@ -102,7 +104,8 @@ const SUBSCRIPTION_LABELS = {
 };
 
 const THEMES = [
-  { id: "theme-dark",   label: "Dark",      icon: Moon },
+  { id: "theme-dark",   label: "Dark Blue",      icon: Moon },
+  { id: "theme-red",    label: "Dark Red",       icon: Palette },
   { id: "theme-video",  label: "Live Dark", icon: Video },
   { id: "theme-custom", label: "Custom",    icon: Palette },
 ];
@@ -1961,6 +1964,17 @@ export default function Layout() {
   const [accountMode,      setAccountMode]      = useState(() => localStorage.getItem("stage-account-mode") || "player");
   const [accountIntent,    setAccountIntent]    = useState("player");
   const [theme,            setTheme]            = useState(readStoredTheme);
+  const redProfiles = theme === 'theme-red' && /^\/(?:profile\/?|players\/[^/]+\/?|clubs\/[^/]+\/?)$/.test(location.pathname);
+  useEffect(() => {
+    document.body.classList.toggle('stage-red-profiles', redProfiles);
+    return () => document.body.classList.remove('stage-red-profiles');
+  }, [redProfiles]);
+  const redHome = theme === 'theme-red' && ['/', '/home'].includes(location.pathname.replace(/\/$/, '') || '/');
+  useEffect(() => {
+    document.body.classList.toggle('stage-navigation-red', theme === 'theme-red');
+    document.documentElement.classList.toggle('stage-red-home', redHome);
+    return () => { document.body.classList.remove('stage-navigation-red'); document.documentElement.classList.remove('stage-red-home'); };
+  }, [redHome, theme]);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showClubModal,    setShowClubModal]    = useState(false);
   const [notifCount,       setNotifCount]       = useState(0);
@@ -2394,7 +2408,7 @@ export default function Layout() {
 
       {/* ── EAFC26 HEADER (desktop only) ──────────────────────── */}
       <header
-        className={cn("relative z-50 shrink-0 overflow-visible hidden md:block", !showAdminHeader && "stage-arena-header", !showAdminHeader && isWhiteTheme && "stage-arena-header-light")}
+        className={cn("stage-themed-header relative z-50 shrink-0 overflow-visible hidden md:block", !showAdminHeader && "stage-arena-header", !showAdminHeader && isWhiteTheme && "stage-arena-header-light")}
         style={{
           background: isWhiteTheme
             ? "linear-gradient(180deg, rgba(255,255,255,0.88) 0%, rgba(255,255,255,0.74) 100%)"
@@ -2546,6 +2560,7 @@ export default function Layout() {
         <main
           className={cn(
             "relative z-[1] min-w-0 flex-1 overflow-x-clip",
+            location.pathname === "/dashboard" && "dashboard-page-shell",
             isBannerStickyFullBleedRoute(location.pathname)
               || isScheduleFullBleedRoute(location.pathname)
               || isNewsFullBleedRoute(location.pathname)
@@ -2568,7 +2583,7 @@ export default function Layout() {
             <div className="absolute inset-0 flex min-h-0 flex-col overflow-hidden pb-[calc(var(--mobile-tab-h)+var(--safe-bottom))] md:pb-0">
               <Outlet />
             </div>
-          ) : fullBleedProfileRoute ? (
+          ) : fullBleedProfileRoute || location.pathname === "/dashboard" ? (
             <div className="min-h-full pb-[calc(var(--mobile-tab-h)+var(--safe-bottom)+3.75rem)] md:pb-8">
               <Outlet />
             </div>

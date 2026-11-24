@@ -1,3 +1,4 @@
+import { LANDING_COPY_GROUPS, landingContent } from '@/lib/landingContent';
 import { useState, useEffect } from "react";
 import { stageClient } from "@/api/stageClient";
 import PositionedImageUploadField from "@/components/admin/shared/PositionedImageUploadField";
@@ -21,7 +22,7 @@ const DEFAULT_STATS = (t) => [
 function EditorSection({ title, children, defaultOpen = false, badge }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="border border-border rounded-xl overflow-hidden">
+    <div className="border border-border overflow-hidden">
       <button
         type="button"
         className="w-full flex items-center justify-between px-4 py-3 bg-secondary/30 text-left hover:bg-secondary/50 transition-colors"
@@ -56,11 +57,13 @@ export default function LandingPageEditor() {
   const [form, setForm]     = useState(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved]   = useState(false);
+  const [loadError,setLoadError] = useState('');
 
   useEffect(() => {
     (stageClient.entities.LandingConfig?.filter({}, null, 1) ?? Promise.resolve([]))
-      .catch(() => [])
+      .catch(error => { setLoadError(error.message); return null; })
       .then(rows => {
+        if (!rows) return;
         const r = rows[0] || {};
         setRecord(r);
         setForm(buildForm(r));
@@ -75,32 +78,35 @@ export default function LandingPageEditor() {
       } catch {}
       return DEFAULT_STATS(t).map(s => ({ ...s }));
     })();
+    const content = landingContent(r.content_json);
+    if (!content.slides[0].url && r.hero_image_url) content.slides[0] = {url:r.hero_image_url,position:r.hero_image_position || '50% 10%',zoom:Number(r.hero_image_zoom) || 100};
     return {
-      hero_title:         r.hero_title         ?? "The Competitive EA FC Platform",
-      hero_description:   r.hero_description   ?? "",
+      hero_title:         r.hero_title         ?? t("commonPages.landV2Eyebrow"),
+      hero_description:   r.hero_description   ?? t("commonPages.landV2HeroDesc"),
       hero_image_url:     r.hero_image_url     ?? "",
       hero_image_position:r.hero_image_position?? "50% 10%",
       hero_image_zoom:    r.hero_image_zoom    ?? null,
       stats,
       section1_tag:       r.section1_tag       ?? "Compete",
-      section1_title:     r.section1_title     ?? "Structured Leagues & Competitions",
-      section1_text:      r.section1_text      ?? "",
+      section1_title:     r.section1_title     ?? t("commonPages.landV2CompeteTitle"),
+      section1_text:      r.section1_text      ?? t("commonPages.landV2CompeteBody"),
       section1_image_url: r.section1_image_url ?? "",
       section1_image_position: r.section1_image_position ?? "50% 50%",
       section1_image_zoom:     r.section1_image_zoom     ?? null,
       section2_tag:       r.section2_tag       ?? "Manage",
-      section2_title:     r.section2_title     ?? "Your Club, Your Rules",
-      section2_text:      r.section2_text      ?? "",
+      section2_title:     r.section2_title     ?? t("commonPages.landV2ManageTitle"),
+      section2_text:      r.section2_text      ?? t("commonPages.landV2ManageBody"),
       section2_image_url: r.section2_image_url ?? "",
       section2_image_position: r.section2_image_position ?? "50% 50%",
       section2_image_zoom:     r.section2_image_zoom     ?? null,
       section3_tag:       r.section3_tag       ?? "Grow",
-      section3_title:     r.section3_title     ?? "Build a Career Worth Watching",
-      section3_text:      r.section3_text      ?? "",
+      section3_title:     r.section3_title     ?? t("commonPages.landV2GrowTitle"),
+      section3_text:      r.section3_text      ?? t("commonPages.landV2GrowBody"),
       section3_image_url: r.section3_image_url ?? "",
       section3_image_position: r.section3_image_position ?? "50% 50%",
       section3_image_zoom:     r.section3_image_zoom     ?? null,
       footer_tagline:     r.footer_tagline     ?? "",
+      content,
     };
   }
 
@@ -117,14 +123,24 @@ export default function LandingPageEditor() {
   }
 
   async function handleSave() {
-    if (!form) return;
+    function setContent(field, value) { setForm(f => ({...f,content:{...f.content,[field]:value}})); }
+  function setSlide(index, field, value) {
+    setForm(f => ({...f,content:{...f.content,slides:f.content.slides.map((slide,i)=>i===index?{...slide,[field]:value}:slide)}}));
+  }
+  if (loadError) return <p role="alert">Landing page settings could not be loaded: {loadError}. Reload before editing.</p>;
+  if (!form) return;
     setSaving(true);
     try {
       const payload = {
         ...form,
         stats_json: JSON.stringify(form.stats || []),
+        content_json: JSON.stringify(landingContent(form.content)),
+        hero_image_url: form.content.slides[0].url,
+        hero_image_position: form.content.slides[0].position,
+        hero_image_zoom: form.content.slides[0].zoom,
       };
       delete payload.stats;
+      delete payload.content;
       if (record?.id) {
         await stageClient.entities.LandingConfig.update(record.id, payload);
       } else {
@@ -140,7 +156,17 @@ export default function LandingPageEditor() {
     }
   }
 
+  function setContent(field, value) { setForm(f => ({...f,content:{...f.content,[field]:value}})); }
+  function setSlide(index, field, value) {
+    setForm(f => ({...f,content:{...f.content,slides:f.content.slides.map((slide,i)=>i===index?{...slide,[field]:value}:slide)}}));
+  }
+  if (loadError) return <p role="alert">Landing page settings could not be loaded: {loadError}. Reload before editing.</p>;
   if (!form) return <div className="text-xs text-muted-foreground py-6 text-center">{t("admin.actions.loading")}</div>;
+
+  const copySection = title => {
+    const group = LANDING_COPY_GROUPS.find(item=>item.title===title);
+    return <EditorSection key={title} title={title}>{group.fields.map(field=><Field key={field.key} label={field.label}><Textarea rows={field.defaultText.length>100?3:2} value={form.content.copy[field.key]} placeholder={field.defaultText} onChange={e=>setContent('copy',{...form.content.copy,[field.key]:e.target.value})} /><p className="text-xs text-muted-foreground">Website default: {field.defaultText}</p></Field>)}</EditorSection>;
+  };
 
   const SaveButton = ({ full }) => (
     <Button
@@ -157,15 +183,16 @@ export default function LandingPageEditor() {
   );
 
   return (
-    <div className="space-y-4 max-w-2xl">
+    <div className="space-y-4 max-w-5xl">
       <div className="flex items-center justify-between mb-2">
         <div>
           <h3 className="font-heading text-lg uppercase tracking-tight text-foreground">{t("admin.editors.landingTitle")}</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">{t("admin.editors.landingSubtitle")}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Edit the current website from top to bottom. Save all changes to publish them to the landing page. Blank text overrides keep the translated website defaults.</p>
         </div>
         <SaveButton />
       </div>
 
+      {copySection('Navigation')}
       {/* ── Hero ── */}
       <EditorSection title={t("admin.editors.heroSection")} defaultOpen>
         <Field label={t("admin.editors.eyebrowText")}>
@@ -174,21 +201,14 @@ export default function LandingPageEditor() {
         <Field label={t("admin.editors.heroDescription")}>
           <Textarea value={form.hero_description} onChange={e => set("hero_description", e.target.value)} className="text-xs resize-none" rows={3} placeholder={t("admin.editors.heroDescPlaceholder")} />
         </Field>
-        <PositionedImageUploadField
-          label={t("admin.editors.heroBackground")}
-          value={form.hero_image_url}
-          onChange={v => set("hero_image_url", v)}
-          position={form.hero_image_position}
-          onPositionChange={v => set("hero_image_position", v)}
-          zoom={form.hero_image_zoom}
-          onZoomChange={v => set("hero_image_zoom", v)}
-          preview="hero"
-          placeholder={t("admin.editors.imageUrlPlaceholder")}
-          title={t("admin.editors.yourStageAwaits")}
-          subtitle={form.hero_title}
-        />
       </EditorSection>
 
+      <EditorSection title="Hero slideshow — six pictures" defaultOpen>
+        <p className="text-xs text-muted-foreground">These are the six slideshow positions on the website, in order. An empty slot keeps its original picture; existing first-hero artwork is preserved in Slide 1.</p>
+        <Field label="Seconds per slide"><Input type="number" min="3" max="30" step="0.5" value={form.content.interval} onChange={e=>setContent('interval',e.target.value)} /></Field>
+        {form.content.slides.map((slide,i)=><PositionedImageUploadField key={i} label={`Slide ${i+1}`} value={slide.url} onChange={v=>setSlide(i,'url',v)} position={slide.position} onPositionChange={v=>setSlide(i,'position',v)} zoom={slide.zoom} onZoomChange={v=>setSlide(i,'zoom',v)} preview="hero" />)}
+      </EditorSection>
+      {copySection('Hero titles and slideshow labels')}
       {/* ── Stats Bar ── */}
       <EditorSection title={t("admin.editors.statsBar")} badge={form.stats?.length}>
         <p className="text-[10px] text-muted-foreground">{t("admin.editors.statsBarHint")}</p>
@@ -208,6 +228,8 @@ export default function LandingPageEditor() {
         </div>
       </EditorSection>
 
+      {copySection('GOST introduction and tiers')}
+      {copySection('Regional leagues introduction')}
       {/* ── Picture Sections ── */}
       {[
         { n: 1, defaultTag: t("admin.editors.compete") },
@@ -239,8 +261,16 @@ export default function LandingPageEditor() {
         </EditorSection>
       ))}
 
+      <EditorSection title="Feature overview picture and website logo">
+        {[['platform_image','Feature overview — large picture'],['logo_image','Navigation and footer logo']].map(([key,label])=><PositionedImageUploadField key={key} label={label} value={form.content[key].url} onChange={v=>setContent(key,{...form.content[key],url:v})} position={form.content[key].position} onPositionChange={v=>setContent(key,{...form.content[key],position:v})} zoom={form.content[key].zoom} onZoomChange={v=>setContent(key,{...form.content[key],zoom:v})} preview="landscape" />)}
+      </EditorSection>
+      {copySection('Example contract')}
+      {copySection('Features')}
+      {copySection('Getting started')}
+      {copySection('Closing invitation')}
+      {copySection('Footer')}
       {/* ── Footer ── */}
-      <EditorSection title={t("admin.editors.footer")}>
+      <EditorSection title="Footer tagline">
         <Field label={t("admin.editors.tagline")}>
           <Input value={form.footer_tagline} onChange={e => set("footer_tagline", e.target.value)} className="h-8 text-xs" placeholder={t("admin.editors.footerTaglinePlaceholder")} />
         </Field>

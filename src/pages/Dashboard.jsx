@@ -1,3 +1,4 @@
+import "./dashboardDarkRed.css";
 import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -30,7 +31,7 @@ function DashboardRow({ children, className }) {
     <div
       className={cn(
         CLIP_12,
-        "bg-gradient-to-r from-[#070b14]/95 via-black/85 to-[#070b14]/90 px-4 py-3 transition-all backdrop-blur-md hover:bg-black/90",
+        "dashboard-row bg-gradient-to-r from-[#070b14]/95 via-black/85 to-[#070b14]/90 px-4 py-3 transition-all backdrop-blur-md hover:bg-black/90",
         className,
       )}
     >
@@ -86,7 +87,7 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <GamerProfileShell scrollMode="page">
+      <GamerProfileShell scrollMode="page" className="dashboard-theme">
         <div className="flex items-center justify-center min-h-[50vh]">
           <div className="w-8 h-8 border-4 border-cyan-400/20 border-t-cyan-400 rounded-full animate-spin" />
         </div>
@@ -110,12 +111,12 @@ export default function Dashboard() {
   const opponentInfo = getMatchOpponent(nextMatch, player, club);
 
   return (
-    <GamerProfileShell scrollMode="page">
+    <GamerProfileShell scrollMode="page" className="dashboard-theme">
       <div className="px-4 py-6 lg:px-8 lg:py-8">
-        <div className="mx-auto max-w-6xl space-y-6">
+        <div className="w-full space-y-6">
           <header className={cn(CLIP_16, "p-px")} style={{ background: "rgba(0, 212, 255, 0.4)" }}>
-            <div className={cn(CLIP_16, "relative overflow-hidden bg-gradient-to-br from-cyan-500/10 via-[#0d1528]/80 to-amber-500/10 p-5 sm:p-6")}>
-            <div className="absolute inset-0 opacity-30 pointer-events-none" style={{ backgroundImage: "radial-gradient(circle at 85% 20%, rgba(255,184,0,0.25), transparent 40%), radial-gradient(circle at 10% 80%, rgba(0,229,255,0.2), transparent 35%)" }} />
+            <div className={cn(CLIP_16, "dashboard-hero bg-gradient-to-br relative overflow-hidden from-cyan-500/10 via-[#0d1528]/80 to-amber-500/10 p-5 sm:p-6")}>
+            <div className="dashboard-hero-light absolute inset-0 opacity-30 pointer-events-none" style={{ backgroundImage: "radial-gradient(circle at 85% 20%, rgba(255,184,0,0.25), transparent 40%), radial-gradient(circle at 10% 80%, rgba(0,229,255,0.2), transparent 35%)" }} />
             <div className="relative flex flex-wrap items-start justify-between gap-4">
               <div className="flex items-start gap-4 min-w-0">
                 <DashboardRankRing rank={playerRank.rank} winRate={winRate} />
@@ -492,7 +493,7 @@ export default function Dashboard() {
         ) : null}
 
         <section className={cn(CLIP_16, "p-px")} style={{ background: "rgba(0, 212, 255, 0.28)" }}>
-          <div className={cn(CLIP_16, "flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-[#070b14]/92 via-black/88 to-[#070b14]/90 p-5 backdrop-blur-md")}>
+          <div className={cn(CLIP_16, "dashboard-footer flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-[#070b14]/92 via-black/88 to-[#070b14]/90 p-5 backdrop-blur-md")}>
           <div className="flex items-center gap-3">
             <Trophy className="w-5 h-5 text-white/40" />
             <p className="text-sm text-white/45">{t("commonPages.dashboardWelcomeHint")}</p>

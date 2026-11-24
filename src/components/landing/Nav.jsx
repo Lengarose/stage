@@ -13,7 +13,7 @@ const LINKS = [
   ['#how', 'commonPages.landHowItWorks'],
 ];
 
-export default function Nav({ onSignIn }) {
+export default function Nav({ onSignIn, logoImage }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
 
@@ -46,7 +46,7 @@ export default function Nav({ onSignIn }) {
             </svg>
           </button>
           <a href="#top" className={`${focusRing} flex min-w-0 items-center gap-3 text-white no-underline`}>
-            <img src={logo} alt="Stage" className="h-[30px] w-auto" />
+            <img src={logoImage || logo} alt="Stage" className="h-[30px] w-auto" />
             <span className={`${fontDisplay} ${fontItalic} hidden text-[22px] font-normal tracking-[.08em] sm:inline`}>STAGE</span>
           </a>
         </div>

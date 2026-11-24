@@ -1,0 +1,31 @@
+/* Dark red navigation with restrained metallic highlights. */
+.stage-navigation-red .stage-themed-header,
+.stage-navigation-red .mobile-liquid-topbar,
+.stage-navigation-red .mobile-liquid-bar {background:linear-gradient(115deg,#220b13,#3b101c 55%,#1b090f)!important;color:#fff!important;box-shadow:0 4px 24px #68071940!important;border-color:#b78b494d!important}
+.stage-navigation-red .stage-themed-header :is(.stage-nav-identity-name,.stage-nav-credits,.stage-nav-theme),
+.stage-navigation-red .stage-themed-header button,
+.stage-navigation-red .stage-themed-header select,
+.stage-navigation-red .stage-themed-header svg,
+.stage-navigation-red .mobile-liquid-topbar :is(a,button,svg),
+.stage-navigation-red .mobile-liquid-bar :is(a,button,svg,span) {color:#fff5ed!important}
+.stage-navigation-red .stage-arena-tab {background:#ffffff08}
+.stage-navigation-red .stage-arena-tab-active,
+.stage-navigation-red .stage-arena-tab:hover,
+.stage-navigation-red .stage-arena-tab[data-state='open'] {background:#e4bf731f!important;box-shadow:inset 2px 0 #e4bf73!important}
+.stage-navigation-red .stage-arena-tab > span {color:#fff3e9!important}
+.stage-navigation-red .stage-arena-tab-active > span {text-shadow:0 0 16px #e4bf7340!important}
+.stage-navigation-red .stage-arena-menu {background:#35121d!important;border-color:#a27b43!important;color:#fff5ed!important}
+.stage-navigation-red .stage-arena-menu :is(a,svg,span) {color:#fff5ed!important}
+.stage-navigation-red .stage-arena-menu a:hover,
+.stage-navigation-red .stage-arena-menu a:focus {background:#e4bf731f!important;color:white!important}
+.stage-navigation-red .stage-themed-header select option {background:#35121d;color:#fff5ed}
+.stage-navigation-red .mobile-liquid-tab-active {background:#e4bf7324!important;color:white!important}
+@media(prefers-reduced-motion:reduce) {.stage-navigation-red .stage-arena-tab {transition:none}}
+.stage-navigation-red .stage-themed-header>div.absolute {background:linear-gradient(90deg,transparent,#e4bf73,#fff,transparent)!important}
+.stage-navigation-red :is(.mobile-arena-menu,.mobile-liquid-sheet) {background:#35121d!important;color:#fff5ed!important;border-color:#a27b43!important}
+.stage-navigation-red .mobile-arena-menu :is(a,button,svg,span) {color:#fff5ed!important}
+.stage-navigation-red .mobile-liquid-tab.is-active {background:#e4bf7324!important}
+
+.stage-navigation-red .mobile-arena-nav {background:linear-gradient(115deg,#220b13,#3b101c 55%,#1b090f);border-color:#b78b4966}
+.stage-navigation-red .mobile-arena-nav :is(a,button) {color:#fff5ed}
+.stage-navigation-red .mobile-arena-nav [aria-current="page"] {background:#e4bf731f;box-shadow:inset 2px 0 #e4bf73}

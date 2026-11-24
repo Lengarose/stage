@@ -1,3 +1,4 @@
+import { HOME_COPY, HOME_FAQ, refreshHomeCopy } from '@/lib/homePageCopy';
 import { useState, useEffect } from "react";
 import { stageClient } from "@/api/stageClient";
 import PositionedImageUploadField from "@/components/admin/shared/PositionedImageUploadField";
@@ -49,10 +50,10 @@ export default function HomePageEditor() {
       stageClient.entities.HomePageContent.filter({}, null, 1).catch(() => []),
       stageClient.entities.FaqItem.filter({}, "sort_order", 100).catch(() => []),
     ]).then(([rows, faqs]) => {
-      const r = rows[0] || {};
+      const r = refreshHomeCopy(rows[0] || {});
       setRecord(r);
       setForm(buildForm(r));
-      setFaqItems(faqs || []);
+      setFaqItems(faqs?.length ? faqs.map(refreshHomeCopy) : HOME_FAQ.map(item=>({...item})));
     });
   }, []);
 
@@ -60,7 +61,7 @@ export default function HomePageEditor() {
     return {
       hero_title:         r.hero_title         ?? "Welcome To",
       hero_subtitle:      r.hero_subtitle      ?? "STAGE",
-      hero_description:   r.hero_description   ?? "",
+      hero_description:   r.hero_description   || HOME_COPY.hero_description,
       hero_image_url:     r.hero_image_url     ?? "",
       hero_image_position:r.hero_image_position?? "50% 10%",
       hero_image_zoom:    r.hero_image_zoom    ?? null,
@@ -70,23 +71,23 @@ export default function HomePageEditor() {
       hero_cta_2_url:     r.hero_cta_2_url     ?? "/game-day",
       hero_cta_3_label:   r.hero_cta_3_label   ?? "Store",
       hero_cta_3_url:     r.hero_cta_3_url     ?? "/lifestyle",
-      section1_title:     r.section1_title     ?? "What is STAGE?",
-      section1_text:      r.section1_text      ?? "",
+      section1_title:     r.section1_title     ?? HOME_COPY.section1_title,
+      section1_text:      r.section1_text      || HOME_COPY.section1_text,
       section1_image_url: r.section1_image_url ?? "",
       section1_image_position: r.section1_image_position ?? "50% 50%",
       section1_image_zoom:     r.section1_image_zoom     ?? null,
-      section2_title:     r.section2_title     ?? "How It Works",
-      section2_text:      r.section2_text      ?? "",
+      section2_title:     r.section2_title     ?? HOME_COPY.section2_title,
+      section2_text:      r.section2_text      || HOME_COPY.section2_text,
       section2_image_url: r.section2_image_url ?? "",
       section2_image_position: r.section2_image_position ?? "50% 50%",
       section2_image_zoom:     r.section2_image_zoom     ?? null,
-      section3_title:     r.section3_title     ?? "Built for Competitors",
-      section3_text:      r.section3_text      ?? "",
+      section3_title:     r.section3_title     ?? HOME_COPY.section3_title,
+      section3_text:      r.section3_text      || HOME_COPY.section3_text,
       section3_image_url: r.section3_image_url ?? "",
       section3_image_position: r.section3_image_position ?? "50% 50%",
       section3_image_zoom:     r.section3_image_zoom     ?? null,
       contact_email:      r.contact_email      ?? "contact@stage.gg",
-      footer_tagline:     r.footer_tagline     ?? "",
+      footer_tagline:     r.footer_tagline     || HOME_COPY.footer_tagline,
     };
   }
 

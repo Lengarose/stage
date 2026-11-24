@@ -146,7 +146,7 @@
   }
 
   /* ========= RED THEME ========= */
-  .theme-red {
+  .theme-red.stage-red-home {
     --background: 0 30% 4%;
     --foreground: 0 10% 95%;
     --card: 0 25% 7%;

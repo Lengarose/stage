@@ -4,6 +4,7 @@ const { v4: uuidv4 } = require('uuid');
 class LandingConfig {
   constructor(body = {}) {
     this.id              = body.id;
+    this.content_json = typeof body.content_json === 'object' && body.content_json !== null ? JSON.stringify(body.content_json) : body.content_json ?? null;
     this.hero_title      = body.hero_title      ?? null; // eyebrow label
     this.hero_description= body.hero_description?? null;
     this.hero_image_url  = body.hero_image_url  ?? null;
@@ -61,14 +62,14 @@ class LandingConfig {
         section1_tag, section1_title, section1_text, section1_image_url, section1_image_position, section1_image_zoom,
         section2_tag, section2_title, section2_text, section2_image_url, section2_image_position, section2_image_zoom,
         section3_tag, section3_title, section3_text, section3_image_url, section3_image_position, section3_image_zoom,
-        footer_tagline
-      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        footer_tagline, content_json
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [
         this.id, this.hero_title, this.hero_description, this.hero_image_url, this.hero_image_position, this.hero_image_zoom, statsVal,
         this.section1_tag, this.section1_title, this.section1_text, this.section1_image_url, this.section1_image_position, this.section1_image_zoom,
         this.section2_tag, this.section2_title, this.section2_text, this.section2_image_url, this.section2_image_position, this.section2_image_zoom,
         this.section3_tag, this.section3_title, this.section3_text, this.section3_image_url, this.section3_image_position, this.section3_image_zoom,
-        this.footer_tagline,
+        this.footer_tagline, this.content_json,
       ]
     );
   }
@@ -82,14 +83,14 @@ class LandingConfig {
         section1_tag=?, section1_title=?, section1_text=?, section1_image_url=?, section1_image_position=?, section1_image_zoom=?,
         section2_tag=?, section2_title=?, section2_text=?, section2_image_url=?, section2_image_position=?, section2_image_zoom=?,
         section3_tag=?, section3_title=?, section3_text=?, section3_image_url=?, section3_image_position=?, section3_image_zoom=?,
-        footer_tagline=?
+        footer_tagline=?, content_json=?
       WHERE id=?`,
       [
         this.hero_title, this.hero_description, this.hero_image_url, this.hero_image_position, this.hero_image_zoom, statsVal,
         this.section1_tag, this.section1_title, this.section1_text, this.section1_image_url, this.section1_image_position, this.section1_image_zoom,
         this.section2_tag, this.section2_title, this.section2_text, this.section2_image_url, this.section2_image_position, this.section2_image_zoom,
         this.section3_tag, this.section3_title, this.section3_text, this.section3_image_url, this.section3_image_position, this.section3_image_zoom,
-        this.footer_tagline,
+        this.footer_tagline, this.content_json,
         id,
       ]
     );
