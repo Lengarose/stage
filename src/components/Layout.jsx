@@ -1964,6 +1964,16 @@ export default function Layout() {
   const [accountMode,      setAccountMode]      = useState(() => localStorage.getItem("stage-account-mode") || "player");
   const [accountIntent,    setAccountIntent]    = useState("player");
   const [theme,            setTheme]            = useState(readStoredTheme);
+  const redSchedule = theme === 'theme-red' && /^\/schedule\/?$/.test(location.pathname);
+  useEffect(() => {
+    document.body.classList.toggle('stage-red-schedule', redSchedule);
+    return () => document.body.classList.remove('stage-red-schedule');
+  }, [redSchedule]);
+  const redInbox = theme === 'theme-red' && /^\/inbox\/?$/.test(location.pathname);
+  useEffect(() => {
+    document.body.classList.toggle('stage-red-inbox', redInbox);
+    return () => document.body.classList.remove('stage-red-inbox');
+  }, [redInbox]);
   const redProfiles = theme === 'theme-red' && /^\/(?:profile\/?|players\/[^/]+\/?|clubs\/[^/]+\/?)$/.test(location.pathname);
   useEffect(() => {
     document.body.classList.toggle('stage-red-profiles', redProfiles);

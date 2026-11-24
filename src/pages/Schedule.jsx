@@ -1,4 +1,5 @@
 import "@/components/schedule/scheduleTypography.css";
+import "@/components/schedule/scheduleDarkRed.css";
 import {useSearchParams} from "react-router-dom";
 import { useState, useEffect } from "react";
 import { stageClient, resolveMyPlayerAndClub } from "@/api/stageClient";

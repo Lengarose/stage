@@ -1,0 +1,38 @@
+/* Schedule owns the scope, including calendar popovers and mobile match dialogs.
+   Competition category colours and result statuses retain their meaning. */
+body.stage-red-schedule {
+  --background:340 47% 7%;--foreground:345 41% 93%;
+  --card:340 47% 12%;--card-foreground:345 41% 93%;
+  --popover:340 47% 12%;--popover-foreground:345 41% 93%;
+  --muted:339 43% 16%;--muted-foreground:347 26% 75%;
+  --secondary:339 43% 16%;--secondary-foreground:345 41% 93%;
+  --accent:339 43% 20%;--accent-foreground:345 41% 93%;
+  --primary:40 68% 67%;--primary-foreground:342 36% 12%;
+  --border:38 38% 34%;--input:38 30% 29%;--ring:40 68% 67%;
+  background:#19090e;color:#f4e5e7;
+}
+.stage-red-schedule main,.stage-red-schedule .schedule-ui {background-color:#19090e}
+.stage-red-schedule .schedule-ui [role="grid"] {background:linear-gradient(145deg,#35121d88,#240c15)}
+.stage-red-schedule .schedule-ui [role="columnheader"] {background:#35121d;color:#cfaeb5}
+.stage-red-schedule .schedule-ui [role="gridcell"][aria-selected="true"] {--tw-ring-color:#e4bf73;background-color:#4a1b2b88}
+.stage-red-schedule .schedule-ui [aria-label="Selected day fixtures"] {background:linear-gradient(145deg,#401724,#2d101a 65%)}
+.stage-red-schedule :is(.schedule-ui,[role="dialog"]) :is([class*="text-cyan-"],[class*="text-blue-"]) {color:#e4bf73}
+.stage-red-schedule :is(.schedule-ui,[role="dialog"]) button[aria-pressed="true"] {text-shadow:0 0 14px #e4bf7370}
+.stage-red-schedule :is([role="dialog"],[role="alertdialog"],[role="listbox"],[role="menu"]) {background:#280e18;color:#f4e5e7;border-color:#a27b43;box-shadow:0 24px 80px #0006}
+.stage-red-schedule :is([role="option"],[role="menuitem"])[data-highlighted] {background:#4a1b2b;color:#fff5ed}
+.stage-red-schedule :is(input,textarea,select) {background-color:#200b13;color:#f4e5e7;border-color:#a27b4366;color-scheme:dark}
+.stage-red-schedule select option {background:#280e18;color:#f4e5e7}
+.stage-red-schedule :is(input,textarea)::placeholder {color:#cfaeb5}
+.stage-red-schedule :focus-visible {outline:2px solid #e4bf73!important;outline-offset:2px;--tw-ring-color:#e4bf73}
+/* Keep both portraits, the diagonal split and their crops intact. */
+.stage-red-schedule .matchup-backdrop {background:#2d101a}
+.stage-red-schedule .matchup-backdrop__shade {background:linear-gradient(90deg,#19090eb8,#280e1880 45%,#19090ebf),linear-gradient(0deg,#220c14cc,transparent 70%)}
+.stage-red-schedule .matchup-backdrop--detail .matchup-backdrop__shade {background:linear-gradient(0deg,#220c14eb,#280e184d 75%),linear-gradient(90deg,#19090e88,#280e1866 50%,#19090e88)}
+.stage-red-schedule .matchup-backdrop__slash {background:linear-gradient(0deg,transparent,#d2ac6366 35%,#f8e4ae99 50%,#d2ac6344 65%,transparent);box-shadow:0 0 15px 3px #e4bf731a}
+.stage-red-schedule :is(.agenda-match-row,.agenda-matchup-panel) .text-foreground {color:#f4e5e7}
+.stage-red-schedule :is(.agenda-match-row,.agenda-matchup-panel) .text-muted-foreground {color:#cfaeb5}
+.stage-red-schedule .agenda-match-row[aria-pressed="true"]::after {box-shadow:inset 0 0 0 1px #e4bf7333}
+.stage-red-schedule,.stage-red-schedule * {scrollbar-color:#b38a4b #220c14}
+.stage-red-schedule ::-webkit-scrollbar {width:10px}
+.stage-red-schedule ::-webkit-scrollbar-track {background:#220c14}
+.stage-red-schedule ::-webkit-scrollbar-thumb {background:linear-gradient(#e4bf73,#9a7238);border:2px solid #220c14;border-radius:2px}

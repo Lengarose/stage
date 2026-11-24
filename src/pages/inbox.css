@@ -33,3 +33,53 @@
 .stage-inbox .inbox-search{font-size:14px;padding:10px}
 .stage-inbox .inbox-letter>header{padding:14px 20px}
 .stage-inbox .inbox-letter>header span{font-size:16px}
+
+/* Dark Red is route-scoped by Layout so portalled reviews share the palette. */
+body.stage-red-inbox {
+ --background:340 47% 7%;--foreground:345 41% 93%;
+ --card:340 47% 12%;--card-foreground:345 41% 93%;
+ --popover:340 47% 12%;--popover-foreground:345 41% 93%;
+ --muted:339 43% 16%;--muted-foreground:347 26% 75%;
+ --secondary:339 43% 16%;--secondary-foreground:345 41% 93%;
+ --accent:339 43% 20%;--accent-foreground:345 41% 93%;
+ --primary:40 68% 67%;--primary-foreground:342 36% 12%;
+ --border:38 38% 34%;--input:38 30% 29%;--ring:40 68% 67%;
+ background:#19090e;color:#f4e5e7;
+}
+.stage-red-inbox main,.stage-red-inbox .stage-inbox {background-color:#19090e;color:#f4e5e7}
+.stage-red-inbox .inbox-workspace {background:linear-gradient(145deg,#35121dec,#280e18f5);border-color:#a27b4366;box-shadow:0 0 0 1px #e4bf7310}
+.stage-red-inbox :is(.inbox-sidebar,.inbox-tools,.inbox-list-row,.inbox-letter>header) {border-color:#a27b4338}
+.stage-red-inbox .inbox-tools {background:#2d101a99}
+.stage-red-inbox .inbox-letter>header {background:#401724}
+.stage-red-inbox .inbox-letter-body {background:#240c15}
+.stage-red-inbox .inbox-list-row:hover {background:#481b29}
+.stage-red-inbox .inbox-list-row[aria-current=true] {background:linear-gradient(100deg,#532030,#35121d);border-left-color:#e4bf73}
+.stage-red-inbox :is(.inbox-eyebrow,.inbox-header-actions>span,.inbox-search) {color:#e4bf73}
+.stage-red-inbox .inbox-page-header h1 .inbox-title-square {background:#e4bf73;box-shadow:0 0 12px #e4bf7338}
+.stage-red-inbox :is(.inbox-page-header p:last-child,.inbox-category,.inbox-result-count,.inbox-empty,.inbox-filters button) {color:#cfaeb5}
+.stage-red-inbox .inbox-empty h2 {color:#f4e5e7}
+.stage-red-inbox .inbox-filters button[aria-pressed=true] {color:#fff5ed;text-shadow:0 0 14px #e4bf7370}
+.stage-red-inbox .inbox-search {border-color:#a27b4366;background:#200b13}
+.stage-red-inbox :is(.inbox-category select,.inbox-review-dialog input,.inbox-review-dialog textarea,.inbox-review-dialog select,.inbox-review-dialog [role="combobox"]) {background-color:#200b13;color:#f4e5e7;border-color:#a27b4366}
+.stage-red-inbox select option {background:#280e18;color:#f4e5e7}
+.stage-red-inbox :is([role="dialog"],[role="alertdialog"],.swal2-popup) {background:#280e18!important;color:#f4e5e7;border-color:#a27b43!important;box-shadow:0 24px 80px #0009,0 0 0 1px #e4bf7326}
+.stage-red-inbox :is([role="listbox"],[role="menu"]) {background:#35121d;color:#f4e5e7;border-color:#a27b43}
+.stage-red-inbox :is([role="option"],[role="menuitem"])[data-highlighted] {background:#4a1b2b;color:#fff5ed}
+.stage-red-inbox :is(.stage-inbox,.inbox-review-dialog) :is([class*="text-blue-"],[class*="text-cyan-"],[class*="text-sky-"]) {color:#e4bf73}
+.stage-red-inbox :is(.stage-inbox,.inbox-review-dialog) :is([class~="text-white/40"],[class~="text-white/50"],[class~="text-white/55"],[class~="text-white/65"]) {color:#cfaeb5}
+.stage-red-inbox :is(.stage-inbox,.inbox-review-dialog) :is([class*="border-blue-"],[class*="border-cyan-"],[class*="border-white/"]) {border-color:#a27b4355}
+.stage-red-inbox :is(.inbox-header-actions button,.inbox-response-button) {border-color:#b38a4b88;color:#f4e5e7;background:#3a1421}
+.stage-red-inbox :is(.inbox-header-actions button,.inbox-response-button):hover:not(:disabled) {background:#532030;border-color:#e4bf73}
+.stage-red-inbox :is(.stage-inbox,.inbox-review-dialog) :is(button,a):not(.inbox-list-row):is([class^="bg-blue-"],[class*=" bg-blue-"],[class^="bg-cyan-"],[class*=" bg-cyan-"],[class~="bg-white"]),
+.stage-red-inbox .swal2-confirm {background:linear-gradient(120deg,#efd69b,#c69a50)!important;color:#28131a!important}
+.stage-red-inbox :focus-visible {outline:2px solid #e4bf73!important;outline-offset:3px}
+.stage-red-inbox input::placeholder,.stage-red-inbox textarea::placeholder {color:#cfaeb5;opacity:.8}
+.stage-red-inbox {scrollbar-color:#b38a4b #220c14}
+.stage-red-inbox * {scrollbar-color:#b38a4b #220c14}
+.stage-red-inbox ::-webkit-scrollbar {width:10px}
+.stage-red-inbox ::-webkit-scrollbar-track {background:#220c14}
+.stage-red-inbox ::-webkit-scrollbar-thumb {background:linear-gradient(#e4bf73,#9a7238);border:2px solid #220c14;border-radius:2px}
+
+.stage-red-inbox .inbox-list-row[class~="bg-cyan-500/[0.04]"] {background-color:#40172466}
+.stage-red-inbox .inbox-list-row :is([class*="bg-blue-"],[class*="bg-cyan-"]) {background:#e4bf73;color:#28131a}
+.stage-red-inbox :is(input,select,textarea) {color-scheme:dark}
