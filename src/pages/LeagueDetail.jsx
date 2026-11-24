@@ -18,7 +18,7 @@ import EditionParticipationConditions from '@/components/competition/EditionPart
 import LeagueCompetitionStages from '@/components/LeagueCompetitionStages';
 import TournamentLeaderboard from '@/components/TournamentLeaderboard';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import smoke from '@/assets/regional-smoke.png';
+import { competitionPagePresentation } from '@/lib/competitionPagePresentation';
 
 const action = 'inline-flex min-h-11 items-center gap-2 py-2 font-semibold focus-visible:ring-2 focus-visible:ring-primary';
 const heading = 'font-heading text-2xl uppercase sm:text-3xl';
@@ -97,6 +97,20 @@ function LeagueEdition({ edition, editions, identity, tab, setTab, selectSeason,
 
 function RegionalLeaguePage({slug}) {
   const [params,setParams]=useSearchParams();
+  const [presentation,setPresentation]=useState(() => competitionPagePresentation('regional'));
+  useEffect(() => {
+    let active = true, sequence = 0;
+    async function loadPresentation() {
+      const request = ++sequence;
+      try {
+        const rows = await stageClient.entities.CompetitionPageConfig.filter({key:'regional'}, '-updated_date', 1);
+        if (active && request === sequence) setPresentation(competitionPagePresentation('regional', rows[0] || {}));
+      } catch { /* Keep the plain hero when custom artwork is unavailable. */ }
+    }
+    void loadPresentation();
+    window.addEventListener('focus', loadPresentation);
+    return () => { active = false; window.removeEventListener('focus', loadPresentation); };
+  }, []);
   const [data,setData]=useState(null),[error,setError]=useState(''),[revision,setRevision]=useState(0),[identity,setIdentity]=useState(undefined);
   useEffect(()=>{let active=true;stageClient.http.get('/regional-public/overview').then(value=>{if(active){setData(value);setError('');}}).catch(e=>{if(active)setError(e.message);});return()=>{active=false;};},[revision]);
   useEffect(()=>{let active=true;resolveMyPlayerAndClub().then(value=>{if(active)setIdentity(value);}).catch(()=>{if(active)setIdentity(null);});return()=>{active=false;};},[]);
@@ -106,9 +120,10 @@ function RegionalLeaguePage({slug}) {
   const selectSeason=(id,overview=false)=>setParams(previous=>{const next=new URLSearchParams(previous);next.set('season',id);next.delete('fixture');if(overview)next.set('tab','overview');return next;});
   const rulesOpen=params.get('rules')==='1';
   const region=REGIONS.find(r=>r.slug===edition?.region_slug)?.name || edition?.region_slug || edition?.region;
+  const heroImage = Number(edition?.division) === 1 ? presentation.region_headers[edition.region_slug] : null;
   return <main className="official-competition-ui competition-surface min-h-screen bg-background px-5 py-7 text-foreground sm:px-8"><div className="mx-auto max-w-7xl"><Link to="/leagues" className={action}><ArrowLeft size={17}/>Back to regional leagues</Link>
     {error?<div role="alert" className="py-12 text-destructive">{error}<button type="button" onClick={()=>setRevision(n=>n+1)} className={action}>Retry</button></div>:!data?<p role="status" className="py-16">Loading regional league...</p>:!edition?<p className="py-12">This edition is unavailable or its identity is ambiguous. Open a specific edition from Regional Leagues; unresolved duplicates need Admin identity review.</p>:<>
-      <header className="relative grid grid-cols-[90px_minmax(0,1fr)] items-center gap-6 border-b border-border py-6 sm:grid-cols-[200px_minmax(0,1fr)] lg:grid-cols-[240px_minmax(0,1fr)_240px]"><img src={smoke} alt="" aria-hidden="true" className="regional-smoke pointer-events-none absolute left-0 top-4 h-60 w-full max-w-sm object-contain opacity-20"/><div className="gost-detail-trophy relative"><GostTrophy compact trophy={edition.trophy} guidance="Trophy not assigned."/></div><div className="relative min-w-0"><p className="text-sm uppercase text-muted-foreground">{region} · Division {edition.division} · Group {edition.group_code || 'A'}</p><h1 className="mt-3 break-words font-heading text-3xl uppercase sm:text-4xl">{edition.name}</h1><p className="mt-3 text-sm text-muted-foreground">{edition.season_label || `Season ${edition.season_number}`} · {edition.max_clubs} club capacity</p></div><div className="relative col-span-2 max-w-full space-y-3 sm:col-span-1 sm:col-start-2 lg:col-start-auto"><select aria-label="League season" value={edition.id} onChange={e=>selectSeason(e.target.value)} className="min-h-11 w-full max-w-full border border-border bg-background px-3 text-sm">{data.editions.filter(e=>e.division_key===edition.division_key).sort((a,b)=>Number(b.reset_series||0)-Number(a.reset_series||0)||b.season_number-a.season_number).map(e=><option key={e.id} value={e.id}>Group {e.group_code || 'A'} · {e.season_label || `Season ${e.season_number}`} · {label(e.status)}{e.identity_conflict ? ' · Under review' : ''}</option>)}</select><p className="text-sm capitalize">{label(edition.status)}</p>{!historicalRegional(edition) && <Link to={`/register-league?region=${encodeURIComponent(edition.region_slug)}`} className={action}>Your club’s participation <ArrowRight size={16}/></Link>}<button type="button" className={action} onClick={()=>setParams(previous=>{const next=new URLSearchParams(previous);next.set('rules','1');return next;})}>View league rules <ArrowRight size={16}/></button></div></header>
+      <header className={`regional-league-detail-hero ${heroImage?.url ? 'has-region-image' : ''} relative grid grid-cols-[90px_minmax(0,1fr)] items-center gap-6 border-b border-border py-6 sm:grid-cols-[200px_minmax(0,1fr)] lg:grid-cols-[240px_minmax(0,1fr)_240px]`}>{heroImage?.url && <div className="regional-league-detail-photo" aria-hidden="true"><img src={heroImage.url} alt="" style={{objectPosition:heroImage.position, transform:`scale(${heroImage.zoom / 100})`}}/><div className="regional-league-detail-photo-fade"/></div>}<div className="gost-detail-trophy relative"><GostTrophy compact trophy={edition.trophy} guidance="Trophy not assigned."/></div><div className="relative min-w-0"><p className="text-sm uppercase text-muted-foreground">{region} · Division {edition.division} · Group {edition.group_code || 'A'}</p><h1 className="mt-3 break-words font-heading text-3xl uppercase sm:text-4xl">{edition.name}</h1><p className="mt-3 text-sm text-muted-foreground">{edition.season_label || `Season ${edition.season_number}`} · {edition.max_clubs} club capacity</p></div><div className="relative col-span-2 max-w-full space-y-3 sm:col-span-1 sm:col-start-2 lg:col-start-auto"><select aria-label="League season" value={edition.id} onChange={e=>selectSeason(e.target.value)} className="min-h-11 w-full max-w-full border border-border bg-background px-3 text-sm">{data.editions.filter(e=>e.division_key===edition.division_key).sort((a,b)=>Number(b.reset_series||0)-Number(a.reset_series||0)||b.season_number-a.season_number).map(e=><option key={e.id} value={e.id}>Group {e.group_code || 'A'} · {e.season_label || `Season ${e.season_number}`} · {label(e.status)}{e.identity_conflict ? ' · Under review' : ''}</option>)}</select><p className="text-sm capitalize">{label(edition.status)}</p>{!historicalRegional(edition) && <Link to={`/register-league?region=${encodeURIComponent(edition.region_slug)}`} className={action}>Your club’s participation <ArrowRight size={16}/></Link>}<button type="button" className={action} onClick={()=>setParams(previous=>{const next=new URLSearchParams(previous);next.set('rules','1');return next;})}>View league rules <ArrowRight size={16}/></button></div></header>
       <CompetitionTextTabs items={regionalTabs} value={tab} onChange={setTab}/>
       {tab==='stages' && edition.regional_cycle_id && <RegionalCycleDraw key={edition.regional_cycle_id} cycleId={edition.regional_cycle_id}/>}
       {(edition.identity_conflict||edition.identity_unverified)&&<p role="status" className="my-4 break-all text-sm text-warning">Season information is being reviewed. Historical records have not been merged.</p>}
