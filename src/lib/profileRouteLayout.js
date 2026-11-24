@@ -38,7 +38,7 @@ export function isFullBleedRoute(pathname = "") {
     || isTransferMarketFullBleedRoute(pathname)
     || isNewsFullBleedRoute(pathname)
     || isTournamentHubFullBleedRoute(pathname)
-    || /^\/(?:lifestyle|leagues|competitions|regional-cups|the-stands|store|inbox)\/?$/.test(pathname)
+    || /^\/(?:lifestyle|leagues|competitions|regional-cups|the-stands|store|inbox|notifications)\/?$/.test(pathname)
     || /^\/leagues\/[^/]+\/?$/.test(pathname)
     || /^\/competitions\/[^/]+\/?$/.test(pathname)
     || /^\/tournaments\/(?!profile-player|profile-club|game-day)[^/]+\/?$/.test(pathname);

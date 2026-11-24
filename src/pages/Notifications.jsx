@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { stageClient } from "@/api/stageClient";
 import { useNavigate } from "react-router-dom";
-import { Bell, Check, CheckCheck, Trash2, RefreshCw } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Bell, Check, CheckCheck, Trash2, RefreshCw, ArrowUpRight, FileText, Trophy, CalendarDays, MessageSquare, Shield } from "lucide-react";
+import "./notifications.css";
 import { formatDistanceToNow } from "@/lib/momentDate";
 import { useTranslation } from "@/hooks/useTranslation";
 import {
@@ -10,28 +10,14 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
 
-const TYPE_ICONS = {
-  contract_offer:      "📋",
-  contract_accepted:   "✅",
-  contract_rejected:   "❌",
-  contract_terminated: "🚫",
-  contract_expired:    "⏰",
-  contract_completed:  "🏆",
-  match_scheduled:     "📅",
-  match_result:        "⚽",
-  match_reminder:      "⏰",
-  result_submitted:    "📤",
-  result_confirmed:    "✅",
-  join_request:        "🙋",
-  join_approved:       "✅",
-  join_rejected:       "❌",
-  club_update:         "🛡️",
-  invite:              "📨",
-  message:             "💬",
-  tournament_start:    "🏆",
-  tournament_complete: "🥇",
-  announcement:        "📢",
-};
+function notificationIcon(type = "") {
+  if (/contract|transfer/.test(type)) return FileText;
+  if (/tournament|league|cup|reward/.test(type)) return Trophy;
+  if (/match|result|schedule|reminder/.test(type)) return CalendarDays;
+  if (/club|join|invite/.test(type)) return Shield;
+  if (/message|chat/.test(type)) return MessageSquare;
+  return Bell;
+}
 
 function emitNotificationsRead(ids) {
   const readIds = ids.filter(Boolean);
@@ -44,7 +30,9 @@ function emitNotificationsRead(ids) {
 export default function Notifications() {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState(null);
+  const [filter, setFilter] = useState("all");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
   const navigate = useNavigate();
   const { t } = useTranslation();
 
@@ -55,15 +43,15 @@ export default function Notifications() {
 
     async function load() {
       const u = await stageClient.auth.me();
-      setUser(u);
+      if (stopped) return;
       userEmail = String(u.email || "").trim().toLowerCase();
       await fetchNotifications(userEmail);
       // Fallback polling if realtime misses events.
       intervalId = window.setInterval(() => {
-        if (!stopped && userEmail) fetchNotifications(userEmail);
+        if (!stopped && userEmail) fetchNotifications(userEmail).catch(err => setError(err.message || "Unable to refresh notifications."));
       }, 15000);
     }
-    load();
+    load().catch(err => { if (!stopped) { setError(err.message || "Unable to load notifications."); setLoading(false); } });
 
     // Real-time subscription — only handle this user's notifications
     const unsub = stageClient.entities.Notification.subscribe((event) => {
@@ -90,48 +78,46 @@ export default function Notifications() {
   }, []);
 
   async function fetchNotifications(email) {
-    setLoading(true);
     const data = await stageClient.entities.Notification.filter(
       { recipient_email: email },
       "-created_date",
       100
     );
     setNotifications(data || []);
+    setError("");
     setLoading(false);
   }
 
   async function markAsRead(notif) {
-    if (notif.read) return;
-    setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
-    const updated = await stageClient.http.post(`/notifications/${notif.id}/read`, {}).catch(() => null);
-    if (updated) {
+    if (notif.read) return true;
+    try {
+      const updated = await stageClient.http.post(`/notifications/${notif.id}/read`, {});
       setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, ...updated, read: true } : n));
       emitNotificationsRead([notif.id]);
-    }
+      return true;
+    } catch (err) { setError(err.message || "Unable to mark notification as read."); return false; }
   }
 
   async function markAllAsRead() {
     const unread = notifications.filter(n => !n.read);
-    if (unread.length === 0) return;
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-    const updatedRows = await Promise.all(
-      unread.map(n => stageClient.http.post(`/notifications/${n.id}/read`, {}).catch(() => null))
-    );
-    const byId = new Map(updatedRows.filter(Boolean).map(row => [row.id, row]));
-    if (byId.size > 0) {
-      setNotifications(prev => prev.map(n => byId.has(n.id) ? { ...n, ...byId.get(n.id), read: true } : n));
-      emitNotificationsRead([...byId.keys()]);
-    }
+    if (!unread.length || busy) return;
+    setBusy(true);
+    setError("");
+    await Promise.all(unread.map(markAsRead));
+    setBusy(false);
   }
 
-  async function deleteNotif(id, e) {
-    e.stopPropagation();
-    await stageClient.entities.Notification.delete(id);
-    setNotifications(prev => prev.filter(n => n.id !== id));
+  async function deleteNotif(id) {
+    const wasUnread = notifications.some(n => n.id === id && !n.read);
+    try {
+      await stageClient.entities.Notification.delete(id);
+      setNotifications(prev => prev.filter(n => n.id !== id));
+      if (wasUnread) emitNotificationsRead([id]);
+    } catch (err) { setError(err.message || "Unable to delete notification."); }
   }
 
   async function openNotification(notif) {
-    await markAsRead(notif);
+    if (!await markAsRead(notif)) return;
     if (notif.link) {
       // Fix legacy "/messages" links → "/inbox"
       const link = notif.link.replace(/^\/messages/, "/inbox");
@@ -140,139 +126,62 @@ export default function Notifications() {
   }
 
   async function deleteAll() {
-    await Promise.all(notifications.map(n => stageClient.entities.Notification.delete(n.id)));
-    setNotifications([]);
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    await Promise.all(notifications.map(n => deleteNotif(n.id)));
+    setBusy(false);
   }
 
   const unreadCount = notifications.filter(n => !n.read).length;
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <RefreshCw className="w-6 h-6 animate-spin text-primary" />
-      </div>
-    );
-  }
+  const visible = notifications.filter(n => filter === "all" || !n.read);
 
   return (
-    <div className="max-w-2xl mx-auto p-4 md:p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <Bell className="w-6 h-6 text-primary" />
-          <h1
-            className="font-heading font-black text-4xl md:text-5xl text-foreground uppercase"
-            style={{ transform: "skewX(-8deg)", letterSpacing: "-0.02em", transformOrigin: "left center" }}
-          >
-            {t("commonPages.notifTitle")}
-          </h1>
-          {unreadCount > 0 && (
-            <span className="bg-primary text-primary-foreground text-xs font-bold px-2 py-0.5 rounded-full">
-              {unreadCount}
-            </span>
-          )}
+    <div className="stage-notifications landing-v2">
+      <header className="notifications-heading">
+        <div><p className="notifications-eyebrow">STAGE / ACTIVITY CENTRE</p>
+          <h1>{t("commonPages.notifTitle")}<span className="notifications-square" aria-hidden="true" /></h1>
+          <p>Your matches. Your club. Every important update.</p>
         </div>
-        {notifications.length > 0 && (
-          <div className="flex items-center gap-2">
-            {unreadCount > 0 && (
-              <Button variant="ghost" size="sm" onClick={markAllAsRead} className="text-muted-foreground hover:text-foreground gap-2">
-                <CheckCheck className="w-4 h-4" />
-                {t("commonPages.notifMarkAllRead")}
-              </Button>
-            )}
+        <div className="notifications-summary"><span>{unreadCount}</span><p>Unread<br />notifications</p></div>
+      </header>
+      <section className="notifications-panel" aria-label="Your notifications">
+        <div className="notifications-toolbar">
+          <div className="notifications-tabs" aria-label="Notification filters">
+            <button type="button" aria-pressed={filter === "all"} onClick={() => setFilter("all")}>All activity <span>{notifications.length}</span></button>
+            <button type="button" aria-pressed={filter === "unread"} onClick={() => setFilter("unread")}>Unread <span>{unreadCount}</span></button>
+          </div>
+          <div className="notifications-actions">
+            <button type="button" disabled={!unreadCount || busy} onClick={markAllAsRead}><CheckCheck size={16} />{t("commonPages.notifMarkAllRead")}</button>
             <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive gap-2">
-                  <Trash2 className="w-4 h-4" />
-                  {t("commonPages.notifDeleteAll")}
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>{t("commonPages.notifDeleteAllConfirmTitle")}</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    {t("commonPages.notifDeleteAllConfirmDesc", { count: notifications.length })}
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>{t("commonPages.cancel")}</AlertDialogCancel>
-                  <AlertDialogAction onClick={deleteAll} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                    {t("commonPages.notifDeleteAll")}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
+              <AlertDialogTrigger asChild><button type="button" disabled={!notifications.length || busy}><Trash2 size={16} />{t("commonPages.notifDeleteAll")}</button></AlertDialogTrigger>
+              <AlertDialogContent className="notifications-confirm landing-v2 rounded-none border-white/20 bg-[#0b1423] text-white">
+                <AlertDialogHeader><AlertDialogTitle>{t("commonPages.notifDeleteAllConfirmTitle")}</AlertDialogTitle><AlertDialogDescription className="text-white/65">{t("commonPages.notifDeleteAllConfirmDesc", { count: notifications.length })}</AlertDialogDescription></AlertDialogHeader>
+                <AlertDialogFooter><AlertDialogCancel className="rounded-none">{t("commonPages.cancel")}</AlertDialogCancel><AlertDialogAction onClick={deleteAll} className="rounded-none bg-blue-500 text-white">{t("commonPages.notifDeleteAll")}</AlertDialogAction></AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
           </div>
-        )}
-      </div>
-
-      {/* Empty state */}
-      {notifications.length === 0 && (
-        <div className="text-center py-16">
-          <Bell className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-          <p className="text-muted-foreground">{t("commonPages.notifEmpty")}</p>
         </div>
-      )}
-
-      {/* Notification list */}
-      <div className="space-y-2">
-        {notifications.map((notif) => (
-          <div
-            key={notif.id}
-            onClick={() => openNotification(notif)}
-            className={`
-              relative flex items-start gap-4 p-4 rounded-xl border transition-all cursor-pointer group
-              ${notif.read
-                ? "bg-card border-border hover:border-primary/30"
-                : "bg-primary/5 border-primary/20 hover:border-primary/40"
-              }
-            `}
-          >
-            {/* Unread dot */}
-            {!notif.read && (
-              <span className="absolute top-4 right-4 w-2 h-2 rounded-full bg-primary" />
-            )}
-
-            {/* Icon */}
-            <div className="text-2xl shrink-0 mt-0.5">
-              {TYPE_ICONS[notif.type] || "🔔"}
-            </div>
-
-            {/* Content */}
-            <div className="flex-1 min-w-0">
-              <p className={`text-sm font-semibold leading-relaxed ${notif.read ? "text-foreground/80" : "text-foreground"}`}>
-                {notif.title}
-              </p>
-              {notif.body && (
-                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{notif.body}</p>
-              )}
-              <p className="text-[11px] text-muted-foreground/60 mt-1.5">
-                {formatDistanceToNow(new Date(notif.created_date), { addSuffix: true })}
-              </p>
-            </div>
-
-            {/* Actions */}
-            <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-              {!notif.read && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); markAsRead(notif); }}
-                  className="p-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
-                  title={t("commonPages.notifMarkAsRead")}
-                >
-                  <Check className="w-3.5 h-3.5" />
-                </button>
-              )}
-              <button
-                onClick={(e) => deleteNotif(notif.id, e)}
-                className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-                title={t("commonPages.delete")}
-              >
-                <Trash2 className="w-3.5 h-3.5" />
+        {error && <div role="alert" className="notifications-error">{error}<button type="button" onClick={() => { setLoading(true); stageClient.auth.me().then(u => fetchNotifications(u.email)).catch(err => { setError(err.message); setLoading(false); }); }}>Retry</button></div>}
+        {loading ? <div className="notifications-empty" role="status"><RefreshCw className="animate-spin" /><p>Loading notifications…</p></div> : visible.length === 0 ? <div className="notifications-empty"><Bell size={30} /><h2>{filter === "unread" ? "You're all caught up." : "Your activity starts here."}</h2><p>{filter === "unread" ? "No unread notifications. Switch to All activity to browse earlier updates." : t("commonPages.notifEmpty")}</p></div> :
+          <ul className="notifications-list">{visible.map(notif => {
+            const Icon = notificationIcon(notif.type);
+            return <li key={notif.id} className={`notification-row ${notif.read ? "is-read" : "is-unread"}`}>
+              <div className="notification-type" aria-hidden="true"><Icon size={20} /></div>
+              <button type="button" className="notification-content" onClick={() => openNotification(notif)}>
+                <span className="notification-title">{notif.title}</span>
+                {notif.body && <span className="notification-body">{notif.body}</span>}
+                <span className="notification-time">{formatDistanceToNow(new Date(notif.created_date), { addSuffix: true })}{!notif.read && <span className="notification-unread">Unread</span>}</span>
               </button>
-            </div>
-          </div>
-        ))}
-      </div>
+              <div className="notification-row-actions">
+                {!notif.read && <button type="button" onClick={() => markAsRead(notif)} aria-label={t("commonPages.notifMarkAsRead")} title={t("commonPages.notifMarkAsRead")}><Check size={16} /></button>}
+                <button type="button" onClick={() => deleteNotif(notif.id)} aria-label={t("commonPages.delete")} title={t("commonPages.delete")}><Trash2 size={16} /></button>
+                {notif.link && <button type="button" onClick={() => openNotification(notif)} aria-label={`Open ${notif.title}`}><ArrowUpRight size={17} /></button>}
+              </div>
+            </li>;
+          })}</ul>}
+        <footer className="notifications-footer">Showing your latest {notifications.length} notifications <span>Updates refresh automatically</span></footer>
+      </section>
     </div>
   );
 }

@@ -1,0 +1,15 @@
+<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;background:#050c16"><div id="root"></div><script type="module">
+// Isolated UI fixture. All notification reads and writes are in memory.
+import React from 'react';import ReactDOM from 'react-dom/client';import RefreshRuntime from '/@react-refresh';import {MemoryRouter} from 'react-router-dom';
+RefreshRuntime.injectIntoGlobalHook(window);window.$RefreshReg$=()=>{};window.$RefreshSig$=()=>type=>type;window.__vite_plugin_react_preamble_installed__=true;
+await import('/src/index.css');await import('/node_modules/@fontsource/anton/index.css');
+const {stageClient}=await import('/src/api/stageClient.js');
+let rows=[
+{id:'one',type:'result_confirmed',title:'Result confirmed — The Hooded FC vs Northside United',body:'The 2–2 result is confirmed. Your fixture and club statistics have been updated.',read:false,link:'/schedule'},
+{id:'two',type:'contract_offer',title:'A new agreement from your Club Board',body:'Your management proposal is ready. Open your Inbox to review the terms and respond.',read:false,link:'/inbox'},
+{id:'three',type:'tournament_start',title:'The Regional Cup draw is ready',body:'Your next opponent and the published match schedule are now available.',read:true,link:'/regional-cups'},
+{id:'four',type:'announcement',title:'Welcome to STAGE',body:'Keep track of important updates from your club and competitions here.',read:true}
+].map((n,i)=>({...n,created_date:new Date(Date.now()-i*3600000).toISOString()}));
+stageClient.auth.me=async()=>({email:'manager@example.test'});stageClient.entities.Notification.filter=async()=>rows;stageClient.entities.Notification.subscribe=()=>()=>{};stageClient.entities.Notification.delete=async(id)=>{rows=rows.filter(n=>n.id!==id);return{success:true}};stageClient.http.post=async(path)=>{const id=path.split('/')[2];rows=rows.map(n=>n.id===id?{...n,read:true}:n);return rows.find(n=>n.id===id)};
+const {TranslationProvider}=await import('/src/lib/TranslationContext.jsx');const {default:Notifications}=await import('/src/pages/Notifications.jsx');ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(MemoryRouter,null,React.createElement(TranslationProvider,null,React.createElement(Notifications))));
+</script></body></html>

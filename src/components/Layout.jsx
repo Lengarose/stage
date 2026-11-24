@@ -2,7 +2,7 @@ import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Home, Shield, Trophy, BarChart3, User, ArrowLeftRight,
-  Search, Rss, ShoppingBag, Video, UsersRound, Handshake,
+  Rss, ShoppingBag, Video, UsersRound, Handshake,
   Palette, ChevronDown, Newspaper, ShieldAlert, Settings,
   Inbox, CalendarDays, Zap, Coins, Moon, LogOut, Star, Bell,
   MessagesSquare, Globe2, Activity, HelpCircle,
@@ -864,7 +864,7 @@ function HeaderIdentityMenu({
   const primaryLine =
     showAsPresident && myClub ? myClub.name : myPlayer?.gamertag || myClub?.name || "";
 
-  const subLabelStyle = { ...headingFont, fontWeight: 600, fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: TEAL };
+  const subLabelStyle = { fontFamily: "Anton, sans-serif", fontWeight: 600, fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: TEAL };
 
   return (
     <DropdownMenu>
@@ -877,7 +877,7 @@ function HeaderIdentityMenu({
             position={showAsPresident ? myClub?.logo_position : myPlayer?.avatar_position}
             zoom={showAsPresident ? myClub?.logo_zoom : myPlayer?.avatar_zoom} />
           <div className="min-w-0 flex-1">
-            <p className={cn("truncate", isWhiteTheme ? "text-slate-900" : "text-white")} style={{ ...headingFont, fontWeight: 600, fontSize: 14, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+            <p className={cn("stage-nav-identity-name truncate", isWhiteTheme ? "text-slate-900" : "text-white")} style={{ ...headingFont, fontWeight: 600, fontSize: 14, letterSpacing: "0.1em", textTransform: "uppercase" }}>
               {primaryLine}
             </p>
             <div className="mt-0.5 flex items-center gap-1.5 flex-wrap">
@@ -891,7 +891,7 @@ function HeaderIdentityMenu({
                 )
               )}
               {userCredits != null ? (
-                <span style={{ ...subLabelStyle, color: "rgba(255,184,0,0.95)" }}>
+                <span className="stage-nav-credits" style={{ ...subLabelStyle, color: "rgba(255,184,0,0.95)" }}>
                   {Number(userCredits).toLocaleString()} ✧
                 </span>
               ) : null}
@@ -971,7 +971,6 @@ const MOBILE_MORE_GROUPS_PLAYER = [
     label: "Account",
     items: [
       { path: "/profile",         icon: User,          label: "Profile"       },
-      { path: "/search",          icon: Search,        label: "Search"        },
       { path: "/lifestyle",       icon: Coins,           label: "Lifestyle"  },
       { path: "/store",           icon: ShoppingBag,     label: "Store"      },
       { path: "/news",            icon: Newspaper,     label: "News"          },
@@ -1015,7 +1014,6 @@ function getMobileMoreGroupsPresident(clubPath) {
       items: [
         { path: "/profile",         icon: User,           label: "Profile"       },
         { path: "/social",          icon: Rss,            label: "Feed"          },
-        { path: "/search",          icon: Search,         label: "Search"        },
         { path: "/news",            icon: Newspaper,      label: "News"          },
         { path: "/store",           icon: ShoppingBag,    label: "Store"         },
         { path: "/notifications",   icon: Bell,           label: "Notifications" },
@@ -1258,7 +1256,6 @@ function MobileArenaBottomBar({ pathname, myPlayer, myClub, accountMode, notifCo
     { id: "market", label: t("nav.market"), icon: ArrowLeftRight, items: market },
     { id: "discover", label: t("nav.discover"), icon: Compass, items: discover },
     { id: "more", label: t("nav.more"), icon: Menu, items: [
-      { path: "/search", icon: Search, label: t("nav.search") },
       { path: "/notifications", icon: Bell, label: t("nav.notifications") },
       { path: "/settings", icon: Settings, label: t("nav.settings") },
     ] },
@@ -1783,7 +1780,7 @@ function MobileThemeButton({ theme, setTheme }) {
               <DropdownMenuRadioItem
                 key={t.id}
                 value={t.id}
-                className="cursor-pointer gap-2 py-2 text-white/80 focus:bg-white/10 focus:text-white"
+                className="stage-nav-theme cursor-pointer gap-2 py-2 text-white/80 focus:bg-white/10 focus:text-white"
                 style={{ ...headingFont, fontSize: 12, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}
               >
                 <ThemeIcon className="h-3.5 w-3.5 shrink-0 text-[#00E5BD]" />
@@ -1813,7 +1810,7 @@ function MobileHeaderIdentity({ myPlayer, myClub, presidentClub, accountMode }) 
         zoom={showAsPresident ? presidentClub?.logo_zoom : myPlayer?.avatar_zoom} />
       <div className="min-w-0">
         <p
-          className="truncate text-white"
+          className="stage-nav-identity-name truncate text-white"
           style={{ ...headingFont, fontWeight: 600, fontSize: 13, letterSpacing: "0.08em", textTransform: "uppercase" }}
         >
           {displayName}
@@ -1899,7 +1896,7 @@ function AdminMobileTopBar({ pathname, theme, setTheme }) {
             value={theme}
             onChange={(e) => setTheme(e.target.value)}
             aria-label="Theme"
-            className="bg-transparent outline-none border border-white/10 rounded-lg px-3 h-11 min-h-[44px] text-[11px] uppercase appearance-none cursor-pointer"
+            className="stage-nav-theme bg-transparent outline-none border border-white/10 rounded-lg px-3 h-11 min-h-[44px] text-[11px] uppercase appearance-none cursor-pointer"
             style={{
               fontFamily: "var(--font-body)",
               fontWeight: 600,
@@ -2474,13 +2471,7 @@ export default function Layout() {
           </div>
 
           <div className="flex shrink-0 items-center gap-0.5 px-2 sm:px-3">
-            <Link
-              to={showAdminHeader ? "/admin" : "/search"}
-              className="rounded p-2 transition-all"
-              style={{ color: (showAdminHeader ? location.pathname === "/admin" : location.pathname === "/search") ? TEAL : (isWhiteTheme ? "rgba(15,23,42,0.55)" : "rgba(255,255,255,0.35)"), background: (showAdminHeader ? location.pathname === "/admin" : location.pathname === "/search") ? "rgba(0,229,189,0.1)" : "transparent" }}
-            >
-              {showAdminHeader ? <Home className="h-[1.125rem] w-[1.125rem]" /> : <Search className="h-[1.125rem] w-[1.125rem]" />}
-            </Link>
+            {showAdminHeader && <Link to="/admin" aria-label="Admin home" className="rounded p-2 text-white/55 hover:text-white"><Home className="h-[1.125rem] w-[1.125rem]" /></Link>}
             <NotificationBell />
             {showAdminTakeoverChip && (
               <button
@@ -2524,7 +2515,8 @@ export default function Layout() {
               <select
                 value={theme}
                 onChange={(e) => setTheme(e.target.value)}
-                className="cursor-pointer bg-transparent outline-none max-w-[5rem] sm:max-w-none"
+                aria-label="Website theme"
+                className="stage-nav-theme cursor-pointer bg-transparent outline-none max-w-[5rem] sm:max-w-none"
                 style={{ ...headingFont, fontWeight: 600, fontSize: 12, letterSpacing: "0.1em", textTransform: "uppercase", color: isWhiteTheme ? "rgba(15,23,42,0.75)" : "rgba(255,255,255,0.55)" }}
               >
                 {THEMES.map((t) => (

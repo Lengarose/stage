@@ -238,3 +238,10 @@
   box-shadow: inset 2px 0 #a5d9ff;
 }
 @media (min-width: 768px) { .mobile-arena-nav { display: none; } }
+
+/* Keep account identity and theme controls in the new STAGE display family. */
+.stage-nav-identity-name,.stage-nav-credits,.stage-nav-theme,.stage-nav-theme option {
+  font-family:Anton,sans-serif!important;
+  font-weight:400!important;
+  font-style:normal!important;
+}
