@@ -1,0 +1,33 @@
+body.stage-red-notifications {
+ --background:340 47% 7%;--foreground:345 41% 93%;
+ --card:340 47% 12%;--card-foreground:345 41% 93%;
+ --popover:340 47% 12%;--popover-foreground:345 41% 93%;
+ --muted:339 43% 16%;--muted-foreground:347 26% 75%;
+ --secondary:339 43% 16%;--secondary-foreground:345 41% 93%;
+ --accent:339 43% 20%;--accent-foreground:345 41% 93%;
+ --primary:40 68% 67%;--primary-foreground:342 36% 12%;
+ --border:38 38% 34%;--input:38 30% 29%;--ring:40 68% 67%;
+ background:#19090e;color:#f4e5e7;
+}
+.stage-red-notifications .stage-notifications {--notification-accent:#e4bf73;color:#f4e5e7;background:#19090e;min-height:100%;max-width:none}
+.stage-red-notifications :is(.notifications-heading>div>p:last-child,.notifications-summary p,.notification-body) {color:#dfc3c9}
+.stage-red-notifications .notifications-panel {background:linear-gradient(145deg,#35121de6,#240c15e6);border-color:#a27b4366}
+.stage-red-notifications :is(.notifications-toolbar,.notification-row,.notifications-footer) {border-bottom-color:#a27b4333;border-top-color:#a27b4333}
+.stage-red-notifications .notification-row.is-unread {background:linear-gradient(100deg,#e4bf7312,transparent);border-left-color:#e4bf73}
+.stage-red-notifications .notification-type {color:#e4bf73;border-color:#a27b4366;background:#e4bf7309}
+.stage-red-notifications :is(.notifications-tabs button,.notifications-tabs button span,.notification-row-actions button,.notification-time,.notifications-footer,.notifications-empty) {color:#cfaeb5}
+.stage-red-notifications .notifications-tabs button[aria-pressed=true] {color:#fff3df;text-shadow:0 0 16px #e4bf7380}
+.stage-red-notifications :is(.notification-unread,.notifications-empty>svg) {color:#e4bf73}
+.stage-red-notifications .notifications-empty h2 {color:#f4e5e7}
+.stage-red-notifications .notifications-actions button {color:#dfc3c9;border-color:#a27b4366}
+.stage-red-notifications .notifications-actions button:hover:not(:disabled) {color:#fff3df;border-color:#e4bf73}
+.stage-red-notifications .notification-row-actions button:hover {background:#e4bf7312;color:#fff3df}
+.stage-red-notifications :is(.notifications-confirm,[role=alertdialog]) {background:linear-gradient(145deg,#35121d,#240c15 65%)!important;color:#f4e5e7!important;border-color:#a27b43!important}
+.stage-red-notifications .notifications-confirm [class*="text-white/"] {color:#dfc3c9}
+.stage-red-notifications .notifications-confirm button {border-color:#a27b4366}
+.stage-red-notifications .notifications-confirm button.bg-blue-500 {background:linear-gradient(120deg,#efd69b,#c69a50);color:#28131a}
+.stage-red-notifications :focus-visible {outline:2px solid #e4bf73!important;outline-offset:3px;--tw-ring-color:#e4bf73}
+.stage-red-notifications,.stage-red-notifications * {scrollbar-color:#b38a4b #220c14}
+.stage-red-notifications ::-webkit-scrollbar {width:10px}
+.stage-red-notifications ::-webkit-scrollbar-track {background:#220c14}
+.stage-red-notifications ::-webkit-scrollbar-thumb {background:linear-gradient(#e4bf73,#9a7238);border:2px solid #220c14;border-radius:2px}

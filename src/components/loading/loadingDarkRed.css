@@ -1,0 +1,13 @@
+/* Available before Layout mounts: boot, auth, lazy routes and inline loaders. */
+html.theme-red,html.theme-red body {background-color:#19090e;color:#f4e5e7}
+.theme-red main:has(.stage-route-loader) {background-color:#19090e}
+.theme-red :is(div,span).animate-spin[class*="border-"] {border-color:#e4bf7333!important;border-top-color:#e4bf73!important}
+.theme-red svg.animate-spin {color:#e4bf73!important}
+.theme-red :is(.bg-background,[class~="bg-[#06091a]"]):has(>div.animate-spin),
+.theme-red div.fixed.inset-0:has(>div.animate-spin) {background:#19090e!important;color:#f4e5e7}
+.theme-red .animate-pulse:is([class~="bg-primary/10"],[class~="bg-muted"],[class~="bg-white/5"]) {background-color:#461b2b!important}
+.theme-red .stage-splash-screen {background:#19090e}
+.theme-red .stage-splash-screen::after {content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,#19090ea6,#35121d33),linear-gradient(0deg,#19090eaa,transparent 70%)}
+.theme-red .stage-splash-screen>div {z-index:1}
+.theme-red .stage-splash-screen>div>span {background:#e4bf73}
+@media(prefers-reduced-motion:reduce){.theme-red .animate-spin {animation:none!important}.theme-red .stage-splash-screen>div>span {opacity:1!important}}

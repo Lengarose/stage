@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from '@/hooks/useTranslation';
 import { stageClient, resolveMyPlayerAndClub } from '@/api/stageClient';
 import { cn } from '@/lib/utils';
@@ -22,6 +23,7 @@ const VISIBLE_CATEGORIES = LIFESTYLE_CATEGORIES.filter(c => !c.hidden);
 
 export default function Lifestyle() {
   const { t } = useTranslation();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
 
   const [presentation, setPresentation] = useState(() => lifestylePresentation());
@@ -30,7 +32,7 @@ export default function Lifestyle() {
   const [items, setItems]           = useState([]);
   const [purchases, setPurchases]   = useState([]);
   const [loading, setLoading]       = useState(true);
-  const [activeTab, setActiveTab]   = useState('store');
+  const [activeTab, setActiveTab]   = useState(() => searchParams.get('tab') === 'wallet' ? 'wallet' : 'store');
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState('featured');
   const [loadError, setLoadError] = useState('');
@@ -38,6 +40,10 @@ export default function Lifestyle() {
   const [modal, setModal]           = useState(null); // { action, item, purchase }
   const [actionLoading, setActLoad] = useState(false);
   const [collectingPassive, setCP]  = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get('tab') === 'wallet') setActiveTab('wallet');
+  }, [searchParams]);
 
   const load = useCallback(async () => {
     setLoading(true);

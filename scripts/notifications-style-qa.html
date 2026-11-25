@@ -2,7 +2,7 @@
 // Isolated UI fixture. All notification reads and writes are in memory.
 import React from 'react';import ReactDOM from 'react-dom/client';import RefreshRuntime from '/@react-refresh';import {MemoryRouter} from 'react-router-dom';
 RefreshRuntime.injectIntoGlobalHook(window);window.$RefreshReg$=()=>{};window.$RefreshSig$=()=>type=>type;window.__vite_plugin_react_preamble_installed__=true;
-await import('/src/index.css');await import('/node_modules/@fontsource/anton/index.css');
+await import('/src/index.css');await import('/src/components/loading/loadingDarkRed.css');document.documentElement.className='theme-dark dark';if(new URLSearchParams(location.search).get('theme')==='red'){document.documentElement.className='theme-red dark';document.body.classList.add('stage-red-notifications');document.body.style.background='#19090e';}await import('/node_modules/@fontsource/anton/index.css');
 const {stageClient}=await import('/src/api/stageClient.js');
 let rows=[
 {id:'one',type:'result_confirmed',title:'Result confirmed — The Hooded FC vs Northside United',body:'The 2–2 result is confirmed. Your fixture and club statistics have been updated.',read:false,link:'/schedule'},

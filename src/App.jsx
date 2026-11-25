@@ -39,10 +39,8 @@ const ClubDetail = React.lazy(() => import('./pages/ClubDetail'));
 const Directory = React.lazy(() => import('./pages/Directory'));
 const Tournaments = React.lazy(() => import('./pages/Tournaments'));
 const TournamentDetail = React.lazy(() => import('./pages/TournamentDetail'));
-const InternationalTournaments = React.lazy(() => import('./pages/InternationalTournaments'));
 const Rankings = React.lazy(() => import('./pages/Rankings'));
 const Profile = React.lazy(() => import('./pages/Profile'));
-const Social = React.lazy(() => import('./pages/Social'));
 const Search = React.lazy(() => import('./pages/Search'));
 const Store = React.lazy(() => import('./pages/Store'));
 const PlayerProfile = React.lazy(() => import('./pages/PlayerProfile'));
@@ -62,9 +60,7 @@ const InboxPage = React.lazy(() => import('./pages/Inbox'));
 const Schedule = React.lazy(() => import('./pages/Schedule'));
 const GameDay = React.lazy(() => import('./pages/GameDay'));
 const TransferMarket = React.lazy(() => import('./pages/TransferMarket'));
-const Scouting = React.lazy(() => import('./pages/Scouting'));
 const Lifestyle = React.lazy(() => import('./pages/Lifestyle'));
-const Wallet = React.lazy(() => import('./pages/Wallet'));
 const Competitions = React.lazy(() => import('./pages/Competitions'));
 const CompetitionDetail = React.lazy(() => import('./pages/CompetitionDetail'));
 const RegionalCups = React.lazy(() => import('./pages/RegionalCups'));
@@ -108,7 +104,7 @@ const AdminSectionRoutePage = React.lazy(() => import('./pages/admin/AdminSectio
 
 // Lightweight loading spinner for lazy-loaded route chunks
 const RouteLoader = () => (
-  <div className="flex items-center justify-center min-h-[60vh]">
+  <div className="stage-route-loader flex items-center justify-center min-h-[60vh]" role="status" aria-label="Loading page">
     <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
   </div>
 );
@@ -249,7 +245,7 @@ const MobileStoreHandoff = () => {
 
 const SplashScreen = () => (
   <motion.div
-    className="fixed inset-0 z-50"
+    className="stage-splash-screen fixed inset-0 z-50"
     initial={{ opacity: 0 }}
     animate={{ opacity: 1 }}
     transition={{ duration: 0.6, ease: 'easeOut' }}
@@ -431,9 +427,10 @@ const AuthenticatedApp = () => {
             <Route path="/clubs/:id" element={<ClubDetail />} />
             <Route path="/tournaments" element={<Tournaments />} />
             <Route path="/tournaments/:id" element={<TournamentDetail />} />
-            <Route path="/international" element={<InternationalTournaments />} />
+            {/* Temporarily hidden pages: implementations and data remain for future use. */}
+            <Route path="/international" element={<Navigate to="/tournaments" replace />} />
             <Route path="/rankings" element={<Rankings />} />
-            <Route path="/social" element={<Social />} />
+            <Route path="/social" element={<Navigate to="/" replace />} />
             <Route path="/community" element={<Community />} />
             <Route path="/search" element={<Search />} />
             <Route path="/profile" element={<Profile />} />
@@ -493,13 +490,11 @@ const AuthenticatedApp = () => {
             <Route path="/tournaments/profile-club" element={<TournamentClubProfilePage />} />
             <Route path="/tournaments/settings" element={<TournamentSettingsPage />} />
             <Route path="/transfer-market" element={<TransferMarket />} />
-            {/* The recruitment board was replaced by club scouting. Redirect
-                rather than 404 so old links, bookmarks and shared URLs still land
-                somewhere useful. */}
-            <Route path="/recruitment" element={<Navigate to="/scouting" replace />} />
-            <Route path="/scouting" element={<Scouting />} />
+            {/* Scouting is paused; old recruitment/scouting bookmarks open Directory. */}
+            <Route path="/recruitment" element={<Navigate to="/directory" replace />} />
+            <Route path="/scouting" element={<Navigate to="/directory" replace />} />
             <Route path="/lifestyle" element={<Lifestyle />} />
-            <Route path="/wallet" element={<Wallet />} />
+            <Route path="/wallet" element={<Navigate to="/lifestyle?tab=wallet" replace />} />
             <Route path="/competitions" element={<Competitions />} />
             <Route path="/competitions/:slug" element={<CompetitionDetail />} />
             <Route path="/regional-cups" element={<RegionalCups />} />

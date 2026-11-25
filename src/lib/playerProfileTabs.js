@@ -1,6 +1,5 @@
 export const PLAYER_PROFILE_TAB_IDS = [
   "overview",
-  "showcase",
   "career",
   "trophies",
   "lifestyle",
@@ -16,6 +15,7 @@ const TAB_CONTRACTS = [
   },
   {
     id: "showcase",
+    hidden: true, // Paused with Scouting; retain the contract and component for later.
     labelKey: "commonPages.ppTab_showcase",
     domain: "profile_presentation",
     meaning: "Player-owned gameplay clips and preferred showcase position. Clubs and scouts can watch; they cannot add footage.",
@@ -50,7 +50,7 @@ export function getPlayerProfileTabContract(tabId) {
 
 export function getPlayerProfileTabs({ tournamentLimited = false, t = (key) => key } = {}) {
   return TAB_CONTRACTS
-    .filter((tab) => !tournamentLimited || tab.tournamentVisible)
+    .filter((tab) => !tab.hidden && (!tournamentLimited || tab.tournamentVisible))
     .map((tab) => ({
       id: tab.id,
       label: t(tab.labelKey) === tab.labelKey && tab.id === "overview" ? "Overview" : t(tab.labelKey),

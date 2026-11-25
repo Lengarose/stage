@@ -2,11 +2,11 @@ import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Home, Shield, Trophy, BarChart3, User, ArrowLeftRight,
-  Rss, ShoppingBag, Video, UsersRound, Handshake,
+  ShoppingBag, Video, UsersRound, Handshake,
   Palette, ChevronDown, Newspaper, ShieldAlert, Settings,
   Inbox, CalendarDays, Zap, Coins, Moon, LogOut, Star, Bell,
   MessagesSquare, Globe2, Activity, HelpCircle,
-  X, LayoutDashboard, UserCog, Binoculars, Archive, Mail, Menu, Compass,
+  X, LayoutDashboard, UserCog, Archive, Mail, Menu, Compass,
 } from "lucide-react";
 import "./navigation/arenaNavigation.css";
 import "./navigation/darkRedNavigation.css";
@@ -135,7 +135,6 @@ function getPlayerGroups(t, clubPath) {
         { path: "/competitions",    icon: Star,      label: t("nav.gost") },
         { path: "/leagues",         icon: Globe2,    label: t("nav.regionalLeagues") },
         { path: "/tournaments",     icon: Trophy,    label: t("nav.tournaments") },
-        { path: "/international",   icon: Globe2,    label: t("nav.international") },
         { path: "/rankings",        icon: BarChart3, label: t("nav.rankings") },
       ],
     },
@@ -143,17 +142,14 @@ function getPlayerGroups(t, clubPath) {
       label: t("nav.market"),
       items: [
         { path: "/directory", icon: UsersRound, label: "STAGE Directory" },
-        { path: "/scouting",        icon: Binoculars,     label: t("nav.scouting") },
         { path: "/transfer-market", icon: ArrowLeftRight, label: t("nav.transfers") },
         { path: "/lifestyle",       icon: Coins,          label: t("nav.lifestyle") },
-        { path: "/wallet",          icon: Zap,            label: t("nav.wallet") },
       ],
     },
     {
       label: t("nav.discover"),
       items: [
         { path: "/the-stands", icon: Trophy, label: "The Stands" },
-        { path: "/social",       icon: Rss,        label: t("nav.feed") },
         { path: "/community",    icon: MessagesSquare, label: t("nav.discord") },
         { path: "/news",  icon: Newspaper,   label: t("nav.news") },
         { path: "/store", icon: ShoppingBag, label: t("nav.store") },
@@ -184,7 +180,6 @@ function getTournamentLimitedGroups(t, tournamentId, participantType) {
         { path: "/tournaments/game-day", icon: Zap,          label: t("nav.gameDay") },
         { path: "/tournaments/schedule", icon: CalendarDays, label: t("nav.schedule") },
         { path: "/tournaments/inbox",    icon: Inbox,        label: t("nav.inbox") },
-        { path: "/wallet",               icon: Zap,          label: t("nav.wallet") },
       ],
     },
     { label: isPlayerType ? t("nav.players") : t("nav.clubs"), items: communityItems },
@@ -220,7 +215,6 @@ function getPresidentGroups(t, clubPath, hasPlayer) {
         { path: "/competitions",    icon: Star,      label: t("nav.gost") },
         { path: "/leagues",         icon: Globe2,    label: t("nav.regionalLeagues") },
         { path: "/tournaments",     icon: Trophy,    label: t("nav.tournaments") },
-        { path: "/international",   icon: Globe2,    label: t("nav.international") },
         { path: "/rankings",        icon: BarChart3, label: t("nav.rankings") },
       ],
     },
@@ -455,7 +449,7 @@ const MOBILE_WALKTHROUGHS = [
     steps: [
       "Compare players, clubs and competition performance here.",
       "Use ranking context to understand form, activity and who is moving up.",
-      "Open profiles from rankings when you want deeper stats or scouting context.",
+      "Open profiles from rankings when you want deeper stats and club context.",
     ],
   },
   {
@@ -475,7 +469,7 @@ const MOBILE_WALKTHROUGHS = [
     steps: [
       "Find players who are available for clubs or looking for opportunities.",
       "Open a player profile before contacting or recruiting them.",
-      "Use Scouting or Inbox when you are ready to move from interest to action.",
+      "Use Inbox when you are ready to move from interest to action.",
     ],
   },
   {
@@ -950,7 +944,6 @@ const MOBILE_MORE_GROUPS_PLAYER = [
     label: "Compete",
     items: [
       { path: "/tournaments",     icon: Trophy,        label: "Tournaments"   },
-      { path: "/international",   icon: Globe2,        label: "International" },
       { path: "/rankings",        icon: BarChart3,     label: "Rankings"      },
     ],
   },
@@ -959,15 +952,12 @@ const MOBILE_MORE_GROUPS_PLAYER = [
     items: [
       { path: "/directory", icon: UsersRound, label: "STAGE Directory" },
       { path: "/free-agents",     icon: UsersRound,    label: "Free Agents"   },
-      { path: "/scouting",        icon: Binoculars,     label: "Scouting"    },
       { path: "/transfer-market", icon: ArrowLeftRight, label: "Transfer Room"   },
-      { path: "/wallet",          icon: Zap,            label: "Wallet"      },
     ],
   },
   {
     label: "Community",
     items: [
-      { path: "/social",          icon: Rss,            label: "Feed"          },
       { path: "/community",       icon: MessagesSquare, label: "Discord"       },
     ],
   },
@@ -998,18 +988,15 @@ function getMobileMoreGroupsPresident(clubPath) {
       items: [
         { path: clubPath || "/clubs", icon: Shield,      label: "My Club" },
         { path: "/directory", icon: UsersRound, label: "STAGE Directory" },
-        { path: "/scouting",        icon: Binoculars,     label: "Scouting"    },
         { path: "/transfer-market", icon: ArrowLeftRight, label: "Transfer Room"   },
         { path: "/contracts/create", icon: Handshake,     label: "Contracts"   },
         { path: "/lifestyle",       icon: Coins,          label: "Lifestyle"   },
-        { path: "/wallet",          icon: Zap,            label: "Wallet"      },
       ],
     },
     {
       label: "Compete",
       items: [
         { path: "/tournaments",     icon: Trophy,         label: "Tournaments"  },
-        { path: "/international",   icon: Globe2,         label: "International" },
         { path: "/rankings",        icon: BarChart3,      label: "Rankings"     },
       ],
     },
@@ -1017,7 +1004,6 @@ function getMobileMoreGroupsPresident(clubPath) {
       label: "Account",
       items: [
         { path: "/profile",         icon: User,           label: "Profile"       },
-        { path: "/social",          icon: Rss,            label: "Feed"          },
         { path: "/news",            icon: Newspaper,      label: "News"          },
         { path: "/store",           icon: ShoppingBag,    label: "Store"         },
         { path: "/notifications",   icon: Bell,           label: "Notifications" },
@@ -1251,7 +1237,6 @@ function MobileArenaBottomBar({ pathname, myPlayer, myClub, accountMode, notifCo
   const itemsFor = path => source.find(group => group.items.some(item => item.path === path))?.items || [];
   const market = itemsFor("/transfer-market").filter(item => item.path !== "/lifestyle");
   if (myPlayer && !market.some(item => item.path === "/free-agents")) market.push({ path: "/free-agents", icon: UsersRound, label: t("nav.freeAgents") });
-  if (!market.some(item => item.path === "/wallet")) market.push({ path: "/wallet", icon: Coins, label: t("nav.wallet") });
   if (accountMode === "club") market.push({ path: "/contracts/create", icon: Handshake, label: "Contracts" });
   const discover = [...itemsFor("/store"), { path: "/lifestyle", icon: Coins, label: t("nav.lifestyle") }];
   const groups = filterTransferWindowNavGroups([
@@ -1966,6 +1951,16 @@ export default function Layout() {
   const [accountMode,      setAccountMode]      = useState(() => localStorage.getItem("stage-account-mode") || "player");
   const [accountIntent,    setAccountIntent]    = useState("player");
   const [theme,            setTheme]            = useState(readStoredTheme);
+  const redNotifications = theme === 'theme-red' && /^\/notifications\/?$/.test(location.pathname);
+  useEffect(() => {
+    document.body.classList.toggle('stage-red-notifications', redNotifications);
+    return () => document.body.classList.remove('stage-red-notifications');
+  }, [redNotifications]);
+  const redSettings = theme === 'theme-red' && /^\/settings\/?$/.test(location.pathname);
+  useEffect(() => {
+    document.body.classList.toggle('stage-red-settings', redSettings);
+    return () => document.body.classList.remove('stage-red-settings');
+  }, [redSettings]);
   const redNews = theme === 'theme-red' && /^\/news\/?$/.test(location.pathname);
   useEffect(() => {
     document.body.classList.toggle('stage-red-news', redNews);

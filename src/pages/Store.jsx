@@ -258,7 +258,7 @@ export default function Store() {
           <div className="store-account">
             <div><Coins size={20} /><span><strong>{credits.toLocaleString()}</strong> credits available</span></div>
             <div><Shield size={20} /><span>Current plan <strong>{TIER_LABELS[currentTier]}</strong>{plusActive && expiry && <small>{cancelling ? "Access ends" : "Current period ends"} {expiry}</small>}</span></div>
-            <a href="/wallet">Open wallet <ArrowUpRight size={18} /></a>
+            <a href="/lifestyle?tab=wallet">Open wallet <ArrowUpRight size={18} /></a>
           </div>
         </header>
 
@@ -301,7 +301,7 @@ export default function Store() {
           </div>
           <aside className="store-callout"><div><h2>Start free.</h2><p>New accounts start with {TOURNAMENT_ENTRY_CREDITS} credits — enough for one standard community tournament entry. Top-ups are optional.</p></div><button type="button" className="store-action store-secondary" onClick={() => setActiveTab("credits")}>Browse credit packs <ArrowUpRight size={18} /></button></aside>
         </section>}
-        <footer className="store-footer">Secure checkout opens with our payment provider. Review the total before confirming payment. <a href="/wallet">View your wallet →</a></footer>
+        <footer className="store-footer">Secure checkout opens with our payment provider. Review the total before confirming payment. <a href="/lifestyle?tab=wallet">View your wallet →</a></footer>
       </div>
     </main>
   );

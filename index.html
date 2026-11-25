@@ -2,6 +2,16 @@
 <html lang="en" class="theme-dark">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      // Apply the saved red palette before application modules or fonts load.
+      try {
+        if (localStorage.getItem('stage-theme') === 'theme-red') {
+          document.documentElement.classList.replace('theme-dark', 'theme-red');
+          document.documentElement.classList.add('dark');
+        }
+      } catch { /* Storage can be unavailable in private browsing. */ }
+    </script>
+    <style>html.theme-red,html.theme-red body{background:#19090e;color:#f4e5e7}</style>
     <link rel="icon" type="image/png" href="/icons/logo-192.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />

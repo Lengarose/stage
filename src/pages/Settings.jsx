@@ -45,6 +45,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/components/ui/use-toast";
+import "./settingsDarkRed.css";
 
 
 
@@ -203,7 +204,7 @@ export default function Settings() {
   const [user, setUser] = useState(null);
   const [theme, setTheme] = useState(() => {
     const stored = localStorage.getItem("stage-theme");
-    return ["theme-dark", "theme-video", "theme-custom"].includes(stored) ? stored : "theme-dark";
+    return ["theme-dark", "theme-red", "theme-video", "theme-custom"].includes(stored) ? stored : "theme-dark";
   });
   const [customPrimaryColor, setCustomPrimaryColor] = useState("#00d4ff");
   const [customGradientColor, setCustomGradientColor] = useState("#0099ff");
@@ -234,7 +235,7 @@ export default function Settings() {
       const u = await stageClient.auth.me();
       setUser(u);
       const storedTheme = localStorage.getItem("stage-theme");
-      const currentTheme = ["theme-dark", "theme-video", "theme-custom"].includes(storedTheme)
+      const currentTheme = ["theme-dark", "theme-red", "theme-video", "theme-custom"].includes(storedTheme)
         ? storedTheme
         : "theme-dark";
       setTheme(currentTheme);
@@ -519,7 +520,7 @@ export default function Settings() {
   }
 
   return (
-    <GamerProfileShell scrollMode="page">
+    <GamerProfileShell scrollMode="page" className="stage-settings">
       <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
         <header className="space-y-1">
           <p className="text-[10px] font-black uppercase tracking-[0.32em] text-cyan-400">STAGE</p>
@@ -740,7 +741,8 @@ export default function Settings() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="theme-dark">{t("settingsPage.stgThemeDark")}</SelectItem>
+              <SelectItem value="theme-dark">Dark Blue</SelectItem>
+              <SelectItem value="theme-red">Dark Red</SelectItem>
               <SelectItem value="theme-video">{t("settingsPage.stgThemeLiveDark")}</SelectItem>
               <SelectItem value="theme-custom">{t("settingsPage.stgThemeCustom")}</SelectItem>
             </SelectContent>

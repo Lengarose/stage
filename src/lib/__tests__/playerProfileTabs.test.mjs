@@ -37,12 +37,12 @@ test("canonical profile tabs keep one business meaning across owner and public c
   }
 });
 
-test("tournament-limited profiles hide only lifestyle while preserving tab meanings", () => {
+test("tournament-limited profiles hide lifestyle and paused showcase while preserving tab meanings", () => {
   const publicTournament = getPlayerProfileTabs({ context: "public", tournamentLimited: true, t });
 
   assert.deepEqual(
     publicTournament.map((tab) => tab.id),
-    ["overview", "showcase", "career", "trophies"],
+    ["overview", "career", "trophies"],
   );
   assert.equal(getPlayerProfileTabContract("career").domain, "stageleagues_cv");
   assert.equal(getPlayerProfileTabContract("stats"), null);

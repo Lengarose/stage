@@ -31,14 +31,14 @@ export function getTutorialSteps(intent) {
       points: ["Regional entry has an application window followed by a shared confirmation week. Sporting placement determines the group.", "Official regional matches require three eligible human starters. A goalkeeper is optional and ANY is allowed; participating players need their own applicable Plus access.", "Club tournaments publish their own minimum, goalkeeper and ANY rules. GOST remains closed until its opening requirements are met."],
     },
     {
-      title: "Money And Honours", icon: "💰", where: "Wallet · Club Office → Finance · Trophies",
+      title: "Money And Honours", icon: "💰", where: "Lifestyle → Wallet · Club Office → Finance · Trophies",
       description: "Your personal Wallet and club funds are separate. Paid agreements use club money.",
       points: ["Weekly pay accrues after each completed seven-day period. Insufficient funds remain recorded as arrears.", "Card Level sets player salary limits; levelling up does not automatically change an accepted salary.", "Earned trophy copies appear in the collection. Use cabinet Edit to display an unlocked copy."],
     },
     {
       title: "Explore At Your Pace", icon: "🧭", where: "Home · Market · Discover · Settings",
       description: "Inbox holds decisions, Schedule shows kickoff times, and GameDay handles the match.",
-      points: ["Showcase and the transfer market help clubs and players find each other.", "Lifestyle offers optional purchases and rentals. Check price and upkeep before buying.", "Use a page’s Guide for help, or replay How STAGE works from Settings."],
+      points: ["STAGE Directory and the Transfer Room help clubs and players find each other.", "Lifestyle offers optional purchases and rentals. Check price and upkeep before buying.", "Use a page’s Guide for help, or replay How STAGE works from Settings."],
     },
   ];
 }
