@@ -1,5 +1,6 @@
 import CompetitionHubHero from '@/components/competition/CompetitionHubHero';
 import '@/components/competition/competitionPages.css';
+import '@/components/competition/competitionDarkRed.css';
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowRight, Trophy } from 'lucide-react';

@@ -1,4 +1,5 @@
 import '@/components/competition/competitionPages.css';
+import '@/components/competition/regionalDarkRed.css';
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowRight, Search, Trophy } from 'lucide-react';

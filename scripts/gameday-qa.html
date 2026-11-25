@@ -11,6 +11,7 @@ await import('/src/index.css');
 await import('/node_modules/@fontsource/anton/index.css');
 document.documentElement.className='theme-dark dark';
 const params=new URLSearchParams(location.search);
+if(params.get('theme')==='red')document.body.classList.add('stage-red-gameday');
 const {stageClient}=await import('/src/api/stageClient.js');
 const player={id:'qa-home',gamertag:'Test Home',email:'qa@example.test',position:'ST',stc:50000,avatar_url:'/src/assets/landing/player.webp'};
 const games=['tournament','supreme','elite','challenger','regional','friendly'].map((category,i)=>({id:`qa-${i}`,home_player_id:player.id,home_player_name:player.gamertag,away_player_id:'qa-away',away_player_name:`Test Away ${i+1}`,home_player_email:player.email,mode:'solo',type:category==='tournament'?'knockout':category==='friendly'?'friendly':'ranked',category,competition_name:`QA ${category}`,competition_key:`edition-${category}`,tournament_id:category==='tournament'?'qa-cup':null,status:i===0?'in_progress':i===1?'scheduled':'completed',result_state:i<2?'AWAITING_RESULT':'CONFIRMED',home_score:i===0?0:2,away_score:i===0?0:1,stats_processed:i<2?0:1,scheduled_date:'2026-10-27T19:00:00Z',display_date:'2026-10-27T19:00:00Z',scheduling_status:'confirmed',updated_date:'2026-10-27T19:00:00Z'}));

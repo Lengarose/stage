@@ -1,4 +1,5 @@
 import '@/components/competition/competitionPages.css';
+import '@/components/competition/competitionDarkRed.css';
 import IdentityAvatar from "@/components/profile/IdentityAvatar";
 import { useState, useEffect } from "react";
 import { useParams, useSearchParams, Link } from "react-router-dom";

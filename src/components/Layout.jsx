@@ -1964,6 +1964,21 @@ export default function Layout() {
   const [accountMode,      setAccountMode]      = useState(() => localStorage.getItem("stage-account-mode") || "player");
   const [accountIntent,    setAccountIntent]    = useState("player");
   const [theme,            setTheme]            = useState(readStoredTheme);
+  const redRegional = theme === 'theme-red' && /^\/(?:leagues(?:\/[^/]+)?|regional-cups)\/?$/.test(location.pathname);
+  useEffect(() => {
+    document.body.classList.toggle('stage-red-regional', redRegional);
+    return () => document.body.classList.remove('stage-red-regional');
+  }, [redRegional]);
+  const redGost = theme === 'theme-red' && /^\/competitions(?:\/[^/]+)?\/?$/.test(location.pathname);
+  useEffect(() => {
+    document.body.classList.toggle('stage-red-gost', redGost);
+    return () => document.body.classList.remove('stage-red-gost');
+  }, [redGost]);
+  const redGameDay = theme === 'theme-red' && /^\/game-day\/?$/.test(location.pathname);
+  useEffect(() => {
+    document.body.classList.toggle('stage-red-gameday', redGameDay);
+    return () => document.body.classList.remove('stage-red-gameday');
+  }, [redGameDay]);
   const redSchedule = theme === 'theme-red' && /^\/schedule\/?$/.test(location.pathname);
   useEffect(() => {
     document.body.classList.toggle('stage-red-schedule', redSchedule);

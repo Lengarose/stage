@@ -1,0 +1,38 @@
+/* GOST route scope includes portalled prize, rules and fixture dialogs. */
+body.stage-red-gost {
+ --background:340 47% 7%;--foreground:345 41% 93%;
+ --card:340 47% 12%;--card-foreground:345 41% 93%;
+ --popover:340 47% 12%;--popover-foreground:345 41% 93%;
+ --muted:339 43% 16%;--muted-foreground:347 26% 75%;
+ --secondary:339 43% 16%;--secondary-foreground:345 41% 93%;
+ --accent:339 43% 20%;--accent-foreground:345 41% 93%;
+ --primary:40 68% 67%;--primary-foreground:342 36% 12%;
+ --border:38 38% 34%;--input:38 30% 29%;--ring:40 68% 67%;
+ background:#19090e;color:#f4e5e7;
+}
+.stage-red-gost main,.stage-red-gost .ch-gost-stage {background-color:#19090e}
+.stage-red-gost :is(.official-competition-ui,.ch-gost-stage) {--primary:40 68% 67%!important;--ch-accent:#e4bf73!important}
+.stage-red-gost .ch-gost-stage>.ch-shade {background:linear-gradient(180deg,#19090e99,#19090ebd 45%,#19090ef5),linear-gradient(90deg,#280e18aa,transparent,#19090e77)}
+.stage-red-gost .ch-gost-stage .ch-directory article {background:linear-gradient(150deg,#461b2bc9,#240c15d9);border-color:#a27b4366;box-shadow:inset 0 1px #f5d58c1f}
+.stage-red-gost .ch-gost-stage .ch-directory article:hover {background-color:#481b29}
+.stage-red-gost :is(.ch-description,.ch-caption,.ch-config-notice) {color:#cfaeb5}
+.stage-red-gost .ch-controls button {background:#280e18c9;border-color:#a27b4366;color:#f4e5e7}
+.stage-red-gost .ch-controls button:hover {background:#4a1b2b}
+.stage-red-gost .ch-directory nav [aria-current=page] {color:#fff3df;text-shadow:0 0 18px #e4bf7370}
+.stage-red-gost .gost-detail>div>header .text-primary {color:hsl(var(--gost-accent-dark))}
+.stage-red-gost .gost-detail>div>header {background:radial-gradient(ellipse at 15% 50%,#75302a35,transparent 65%)}
+.stage-red-gost :is([role=dialog],[role=alertdialog],.swal2-popup) {background:linear-gradient(145deg,#35121d,#240c15 65%)!important;color:#f4e5e7!important;border-color:#a27b43!important;box-shadow:0 24px 80px #0009}
+.stage-red-gost :is([role=listbox],[role=menu]) {background:#35121d;color:#f4e5e7;border-color:#a27b43}
+.stage-red-gost :is([role=option],[role=menuitem])[data-highlighted] {background:#4a1b2b;color:#fff3df}
+.stage-red-gost :is(.official-competition-ui,[role=dialog],[role=alertdialog]) :is(input:not([type=checkbox]):not([type=radio]),textarea,select,[role=combobox]) {background:#200b13;color:#f4e5e7;border-color:#a27b4366;color-scheme:dark}
+.stage-red-gost :is(input,textarea)::placeholder {color:#cfaeb5}
+.stage-red-gost select option {background:#280e18;color:#f4e5e7}
+.stage-red-gost :is(.official-competition-ui,[role=dialog]) :is([class~="bg-slate-900"],[class~="bg-gray-900"],[class~="bg-[#0f172a]"]) {background-color:#2d101a}
+.stage-red-gost :is(.official-competition-ui,[role=dialog]) button.bg-primary,.stage-red-gost .swal2-confirm {background:linear-gradient(120deg,#efd69b,#c69a50)!important;color:#28131a!important}
+.stage-red-gost :is(.official-competition-ui,[role=dialog]) .text-destructive {color:#ffadb5}
+.stage-red-gost :is(input[type=checkbox],input[type=radio]) {accent-color:#e4bf73}
+.stage-red-gost :focus-visible {outline:2px solid #e4bf73!important;outline-offset:3px;--tw-ring-color:#e4bf73}
+.stage-red-gost,.stage-red-gost * {scrollbar-color:#b38a4b #220c14}
+.stage-red-gost ::-webkit-scrollbar {width:10px}
+.stage-red-gost ::-webkit-scrollbar-track {background:#220c14}
+.stage-red-gost ::-webkit-scrollbar-thumb {background:linear-gradient(#e4bf73,#9a7238);border:2px solid #220c14;border-radius:2px}

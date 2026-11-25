@@ -1,0 +1,61 @@
+/* Route scope includes portalled dialogs. Uploaded artwork, category colours,
+   result states and match behaviour remain independent of the theme. */
+body.stage-red-gameday {
+ --background:340 47% 7%;--foreground:345 41% 93%;
+ --card:340 47% 12%;--card-foreground:345 41% 93%;
+ --popover:340 47% 12%;--popover-foreground:345 41% 93%;
+ --muted:339 43% 16%;--muted-foreground:347 26% 75%;
+ --secondary:339 43% 16%;--secondary-foreground:345 41% 93%;
+ --accent:339 43% 20%;--accent-foreground:345 41% 93%;
+ --primary:40 68% 67%;--primary-foreground:342 36% 12%;
+ --border:38 38% 34%;--input:38 30% 29%;--ring:40 68% 67%;
+ --gd-accent:#e4bf73;background:#19090e;color:#f4e5e7;
+}
+.stage-red-gameday main,.stage-red-gameday .gameday-page {background-color:#19090e}
+.stage-red-gameday :is(.gameday-page,.gd-action-modal) {--gd-accent:#e4bf73!important}
+.stage-red-gameday .gd-page-art {background:#280e18}
+.stage-red-gameday .gd-page-art::after {background:linear-gradient(90deg,#19090ed4,#19090e55 65%,#19090e80),linear-gradient(0deg,#19090e 0%,#19090e80 35%,transparent 75%)}
+.stage-red-gameday .gd-queue {background:#2d101aeb!important;border-color:#a27b4366!important}
+.stage-red-gameday .gd-intro-tools>div:last-child {background:#280e18c9;border-color:#a27b4366}
+.stage-red-gameday :is(.gd-eyebrow,.gd-intro-copy>p:last-child,.gd-modal-intro,.gd-chat-header small,.gd-chat-message time,.gd-modal-steps li) {color:#cfaeb5}
+.stage-red-gameday :is(.gameday-page,[role="dialog"],.gameday-result-modal) :is([class*="bg-[#0"],[class*="bg-[#1"],[class~="bg-slate-900"],[class~="bg-gray-900"]) {background-color:#2d101a}
+.stage-red-gameday :is([role="dialog"],[role="alertdialog"],.gameday-result-modal,.swal2-popup) {background:linear-gradient(145deg,#35121d,#240c15 65%)!important;color:#f4e5e7!important;border-color:#a27b43!important;box-shadow:0 24px 80px #0009}
+.stage-red-gameday :is([role="listbox"],[role="menu"]) {background:#35121d;color:#f4e5e7;border-color:#a27b43}
+.stage-red-gameday :is([role="option"],[role="menuitem"])[data-highlighted] {background:#4a1b2b;color:#fff5ed}
+.stage-red-gameday :is(.gameday-page,[role="dialog"],.gameday-result-modal) :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),textarea,select,[role="combobox"]) {background:#200b13;color:#f4e5e7;border-color:#a27b4366;color-scheme:dark}
+.stage-red-gameday :is(input,textarea)::placeholder {color:#cfaeb5}
+.stage-red-gameday select option {background:#280e18;color:#f4e5e7}
+.stage-red-gameday :is(.gameday-page,[role="dialog"],.gameday-result-modal) :is([class*="text-cyan-"],[class*="text-blue-"],[class*="text-sky-"]) {color:#e4bf73}
+.stage-red-gameday :is(.gameday-page,[role="dialog"],.gameday-result-modal) :is([class~="text-white/40"],[class~="text-white/45"],[class~="text-white/50"],[class~="text-white/55"],[class~="text-slate-400"],[class~="text-slate-500"]) {color:#cfaeb5}
+.stage-red-gameday :is(.gameday-page,[role="dialog"],.gameday-result-modal) :is([class*="border-cyan-"],[class*="border-blue-"],[class*="border-white/"]) {border-color:#a27b4355}
+.stage-red-gameday :is(.gd-kickoff,.gd-intro-tools .gd-arrange,.gd-chat-compose button,.swal2-confirm),
+.stage-red-gameday [role="dialog"] button:is([class~="bg-primary"],[class~="bg-white"],[class~="bg-[#d8dee8]"]) {background:linear-gradient(120deg,#efd69b,#c69a50)!important;color:#28131a!important}
+.stage-red-gameday .gd-action-modal :is(.bg-secondary,[class*="bg-secondary/"]) {background:#401724}
+.stage-red-gameday :is(.gd-action-modal .text-foreground,.gd-chat-header strong,.gd-chat-message p) {color:#f4e5e7}
+.stage-red-gameday .gameday-page [class~="bg-[#00e5ff]"] {background:#e4bf73;color:#28131a}
+.stage-red-gameday .gameday-page [aria-label="Your next step"] {background:#280e18d9}
+.stage-red-gameday .gd-action-modal .text-muted-foreground {color:#cfaeb5}
+.stage-red-gameday .gd-chat-message>div:last-child {background:#35121d;border-color:#a27b4355}
+.stage-red-gameday .gd-chat-message.is-own>div:last-child {background:#4a1b2b;border-color:#a27b4388}
+.stage-red-gameday .gd-chat-message header {color:#e4bf73}
+.stage-red-gameday .gameday-result-modal>header {background:linear-gradient(105deg,#75412733,transparent);border-top-color:#e4bf73}
+.stage-red-gameday .gameday-result-modal>header p {color:#cfaeb5}
+.stage-red-gameday .gameday-result-modal :is(.result-goal-card,.result-rating-card) {background:#40172466;border-color:#a27b4355}
+.stage-red-gameday .gameday-result-modal .result-goal-card {border-left-color:#e4bf73}
+.stage-red-gameday .gameday-result-modal .result-goal-card>div:first-child>p {color:#e4bf73}
+.stage-red-gameday .gameday-result-modal input[aria-label$="goals"] {background:linear-gradient(135deg,#481b29,#2d101a);border-color:#a27b4388}
+.stage-red-gameday .gameday-result-modal>footer {background:#280e18;border-color:#a27b4355}
+.stage-red-gameday input:is([type="checkbox"],[type="radio"],[type="range"]) {accent-color:#e4bf73}
+.stage-red-gameday :focus-visible {outline:2px solid #e4bf73!important;outline-offset:3px;--tw-ring-color:#e4bf73}
+/* Default split portraits retain their artwork and geometry. */
+.stage-red-gameday .matchup-backdrop {background:#2d101a}
+.stage-red-gameday .matchup-backdrop__shade {background:linear-gradient(90deg,#19090eb8,#280e1880 45%,#19090ebf),linear-gradient(0deg,#220c14cc,transparent 70%)}
+.stage-red-gameday .matchup-backdrop--detail .matchup-backdrop__shade {background:linear-gradient(0deg,#220c14eb,#280e184d 75%),linear-gradient(90deg,#19090e88,#280e1866 50%,#19090e88)}
+.stage-red-gameday .matchup-backdrop__slash {background:linear-gradient(0deg,transparent,#d2ac6366 35%,#f8e4ae99 50%,#d2ac6344 65%,transparent)}
+.stage-red-gameday,.stage-red-gameday * {scrollbar-color:#b38a4b #220c14}
+.stage-red-gameday ::-webkit-scrollbar {width:10px}
+.stage-red-gameday ::-webkit-scrollbar-track {background:#220c14}
+.stage-red-gameday ::-webkit-scrollbar-thumb {background:linear-gradient(#e4bf73,#9a7238);border:2px solid #220c14;border-radius:2px}
+
+.stage-red-gameday .gameday-result-modal button.bg-success {background:linear-gradient(120deg,#efd69b,#c69a50);color:#28131a}
+.stage-red-gameday :is(.gameday-page,[role="dialog"],.gameday-result-modal) .text-destructive {color:#ffadb5}

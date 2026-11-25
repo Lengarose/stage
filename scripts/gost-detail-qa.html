@@ -10,6 +10,7 @@ window.$RefreshReg$=()=>{};window.$RefreshSig$=()=>type=>type;window.__vite_plug
 await import('/src/index.css');
 await import('/node_modules/@fontsource/anton/index.css');
 const params=new URLSearchParams(location.search);
+if(params.get('theme')==='red')document.body.classList.add('stage-red-gost');
 document.documentElement.className=params.has('light')?'theme-light':'theme-dark dark';
 const {stageClient}=await import('/src/api/stageClient.js');
 const names=['supreme','elite','challenger'];

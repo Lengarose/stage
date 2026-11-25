@@ -1,5 +1,6 @@
 import CompetitionHubHero from '@/components/competition/CompetitionHubHero';
 import '@/components/competition/competitionPages.css';
+import '@/components/competition/regionalDarkRed.css';
 import { useEffect, useState } from 'react';
 import { competitionPagePresentation } from '@/lib/competitionPagePresentation';
 import RegionalCups from './RegionalCups';

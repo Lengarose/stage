@@ -12,6 +12,7 @@ await import('/node_modules/@fontsource/anton/index.css');
 document.documentElement.className='theme-dark dark';
 const {stageClient}=await import('/src/api/stageClient.js');
 const params=new URLSearchParams(location.search);
+if(params.get('theme')==='red')document.body.classList.add('stage-red-gost');
 const journey={kind:'ucl',text:'League phase: top 8 directly to Round of 16; positions 9–24 play a two-legged playoff. Eight winners advance. Then quarterfinals, semifinals and final.'};
 const prizes={participation:'100.00',winner_bonus:'300.00',runner_up_bonus:'200.00',budget:'4100.00',participant_basis:36};
 const competitions=['supreme','elite','challenger'].map((slug,i)=>({id:slug,slug,name:`STAGE ${slug[0].toUpperCase()+slug.slice(1)} League`,tier:i+1,assignment:{state:'unassigned',trophy:null,guidance:'Assign a competition trophy in Admin → GOST.'},current:{id:`${slug}-current`,label:'Season 2',state:i===0?'Registration':i===1?'Draft':'In progress · League phase',status:i===0?'registration':i===1?'draft':'league_phase',registered:[12,0,36][i],qualified:[12,0,36][i],maximum:36,prizes,journey},archive:[{id:`${slug}-old`,label:'Season 1',state:'Archived',status:'archived',winner:'QA Winning Club',prizes,journey}],journey}));

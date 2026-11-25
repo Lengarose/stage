@@ -1,0 +1,43 @@
+/* Regional hub, every division and Regional Cups, including portalled dialogs. */
+body.stage-red-regional {
+ --background:340 47% 7%;--foreground:345 41% 93%;
+ --card:340 47% 12%;--card-foreground:345 41% 93%;
+ --popover:340 47% 12%;--popover-foreground:345 41% 93%;
+ --muted:339 43% 16%;--muted-foreground:347 26% 75%;
+ --secondary:339 43% 16%;--secondary-foreground:345 41% 93%;
+ --accent:339 43% 20%;--accent-foreground:345 41% 93%;
+ --primary:40 68% 67%;--primary-foreground:342 36% 12%;
+ --border:38 38% 34%;--input:38 30% 29%;--ring:40 68% 67%;
+ background:#19090e;color:#f4e5e7;
+}
+.stage-red-regional main {background-color:#19090e}
+.stage-red-regional :is(.official-competition-ui,.ch-regional-news) {--ch-accent:#e4bf73!important}
+.stage-red-regional .ch-regional-news .stage-times-hero {background:radial-gradient(ellipse at 80% 30%,#75302a66,transparent 55%),linear-gradient(120deg,#35121d,#19090e);border-color:#a27b4366}
+.stage-red-regional .ch-regional-news .stage-times-hero-shade {background:linear-gradient(90deg,#19090eee,#19090e88 40%,#19090e22 80%),linear-gradient(0deg,#19090e,transparent 70%)}
+.stage-red-regional .ch-regional-news :is(.stage-times-kicker,.stage-times-hero-edition) {color:#e4bf73}
+.stage-red-regional .ch-regional-news .stage-times-hero-copy>p:last-of-type {color:#dfc3c9}
+.stage-red-regional .ch-regional-news .stage-times-hero-copy>a {border-color:#a27b4366}
+.stage-red-regional .ch-regional-news .stage-times-slide-controls {background:#280e18c9;border-color:#a27b4366;color:#f4e5e7}
+.stage-red-regional .ch-regional-layout .ch-directory .regional-system-grid>.regional-system-list {background:linear-gradient(145deg,#461b2b77,#240c15);border-color:#a27b4366;box-shadow:inset 0 1px #f5d58c1f}
+.stage-red-regional .regional-system-photo-fade {background:linear-gradient(90deg,#280e18 0%,#280e18eb 24%,#280e1870 65%,#280e1820),linear-gradient(0deg,#280e18,transparent 45%)}
+.stage-red-regional .regional-league-detail-photo-fade {background:linear-gradient(90deg,#19090ec9,#19090eb8 40%,#19090e70),linear-gradient(0deg,#19090e,transparent 50%)}
+.stage-red-regional .regional-league-detail-hero.has-region-image .text-muted-foreground {color:#dfc3c9}
+.stage-red-regional .regional-row-kicker {color:#cfaeb5}
+.stage-red-regional .regional-row-kicker span {color:#a27b43}
+.stage-red-regional :is(.regional-row-open,.regional-row-identity a):hover {color:#efd69b}
+.stage-red-regional .ch-cups header:first-of-type {background:radial-gradient(ellipse at 80% 30%,#75302a33,transparent 60%)}
+.stage-red-regional .ch-cups article {background:linear-gradient(145deg,#461b2b99,#240c15);border-color:#a27b4366;box-shadow:inset 0 1px #f5d58c1f}
+.stage-red-regional :is([role=dialog],[role=alertdialog],.swal2-popup) {background:linear-gradient(145deg,#35121d,#240c15 65%)!important;color:#f4e5e7!important;border-color:#a27b43!important;box-shadow:0 24px 80px #0009}
+.stage-red-regional :is([role=listbox],[role=menu]) {background:#35121d;color:#f4e5e7;border-color:#a27b43}
+.stage-red-regional :is([role=option],[role=menuitem])[data-highlighted] {background:#4a1b2b;color:#fff3df}
+.stage-red-regional :is(.official-competition-ui,[role=dialog],[role=alertdialog]) :is(input:not([type=checkbox]):not([type=radio]),textarea,select,[role=combobox]) {background:#200b13;color:#f4e5e7;border-color:#a27b4366;color-scheme:dark}
+.stage-red-regional :is(input,textarea)::placeholder {color:#cfaeb5}
+.stage-red-regional select option {background:#280e18;color:#f4e5e7}
+.stage-red-regional :is(.official-competition-ui,[role=dialog]) button.bg-primary,.stage-red-regional .swal2-confirm {background:linear-gradient(120deg,#efd69b,#c69a50)!important;color:#28131a!important}
+.stage-red-regional :is(.official-competition-ui,[role=dialog]) .text-destructive {color:#ffadb5}
+.stage-red-regional :is(input[type=checkbox],input[type=radio]) {accent-color:#e4bf73}
+.stage-red-regional :focus-visible {outline:2px solid #e4bf73!important;outline-offset:3px;--tw-ring-color:#e4bf73}
+.stage-red-regional,.stage-red-regional * {scrollbar-color:#b38a4b #220c14}
+.stage-red-regional ::-webkit-scrollbar {width:10px}
+.stage-red-regional ::-webkit-scrollbar-track {background:#220c14}
+.stage-red-regional ::-webkit-scrollbar-thumb {background:linear-gradient(#e4bf73,#9a7238);border:2px solid #220c14;border-radius:2px}

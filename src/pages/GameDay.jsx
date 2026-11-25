@@ -6,6 +6,7 @@ import { useChatNotifications } from "@/lib/ChatNotificationsContext";
 import GameDayCard from "@/components/gameday/GameDayCard";
 import { getGameDayAccent } from "@/lib/gameDayBanner";
 import "@/components/gameday/gameDay.css";
+import "@/components/gameday/gameDayDarkRed.css";
 import GameDayBanner from "@/components/gameday/GameDayBanner";
 import GameDayDetail from "@/components/gameday/GameDayDetail";
 import GameDayTileBackgroundDialog, {
