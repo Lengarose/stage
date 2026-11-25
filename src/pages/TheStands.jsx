@@ -1,4 +1,5 @@
 import '@/components/stands/theStands.css';
+import '@/components/stands/standsDarkRed.css';
 import standsArtwork from '@/assets/landing/gamers.webp';
 import { standsPresentation, STANDS_ACCENTS } from '@/lib/standsPresentation';
 import MatchupBackdrop from '@/components/schedule/MatchupBackdrop';

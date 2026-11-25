@@ -1,0 +1,46 @@
+/* Lifestyle storefront, portfolio, wallet and portalled asset actions. */
+body.stage-red-lifestyle {
+ --background:340 47% 7%;--foreground:345 41% 93%;
+ --card:340 47% 12%;--card-foreground:345 41% 93%;
+ --popover:340 47% 12%;--popover-foreground:345 41% 93%;
+ --muted:339 43% 16%;--muted-foreground:347 26% 75%;
+ --secondary:339 43% 16%;--secondary-foreground:345 41% 93%;
+ --accent:339 43% 20%;--accent-foreground:345 41% 93%;
+ --primary:40 68% 67%;--primary-foreground:342 36% 12%;
+ --border:38 38% 34%;--input:38 30% 29%;--ring:40 68% 67%;
+ background:#19090e;color:#f4e5e7;
+}
+
+
+
+.stage-red-lifestyle main {background-color:#19090e}
+.stage-red-lifestyle .lifestyle-store {--ls-accent:#e4bf73!important;background:#19090e;color:#f4e5e7}
+.stage-red-lifestyle .ls-hero {background:#280e18}
+.stage-red-lifestyle .ls-hero-shade {background:linear-gradient(90deg,#19090ef0,#19090ea6 38%,#19090e1f 75%),linear-gradient(0deg,#19090e,transparent 40%)}
+.stage-red-lifestyle :is(.ls-hero-copy>p:not(.ls-eyebrow),.ls-hero-note) {color:#dfc3c9}
+.stage-red-lifestyle .ls-primary {background:linear-gradient(120deg,#efd69b,#c69a50);color:#28131a}
+.stage-red-lifestyle .ls-primary:hover {background:#f1d69b}
+.stage-red-lifestyle .ls-slide-controls button {background:#280e18aa;border-color:#a27b4366;color:#f4e5e7}
+.stage-red-lifestyle .ls-slide-controls button:hover {background:#6b452955}
+.stage-red-lifestyle .ls-shopping-strip {background:linear-gradient(120deg,#35121d,#240c15);border-color:#a27b4366}
+.stage-red-lifestyle .ls-store-grid>.group {background:#2d101a;border-color:#a27b4366;box-shadow:inset 0 1px #f5d58c14}
+.stage-red-lifestyle .lifestyle-store [role=tab][data-state=active] {color:#fff3df;background:#b38a4b18;text-shadow:0 0 15px #e4bf7380}
+.stage-red-lifestyle .lifestyle-store :is(input:not([type=checkbox]):not([type=radio]),select,textarea),.stage-red-lifestyle [role=dialog] :is(input:not([type=checkbox]):not([type=radio]),textarea,select,[role=combobox]) {background:#200b13;color:#f4e5e7;border-color:#a27b4366;color-scheme:dark}
+.stage-red-lifestyle :is(input,textarea)::placeholder {color:#cfaeb5}
+.stage-red-lifestyle select option {background:#280e18;color:#f4e5e7}
+.stage-red-lifestyle :is([role=dialog],[role=alertdialog],.swal2-popup) {background:linear-gradient(145deg,#35121d,#240c15 65%)!important;color:#f4e5e7!important;border-color:#a27b43!important;border-radius:0;box-shadow:0 24px 80px #0009}
+.stage-red-lifestyle [role=dialog] [class*="rounded-"] {border-radius:0}
+.stage-red-lifestyle :is([role=listbox],[role=menu]) {background:#35121d;color:#f4e5e7;border-color:#a27b43}
+.stage-red-lifestyle :is([role=option],[role=menuitem])[data-highlighted] {background:#4a1b2b;color:#fff3df}
+/* Warm up rental chrome; retain positive-income and warning/error colours. */
+.stage-red-lifestyle :is(.lifestyle-store,[role=dialog]) [class*="text-blue-"] {color:#e4bf73}
+.stage-red-lifestyle :is(.lifestyle-store,[role=dialog]) [class*="border-blue-"] {border-color:#a27b4366}
+.stage-red-lifestyle :is(.lifestyle-store,[role=dialog]) :is([class~="bg-blue-500/10"],[class~="bg-blue-500/15"]) {background:#b38a4b18}
+.stage-red-lifestyle :is(.lifestyle-store,[role=dialog]) button:is(.bg-primary,.bg-blue-500,.bg-emerald-500,.bg-amber-500,.bg-rose-500),.stage-red-lifestyle .swal2-confirm {background:linear-gradient(120deg,#efd69b,#c69a50)!important;color:#28131a!important}
+.stage-red-lifestyle input[type=checkbox] {accent-color:#e4bf73}
+.stage-red-lifestyle :focus-visible {outline:2px solid #e4bf73!important;outline-offset:3px;--tw-ring-color:#e4bf73}
+.stage-red-lifestyle,.stage-red-lifestyle * {scrollbar-color:#b38a4b #220c14}
+.stage-red-lifestyle ::-webkit-scrollbar {width:10px}
+.stage-red-lifestyle ::-webkit-scrollbar-track {background:#220c14}
+.stage-red-lifestyle ::-webkit-scrollbar-thumb {background:linear-gradient(#e4bf73,#9a7238);border:2px solid #220c14;border-radius:2px}
+@media(max-width:600px){.stage-red-lifestyle .ls-hero-shade {background:linear-gradient(90deg,#19090ecc,#19090e30),linear-gradient(0deg,#19090e,transparent 85%)}}

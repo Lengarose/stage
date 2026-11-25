@@ -25,6 +25,7 @@ export const ADMIN_SECTION_ALIASES = {
   gost: "gost",
   news: "news",
   "the-stands": "the-stands",
+  discord: "discord",
   trophies: "trophies",
   rewards: "rewards",
   rankings: "rankings",

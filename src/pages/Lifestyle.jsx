@@ -12,6 +12,7 @@ import {
 import { lifestylePresentation, LIFESTYLE_ACCENTS } from '@/lib/lifestylePresentation';
 import LifestyleStoreHero from '@/components/lifestyle/LifestyleStoreHero';
 import '@/components/lifestyle/lifestyleStore.css';
+import '@/components/lifestyle/lifestyleDarkRed.css';
 import LifestyleAssetCard from '@/components/lifestyle/LifestyleAssetCard';
 import LifestyleActionModal from '@/components/lifestyle/LifestyleActionModal';
 import STCWallet from '@/components/lifestyle/STCWallet';

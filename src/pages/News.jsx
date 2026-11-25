@@ -6,6 +6,7 @@ import StageTimesHero from "@/components/news/StageTimesHero";
 import MatchupBackdrop from "@/components/schedule/MatchupBackdrop";
 import { NEWS_SECTIONS } from "@/lib/stageTimes";
 import "./stageTimes.css";
+import "./newsDarkRed.css";
 
 export const CATEGORY_CONFIG = {
   transfers:        { label: "Transfers",       labelKey: "transfers", icon: ArrowRightLeft,  color: "text-warning",     bg: "bg-warning/10 border-warning/30" },

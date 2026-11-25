@@ -1,7 +1,7 @@
 <!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Lifestyle storefront local QA</title><link href="https://fonts.googleapis.com/css2?family=Anton&family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet"></head><body style="margin:0;background:#060b17"><div id="root"></div><script type="module">
 import React from 'react';import ReactDOM from 'react-dom/client';import {MemoryRouter} from 'react-router-dom';import RefreshRuntime from '/@react-refresh';
 RefreshRuntime.injectIntoGlobalHook(window);window.$RefreshReg$=()=>{};window.$RefreshSig$=()=>type=>type;window.__vite_plugin_react_preamble_installed__=true;
-await import('/src/index.css');await import('/node_modules/@fontsource/anton/index.css');document.documentElement.className='theme-dark dark';
+await import('/src/index.css');await import('/node_modules/@fontsource/anton/index.css');document.documentElement.className='theme-dark dark';if(new URLSearchParams(location.search).get('theme')==='red'){document.documentElement.className='theme-red dark';document.body.classList.add('stage-red-lifestyle');}
 const {stageClient}=await import('/src/api/stageClient.js');
 for(const entity of Object.values(stageClient.entities)){entity.filter=async()=>[];entity.list=async()=>[];entity.get=async()=>null;entity.subscribe=()=>()=>{};}
 let config={id:'qa-presentation',key:'main',accent:new URLSearchParams(location.search).has('custom')?'gold':'ice',banner_slides:new URLSearchParams(location.search).has('custom')?[{url:'/src/assets/landing/team.webp',position:'50% 30%',zoom:120}]:[]};

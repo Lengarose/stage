@@ -1,0 +1,33 @@
+/* Route-scoped Dark Red palette; Dark Blue remains unchanged. */
+body.stage-red-store {
+ --background:340 47% 7%;--foreground:345 41% 93%;
+ --card:340 47% 12%;--card-foreground:345 41% 93%;
+ --popover:340 47% 12%;--popover-foreground:345 41% 93%;
+ --muted:339 43% 16%;--muted-foreground:347 26% 75%;
+ --secondary:339 43% 16%;--secondary-foreground:345 41% 93%;
+ --accent:339 43% 20%;--accent-foreground:345 41% 93%;
+ --primary:40 68% 67%;--primary-foreground:342 36% 12%;
+ --border:38 38% 34%;--input:38 30% 29%;--ring:40 68% 67%;
+ background:#19090e;color:#f4e5e7;
+}
+.stage-red-store .stage-store {--store-blue:#e4bf73;background:#19090e;color:#f4e5e7}
+.stage-red-store .stage-store:has(.store-backdrop):before {background:linear-gradient(90deg,#19090ee6,transparent)}
+.stage-red-store :is(.store-muted,.store-account small,.store-section-heading>p,.store-pack>p:not(.store-eyebrow),.store-footer,.store-pack h3 small,.store-price small) {color:#cfaeb5}
+.stage-red-store :is(.store-account,.store-tabs,.store-callout,.store-benefits>p:last-child) {border-color:#a27b4366}
+.stage-red-store :is(.store-pack,.store-plan,.store-benefits) {background:linear-gradient(145deg,#35121de6,#240c15e6);border-color:#a27b4366;box-shadow:inset 0 1px #f5d58c14}
+.stage-red-store .store-plan {border-top-color:#e4bf73}
+.stage-red-store :is(.store-tabs,.store-billing) button {color:#cfaeb5}
+.stage-red-store .store-tabs button:is([aria-pressed=true],:hover),.stage-red-store .store-billing button:is([aria-pressed=true],:hover) {color:#fff3df;text-shadow:0 0 18px #e4bf7380}
+.stage-red-store .store-action {background:linear-gradient(120deg,#efd69b,#c69a50);border-color:#c69a50;color:#28131a}
+.stage-red-store .store-secondary {background:#280e18;color:#fff3df;border-color:#a27b4380}
+.stage-red-store :is(.store-notification,.store-notice) {background:#35121d;border-color:#a27b4380;color:#f4e5e7}
+.stage-red-store .store-error {border-color:#fb9393;color:#ffc1c1}
+.stage-red-store :is([role=dialog],[role=alertdialog],.swal2-popup) {background:linear-gradient(145deg,#35121d,#240c15 65%)!important;color:#f4e5e7!important;border:1px solid #a27b43;border-radius:0;box-shadow:0 24px 80px #0009}
+.stage-red-store :is(.swal2-title,.swal2-html-container) {color:#f4e5e7!important}
+.stage-red-store .swal2-confirm {background:linear-gradient(120deg,#efd69b,#c69a50)!important;color:#28131a!important}
+.stage-red-store .swal2-cancel {background:#461b2b!important;color:#f4e5e7!important;border:1px solid #a27b4380}
+.stage-red-store :focus-visible {outline:2px solid #e4bf73!important;outline-offset:4px;--tw-ring-color:#e4bf73}
+.stage-red-store,.stage-red-store * {scrollbar-color:#b38a4b #220c14}
+.stage-red-store ::-webkit-scrollbar {width:10px}
+.stage-red-store ::-webkit-scrollbar-track {background:#220c14}
+.stage-red-store ::-webkit-scrollbar-thumb {background:linear-gradient(#e4bf73,#9a7238);border:2px solid #220c14;border-radius:2px}

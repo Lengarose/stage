@@ -264,6 +264,7 @@ function getAdminGroups(t) {
         { path: "/admin/rewards", icon: Star, label: t("admin.nav.rewards") },
         { path: "/admin/news", icon: Newspaper, label: t("admin.nav.news") },
         { path: "/admin/the-stands", icon: Newspaper, label: "The Stands" },
+      { path: "/admin/discord", icon: MessagesSquare, label: "Discord" },
         { path: "/admin/lifestyles", icon: Coins, label: t("admin.nav.lifestyles") },
         { path: "/admin/transfers", icon: ArrowLeftRight, label: t("admin.nav.transfers") },
         { path: "/admin/home", icon: Palette, label: t("admin.nav.homePage") },
@@ -1484,6 +1485,7 @@ const ADMIN_MOBILE_MORE_GROUPS = [
     items: [
       { path: "/admin/news", icon: Newspaper, label: "News" },
       { path: "/admin/the-stands", icon: Newspaper, label: "The Stands" },
+      { path: "/admin/discord", icon: MessagesSquare, label: "Discord" },
       { path: "/admin/store", icon: ShoppingBag, label: "Store" },
       { path: "/admin/lifestyles", icon: Coins, label: "Lifestyle" },
     ],
@@ -1964,6 +1966,31 @@ export default function Layout() {
   const [accountMode,      setAccountMode]      = useState(() => localStorage.getItem("stage-account-mode") || "player");
   const [accountIntent,    setAccountIntent]    = useState("player");
   const [theme,            setTheme]            = useState(readStoredTheme);
+  const redNews = theme === 'theme-red' && /^\/news\/?$/.test(location.pathname);
+  useEffect(() => {
+    document.body.classList.toggle('stage-red-news', redNews);
+    return () => document.body.classList.remove('stage-red-news');
+  }, [redNews]);
+  const redStore = theme === 'theme-red' && /^\/store\/?$/.test(location.pathname);
+  useEffect(() => {
+    document.body.classList.toggle('stage-red-store', redStore);
+    return () => document.body.classList.remove('stage-red-store');
+  }, [redStore]);
+  const redDiscord = theme === 'theme-red' && /^\/community\/?$/.test(location.pathname);
+  useEffect(() => {
+    document.body.classList.toggle('stage-red-discord', redDiscord);
+    return () => document.body.classList.remove('stage-red-discord');
+  }, [redDiscord]);
+  const redStands = theme === 'theme-red' && /^\/the-stands\/?$/.test(location.pathname);
+  useEffect(() => {
+    document.body.classList.toggle('stage-red-stands', redStands);
+    return () => document.body.classList.remove('stage-red-stands');
+  }, [redStands]);
+  const redLifestyle = theme === 'theme-red' && /^\/lifestyle\/?$/.test(location.pathname);
+  useEffect(() => {
+    document.body.classList.toggle('stage-red-lifestyle', redLifestyle);
+    return () => document.body.classList.remove('stage-red-lifestyle');
+  }, [redLifestyle]);
   const redTransferRoom = theme === 'theme-red' && /^\/transfer-market\/?$/.test(location.pathname);
   useEffect(() => {
     document.body.classList.toggle('stage-red-transfer', redTransferRoom);

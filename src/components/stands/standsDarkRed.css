@@ -1,0 +1,45 @@
+/* Spectator hub: retain uploaded artwork and scope the palette to Dark Red. */
+body.stage-red-stands {
+ --background:340 47% 7%;--foreground:345 41% 93%;
+ --card:340 47% 12%;--card-foreground:345 41% 93%;
+ --popover:340 47% 12%;--popover-foreground:345 41% 93%;
+ --muted:339 43% 16%;--muted-foreground:347 26% 75%;
+ --secondary:339 43% 16%;--secondary-foreground:345 41% 93%;
+ --accent:339 43% 20%;--accent-foreground:345 41% 93%;
+ --primary:40 68% 67%;--primary-foreground:342 36% 12%;
+ --border:38 38% 34%;--input:38 30% 29%;--ring:40 68% 67%;
+ background:#19090e;color:#f4e5e7;
+}
+.stage-red-stands .stands-page {--stands-accent:#e4bf73!important;background:#19090e;color:#f4e5e7}
+.stage-red-stands .stands-background {background:#19090e}
+.stage-red-stands .stands-background-shade {background:linear-gradient(90deg,#19090eed,#280e1888 48%,#19090e40),linear-gradient(0deg,#19090ee6,#19090e70 55%,#19090e33)}
+.stage-red-stands :is(.stands-header,.stands-page nav[aria-label="The Stands sections"]) {border-color:#a27b4366}
+.stage-red-stands :is(.stands-intro,.stands-header-note) {color:#dfc3c9}
+.stage-red-stands .stands-header-note small {color:#cfaeb5}
+.stage-red-stands .stands-page nav button {color:#dfc3c9}
+.stage-red-stands .stands-page nav button[aria-current="page"] {color:#fff3df;text-shadow:0 0 16px #e4bf7380}
+.stage-red-stands .stands-page nav button:hover {color:#e4bf73}
+.stage-red-stands .stands-match-tile {background:#2d101ab8!important;border-color:#a27b4366;box-shadow:0 10px 40px #0004}
+.stage-red-stands .stands-match-tile:is(:hover,.is-selected) {border-color:#e4bf73;box-shadow:inset 3px 0 #e4bf73}
+.stage-red-stands :is(.stands-data-panel,.stands-page section[aria-label="Match centre"]) {background:#2d101ae6;border-color:#a27b4366}
+.stage-red-stands .stands-data-panel thead {background:#461b2b}
+.stage-red-stands .stands-page [class*="border-white/"] {border-color:#a27b4366}
+.stage-red-stands .stands-page :is(input,select,textarea) {background:#200b13;color:#f4e5e7;border-color:#a27b4366;color-scheme:dark}
+.stage-red-stands .stands-page input::placeholder {color:#cfaeb5}
+.stage-red-stands .stands-page select option {background:#280e18;color:#f4e5e7}
+.stage-red-stands .stands-page :is([class~="bg-white/[0.02]"],[class~="bg-white/[0.025]"]) {background-color:#2d101ab8}
+.stage-red-stands .stands-page :is([class*="text-white/5"],[class*="text-white/6"],[class*="text-white/7"]) {color:#cfaeb5}
+.stage-red-stands .stands-page [class*="border-cyan-"] {border-color:#a27b4380;background:#b38a4b18}
+.stage-red-stands .stands-page button[class~="bg-cyan-200/10"] {background:linear-gradient(120deg,#efd69b,#c69a50);color:#28131a}
+.stage-red-stands .stands-page button[class~="bg-cyan-200/10"]:hover {color:#28131a!important;background:#f1d69b}
+.stage-red-stands .matchup-backdrop {background:#2d101a}
+.stage-red-stands .matchup-backdrop__shade {background:linear-gradient(90deg,#19090eb8,#280e1880 45%,#19090ebf),linear-gradient(0deg,#220c14cc,transparent 70%)}
+.stage-red-stands .matchup-backdrop--detail .matchup-backdrop__shade {background:linear-gradient(0deg,#220c14eb,#280e184d 75%),linear-gradient(90deg,#19090e88,#280e1866 50%,#19090e88)}
+.stage-red-stands .matchup-backdrop__slash {background:linear-gradient(0deg,transparent,#d2ac6366 35%,#f8e4ae99 50%,#d2ac6344 65%,transparent);box-shadow:0 0 15px 3px #e4bf731a}
+.stage-red-stands :is([role=dialog],[role=alertdialog],.swal2-popup) {background:linear-gradient(145deg,#35121d,#240c15 65%)!important;color:#f4e5e7!important;border-color:#a27b43!important}
+.stage-red-stands :is([role=listbox],[role=menu]) {background:#35121d;color:#f4e5e7;border-color:#a27b43}
+.stage-red-stands :focus-visible {outline:2px solid #e4bf73!important;outline-offset:3px;--tw-ring-color:#e4bf73}
+.stage-red-stands,.stage-red-stands * {scrollbar-color:#b38a4b #220c14}
+.stage-red-stands ::-webkit-scrollbar {width:10px}
+.stage-red-stands ::-webkit-scrollbar-track {background:#220c14}
+.stage-red-stands ::-webkit-scrollbar-thumb {background:linear-gradient(#e4bf73,#9a7238);border:2px solid #220c14;border-radius:2px}

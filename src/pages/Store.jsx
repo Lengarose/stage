@@ -11,6 +11,7 @@ import {
 } from "@/lib/subscriptionUtils";
 import { Coins, Check, Crown, Shield, ArrowUpRight } from "lucide-react";
 import "./store.css";
+import "./storeDarkRed.css";
 import { cn } from "@/lib/utils";
 import { swalAlert, swalConfirm } from "@/lib/swal";
 import { useTranslation } from "@/hooks/useTranslation";

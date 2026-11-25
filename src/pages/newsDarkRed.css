@@ -1,0 +1,46 @@
+/* Route-scoped Dark Red palette; Dark Blue remains unchanged. */
+body.stage-red-news {
+ --background:340 47% 7%;--foreground:345 41% 93%;
+ --card:340 47% 12%;--card-foreground:345 41% 93%;
+ --popover:340 47% 12%;--popover-foreground:345 41% 93%;
+ --muted:339 43% 16%;--muted-foreground:347 26% 75%;
+ --secondary:339 43% 16%;--secondary-foreground:345 41% 93%;
+ --accent:339 43% 20%;--accent-foreground:345 41% 93%;
+ --primary:40 68% 67%;--primary-foreground:342 36% 12%;
+ --border:38 38% 34%;--input:38 30% 29%;--ring:40 68% 67%;
+ background:#19090e;color:#f4e5e7;
+}
+.stage-red-news .stage-times {background:radial-gradient(ellipse at 90% 0,#6c253433,transparent 40%),#19090e;color:#f4e5e7}
+.stage-red-news .stage-times-hero {background:radial-gradient(ellipse at 80% 30%,#6b283e88,transparent 50%),linear-gradient(120deg,#35121d,#19090e);border-color:#a27b4366}
+.stage-red-news .stage-times-hero-shade {background:linear-gradient(90deg,#19090eee,#280e1888 40%,#19090e22 80%),linear-gradient(0deg,#19090e,transparent 70%)}
+/* TIMES keeps its editorial red identity in both themes. */
+.stage-red-news .stage-times-hero h1 span {color:#ff6575}
+.stage-red-news :is(.stage-times-kicker,.stage-times-read,.stage-times-status a,.stage-times-destinations a,.stage-times-around a) {color:#e4bf73}
+.stage-red-news :is(.stage-times-hero-edition,.stage-times-meta,.stage-times-section-heading span,.stage-times-status,.stage-times-around>span,.stage-times-body) {color:#cfaeb5}
+.stage-red-news .stage-times-copy>p:not(.stage-times-kicker) {color:#dfc3c9}
+.stage-red-news :is(.stage-times-header,.stage-times-toolbar,.stage-times-search,.stage-times-story,.stage-times-around,.stage-times-destinations) {border-color:#a27b4366}
+.stage-red-news .stage-times nav button {color:#cfaeb5}
+.stage-red-news .stage-times nav button:is(:hover,[aria-pressed=true]) {color:#fff3df;text-shadow:0 0 16px #e4bf7380}
+.stage-red-news .stage-times-search {background:#280e18}
+.stage-red-news .stage-times-search input {color:#f4e5e7}
+.stage-red-news .stage-times-search input::placeholder {color:#cfaeb5}
+.stage-red-news .stage-times-art {background:#2d101a}
+.stage-red-news .stage-times-empty-art {background:linear-gradient(135deg,#461b2b,#240c15 70%);border-color:#a27b4326}
+.stage-red-news .stage-times-empty-art span {color:#cfa66b80}
+.stage-red-news .stage-times-art-label {background:#19090ecc;color:#f3d99f}
+.stage-red-news .stage-times-story--lead:has(.stage-times-art--empty) {background:linear-gradient(145deg,#461b2b77,transparent 70%)}
+.stage-red-news .stage-times-hero-copy>a {border-color:#c49b5666;color:#fff3df}
+.stage-red-news :is(.stage-times-slide-controls,.stage-times-pagination button,.stage-times-status button) {background:#280e18cc;border-color:#a27b4380;color:#f4e5e7}
+.stage-red-news .stage-times-slide-controls button:hover {color:#e4bf73}
+.stage-red-news .stage-times-modal {background:linear-gradient(145deg,#35121d,#240c15 65%);border-color:#a27b43;color:#f4e5e7}
+.stage-red-news .stage-times-close {background:#280e18ef;border-color:#a27b4380;color:#fff3df}
+.stage-red-news .stage-times-modal-backdrop {background:#100307d9}
+.stage-red-news .matchup-backdrop {background:#2d101a}
+.stage-red-news .matchup-backdrop__shade {background:linear-gradient(90deg,#19090eb8,#280e1880 45%,#19090ebf),linear-gradient(0deg,#220c14cc,transparent 70%)}
+.stage-red-news .matchup-backdrop--detail .matchup-backdrop__shade {background:linear-gradient(0deg,#220c14eb,#280e184d 75%),linear-gradient(90deg,#19090e88,#280e1866 50%,#19090e88)}
+.stage-red-news .matchup-backdrop__slash {background:linear-gradient(0deg,transparent,#d2ac6366 35%,#f8e4ae99 50%,#d2ac6344 65%,transparent);box-shadow:0 0 15px 3px #e4bf731a}
+.stage-red-news :focus-visible {outline:2px solid #e4bf73!important;outline-offset:4px}
+.stage-red-news,.stage-red-news * {scrollbar-color:#b38a4b #220c14}
+.stage-red-news ::-webkit-scrollbar {width:10px}
+.stage-red-news ::-webkit-scrollbar-track {background:#220c14}
+.stage-red-news ::-webkit-scrollbar-thumb {background:linear-gradient(#e4bf73,#9a7238);border:2px solid #220c14;border-radius:2px}

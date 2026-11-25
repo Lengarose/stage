@@ -1,0 +1,11 @@
+<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Discord community local preview</title><link href="https://fonts.googleapis.com/css2?family=Anton&family=Chakra+Petch:wght@400;500;600;700&display=swap" rel="stylesheet"></head><body style="margin:0"><div id="root"></div><script type="module">
+import React from 'react';import ReactDOM from 'react-dom/client';import {MemoryRouter} from 'react-router-dom';import RefreshRuntime from '/@react-refresh';
+RefreshRuntime.injectIntoGlobalHook(window);window.$RefreshReg$=()=>{};window.$RefreshSig$=()=>type=>type;window.__vite_plugin_react_preamble_installed__=true;
+await import('/src/index.css');await import('/node_modules/@fontsource/anton/index.css');
+const params=new URLSearchParams(location.search);document.documentElement.className=params.get('theme')==='red'?'theme-red dark':'theme-dark dark';if(params.get('theme')==='red')document.body.classList.add('stage-red-discord');
+const {stageClient}=await import('/src/api/stageClient.js');let config={id:'qa-discord',key:'main',banner_slides:[]};
+stageClient.entities.DiscordPageConfig.filter=async()=>[config];stageClient.entities.DiscordPageConfig.update=async(id,body)=>{config={...body,id};return config;};stageClient.entities.DiscordPageConfig.create=async body=>{config={...body,id:'qa-discord'};return config;};
+const originalFetch=window.fetch;window.fetch=(input,init)=>String(input).startsWith('https://discord.com/api/')?Promise.resolve(new Response(JSON.stringify({code:50004}),{status:403,headers:{'content-type':'application/json'}})):originalFetch(input,init);
+const {TranslationProvider}=await import('/src/lib/TranslationContext.jsx');const {default:Page}=await import(params.has('admin')?'/src/components/admin/DiscordPresentationEditor.jsx':'/src/pages/Community.jsx');
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(MemoryRouter,{initialEntries:['/community']},React.createElement(TranslationProvider,null,React.createElement(Page))));
+</script></body></html>

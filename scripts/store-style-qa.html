@@ -3,7 +3,7 @@
 // checkout deliberately returns no redirect URL. No Stripe or real user writes.
 import React from 'react';import ReactDOM from 'react-dom/client';import RefreshRuntime from '/@react-refresh';
 RefreshRuntime.injectIntoGlobalHook(window);window.$RefreshReg$=()=>{};window.$RefreshSig$=()=>type=>type;window.__vite_plugin_react_preamble_installed__=true;
-await import('/src/index.css');await import('/node_modules/@fontsource/anton/index.css');
+await import('/src/index.css');document.documentElement.className='theme-dark dark';if(new URLSearchParams(location.search).get('theme')==='red'){document.documentElement.className='theme-red dark';document.body.classList.add('stage-red-store');}await import('/node_modules/@fontsource/anton/index.css');
 const {stageClient}=await import('/src/api/stageClient.js');const state=new URLSearchParams(location.search).get('state');
 const player={id:'store-qa-player',subscription:state==='plus'?'stage_plus':state==='expired'?'stage_plus':'free',subscription_expires_at:state==='expired'?'2020-01-01T00:00:00Z':'2099-12-31T00:00:00Z',credits:999};
 const user={id:'store-qa-user',player_id:player.id,email:'store-qa@example.test',credits:75};
