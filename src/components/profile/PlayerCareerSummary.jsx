@@ -616,7 +616,7 @@ export default function PlayerCareerSummary({
 
   return (
     <>
-      <div className="relative overflow-hidden border border-red-300/25 bg-[#17050a] shadow-[0_26px_80px_rgba(0,0,0,0.35)]">
+      <div className="player-career-banner relative overflow-hidden border border-red-300/25 bg-[#17050a] shadow-[0_26px_80px_rgba(0,0,0,0.35)]">
         <CareerBackgroundArt player={player} />
         <div className="relative z-[1] min-h-[220px] p-5 sm:min-h-[250px] sm:p-7">
           <div className="min-w-0 space-y-3 sm:max-w-3xl">

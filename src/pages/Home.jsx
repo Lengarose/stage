@@ -770,6 +770,7 @@ const FOOTER_LINKS = [
 export default function Home() {
   const { t } = useTranslation();
   const [cms, setCms] = useState(null);
+  const [cmsLoaded, setCmsLoaded] = useState(false);
   const [faqItems, setFaqItems] = useState([]);
   const [seasons, setSeasons] = useState([]);
   const [tournaments, setTournaments] = useState([]);
@@ -786,7 +787,10 @@ export default function Home() {
     const safe = (promise) => Promise.resolve(promise).catch(() => []);
 
     safe(stageClient.entities.HomePageContent.filter({}, null, 1))
-      .then((rows) => setCms(rows?.[0] ? refreshHomeCopy(rows[0]) : null));
+      .then((rows) => {
+        setCms(rows?.[0] ? refreshHomeCopy(rows[0]) : null);
+        setCmsLoaded(true);
+      });
 
     safe(stageClient.entities.FaqItem.filter({ is_active: 1 }, "sort_order", 50))
       .then((rows) => setFaqItems((rows || []).map(refreshHomeCopy)));
@@ -830,7 +834,7 @@ export default function Home() {
   }, []);
 
   const c = cms ? { ...DEFAULTS, ...cms } : DEFAULTS;
-  const heroBg = textOrDefault(c.hero_image_url, DEFAULTS.hero_image_url);
+  const heroBg = cmsLoaded ? textOrDefault(c.hero_image_url, DEFAULTS.hero_image_url) : null;
   const heroBgPosition = textOrDefault(c.hero_image_position, "50% 10%");
   const heroBgZoom = c.hero_image_zoom ? Number(c.hero_image_zoom) : null;
   const heroTitle = textOrDefault(c.hero_title, DEFAULTS.hero_title);
@@ -869,7 +873,7 @@ export default function Home() {
 
       <div className="hidden md:block">
         <section className={cn(pagePad, "relative box-border flex aspect-auto min-h-[720px] flex-col justify-center overflow-hidden bg-[var(--home-red-base)] py-[clamp(56px,6vw,96px)] lg:aspect-video lg:min-h-0")}>
-          <img
+          {heroBg && <img
             src={heroBg}
             alt=""
             decoding="async"
@@ -879,7 +883,7 @@ export default function Home() {
               objectPosition: heroBgPosition,
               transform: heroBgZoom ? `scale(${heroBgZoom / 100})` : undefined,
             }}
-          />
+          />}
           <div
             aria-hidden="true"
             className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,var(--home-red-base)_0%,var(--home-hero-fade-strong)_28%,var(--home-hero-fade-mid)_52%,var(--home-hero-fade-end)_78%)]"

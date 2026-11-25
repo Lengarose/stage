@@ -10,6 +10,15 @@ const club={id:'red-preview-club',name:'Arena FC',tag:'AFC',platform:'PlayStatio
 const user={id:'red-preview',email:player.email,role_id:1,player_id:player.id,subscription_tier:'plus',credits:150,username:'Arena Manager'};
 for(const entity of Object.values(stageClient.entities)){if(!entity)continue;entity.filter=async()=>[];entity.list=async()=>[];entity.get=async()=>null;entity.subscribe=()=>()=>{};}
 stageClient.auth.hasToken=()=>true;stageClient.auth.isAuthenticated=async()=>true;stageClient.auth.redirectToLogin=()=>{};stageClient.auth.updateMe=async()=>user;stageClient.http.post=async()=>({});stageClient.auth.me=async()=>user;stageClient.entities.Club.get=async()=>club;stageClient.entities.Club.filter=async()=>[club];stageClient.entities.Player.get=async()=>player;stageClient.entities.Player.filter=async()=>[player];stageClient.functions.invoke=async()=>({data:{}});stageClient.http.get=async(path)=>path.startsWith('/card-progressions/')?{level:1,total_xp:0,xp_in_level:0,xp_to_next_level:100}:{players:[],clubs:[]};
+// Hold the CMS response to reproduce hero loading without real API calls.
+if(new URLSearchParams(location.search).has('pendingHome')){
+  stageClient.entities.HomePageContent.filter=()=>new Promise(resolve=>{
+    const controls=document.createElement('aside');controls.style.cssText='position:fixed;bottom:12px;left:12px;z-index:99999;background:#fff;color:#111;padding:12px';
+    const result=document.createElement('span');controls.append(result);
+    const check=()=>{result.textContent=document.querySelector('img[src*="WIS.PNG"]')?'FAIL: default hero visible while CMS is pending. ':'PASS: no default hero while CMS is pending. ';};
+    const button=document.createElement('button');button.textContent='Load saved Home image';button.onclick=()=>{resolve([{id:'qa-home',hero_image_url:'/src/assets/landing/player.webp'}]);controls.remove();};controls.append(button);document.body.append(controls);requestAnimationFrame(check);
+  });
+}
 // Schedule preview records are isolated from real fixtures and calendars.
 const previewKickoff=new Date();previewKickoff.setHours(20,0,0,0);
 const previewMatch={id:'red-preview-match',mode:'club',home_club_id:club.id,away_club_id:'red-preview-away',home_club_name:club.name,away_club_name:'Northside United',scheduled_date:previewKickoff.toISOString(),status:'completed',result_state:'confirmed',home_score:2,away_score:2,result_confirmed:1};

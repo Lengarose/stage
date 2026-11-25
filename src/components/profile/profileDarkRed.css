@@ -64,3 +64,10 @@ body.stage-red-profiles {
 .stage-red-profiles progress::-webkit-progress-bar {background:#200b13}
 .stage-red-profiles progress::-webkit-progress-value {background:linear-gradient(90deg,#c69a50,#efd69b)}
 .stage-red-profiles progress::-moz-progress-bar {background:#e4bf73}
+
+/* Career contrasts with the surrounding red profile, as red does in Dark Blue. */
+.stage-red-profiles .profile-ui .player-career-banner {background-color:#071426;border-color:#83b9ef55}
+.stage-red-profiles .player-career-banner [class~="bg-red-500/24"] {background-color:#4b89d83d}
+.stage-red-profiles .player-career-banner [class~="from-red-950/50"] {background-image:linear-gradient(90deg,#102b4d80,#091c36c7,#030b16d1)}
+.stage-red-profiles .player-career-banner .text-red-300 {color:#9fcaff}
+.stage-red-profiles .player-career-banner [class~="text-red-100/60"] {color:#b4cbe0}

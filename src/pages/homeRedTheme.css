@@ -28,7 +28,13 @@
 .theme-red .home-red-theme :focus-visible {outline:2px solid #e4bf73;outline-offset:4px}
 .theme-red .home-red-theme ::selection {background:#e4bf73;color:#28131a}
 
-.home-red-theme .home-stage-word {color:#00d4ff!important;text-shadow:0 0 48px rgba(0,212,255,.45)}
+.home-red-theme .home-stage-word {display:inline-block;margin-top:.08em;color:#00d4ff!important;text-shadow:0 0 48px rgba(0,212,255,.45)}
+.theme-red .home-red-theme .home-stage-word {
+  color:#c93449!important;
+  -webkit-text-stroke:3px #e4bf73;
+  paint-order:stroke fill;
+  text-shadow:0 2px 0 #6f251e,0 0 28px #e4bf7333;
+}
 
 /* Layered oxblood surfaces and static metallic edges: no distracting shimmer. */
 .theme-red .home-red-theme .home-metal-card {
