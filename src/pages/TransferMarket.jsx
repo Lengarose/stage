@@ -9,6 +9,7 @@ import TransferTalentBoard from "@/components/transfer/TransferTalentBoard";
 import TransferRecruitmentPanel from "@/components/transfer/TransferRecruitmentPanel";
 import { transferRoomPresentation, TRANSFER_ROOM_ACCENTS } from "@/lib/transferRoomPresentation";
 import "@/components/transfer/transfer-room.css";
+import "@/components/transfer/transferRoomDarkRed.css";
 import { getContractTargetPlayerId, normalizePlayerContracts } from "@/lib/playerContractFields";
 import { canShowContractOfferButton, getContractOfferBlockReason } from "@/lib/contractOfferVisibility";
 import { buildTransferMarketEntries, normalizeTransferMarketPlayers } from "@/lib/transferMarketEntries";

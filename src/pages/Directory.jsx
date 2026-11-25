@@ -1,3 +1,4 @@
+import "@/components/directory/directoryDarkRed.css";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Shield } from "lucide-react";

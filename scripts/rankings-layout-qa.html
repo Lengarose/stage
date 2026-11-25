@@ -2,6 +2,7 @@
 // Isolated presentation fixture: ranking/config requests never reach real data.
 import React from 'react';import ReactDOM from 'react-dom/client';import {MemoryRouter} from 'react-router-dom';import RefreshRuntime from '/@react-refresh';
 RefreshRuntime.injectIntoGlobalHook(window);window.$RefreshReg$=()=>{};window.$RefreshSig$=()=>type=>type;window.__vite_plugin_react_preamble_installed__=true;
+if(new URLSearchParams(location.search).get('theme')==='red'){document.body.classList.add('stage-red-rankings');document.documentElement.className='theme-red dark';}
 await import('/src/index.css');await import('/node_modules/@fontsource/anton/index.css');
 const {stageClient}=await import('/src/api/stageClient.js');
 let config={id:'qa',key:'main',accent:'blue',background_url:'/src/assets/landing/team.webp',background_position:'50% 40%',background_zoom:100,background_slides:[{url:'/src/assets/landing/triumph.webp',position:'50% 50%',zoom:100}],slideshow_enabled:true,slide_interval_seconds:8};

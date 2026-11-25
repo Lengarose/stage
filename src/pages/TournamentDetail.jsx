@@ -1,3 +1,4 @@
+import '@/components/tournament/tournamentDarkRed.css';
 import "@/components/tournament/tournamentDetailTypography.css";
 import { useState, useEffect, useMemo } from "react";
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";

@@ -1,0 +1,53 @@
+/* Transfer Room and contract/dossier dialogs follow the selected Dark Red theme. */
+body.stage-red-transfer {
+ --background:340 47% 7%;--foreground:345 41% 93%;
+ --card:340 47% 12%;--card-foreground:345 41% 93%;
+ --popover:340 47% 12%;--popover-foreground:345 41% 93%;
+ --muted:339 43% 16%;--muted-foreground:347 26% 75%;
+ --secondary:339 43% 16%;--secondary-foreground:345 41% 93%;
+ --accent:339 43% 20%;--accent-foreground:345 41% 93%;
+ --primary:40 68% 67%;--primary-foreground:342 36% 12%;
+ --border:38 38% 34%;--input:38 30% 29%;--ring:40 68% 67%;
+ background:#19090e;color:#f4e5e7;
+}
+
+
+
+.stage-red-transfer main,.stage-red-transfer .transfer-room {background:#19090e;color:#f4e5e7}
+.stage-red-transfer .transfer-room {--tr-accent:#e4bf73!important;--tr-button-ink:#28131a!important}
+.stage-red-transfer .transfer-room-hero {background:#280e18}
+.stage-red-transfer .tr-hero-shade {background:linear-gradient(90deg,#19090ef5,#19090ec9 38%,#19090e14 80%),linear-gradient(0deg,#19090e,transparent 60%)}
+.stage-red-transfer :is(.tr-hero-copy>p,.tr-hero-numbers span,.tr-photo-count small,.tr-rule-note,.tr-market-loading,.tr-empty,.tr-pagination,.tr-player-country,.tr-player-facts small,.tr-player-value small,.tr-detail-meta,.tr-detail-stats span,.tr-detail-terms span,.tr-detail p.tr-detail-note,.tr-artwork-status) {color:#cfaeb5}
+.stage-red-transfer :is(.tr-text-link,.tr-detail .tr-profile-link,.tr-player-value>span:last-child) {color:#f4e5e7}
+.stage-red-transfer :is(.tr-toolbar,.tr-player-facts,.tr-detail-stats,.tr-hero-numbers .tr-desk,.tr-empty,.tr-window-deadline,.tr-deadline-reference,.tr-deadline-zones,.tr-deadline-zones dl>div) {border-color:#a27b4366}
+.stage-red-transfer :is(.tr-photo-controls button,.tr-pagination button) {background:#280e18aa;border-color:#a27b4366;color:#f4e5e7}
+.stage-red-transfer :is(.tr-categories button,.tr-view-modes button,.tr-search svg,.tr-player-card-top) {color:#cfaeb5}
+.stage-red-transfer :is(.tr-categories button,.tr-view-modes button).is-active {color:#fff3df}
+.stage-red-transfer .tr-filters :is(input,select) {background:#200b13;color:#f4e5e7;border-color:#a27b4366;color-scheme:dark}
+.stage-red-transfer .tr-filters input::placeholder {color:#cfaeb5}
+.stage-red-transfer select option {background:#280e18;color:#f4e5e7}
+.stage-red-transfer .tr-player-card {background:#2d101a;border-color:#a27b4344;color:#f4e5e7;box-shadow:inset 0 1px #f5d58c14}
+.stage-red-transfer .tr-player-card:hover,.stage-red-transfer .tr-player-card.is-selected {background:#461b2b;border-color:#e4bf73}
+.stage-red-transfer .tr-player-status.is-free {color:#efd69b}
+.stage-red-transfer .tr-detail {background:linear-gradient(145deg,#461b2b,#240c15);border-color:#a27b4366}
+.stage-red-transfer .tr-primary {background:linear-gradient(120deg,#efd69b,#c69a50);color:#28131a}
+.stage-red-transfer .tr-window-deadline {background:#2d101a}
+.stage-red-transfer :is(.tr-window-local-close,.tr-window-deadline strong,.tr-deadline-zones summary,.tr-deadline-zones dt,.tr-deadline-zones dd) {color:#f4e5e7}
+.stage-red-transfer :is(.tr-window-local-close small,.tr-window-deadline p,.tr-deadline-reference>span,.tr-deadline-zones dt small) {color:#cfaeb5}
+.stage-red-transfer :is(.tr-deadline-main>svg,.tr-window-deadline .tr-kicker) {color:#e4bf73}
+.stage-red-transfer :is([role=dialog],[role=alertdialog],.swal2-popup) {background:linear-gradient(145deg,#35121d,#240c15 65%)!important;color:#f4e5e7!important;border-color:#a27b43!important;box-shadow:0 24px 80px #0009}
+.stage-red-transfer :is([role=listbox],[role=menu]) {background:#35121d;color:#f4e5e7;border-color:#a27b43}
+.stage-red-transfer :is([role=option],[role=menuitem])[data-highlighted] {background:#4a1b2b;color:#fff3df}
+.stage-red-transfer [role=dialog] :is(input:not([type=checkbox]),textarea,select,[role=combobox]) {background:#200b13;color:#f4e5e7;border-color:#a27b4366;color-scheme:dark}
+.stage-red-transfer :is(.transfer-room,[role=dialog]) [class*="border-blue-"] {border-color:#a27b4366}
+.stage-red-transfer :is(.transfer-room,[role=dialog]) [class*="text-blue-"] {color:#e4bf73}
+.stage-red-transfer .transfer-room [class~="bg-[#112039]"] {background:#461b2b}
+.stage-red-transfer .transfer-room .text-slate-300 {color:#dfc3c9}
+.stage-red-transfer [role=dialog] button.bg-white,.stage-red-transfer .swal2-confirm {background:linear-gradient(120deg,#efd69b,#c69a50)!important;color:#28131a!important}
+.stage-red-transfer input[type=checkbox] {accent-color:#e4bf73}
+.stage-red-transfer :focus-visible {outline:2px solid #e4bf73!important;outline-offset:3px;--tw-ring-color:#e4bf73}
+.stage-red-transfer,.stage-red-transfer * {scrollbar-color:#b38a4b #220c14}
+.stage-red-transfer ::-webkit-scrollbar {width:10px}
+.stage-red-transfer ::-webkit-scrollbar-track {background:#220c14}
+.stage-red-transfer ::-webkit-scrollbar-thumb {background:linear-gradient(#e4bf73,#9a7238);border:2px solid #220c14;border-radius:2px}
+@media(max-width:900px){.stage-red-transfer .tr-hero-shade {background:linear-gradient(90deg,#19090ee8,#19090e66),linear-gradient(0deg,#19090e,transparent)}}

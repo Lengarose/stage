@@ -1,0 +1,53 @@
+/* Dark Red tournament surfaces and their portalled modals. */
+body.stage-red-tournaments {
+ --background:340 47% 7%;--foreground:345 41% 93%;
+ --card:340 47% 12%;--card-foreground:345 41% 93%;
+ --popover:340 47% 12%;--popover-foreground:345 41% 93%;
+ --muted:339 43% 16%;--muted-foreground:347 26% 75%;
+ --secondary:339 43% 16%;--secondary-foreground:345 41% 93%;
+ --accent:339 43% 20%;--accent-foreground:345 41% 93%;
+ --primary:40 68% 67%;--primary-foreground:342 36% 12%;
+ --border:38 38% 34%;--input:38 30% 29%;--ring:40 68% 67%;
+ background:#19090e;color:#f4e5e7;
+}
+
+.stage-red-tournaments main,.stage-red-tournaments .tournament-hub {background-color:#19090e}
+.stage-red-tournaments .tournament-hub {--th-accent:#e4bf73!important;color:#f4e5e7}
+.stage-red-tournaments :is(.th-hero,.th-poster) {background:#19090e}
+.stage-red-tournaments .th-poster-shade {background:linear-gradient(90deg,#19090ef5 0%,#19090ed9 30%,#19090e60 65%,#19090e30),linear-gradient(0deg,#19090e 0%,#19090e00 42%,#19090e20)}
+.stage-red-tournaments :is(.th-intro,.th-card-meta,.th-membership,.th-empty,.th-numbers span,.th-card-finance span) {color:#cfaeb5}
+.stage-red-tournaments .th-tabs button {color:#cfaeb5}
+.stage-red-tournaments .th-tabs button[aria-selected=true] {color:#fff3df}
+.stage-red-tournaments .th-card {background:linear-gradient(145deg,#461b2b,#240c15);border-color:#a27b4366;box-shadow:inset 0 1px #f5d58c1f}
+.stage-red-tournaments .th-card-art {background-color:#35121d}
+.stage-red-tournaments .th-card-art:after {background:linear-gradient(180deg,#240c1533,#240c15)}
+.stage-red-tournaments .th-card-tags span {background:#240c15dd;border-color:#a27b4366}
+.stage-red-tournaments :is(.th-card-footer,.th-card-finance,.th-numbers,.th-empty) {border-color:#a27b4366}
+.stage-red-tournaments .th-slide-controls button {background:#280e18cc;border-color:#a27b4366}
+.stage-red-tournaments :is([role=dialog],[role=alertdialog],.swal2-popup) {background:linear-gradient(145deg,#35121d,#240c15 65%)!important;color:#f4e5e7!important;border-color:#a27b43!important;box-shadow:0 24px 80px #0009}
+.stage-red-tournaments :is([role=listbox],[role=menu],[data-radix-popper-content-wrapper]>div) {background-color:#35121d;color:#f4e5e7;border-color:#a27b43}
+.stage-red-tournaments :is([role=option],[role=menuitem])[data-highlighted] {background:#4a1b2b;color:#fff3df}
+.stage-red-tournaments :is(.tournament-hub,.tournament-detail-ui,[role=dialog],[role=alertdialog]) :is(input:not([type=checkbox]):not([type=radio]):not([type=range]),textarea,select,[role=combobox]) {background:#200b13;color:#f4e5e7;border-color:#a27b4366;color-scheme:dark}
+.stage-red-tournaments :is(input,textarea)::placeholder {color:#cfaeb5}
+.stage-red-tournaments select option {background:#280e18;color:#f4e5e7}
+/* Replace legacy cyan chrome, while retaining success/danger statuses and image artwork. */
+.stage-red-tournaments :is(.tournament-detail-ui,[role=dialog]) [class*="text-cyan-"] {color:#e4bf73}
+.stage-red-tournaments :is(.tournament-detail-ui,[role=dialog]) [class*="border-cyan-"] {border-color:#a27b4366}
+.stage-red-tournaments :is(.tournament-detail-ui,[role=dialog]) [class*="bg-cyan-"]:not(button) {background-color:#6b452933}
+.stage-red-tournaments :is(.tournament-detail-ui,[role=dialog]) button:is(.bg-primary,.bg-cyan-300,.bg-cyan-400,.bg-cyan-500),.stage-red-tournaments :is(.th-primary,.swal2-confirm) {background:linear-gradient(120deg,#efd69b,#c69a50)!important;color:#28131a!important}
+.stage-red-tournaments :is(.tournament-detail-ui,[role=dialog]) [class*="bg-[#0"],.stage-red-tournaments [role=dialog] [class*="bg-[#1"] {background-color:#280e18}
+.stage-red-tournaments [role=dialog] [class*="bg-[radial-gradient"] {background:radial-gradient(circle at 18% 0%,#e4bf7322,transparent 42%),linear-gradient(90deg,#75302a33,transparent)}
+.stage-red-tournaments :is(.tournament-detail-ui,[role=dialog]) [class*="shadow-"][class*="rgba(34,211,238"] {box-shadow:0 0 30px #b38a4b18}
+.stage-red-tournaments :is(.tournament-detail-ui,[role=dialog]) .text-destructive {color:#ffadb5}
+.stage-red-tournaments :is(input[type=checkbox],input[type=radio]) {accent-color:#e4bf73}
+.stage-red-tournaments :focus-visible {outline:2px solid #e4bf73!important;outline-offset:3px;--tw-ring-color:#e4bf73}
+.stage-red-tournaments,.stage-red-tournaments * {scrollbar-color:#b38a4b #220c14}
+.stage-red-tournaments ::-webkit-scrollbar {width:10px}
+.stage-red-tournaments ::-webkit-scrollbar-track {background:#220c14}
+.stage-red-tournaments ::-webkit-scrollbar-thumb {background:linear-gradient(#e4bf73,#9a7238);border:2px solid #220c14;border-radius:2px}
+@media(max-width:680px){.stage-red-tournaments .th-poster-shade {background:linear-gradient(90deg,#19090ee8,#19090e99),linear-gradient(0deg,#19090e,transparent 70%)}}
+
+.stage-red-tournaments :is(.tournament-detail-ui,[role=dialog]) button:is(.bg-primary,.bg-cyan-300,.bg-cyan-400,.bg-cyan-500) * {color:#28131a}
+.stage-red-tournaments [role=dialog] button[class~="bg-cyan-300/10"] {background:#6b452933;color:#efd69b}
+
+.stage-red-tournaments .tournament-banner-shade {background:linear-gradient(90deg,#19090ee6,#19090e73 50%,#19090e26)}

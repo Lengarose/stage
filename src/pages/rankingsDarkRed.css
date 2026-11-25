@@ -1,0 +1,41 @@
+/* Rankings retain their layout and data; only Dark Red surfaces change. */
+body.stage-red-rankings {
+ --background:340 47% 7%;--foreground:345 41% 93%;
+ --card:340 47% 12%;--card-foreground:345 41% 93%;
+ --popover:340 47% 12%;--popover-foreground:345 41% 93%;
+ --muted:339 43% 16%;--muted-foreground:347 26% 75%;
+ --secondary:339 43% 16%;--secondary-foreground:345 41% 93%;
+ --accent:339 43% 20%;--accent-foreground:345 41% 93%;
+ --primary:40 68% 67%;--primary-foreground:342 36% 12%;
+ --border:38 38% 34%;--input:38 30% 29%;--ring:40 68% 67%;
+ background:#19090e;color:#f4e5e7;
+}
+
+
+.stage-red-rankings .rankings-page {--rankings-accent:#e4bf73!important;background:#19090e;color:#f4e5e7}
+.stage-red-rankings .rankings-backdrop-fade {background:linear-gradient(90deg,#19090eec 0%,#19090eb8 52%,#19090e99),linear-gradient(180deg,#19090e40,#19090edb 75%,#19090e)}
+.stage-red-rankings :is(.rankings-header,.rankings-stat-guide,.rankings-table td) {border-color:#a27b4344}
+.stage-red-rankings :is(.rankings-intro,.rankings-counts,.rankings-meta,.rankings-note,.rankings-table th,.rankings-stats span,.rankings-points small,.rankings-global) {color:#cfaeb5}
+.stage-red-rankings :is(.rankings-level,.rankings-stat-guide dt) {color:#e4bf73}
+.stage-red-rankings .rankings-table {background:#240c15b8}
+.stage-red-rankings .rankings-row:hover {background-color:#461b2b66}
+.stage-red-rankings .rankings-row.is-you {background:#b38a4b22;box-shadow:inset 3px 0 #e4bf73}
+.stage-red-rankings :is(.rankings-banner,.rankings-status,.rankings-empty,.rankings-error,.rankings-stat-guide) {background:#2d101ae6;border-color:#a27b4366;color:#dfc3c9}
+.stage-red-rankings .rankings-error {border-color:#ffadb566}
+.stage-red-rankings .rankings-stat-guide summary {color:#f4e5e7}
+.stage-red-rankings .rankings-page :is(button,a.rankings-button) {background:#35121dcc;border-color:#a27b4366;color:#f4e5e7}
+.stage-red-rankings .rankings-page :is(button,a.rankings-button):hover {border-color:#e4bf73;box-shadow:0 0 16px #e4bf7326}
+.stage-red-rankings .rankings-page .rankings-tabs button,.stage-red-rankings .rankings-page .rankings-tabs button:hover,.stage-red-rankings .rankings-page .rankings-tabs button[aria-selected=true] {background:transparent;border:0;box-shadow:none;color:#f4e5e7}
+.stage-red-rankings .rankings-page .rankings-tabs button:is(:hover,[aria-selected=true]) {text-shadow:0 0 16px #e4bf73}
+.stage-red-rankings .rankings-filters :is(input,select) {background:#200b13;color:#f4e5e7;border-color:#a27b4366;color-scheme:dark}
+.stage-red-rankings .rankings-filters input::placeholder {color:#cfaeb5}
+.stage-red-rankings .rankings-filters option {background:#280e18;color:#f4e5e7}
+.stage-red-rankings :is(.rankings-dialog,[role=dialog],[role=alertdialog],.swal2-popup) {background:linear-gradient(145deg,#35121d,#240c15 65%)!important;color:#f4e5e7!important;border-color:#a27b43!important;box-shadow:0 24px 80px #0009}
+.stage-red-rankings .rankings-dialog::backdrop {background:#16060dcc}
+.stage-red-rankings .rankings-dialog :is(p,li) {color:#dfc3c9}
+.stage-red-rankings :focus-visible {outline:2px solid #e4bf73!important;outline-offset:3px;--tw-ring-color:#e4bf73}
+.stage-red-rankings,.stage-red-rankings * {scrollbar-color:#b38a4b #220c14}
+.stage-red-rankings ::-webkit-scrollbar {width:10px}
+.stage-red-rankings ::-webkit-scrollbar-track {background:#220c14}
+.stage-red-rankings ::-webkit-scrollbar-thumb {background:linear-gradient(#e4bf73,#9a7238);border:2px solid #220c14;border-radius:2px}
+@media(max-width:760px){.stage-red-rankings .rankings-table tr {border-color:#a27b4344}}

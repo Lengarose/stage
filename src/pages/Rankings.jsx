@@ -7,6 +7,7 @@ import { getCountryShortName } from "@/lib/countryDisplay";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import "./rankings.css";
+import "./rankingsDarkRed.css";
 
 const PAGE_SIZE = 25;
 

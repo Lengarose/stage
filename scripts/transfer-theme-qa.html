@@ -1,0 +1,18 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Transfer Room theme preview</title></head><body style="margin:0"><div id="root"></div><script type="module">
+// Isolated theme preview. All identities, contracts and responses below are sample records.
+import React from 'react';import ReactDOM from 'react-dom/client';import {MemoryRouter} from 'react-router-dom';import RefreshRuntime from '/@react-refresh';
+RefreshRuntime.injectIntoGlobalHook(window);window.$RefreshReg$=()=>{};window.$RefreshSig$=()=>type=>type;window.__vite_plugin_react_preamble_installed__=true;
+document.documentElement.className='theme-red dark';document.body.classList.add('stage-red-transfer');
+await import('/src/index.css');await import('/node_modules/@fontsource/anton/index.css');
+const {stageClient}=await import('/src/api/stageClient.js');
+for(const entity of Object.values(stageClient.entities)){entity.filter=async()=>[];entity.list=async()=>[];entity.get=async()=>null;entity.subscribe=()=>()=>{};}
+const players=['Alex Rivers','Blaise Kito','Dario Stone','Emile Laurent'].map((gamertag,i)=>({id:'qa-player-'+i,gamertag,position:i%2?'ST':'CM',country_code:'BE',platform:'PlayStation',matches_played:12,goals:4+i,assists:3,avatar_url:'/src/assets/Coach%20Luis.PNG'}));
+const club={id:'qa-club',name:'QA United',owner_email:'manager@example.test'};
+stageClient.auth.me=async()=>({id:'qa-manager',email:'manager@example.test',player_id:'qa-manager-player'});stageClient.auth.isAuthenticated=async()=>true;
+stageClient.entities.Player.get=async()=>({id:'qa-manager-player',club_id:club.id});stageClient.entities.Club.get=async()=>club;
+stageClient.entities.TransferRoomConfig.filter=async()=>[{key:'main',banner_slides:[{url:'/src/assets/Stage%20Desk.png',position:'50% 50%',zoom:100}]}];
+stageClient.functions.invoke=async name=>({data:name==='getTransferMarket'?{free_agents:players,expiring_players:[]}:{window:{id:'qa-window',status:'open',start_date:'2026-01-01T00:00:00Z',end_date:'2099-12-31T23:00:00Z'}}});
+stageClient.http.get=async path=>path.includes('contract-options')?{card:{level:12},band:{min:5000,max:10000},remaining_weekly_stc:50000,cash_stc:1000000,durations:[{label:'12 weeks',duration_type:'12_weeks'}]}:{level:12};
+stageClient.http.post=async()=>{throw Error('Preview only: no proposal is sent.');};
+const {default:Page}=await import('/src/pages/TransferMarket.jsx');ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(MemoryRouter,null,React.createElement(Page)));
+</script></body></html>

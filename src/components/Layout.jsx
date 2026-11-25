@@ -1964,6 +1964,26 @@ export default function Layout() {
   const [accountMode,      setAccountMode]      = useState(() => localStorage.getItem("stage-account-mode") || "player");
   const [accountIntent,    setAccountIntent]    = useState("player");
   const [theme,            setTheme]            = useState(readStoredTheme);
+  const redTransferRoom = theme === 'theme-red' && /^\/transfer-market\/?$/.test(location.pathname);
+  useEffect(() => {
+    document.body.classList.toggle('stage-red-transfer', redTransferRoom);
+    return () => document.body.classList.remove('stage-red-transfer');
+  }, [redTransferRoom]);
+  const redDirectory = theme === 'theme-red' && /^\/directory\/?$/.test(location.pathname);
+  useEffect(() => {
+    document.body.classList.toggle('stage-red-directory', redDirectory);
+    return () => document.body.classList.remove('stage-red-directory');
+  }, [redDirectory]);
+  const redRankings = theme === 'theme-red' && /^\/rankings\/?$/.test(location.pathname);
+  useEffect(() => {
+    document.body.classList.toggle('stage-red-rankings', redRankings);
+    return () => document.body.classList.remove('stage-red-rankings');
+  }, [redRankings]);
+  const redTournaments = theme === 'theme-red' && /^\/tournaments(?:\/(?!inbox(?:\/|$)|schedule(?:\/|$)|game-day(?:\/|$)|profile-player(?:\/|$)|players(?:\/|$)|clubs(?:\/|$)|trophy(?:\/|$)|profile-club(?:\/|$)|settings(?:\/|$))[^/]+(?:\/(?:clubs|players))?)?\/?$/.test(location.pathname);
+  useEffect(() => {
+    document.body.classList.toggle('stage-red-tournaments', redTournaments);
+    return () => document.body.classList.remove('stage-red-tournaments');
+  }, [redTournaments]);
   const redRegional = theme === 'theme-red' && /^\/(?:leagues(?:\/[^/]+)?|regional-cups)\/?$/.test(location.pathname);
   useEffect(() => {
     document.body.classList.toggle('stage-red-regional', redRegional);

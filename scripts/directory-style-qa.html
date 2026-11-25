@@ -10,6 +10,8 @@ import RefreshRuntime from '/@react-refresh';
 RefreshRuntime.injectIntoGlobalHook(window);
 window.$RefreshReg$=()=>{}; window.$RefreshSig$=()=>type=>type;
 window.__vite_plugin_react_preamble_installed__=true;
+// QA-only theme selection before Layout reads the stored preference.
+if(new URLSearchParams(location.search).get('theme')==='red')localStorage.setItem('stage-theme','theme-red');
 await import('/src/index.css');
 await import('/node_modules/@fontsource/anton/index.css');
 const {stageClient}=await import('/src/api/stageClient.js');

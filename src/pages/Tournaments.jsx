@@ -1,3 +1,4 @@
+import '@/components/tournament/tournamentDarkRed.css';
 import '@/components/tournament/tournamentHub.css';
 import TournamentHubHero from '@/components/tournament/TournamentHubHero';
 import {TOURNAMENT_HUB_ACCENTS,tournamentHubPresentation,tournamentParticipants,tournamentHubStatus,filterTournamentHub} from '@/lib/tournamentHub';
